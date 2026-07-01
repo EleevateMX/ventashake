@@ -1,0 +1,7 @@
+export { getSupabase, type ShakeClient } from './client'
+export * from './queries/catalogo'
+export * from './queries/costeo'
+export * from './queries/ordenes'
+export * from './queries/cocina'
+export * from './queries/inventario'
+export * from './queries/caja'

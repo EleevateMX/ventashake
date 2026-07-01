@@ -1,0 +1,17 @@
+{
+  "name": "shake-pos-ecosistema",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Ecosistema POS + Costos de Shakeaholic sobre Supabase",
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev:costos": "pnpm --filter @shake/costos dev",
+    "build:costos": "pnpm --filter @shake/costos build",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "etl:dry": "pnpm --filter @shake/seed migrar -- --dry-run",
+    "etl:aplicar": "pnpm --filter @shake/seed migrar -- --aplicar"
+  }
+}

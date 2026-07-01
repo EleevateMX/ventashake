@@ -1,0 +1,15 @@
+node_modules/
+dist/
+build/
+*.local
+
+# variables de entorno: NUNCA subir claves
+.env
+.env.*
+!.env.example
+
+# reportes generados por el ETL
+supabase/seed/reportes/
+
+.DS_Store
+*.log
