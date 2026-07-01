@@ -8,6 +8,7 @@ Historial en el proyecto Supabase **Shakeaholic** (`zyjtnaystsporbuzcmqk`):
 | `20260701201338` | `core_unificado` | aplicada (núcleo relacional: sucursales, almacenes, insumos, productos, recetas, inventario, órdenes, ventas, parámetros, vista de costeo v1) |
 | `20260701...` | `pos_operativo_aditivo` | aplicada — versionada aquí como `20260701220000_pos_operativo_aditivo.sql` |
 | `20260701...` | `fix_sel_ordenes_pos` | aplicada — versionada aquí como `20260701223000_fix_sel_ordenes_pos.sql` |
+| `20260701...` | `costeo_v3_compat_legacy` | aplicada — versionada aquí como `20260701230000_costeo_v3_compat_legacy.sql` |
 
 Las dos primeras se aplicaron directamente en el proyecto hosted antes de
 existir este repo; su SQL vive en el historial de Supabase

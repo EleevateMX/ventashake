@@ -4,13 +4,30 @@ Fecha: 2026-07-01
 
 ## Alcance de la auditoría
 
-⚠️ **Limitación**: el token de esta sesión solo tiene acceso al repo
-`ventashake`; los repos `costosshake` y `puntodeventa` devolvieron 403 al
-clonarse. El diagnóstico se hizo sobre **la base de datos Supabase real**
-(proyecto "Shakeaholic", `zyjtnaystsporbuzcmqk`) — que codifica el modelo
-de datos de ambas apps — más la descripción funcional de los repos. Para
-un diagnóstico línea-por-línea del frontend legacy hay que dar acceso a
-esos repos a la sesión (o copiar su código aquí).
+El diagnóstico se hizo sobre **la base de datos Supabase real** (proyecto
+"Shakeaholic", `zyjtnaystsporbuzcmqk`) más el código legacy de costos.
+
+✅ **Código de costos auditado**: subido a la rama `legacy-import` como
+`costosshake-main/` (README + `index.html` de 1,221 líneas; `index_2.html`
+es copia idéntica). Es una SPA monolítica vanilla JS que guarda todo el
+estado como JSON en `app_data`. Hallazgos que corrigieron el diseño:
+
+1. **La merma legacy NO aplica al empaque**: `total = ins×(1+merma) +
+   empaque + mano` (`finishCalc`, línea 424). La vista se corrigió a v3.
+2. **Mano de obra global** (`params.mano`), no por producto → la vista v3
+   usa la del producto si > 0 y si no la global.
+3. **Empaque "combo"**: los empaques con flag `shake`/`food` se suman a
+   todos los shakes/alimentos (no van en `ings`). El ETL los inyecta como
+   líneas de receta.
+4. **Proteínas identificadas como `MARCA - SABOR`** (`protKey`) y costo
+   por scoop = costo/scoops → coincide con `insumos.costo_unitario`.
+5. La merma por producto acepta `8` (=8 %) o `0.08` → el ETL normaliza.
+6. `precio_sugerido` legacy = `(total/foodCost)×(1+IVA)` redondeado a
+   múltiplos de $5 (`round5`) → idéntico a la vista.
+
+⚠️ **Pendiente**: el repo `puntodeventa` aún no se ha podido subir (límites
+del uploader web de GitHub); el diagnóstico de sus 6 apps sigue basado en
+la descripción funcional.
 
 ## Estado real encontrado en Supabase
 

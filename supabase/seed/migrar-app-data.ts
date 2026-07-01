@@ -97,7 +97,8 @@ async function main() {
   }
 
   for (const p of legacy.proteins ?? []) {
-    const nombre = `${limpio(p.marca)} ${limpio(p.sabor)}`.trim()
+    // mismo formato que protKey() del legacy: "MARCA - SABOR"
+    const nombre = `${limpio(p.marca)} - ${limpio(p.sabor)}`.replace(/^ - | - $/g, '').trim()
     agregarInsumo(
       {
         nombre,
@@ -200,6 +201,13 @@ async function main() {
   mapaReventa('bebidas', 'Bebidas')
   mapaReventa('snacks', 'Snacks')
 
+  // Empaque "combo" del legacy: los empaques marcados shake/food se suman
+  // a TODOS los shakes/alimentos. Se reproducen como líneas de receta.
+  const empaqueCombo = (flag: 'shake' | 'food') =>
+    (legacy.empaque ?? [])
+      .filter((e) => e[flag] === true && limpio(e.nombre))
+      .map((e) => ({ insumo: limpio(e.nombre), cantidad: 1, nota: 'empaque' }))
+
   // recetas de shakes y alimentos
   const mapaReceta = (recetas: LegacyReceta[], categoria: 'Shakes' | 'Alimentos') => {
     for (const rec of recetas ?? []) {
@@ -223,13 +231,26 @@ async function main() {
           nota: cantidad ? limpio(ing[2]) || null : 'PENDIENTE-CANTIDAD',
         })
       }
+      // proteína fija del shake (protKey "MARCA - SABOR") con sus scoops;
+      // si viene vacía, la proteína se elige al vender (personalización)
+      const proteina = limpio(rec.protein)
+      if (proteina) {
+        if (insumos.has(clave(proteina))) {
+          receta.push({ insumo: proteina, cantidad: num(rec.scoops) || 1, nota: 'proteína' })
+        } else {
+          reporte.huerfanos.push({ producto: nombre, insumo: proteina })
+        }
+      }
+      receta.push(...empaqueCombo(categoria === 'Shakes' ? 'shake' : 'food'))
+      // el legacy acepta merma "8" (=8%) o "0.08"
+      const mermaCruda = num(rec.merma)
       productos.push({
         nombre,
         codigo: limpio(rec.codigo) || null,
         categoria,
         precio,
         iva_incluido: rec.ivaIncluido !== false,
-        merma_pct: num(rec.merma) || null,
+        merma_pct: mermaCruda ? (mermaCruda > 1 ? mermaCruda / 100 : mermaCruda) : null,
         es_reventa: false,
         activo: precio > 0,
         receta,

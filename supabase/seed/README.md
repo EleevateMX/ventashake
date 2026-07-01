@@ -23,13 +23,13 @@ pnpm etl:aplicar
 
 | JSON legacy | Destino | Notas |
 |---|---|---|
-| `proteins[]` | `insumos` tipo `proteina` | nombre = `MARCA SABOR`, unidad `scoop`, contenido = scoops |
+| `proteins[]` | `insumos` tipo `proteina` | nombre = `MARCA - SABOR` (formato protKey del legacy), unidad `scoop`, contenido = scoops |
 | `shakeIngs[]` | `insumos` tipo `shake` | unidad/contenido/costo directos |
 | `foodIngs[]` | `insumos` tipo `alimento` | |
 | `empaque[]` | `insumos` tipo `empaque` | contenido 1, costo unitario directo |
 | `bebidas[]`, `snacks[]` | `insumos` tipo `reventa` **+** `productos` (`es_reventa`) con receta 1:1 | costo unitario = costoCaja / equivPiezas |
-| `shakeRecipes[]` | `productos` (categoría Shakes) + `recetas` | la proteína se elige al vender → NO es línea fija de receta |
-| `foodRecipes[]` | `productos` (categoría Alimentos) + `recetas` | |
+| `shakeRecipes[]` | `productos` (categoría Shakes) + `recetas` | + empaques `shake:true` como líneas; proteína fija (si la hay) con sus scoops; si viene vacía se elige al vender |
+| `foodRecipes[]` | `productos` (categoría Alimentos) + `recetas` | + empaques `food:true` como líneas |
 
 ## Decisiones importantes
 

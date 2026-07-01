@@ -10,11 +10,13 @@ mismas tablas que usa el POS**.
 2. **Productos**: alta con categoría, precio e IVA incluido sí/no.
 3. **Receta**: líneas insumo + cantidad (en la unidad del insumo). El
    editor muestra el costo en vivo (`@shake/utils` espeja la vista).
-4. **Costeo**: `vw_costeo_producto` calcula por producto:
+4. **Costeo**: `vw_costeo_producto` (v3, fórmula validada contra el
+   `finishCalc` del tablero legacy) calcula por producto:
    - `costo_receta` (insumos sin empaque) y `costo_empaque`
-   - `costo_con_merma` = costo_insumos × (1 + merma) — merma del producto
-     o default global
-   - `costo_total` = costo_con_merma + mano_obra
+   - `costo_con_merma` = costo_receta × (1 + merma) — merma del producto
+     o default global; **la merma NO aplica al empaque** (igual que legacy)
+   - `costo_total` = costo_con_merma + costo_empaque + mano_obra
+     (mano de obra del producto si > 0, si no la global de parámetros)
    - `precio_sin_iva` / `precio_con_iva`
    - `food_cost_pct` = costo_total / precio_sin_iva (rojo si > meta)
    - `margen` (utilidad $) y `margen_pct`

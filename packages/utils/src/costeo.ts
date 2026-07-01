@@ -1,5 +1,9 @@
 /**
- * Lógica de costeo — espejo exacto de la vista vw_costeo_producto.
+ * Lógica de costeo — espejo exacto de la vista vw_costeo_producto (v3),
+ * que a su vez replica la función finishCalc del tablero legacy:
+ *   total = receta×(1+merma) + empaque + mano de obra
+ * (la merma NO aplica al empaque; la mano de obra es la del producto
+ * si > 0, si no la global de parámetros).
  * Sirve para previsualizar en el cliente (mientras se edita una receta)
  * sin ir a la base. La fuente de verdad sigue siendo la vista.
  */
@@ -22,7 +26,7 @@ export interface EntradaCosteo {
   costoEmpaque: number
   /** merma específica del producto (fracción) o null para usar default */
   mermaPct: number | null
-  /** mano de obra específica del producto (MXN) */
+  /** mano de obra del producto (MXN); 0 = usar la global de parámetros */
   manoObra: number
   /** precio de venta actual */
   precio: number
@@ -52,8 +56,10 @@ const r4 = (n: number) => Math.round(n * 10000) / 10000
 
 export function calcularCosteo(e: EntradaCosteo, p: ParametrosCosteo): ResultadoCosteo {
   const merma = e.mermaPct ?? p.mermaDefault
-  const costoConMerma = e.costoInsumos * (1 + merma)
-  const costoTotal = costoConMerma + e.manoObra
+  const costoReceta = e.costoInsumos - e.costoEmpaque
+  const manoObra = e.manoObra > 0 ? e.manoObra : p.manoObra
+  const costoConMerma = costoReceta * (1 + merma)
+  const costoTotal = costoConMerma + e.costoEmpaque + manoObra
   const precioSinIva = e.ivaIncluido ? e.precio / (1 + p.iva) : e.precio
   const precioConIva = e.ivaIncluido ? e.precio : e.precio * (1 + p.iva)
   const foodCostPct = precioSinIva > 0 ? r4(costoTotal / precioSinIva) : null
@@ -63,7 +69,7 @@ export function calcularCosteo(e: EntradaCosteo, p: ParametrosCosteo): Resultado
     p.foodCostMeta > 0 ? r2(Math.round((costoTotal / p.foodCostMeta) * (1 + p.iva) / 5) * 5) : 0
 
   return {
-    costoReceta: r2(e.costoInsumos - e.costoEmpaque),
+    costoReceta: r2(costoReceta),
     costoEmpaque: r2(e.costoEmpaque),
     costoConMerma: r2(costoConMerma),
     costoTotal: r2(costoTotal),
