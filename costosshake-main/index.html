@@ -582,7 +582,7 @@ function renderProt(m){
    </div>
    <div class="muted" style="font-size:11.5px;margin:-2px 0 8px">${canReorder?'Arrastra ⠿ o usa ↑ ↓ para acomodar a tu gusto — tu orden se guarda.':'Vista temporal (no cambia tu orden). Toca <b>↺ Mi orden</b> para volver a reacomodar.'}</div>
    <div class="scroll"><table><thead><tr>
-   <th class="sticky">Sabor</th><th>Código</th><th>Marca</th><th>Proveedor</th><th>F. compra</th><th>F. cad</th>
+   <th class="sticky">Sabor</th><th>Clave</th><th>Cód. barras</th><th>Marca</th><th>Proveedor</th>
    <th class="num">Pres(g)</th><th class="num">Costo bote</th><th class="num">Scoops</th><th class="num">Costo/scoop</th>
    <th class="num">Precio/scoop</th><th class="num">Util/scoop</th><th class="num">Precio bote</th>
    <th class="num">Inv botes</th><th class="num">Mín botes</th><th class="num">Inv scoops</th><th class="num">Mín scoops</th><th>Acción</th></tr></thead><tbody>
@@ -607,7 +607,7 @@ function renderProt(m){
   m.querySelector("#protBrand").addEventListener("change",e=>{protUI.brand=e.target.value;render();});
   m.querySelector("#protByBrand").onclick=()=>{protUI.byBrand=!protUI.byBrand;render();};
   const rst=m.querySelector("#protReset");if(rst)rst.onclick=()=>{protUI={q:"",brand:"",byBrand:false};render();};
-  m.querySelector("#addP").onclick=()=>{state.proteins.push({codigo:"",marca:"Nueva",sabor:"—",proveedor:"",fechaCompra:"",fechaCaducidad:"",pres:"",costo:"",scoops:"",precioScoop:"",precioBote:"",invOriginal:"",minOriginal:"",invScoops:"",minScoops:""});save();render();};
+  m.querySelector("#addP").onclick=()=>{state.proteins.push({codigo:"",codigoBarras:"",marca:"Nueva",sabor:"—",proveedor:"",fechaCompra:"",fechaCaducidad:"",pres:"",costo:"",scoops:"",precioScoop:"",precioBote:"",invOriginal:"",minOriginal:"",invScoops:"",minScoops:""});save();render();};
   applyProtSearch(m);
 }
 function applyProtSearch(m){const q=(protUI.q||"").toLowerCase().trim();
@@ -619,10 +619,9 @@ function protRow(p,i,canReorder){const cps=costPerScoop(p),util=(+p.precioScoop|
   return `<tr data-i="${i}">
    <td class="sticky"><input class="w-tx" data-f="sabor" value="${esc(p.sabor)}" style="font-weight:600"></td>
    <td><input class="w-md" data-f="codigo" value="${esc(p.codigo)}"></td>
+   <td><input class="w-md" data-f="codigoBarras" value="${esc(p.codigoBarras)}"></td>
    <td><input class="w-tx" data-f="marca" value="${esc(p.marca)}"></td>
    <td><input class="w-tx" data-f="proveedor" value="${esc(p.proveedor)}"></td>
-   <td><input type="date" class="w-dt" data-f="fechaCompra" value="${esc(p.fechaCompra)}"></td>
-   <td><input type="date" class="w-dt" data-f="fechaCaducidad" value="${esc(p.fechaCaducidad)}"></td>
    <td><input class="n w-sm" data-f="pres" value="${esc(p.pres)}"></td>
    <td><input class="n w-sm" data-f="costo" value="${esc(p.costo)}"></td>
    <td><input class="n w-sm" data-f="scoops" value="${esc(p.scoops)}"></td>
@@ -703,7 +702,7 @@ function renderIngs(m,key,title){
   const sb=m.querySelector("#ingSearch");
   sb.addEventListener("input",e=>{const q=e.target.value.toLowerCase();
     m.querySelectorAll(".icard").forEach((c,idx)=>{const nm=(state[key][idx].nombre||"").toLowerCase();c.style.display=nm.indexOf(q)>=0?"":"none";});});
-  m.querySelector("#addI").onclick=()=>{state[key].push({codigo:"",nombre:"Nuevo ingrediente",marca:"",proveedor:"",fechaCompra:"",fechaCaducidad:"",presCompra:"",unidad:"g",cont:"",costo:"",porcionNombre:"",precioPorcion:"",gananciaPct:"",porcionQty:"",stockBase:"",porciones:[],equivPorciones:"",invOriginal:"",minOriginal:"",invPorcion:"",minPorcion:""});save();render();
+  m.querySelector("#addI").onclick=()=>{state[key].push({codigo:"",codigoBarras:"",nombre:"Nuevo ingrediente",marca:"",proveedor:"",fechaCompra:"",fechaCaducidad:"",presCompra:"",unidad:"g",cont:"",costo:"",porcionNombre:"",precioPorcion:"",gananciaPct:"",porcionQty:"",stockBase:"",porciones:[],equivPorciones:"",invOriginal:"",minOriginal:"",invPorcion:"",minPorcion:""});save();render();
     const last=document.querySelector("#icards .icard:last-child");
     if(last){last.scrollIntoView({behavior:"smooth",block:"center"});const nm=last.querySelector(".iname");if(nm)nm.focus();}};
 }
@@ -711,7 +710,8 @@ function ingCard(it,i){const uOpts=["g","ml","pz"].map(u=>`<option ${u===it.unid
  return `<div class="icard" data-i="${i}">
    <div class="icard-head">
      <input class="iname" data-f="nombre" value="${esc(it.nombre)}" placeholder="Nombre del ingrediente">
-     <input class="icode" data-f="codigo" value="${esc(it.codigo)}" placeholder="Código" title="Código / SKU">
+     <input class="icode" data-f="codigo" value="${esc(it.codigo)}" placeholder="Clave" title="Clave / SKU">
+     <input class="icode" data-f="codigoBarras" value="${esc(it.codigoBarras)}" placeholder="Cód. barras" title="Código de barras">
      <div class="icard-acts">
        <button class="btn mini ghost" data-act="porc" title="Porciones y existencia (ej. Ensalada / Sándwich)">Porciones</button>
        <button class="btn tr" data-act="tr" title="Traspasar presentación → porciones">⇄</button>
@@ -727,8 +727,6 @@ function ingCard(it,i){const uOpts=["g","ml","pz"].map(u=>`<option ${u===it.unid
        <label class="fld"><span>Contenido</span><input class="n" data-f="cont" value="${esc(it.cont)}"></label>
        <label class="fld"><span>Costo de compra</span><input class="n" data-f="costo" value="${esc(it.costo)}"></label>
        <div class="fld der"><span>Costo por unidad</span><div class="dv" data-d="cpu">${ingCpu(it)}</div></div>
-       <label class="fld"><span>F. compra</span><input type="date" data-f="fechaCompra" value="${esc(it.fechaCompra)}"></label>
-       <label class="fld"><span>Caducidad</span><input type="date" data-f="fechaCaducidad" value="${esc(it.fechaCaducidad)}"></label>
      </div></div>
      <div class="igroup"><div class="gtitle">Porción y precio</div><div class="ifields">
        <label class="fld"><span>Porción (medida)</span><div class="urow"><input class="n" data-f="porcionQty" value="${esc(it.porcionQty)}" placeholder="100"><small>${esc(it.unidad)}</small></div></label>
@@ -755,10 +753,12 @@ function renderEmp(m){
   m.innerHTML=`<h2>Empaque</h2><p class="hint">Código, proveedor, última compra, stock y stock mínimo. Marca qué insumos forman cada combo (se suman al costeo).</p>
    <div class="cards"><div class="card"><div class="k">Combo empaque shake</div><div class="v" id="cs">${fmt(comboShake())}</div></div>
    <div class="card"><div class="k">Combo empaque alimento</div><div class="v" id="cf">${fmt(comboFood())}</div></div></div>
-   <div class="scroll"><table><thead><tr><th class="sticky">Item</th><th>Código</th><th>Proveedor</th><th class="num">Costo unit.</th><th>Última compra</th><th class="num">Stock</th><th class="num">Stock mín</th><th class="num">Combo shake</th><th class="num">Combo alim.</th><th>Acción</th></tr></thead><tbody>
+   <div class="scroll"><table><thead><tr><th class="sticky">Item</th><th>Clave</th><th>Cód. barras</th><th>Marca</th><th>Proveedor</th><th class="num">Costo unit.</th><th>Última compra</th><th class="num">Stock</th><th class="num">Stock mín</th><th class="num">Combo shake</th><th class="num">Combo alim.</th><th>Acción</th></tr></thead><tbody>
    ${state.empaque.map((e,i)=>`<tr data-i="${i}">
      <td class="sticky"><input class="w-tx" data-f="nombre" value="${esc(e.nombre)}" style="font-weight:600"></td>
      <td><input class="w-md" data-f="codigo" value="${esc(e.codigo)}"></td>
+     <td><input class="w-md" data-f="codigoBarras" value="${esc(e.codigoBarras)}"></td>
+     <td><input class="w-tx" data-f="marca" value="${esc(e.marca)}"></td>
      <td><input class="w-tx" data-f="proveedor" value="${esc(e.proveedor)}"></td>
      <td><input class="n w-sm" data-f="costo" value="${esc(e.costo)}"></td>
      <td><input type="date" class="w-dt" data-f="ultimaCompra" value="${esc(e.ultimaCompra)}"></td>
@@ -771,7 +771,7 @@ function renderEmp(m){
   const upd=()=>{document.getElementById("cs").textContent=fmt(comboShake());document.getElementById("cf").textContent=fmt(comboFood());};
   state.empaque.forEach((e,i)=>{const tr=m.querySelector(`tr[data-i="${i}"]`);bindRow(tr,"empaque",i,upd);
     tr.querySelector('[data-act="del"]').onclick=()=>{if(confirm("¿Eliminar "+e.nombre+"?")){state.empaque.splice(i,1);save();render();}};});
-  m.querySelector("#addE").onclick=()=>{state.empaque.push({codigo:"",nombre:"Nuevo empaque",proveedor:"",costo:"",shake:false,food:false,ultimaCompra:"",stock:"",stockMin:""});save();render();};
+  m.querySelector("#addE").onclick=()=>{state.empaque.push({codigo:"",codigoBarras:"",marca:"",nombre:"Nuevo empaque",proveedor:"",costo:"",shake:false,food:false,ultimaCompra:"",stock:"",stockMin:""});save();render();};
 }
 
 /* ---------------- COSTEO RECETAS ---------------- */
@@ -783,8 +783,8 @@ function renderRecipes(m,type){
   const cont=m.querySelector("#reclist");
   list.forEach((r,ri)=>cont.appendChild(recipeCard(r,ri,type,ingList,isShake)));
   m.querySelector("#addrec").onclick=()=>{const n=list.length+1;
-    list.push(isShake?{codigo:"Shake "+n,nombre:"Nuevo shake",protein:"",scoops:1,ings:[],precio:"",merma:"",ivaIncluido:true}
-                     :{codigo:"Alimento "+n,nombre:"Nuevo alimento",ings:[],precio:"",merma:"",ivaIncluido:true});save();render();};
+    list.push(isShake?{codigo:"Shake "+n,codigoBarras:"",nombre:"Nuevo shake",protein:"",scoops:1,ings:[],precio:"",merma:"",ivaIncluido:true}
+                     :{codigo:"Alimento "+n,codigoBarras:"",nombre:"Nuevo alimento",ings:[],precio:"",merma:"",ivaIncluido:true});save();render();};
 }
 function recipeCard(r,ri,type,ingList,isShake){
   if(!Array.isArray(r.ings))r.ings=[];
@@ -798,7 +798,8 @@ function recipeCard(r,ri,type,ingList,isShake){
   const protOpts=`<option value="">— proteína —</option>`+state.proteins.map(p=>`<option ${protKey(p)===r.protein?'selected':''}>${esc(protKey(p))}</option>`).join("");
   div.innerHTML=`<div class="strip"></div><div class="inner">
    <div class="recipe-head">
-     <input class="code" data-f="codigo" value="${esc(r.codigo)}" title="Número de item">
+     <input class="code" data-f="codigo" value="${esc(r.codigo)}" title="Clave / número de item" placeholder="Clave">
+     <input class="code" data-f="codigoBarras" value="${esc(r.codigoBarras)}" title="Código de barras" placeholder="Cód. barras">
      <input class="name" data-f="nombre" value="${esc(r.nombre)}">
      ${isShake?`<select data-f="protein" style="max-width:220px">${protOpts}</select><input class="n" data-f="scoops" value="${esc(r.scoops)}" style="width:58px" title="scoops">`:''}</div>
    <div class="ings"></div>
@@ -843,7 +844,7 @@ function recipeCard(r,ri,type,ingList,isShake){
 function renderResale(m,key,title){
   m.innerHTML=`<h2>${title} <span class="muted" style="font-size:13px">(reventa)</span></h2>
    <p class="hint">Código, proveedor, última compra y caducidad. <b>Costo caja</b> y <b>Pzas/caja</b> generan el <b>Costo/Beb</b> automático. Inventario doble (cajas en bodega / piezas en kiosko). Usa <b>⇄</b> para traspasar una caja a piezas con clave.</p>
-   <div class="scroll"><table><thead><tr><th class="sticky">Producto</th><th>Código</th><th>Proveedor</th><th>Últ. compra</th><th>Caducidad</th>
+   <div class="scroll"><table><thead><tr><th class="sticky">Producto</th><th>Clave</th><th>Cód. barras</th><th>Marca</th><th>Proveedor</th>
    <th>Pres. orig.</th><th class="num">Costo caja</th><th class="num">Pzas/caja</th><th class="num">Costo/Beb</th><th class="num">Precio/Beb</th><th class="num">Margen %</th>
    <th class="num">Inv cajas</th><th class="num">Mín cajas</th><th class="num">Inv piezas</th><th class="num">Mín piezas</th><th>Acción</th></tr></thead><tbody>
    ${state[key].map((p,i)=>{const pz=+p.equivPiezas||0;const costo=pz?(+p.costoCaja||0)/pz:0;const sin=(+p.precio||0)/(1+state.params.iva);const mp=sin?(sin-costo)/sin:0;
@@ -852,9 +853,9 @@ function renderResale(m,key,title){
      return `<tr data-i="${i}">
      <td class="sticky"><input class="w-tx" data-f="nombre" value="${esc(p.nombre)}" style="font-weight:600"></td>
      <td><input class="w-md" data-f="codigo" value="${esc(p.codigo)}"></td>
+     <td><input class="w-md" data-f="codigoBarras" value="${esc(p.codigoBarras)}"></td>
+     <td><input class="w-tx" data-f="marca" value="${esc(p.marca)}"></td>
      <td><input class="w-tx" data-f="proveedor" value="${esc(p.proveedor)}"></td>
-     <td><input type="date" class="w-dt" data-f="ultimaCompra" value="${esc(p.ultimaCompra)}"></td>
-     <td><input type="date" class="w-dt" data-f="caducidad" value="${esc(p.caducidad)}"></td>
      <td><input class="w-tx" data-f="presOriginal" value="${esc(p.presOriginal)}" placeholder="Caja 12"></td>
      <td><input class="n w-sm" data-f="costoCaja" value="${esc(p.costoCaja)}"></td>
      <td><input class="n w-sm" data-f="equivPiezas" value="${esc(p.equivPiezas)}"></td>
@@ -875,7 +876,7 @@ function renderResale(m,key,title){
       const b=tr2.querySelector('[data-d="mp"]');if(b)b.innerHTML=pct(mp)+infoIcon(mpInfo);});
     tr.querySelector('[data-act="tr"]').onclick=()=>openTraspaso(key,i);
     tr.querySelector('[data-act="del"]').onclick=()=>{if(confirm("¿Eliminar "+p.nombre+"?")){state[key].splice(i,1);save();render();}};});
-  m.querySelector("#addR").onclick=()=>{state[key].push({codigo:"",nombre:"Nuevo producto",proveedor:"",ultimaCompra:"",caducidad:"",costoCaja:"",costo:"",precio:"",presOriginal:"",equivPiezas:"",invOriginal:"",minOriginal:"",invIndividual:"",minIndividual:""});save();render();};
+  m.querySelector("#addR").onclick=()=>{state[key].push({codigo:"",codigoBarras:"",marca:"",nombre:"Nuevo producto",proveedor:"",ultimaCompra:"",caducidad:"",costoCaja:"",costo:"",precio:"",presOriginal:"",equivPiezas:"",invOriginal:"",minOriginal:"",invIndividual:"",minIndividual:""});save();render();};
 }
 
 /* ---------------- INVENTARIO (bodega / kiosko) ---------------- */
@@ -1131,6 +1132,8 @@ function renderCompras(m){
       const lowc=r.min>0&&r.exist<=r.min;
       return `<tr data-cat="${r.cfg.cat}" data-i="${r.i}">
         <td class="sticky">${esc(r.name)}</td>
+        <td class="muted">${esc(r.it.marca||'')}</td>
+        <td class="muted">${esc(r.it.codigoBarras||'')}</td>
         <td class="muted">${esc(r.pres)}</td>
         <td class="num ${lowc?'lowc':''}">${num(r.exist)} <span class="muted" style="font-size:10px">${r.unit}</span></td>
         <td class="num muted">${num(r.min)}</td>
@@ -1139,7 +1142,7 @@ function renderCompras(m){
         <td class="num muted">${fmt(costo)}</td></tr>`;}).join("");
     grand+=sub;
     return `<div class="buygroup"><div class="buyhead">🏷️ ${esc(prov)} <span class="muted" style="font-weight:400">· ${items.length} producto(s)</span><span class="buysub">${fmt(sub)}</span></div>
-      <div class="scroll"><table><thead><tr><th class="sticky">Producto</th><th>Presentación</th><th class="num">Existencia</th><th class="num">Mínimo</th><th class="num">Sugerido</th><th class="num">A comprar</th><th class="num">Costo aprox.</th></tr></thead><tbody>${rowsH}</tbody></table></div></div>`;
+      <div class="scroll"><table><thead><tr><th class="sticky">Producto</th><th>Marca</th><th>Cód. barras</th><th>Presentación</th><th class="num">Existencia</th><th class="num">Mínimo</th><th class="num">Sugerido</th><th class="num">A comprar</th><th class="num">Costo aprox.</th></tr></thead><tbody>${rowsH}</tbody></table></div></div>`;
   }).join("");
   m.innerHTML=`<h2>Compras</h2>
     <p class="hint no-print">Existencias reales, mínimo y <b>sugerido a comprar</b> (para llegar al doble del mínimo). Solo la columna <b>A comprar</b> es editable; el resto se toma del inventario. Está dividida por proveedor y se puede imprimir.</p>
