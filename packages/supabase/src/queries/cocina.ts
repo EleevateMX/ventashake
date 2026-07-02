@@ -1,8 +1,12 @@
 import type { PedidoCocina, CocinaItem, EstadoCocina } from '@shake/types'
 import type { ShakeClient } from '../client'
 
+export interface CocinaItemConProducto extends CocinaItem {
+  productos: { nombre: string } | null
+}
+
 export interface PedidoConItems extends PedidoCocina {
-  cocina_items: CocinaItem[]
+  cocina_items: CocinaItemConProducto[]
   ordenes: { folio: number; canal: string } | null
 }
 
@@ -20,7 +24,7 @@ export async function listarPedidosCocina(
 
   const { data, error } = await sb
     .from('pedidos_cocina')
-    .select('*, cocina_items(*), ordenes(folio, canal)')
+    .select('*, cocina_items(*, productos(nombre)), ordenes(folio, canal)')
     .eq('cocina_id', cocina.id)
     .in('estado', ['pendiente', 'en_preparacion', 'listo'])
     .order('created_at')
@@ -32,7 +36,7 @@ export async function listarPedidosCocina(
 export async function listarPedidosActivos(sb: ShakeClient): Promise<PedidoConItems[]> {
   const { data, error } = await sb
     .from('pedidos_cocina')
-    .select('*, cocina_items(*), ordenes(folio, canal)')
+    .select('*, cocina_items(*, productos(nombre)), ordenes(folio, canal)')
     .in('estado', ['pendiente', 'en_preparacion', 'listo'])
     .order('created_at')
   if (error) throw error
