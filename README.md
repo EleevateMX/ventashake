@@ -40,6 +40,11 @@ pnpm dev:costos    # costeo      → :5180
 
 `pnpm build` compila todas; `pnpm typecheck` valida el monorepo completo.
 
+## Publicar / desplegar
+
+Guía completa (hosting, subdominios por pantalla, modo kiosco en las PCs de la
+sucursal, Clip, checklist): **`docs/despliegue.md`**.
+
 ## Correr en local
 
 Requisitos: Node ≥ 20 y pnpm (`corepack enable`).
