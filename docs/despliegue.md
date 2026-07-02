@@ -71,6 +71,43 @@ enrutado de cliente, así que no hace falta `vercel.json` ni reglas de rewrite.)
 
 Luego, en cada proyecto → **Domains** → agrega su subdominio.
 
+### 4.1 Vercel paso a paso (desde GitHub)
+
+1. Entra a **vercel.com** → **Log In** → *Continue with GitHub* (autoriza a
+   Vercel a ver `EleevateMX/ventashake`).
+2. Dashboard → **Add New… → Project** → busca `ventashake` → **Import**.
+3. En *Configure Project* (una app, ej. kiosko):
+   - **Project Name:** `shake-kiosko`
+   - **Framework Preset:** Vite
+   - **Root Directory:** `.` (raíz — no lo cambies)
+   - Expande **Build and Output Settings** y activa *Override*:
+     - **Build Command:** `pnpm --filter @shake/kiosko build`
+     - **Output Directory:** `apps/kiosko/dist`
+     - **Install Command:** `pnpm install`
+   - **Environment Variables** (agrega las dos):
+     - `VITE_SUPABASE_URL` = `https://zyjtnaystsporbuzcmqk.supabase.co`
+     - `VITE_SUPABASE_ANON_KEY` = *(anon key pública del proyecto Supabase —
+       Dashboard → Settings → API → anon public)*
+   - **Deploy**.
+4. Repite **Add New Project** con el MISMO repo por cada app, cambiando solo
+   el `--filter @shake/<app>` del Build Command y el `apps/<app>/dist` del
+   Output (pos, admin, cocina-alimentos, cocina-bebidas, cliente-display,
+   cliente-pwa, costos).
+5. Cada proyecto → **Settings → Domains** → agrega su subdominio
+   (`kiosko.shakeaholic.mx`, …) → Vercel te da el CNAME → póngalo en GoDaddy
+   (ver `docs/despliegue-godaddy.md`).
+
+**⚠️ Rama de producción:** Vercel despliega desde la rama **de producción**
+del repo (por defecto `main`). El código está hoy en la rama
+`claude/shakeaholic-pos-ecosystem-z9imgr`. Dos opciones:
+- **Recomendado:** fusionar esa rama a `main` (PR) y desplegar desde `main`.
+- O en cada proyecto → **Settings → Git → Production Branch** → poner
+  `claude/shakeaholic-pos-ecosystem-z9imgr` y *Redeploy*.
+
+**Nota comercial:** el plan gratis de Vercel (Hobby) es para uso **no
+comercial**. Para un negocio en producción usa **Vercel Pro** (~USD 20/mes) o
+**Cloudflare Pages** (gratis y permite uso comercial; mismos pasos, §5).
+
 ## 5. Deploy en Cloudflare Pages (producción)
 
 Un proyecto de Pages por app (Connect to Git → repo):
