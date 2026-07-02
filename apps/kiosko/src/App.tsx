@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { sb } from './lib/sb'
-import { listarAlmacenes, listarProductosParaVenta, crearOrden, cobrarOrden, identificarCliente } from '@shake/supabase'
+import { listarAlmacenes, listarProductosParaVenta, crearOrden, cobrarOrden, identificarCliente, canjearCupon } from '@shake/supabase'
 import type { ProductoVenta, ClienteConLealtad } from '@shake/supabase'
 import type { Almacen } from '@shake/types'
-import type { MetodoPago } from '@shake/types'
+import type { MetodoPago, Cupon } from '@shake/types'
 import { mxn } from '@shake/utils'
 
 interface LineaCarrito {
@@ -40,6 +40,7 @@ export default function App() {
   // Lealtad (opcional en autoservicio)
   const [buscarCli, setBuscarCli] = useState('')
   const [cliente, setCliente] = useState<ClienteConLealtad | null>(null)
+  const [cupon, setCupon] = useState<Cupon | null>(null)
 
   async function bootstrap() {
     setCargando(true)
@@ -65,6 +66,20 @@ export default function App() {
     () => carrito.reduce((s, l) => s + l.producto.precio * l.cantidad, 0),
     [carrito],
   )
+
+  // Cupón: cubre (gratis) el ítem elegible más caro (cumpleaños = shake).
+  function itemsElegibles(cup: Cupon) {
+    return cup.tipo === 'cumpleanos'
+      ? carrito.filter((l) => l.producto.categorias?.nombre === 'Shakes')
+      : carrito
+  }
+  const descuento = useMemo(() => {
+    if (!cupon) return 0
+    const eleg = itemsElegibles(cupon)
+    return eleg.length ? Math.max(...eleg.map((l) => l.producto.precio)) : 0
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cupon, carrito])
+  const neto = Math.max(0, total - descuento)
 
   const grupos = useMemo(() => {
     const m = new Map<string, ProductoVenta[]>()
@@ -110,6 +125,7 @@ export default function App() {
           almacen_id: almacen.id,
           canal: 'kiosko',
           cliente_id: cliente?.id ?? null,
+          descuento,
         },
         carrito.map((l) => ({
           producto_id: l.producto.id,
@@ -117,8 +133,9 @@ export default function App() {
           precio_unitario: l.producto.precio,
         })),
       )
+      if (cupon) await canjearCupon(sb, cupon.id, orden.id)
       // Cobro inmediato aprobado → el trigger descuenta inventario y manda a cocina.
-      await cobrarOrden(sb, orden.id, metodo, total, {
+      await cobrarOrden(sb, orden.id, metodo, neto, {
         referencia: referencia.trim() || undefined,
       })
       setConfirmada({ folio: orden.folio })
@@ -127,6 +144,7 @@ export default function App() {
       setMetodo('tarjeta')
       setCliente(null)
       setBuscarCli('')
+      setCupon(null)
       setCobrando(false)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
@@ -216,7 +234,7 @@ export default function App() {
       {cobrando && (
         <div className="modal-bg" onClick={(e) => { if (e.target === e.currentTarget && !procesando) setCobrando(false) }}>
           <div className="modal">
-            <h2>Pagar {mxn(total)}</h2>
+            <h2>Pagar {mxn(neto)}</h2>
 
             {/* Lealtad opcional: identifícate para ganar mancuernas */}
             {!cliente ? (
@@ -241,9 +259,24 @@ export default function App() {
                 </div>
               </div>
             ) : (
-              <p className="instruccion">
-                ¡Hola {cliente.nombre.split(' ')[0]}! Ganarás {Math.min(100, Math.floor(total / 10))} mancuernas 🏋️
-              </p>
+              <div className="instruccion">
+                ¡Hola {cliente.nombre.split(' ')[0]}! Ganarás {Math.min(100, Math.floor(neto / 10))} mancuernas 🏋️
+                {cliente.cupones.length > 0 && !cupon && (
+                  <div style={{ marginTop: 8 }}>
+                    {cliente.cupones.map((c) => (
+                      <button key={c.id} className="sec" style={{ display: 'block', width: '100%', marginTop: 4 }} onClick={() => setCupon(c)}>
+                        {c.tipo === 'cumpleanos' ? '🎂' : '🎁'} Usar: {c.beneficio}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {cupon && (
+                  <div style={{ marginTop: 8 }}>
+                    Cupón aplicado: −{mxn(descuento)}{' '}
+                    <button className="liga" onClick={() => setCupon(null)}>quitar</button>
+                  </div>
+                )}
+              </div>
             )}
 
             <p className="muted">Elige tu forma de pago</p>
@@ -282,7 +315,7 @@ export default function App() {
                 Cancelar
               </button>
               <button className="btn-gigante" disabled={procesando} onClick={() => void confirmarPago()}>
-                {procesando ? 'Procesando…' : `Confirmar ${mxn(total)}`}
+                {procesando ? 'Procesando…' : `Confirmar ${mxn(neto)}`}
               </button>
             </div>
           </div>

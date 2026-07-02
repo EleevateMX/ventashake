@@ -90,5 +90,16 @@ habilitado; todo lo demás (mancuernas, cupones, POS/kiosko) funciona igual.
 - **Balizas de proximidad (beacons BLE / Google Nearby)**: **requieren una app
   móvil nativa + hardware de balizas**; fuera del alcance del POS web. Se
   integra cuando exista la app móvil; el backend de ofertas es aditivo.
-- **Canje de cupón en el cobro del POS**: UI para escanear `CUP-…` y aplicar
-  el beneficio al ticket (hoy `canjearCupon()` ya existe en la capa de datos).
+## Canje de cupón en el cobro — ✅ POS y kiosko
+
+En el cobro del POS y del kiosko se puede aplicar un cupón: de la lista de
+cupones activos del cliente identificado, o escaneando/tecleando su código
+`CUP-…` (en el POS). El cupón **cubre gratis el ítem elegible más caro** del
+ticket (el de cumpleaños solo aplica a un **Shake**), se refleja como
+descuento en el total y, al cobrar, se marca **usado** y se liga a la orden
+(`canjearCupon`). El inventario se descuenta por receta igual (el descuento
+no afecta el consumo de insumos). Verificado e2e.
+
+Regla de valor del cupón: hoy = "un ítem gratis" (el más caro elegible). Si
+el negocio prefiere un monto fijo o % por el cupón de 100 mancuernas, se
+ajusta agregando `cupones.valor` (aditivo) — decisión pendiente del negocio.

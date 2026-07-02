@@ -15,13 +15,20 @@ export interface NuevaOrdenItem {
   personalizacion?: string | null
 }
 
-/** Crea la orden con sus items en estado pendiente (sin pagar). */
+/**
+ * Crea la orden con sus items en estado pendiente (sin pagar).
+ * Si `orden.descuento` viene (p. ej. por cupón), el total registrado es
+ * neto (subtotal − descuento), que es lo que se cobra y sobre lo que se
+ * acumulan mancuernas.
+ */
 export async function crearOrden(
   sb: ShakeClient,
   orden: OrdenInsert,
   items: NuevaOrdenItem[],
 ): Promise<Orden> {
-  const total = items.reduce((acc, i) => acc + i.cantidad * i.precio_unitario, 0)
+  const subtotal = items.reduce((acc, i) => acc + i.cantidad * i.precio_unitario, 0)
+  const descuento = orden.descuento ?? 0
+  const total = Math.max(0, subtotal - descuento)
   const { data: nueva, error } = await sb
     .from('ordenes')
     .insert({ ...orden, total })

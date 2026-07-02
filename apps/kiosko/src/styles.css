@@ -126,3 +126,5 @@ button.sec:disabled { opacity: 0.5; }
 }
 .cargando { color: #667085; padding: 48px; text-align: center; font-size: 1.3rem; }
 .muted { color: #667085; font-size: 1.05rem; }
+
+.liga { background: none; border: none; color: #16a34a; cursor: pointer; text-decoration: underline; }

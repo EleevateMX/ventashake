@@ -26,9 +26,13 @@
 - [x] Lealtad "Shakeaholic Rewards" núcleo: mancuernas (1 x $10, tope 100),
       cupones a 100 (vigencia 1 año, máx 5), cupón cumpleaños, identificación
       teléfono+QR, canje. Conectado al POS. Ver `docs/flujo-lealtad.md`
-- [ ] Lealtad pendientes: programar crons (cumpleaños/vencimientos/reactivación
-      con pg_cron o edge function), PWA del cliente (QR/saldo/historial), UI de
-      canje de cupón en el cobro, promociones personalizadas
+- [x] Lealtad: crons con pg_cron (cumpleaños/vencimientos/reactivación),
+      PWA del cliente (login Google + QR/saldo/cupones), canje de cupón en el
+      cobro (POS y kiosko)
+- [ ] Lealtad pendientes: promociones personalizadas (segmentación por
+      sabor/frecuencia/horario); definir valor del cupón de 100 mancuernas si
+      no será "ítem gratis"; envío de notificaciones (email/push vía edge
+      function + pg_net)
 - [ ] Balizas de proximidad (beacons BLE): requieren app móvil nativa +
       hardware; fuera del POS web
 - [ ] Otras Fase 2 del demo (aplazadas): wallet/monedero, gift cards, delivery,
