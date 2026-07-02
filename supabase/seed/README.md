@@ -19,6 +19,18 @@ pnpm etl:dry
 pnpm etl:aplicar
 ```
 
+## Sincronización continua (`sync-app-data.sql`)
+
+Mientras el cliente siga capturando costos/inventario en el tablero legacy
+costosshake (JSON `app_data`), esos cambios **no llegan solos** a las tablas
+relacionales que usan POS/kiosko/cocina. Para reflejarlos, correr
+`supabase/seed/sync-app-data.sql` (UPSERT idempotente: inserta nuevos y
+**actualiza existentes** — costos, precios, marca, código de barras — y
+reconstruye recetas de los productos del JSON). No borra insumos/productos
+(preserva inventario y órdenes) ni toca `app_data`.
+
+Aplicado por primera vez el 2026-07-02 tras las ediciones del cliente.
+
 ## Reglas del mapeo
 
 | JSON legacy | Destino | Notas |
