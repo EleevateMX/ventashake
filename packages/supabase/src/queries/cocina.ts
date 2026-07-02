@@ -28,6 +28,17 @@ export async function listarPedidosCocina(
   return data as PedidoConItems[]
 }
 
+/** Pedidos activos de TODAS las estaciones (cliente-display). */
+export async function listarPedidosActivos(sb: ShakeClient): Promise<PedidoConItems[]> {
+  const { data, error } = await sb
+    .from('pedidos_cocina')
+    .select('*, cocina_items(*), ordenes(folio, canal)')
+    .in('estado', ['pendiente', 'en_preparacion', 'listo'])
+    .order('created_at')
+  if (error) throw error
+  return data as PedidoConItems[]
+}
+
 export async function cambiarEstadoPedido(
   sb: ShakeClient,
   pedidoId: string,
