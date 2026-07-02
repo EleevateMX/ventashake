@@ -84,6 +84,10 @@ Un proyecto de Pages por app (Connect to Git → repo):
 
 Custom domains desde el panel de Pages.
 
+> **¿Tu dominio está en GoDaddy?** Sigue la guía específica paso a paso:
+> **`docs/despliegue-godaddy.md`** (CNAMEs por subdominio sin tocar tu correo
+> ni tu sitio actual).
+
 ## 6. Configuración de dominio (DNS)
 
 En tu proveedor de DNS, un CNAME por subdominio hacia el host (Vercel/CF te
