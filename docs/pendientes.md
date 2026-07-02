@@ -11,15 +11,30 @@
 
 ## Producto / fases
 
-- [ ] Fase 5: migrar UI del POS demo a `apps/pos` (necesita acceso al repo
-      `puntodeventa` en la sesión, o copiar el código aquí)
-- [ ] Fase 6: KDS ×2 + cliente-display + sincronizar `ordenes.estado`
-      cuando todas las estaciones terminen; modificador "proteína elegida"
-      que descuente el scoop correcto
-- [ ] Fase 7: UI de compras/transferencias/mermas; reporte de ventas por
-      día; política de cortesías; flujo de cancelación post-pago con
-      ajuste automático
-- [ ] Fase 8: edge functions `clip-crear-cobro` y `clip-webhook`
+- [x] Fase 5: `apps/pos` + `apps/kiosko` conectadas a datos reales
+- [x] Fase 6: KDS ×2 + `cliente-display` sobre `pedidos_cocina` (realtime),
+      flujo orden pagada → inventario → cocina verificado e2e
+- [x] Fase 7: corte de caja (POS) + `apps/admin` (menú/ventas/inventario)
+- [ ] Fase 6 (pulido): sincronizar `ordenes.estado` global cuando todas las
+      estaciones terminen; modificador "proteína elegida" que descuente el
+      scoop correcto (hoy la proteína se fija en la receta si viene en el JSON)
+- [ ] Fase 7 (pulido): UI de compras/transferencias/mermas en admin;
+      política de cortesías; cancelación post-pago con ajuste automático de
+      inventario
+- [ ] Fase 8: edge functions `clip-crear-cobro` y `clip-webhook` (cuando haya
+      credenciales de Clip; hoy corre en ruta manual con el Stand 2)
+- [ ] Fase 2 del demo (aplazada): lealtad, wallet, gift cards, promociones,
+      delivery, RRHH — requieren ~11 tablas nuevas (aditivas) cuando el
+      negocio las pida
+
+## Cómo operar hoy (checklist de arranque)
+
+- [ ] Poner la anon key en el `.env` de cada app (`.env.example` incluido)
+- [ ] Correr el ETL de costos (`pnpm etl:dry` → conciliar → `pnpm etl:aplicar`)
+      para poblar `productos`/`recetas`; sin catálogo el POS/kiosko no tienen
+      qué vender
+- [ ] Cargar stock inicial en Kiosko (entrada de inventario) para que el
+      descuento por venta no deje negativos
 
 ## Seguridad (fase 9 — hardening) ⚠️
 

@@ -4,14 +4,39 @@ Ecosistema de punto de venta + costos de **Shakeaholic** sobre Supabase
 (fuente única de verdad). Monorepo pnpm.
 
 ```
-apps/costos            ✅ app de costeo funcional (insumos, productos, recetas, parámetros)
-apps/{pos,kiosko,admin,cocina-*,cliente-display}   fases 5–7
+apps/costos            ✅ costeo (insumos, productos, recetas, parámetros)      :5180
+apps/pos               ✅ caja: catálogo, cobro 2 pasos, corte                 :5181
+apps/cocina-alimentos  ✅ KDS estación alimentos (realtime)                    :5182
+apps/cocina-bebidas    ✅ KDS estación bebidas (realtime)                      :5183
+apps/cliente-display   ✅ pantalla pública de folios (preparando/listo)        :5184
+apps/admin             ✅ menú CRUD + ventas + inventario                      :5185
+apps/kiosko            ✅ autoservicio (canal kiosko)                          :5186
 packages/{types,supabase,utils,ui}                 código compartido
 supabase/{migrations,seed,functions}               SQL versionado, ETL, edge functions
 docs/                                              diagnóstico, arquitectura, flujos, plan
 ```
 
-Empieza por **`docs/diagnostico.md`** y **`docs/plan-fases.md`**.
+Todas las apps consumen el mismo Supabase (fuente de verdad) vía
+`@shake/supabase`. Empieza por **`docs/diagnostico.md`**,
+**`docs/diagnostico-pos.md`** y **`docs/plan-fases.md`**.
+
+## Correr las apps
+
+Cada app necesita su `.env` (copia el `.env.example` de la app y pon la
+anon key). Luego:
+
+```bash
+pnpm install
+pnpm dev:pos       # caja        → http://localhost:5181
+pnpm dev:kiosko    # autoservicio → :5186
+pnpm dev:admin     # admin        → :5185
+pnpm dev:cocina-alimentos   # :5182
+pnpm dev:cocina-bebidas     # :5183
+pnpm dev:display   # cliente-display → :5184
+pnpm dev:costos    # costeo      → :5180
+```
+
+`pnpm build` compila todas; `pnpm typecheck` valida el monorepo completo.
 
 ## Correr en local
 

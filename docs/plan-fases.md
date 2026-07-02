@@ -6,9 +6,9 @@
 | 2. Monorepo limpio | pnpm workspaces, packages compartidos, apps | ✅ hecha |
 | 3. Supabase compartido | Migración `pos_operativo_aditivo` aplicada: pagos, cocina, cajas/cortes, empleados, clientes, vistas, RLS operable, realtime | ✅ hecha |
 | 4. Costos a tablas relacionales | `apps/costos` funcional + ETL `supabase/seed` (correr dry-run → conciliar → aplicar) | ✅ app lista · ⏳ ETL por ejecutar |
-| 5. POS con productos reales | Demo `puntodeventa` auditado (ver `diagnostico-pos.md`). Reutilizar UIs; reescribir capa de datos a `@shake/supabase` | ⏳ |
-| 6. Orden pagada → cocina → inventario | Ya funciona en la base (triggers); falta repuntar KDS + cliente-display del demo a nuestro modelo `pedidos_cocina` | ⏳ UI |
-| 7. Cortes y reportes | `vw_corte_resumen` + `apps/admin`; crear `vw_ventas_diarias`/`vw_productos_mas_vendidos` aditivas | ⏳ UI |
+| 5. POS con productos reales | `apps/pos` + `apps/kiosko` conectadas a `@shake/supabase`; catálogo desde `productos`; cobro 2 pasos | ✅ hecha |
+| 6. Orden pagada → cocina → inventario | Triggers en la base + KDS (`apps/cocina-*`) y `apps/cliente-display` sobre `pedidos_cocina` con realtime. Verificado e2e | ✅ hecha |
+| 7. Cortes y reportes | `vw_corte_resumen` en el corte del POS + `apps/admin` (ventas/inventario) con `vw_ventas_diarias`/`vw_productos_mas_vendidos` | ✅ hecha |
 | 8. Preparación Clip | Edge function webhook + botón "cobrar con Clip" (ver integracion-clip.md) | ⏳ |
 | 9. Hardening | Supabase Auth, policies por rol, cerrar `app_users`/`app_data` a anon, rotación de claves, backups | ⏳ |
 
