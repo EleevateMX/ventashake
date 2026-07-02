@@ -883,6 +883,10 @@ function renderResale(m,key,title){
 const CATLABEL={proteins:"Proteínas",shakeIngs:"Ingred. shakes",foodIngs:"Ingred. alimentos",bebidas:"Bebidas",snacks:"Snacks"};
 function invPres(cat,it){if(cat==="proteins")return it.pres?(it.pres+" g/bote"):"Bote";
   if(cat==="shakeIngs"||cat==="foodIngs")return it.presCompra||"Presentación";return it.presOriginal||"Caja";}
+function presG(cat,it){
+  if(cat==="proteins")return it.pres?esc(it.pres)+" g":'<span class="muted">—</span>';
+  if(cat==="shakeIngs"||cat==="foodIngs")return it.cont?esc(it.cont)+" "+esc(it.unidad||""):'<span class="muted">—</span>';
+  return esc(invPres(cat,it));}
 function stockState(v,min){const n=+v||0,m=+min||0;
   if(n<=0)return{cls:"bad",txt:"Agotado"};if(m>0&&n<=m)return{cls:"warn",txt:"Bajo"};return{cls:"ok",txt:"OK"};}
 function stateCell(v,min){const s=stockState(v,min);return `<span class="statecell"><span class="dot ${s.cls}"></span><span class="pill ${s.cls}">${s.txt}</span></span>`;}
@@ -958,10 +962,10 @@ function paintInv(){
   if(!rows.length){body.innerHTML=kpis(rows)+`<div class="empty">No hay productos que coincidan con la búsqueda o el filtro.</div>`;return;}
   let head,bodyRows;
   if(invView==="bodega"){
-    head=`<th class="sticky">Producto</th><th>Categoría</th><th>Código</th><th>Presentación</th><th class="num">En bodega</th><th class="num">Mín</th><th class="num">Conteo</th><th class="num">Dif.</th><th>Estado</th><th>Caducidad</th><th>Acción</th>`;
+    head=`<th class="sticky">Producto</th><th>Categoría</th><th>Código</th><th>Pres(g)</th><th class="num">En bodega</th><th class="num">Mín</th><th class="num">Conteo</th><th class="num">Dif.</th><th>Estado</th><th>Caducidad</th><th>Acción</th>`;
     bodyRows=rows.map(({cat,i,it,cfg,name})=>`<tr data-cat="${cat}" data-i="${i}">
       <td class="sticky">${esc(name)}</td><td class="muted">${CATLABEL[cat]}</td><td class="muted">${esc(it.codigo)}</td>
-      <td>${esc(invPres(cat,it))}</td>
+      <td>${presG(cat,it)}</td>
       <td class="num">${num(it[cfg.orig])} <span class="muted" style="font-size:11px">${cfg.origUnit}</span></td>
       <td class="num muted">${num(it[cfg.origMin])}</td>
       <td class="num"><input class="n w-sm invconteo" data-conteo="bodega" value="${it.conteoBodega!==undefined?esc(it.conteoBodega):''}" placeholder="${num(it[cfg.orig])}"></td>
@@ -970,11 +974,11 @@ function paintInv(){
       <td>${cadCell(it[cfg.cad])}</td>
       <td><div style="display:flex;gap:5px;align-items:center"><button class="btn ghost mini" data-act="kx" title="Ver kardex / movimientos">📜</button><button class="btn tr" data-act="tr" title="Traspasar a kiosko">⇄ Traspasar</button></div></td></tr>`).join("");
   } else if(invView==="kiosko"){
-    head=`<th class="sticky">Producto</th><th>Categoría</th><th>Código</th><th class="num">Disponible</th><th class="num">Mín</th><th class="num">Conteo</th><th class="num">Dif.</th><th>Estado</th><th class="num">En bodega</th><th>Acción</th>`;
+    head=`<th class="sticky">Producto</th><th>Categoría</th><th>Código</th><th>Pres(g)</th><th class="num">Disponible</th><th class="num">Mín</th><th class="num">Conteo</th><th class="num">Dif.</th><th>Estado</th><th class="num">En bodega</th><th>Acción</th>`;
     bodyRows=rows.map(({cat,i,it,cfg,name})=>{const s=stockState(it[cfg.ind],it[cfg.indMin]);
       const needsRefill=(s.cls!=="ok")&&((+it[cfg.orig]||0)>0);
       return `<tr data-cat="${cat}" data-i="${i}">
-      <td class="sticky">${esc(name)}</td><td class="muted">${CATLABEL[cat]}</td><td class="muted">${esc(it.codigo)}</td>
+      <td class="sticky">${esc(name)}</td><td class="muted">${CATLABEL[cat]}</td><td class="muted">${esc(it.codigo)}</td><td>${presG(cat,it)}</td>
       <td class="num">${num(it[cfg.ind])} <span class="muted" style="font-size:11px">${cfg.indUnit}</span></td>
       <td class="num muted">${num(it[cfg.indMin])}</td>
       <td class="num"><input class="n w-sm invconteo" data-conteo="kiosko" value="${it.conteoKiosko!==undefined?esc(it.conteoKiosko):''}" placeholder="${num(it[cfg.ind])}"></td>
@@ -983,11 +987,11 @@ function paintInv(){
       <td class="num muted">${num(it[cfg.orig])} ${cfg.origUnit}</td>
       <td><div style="display:flex;gap:5px;align-items:center"><button class="btn ghost mini" data-act="kx" title="Ver kardex / movimientos">📜</button><button class="btn tr ${needsRefill?"rep":""}" data-act="tr" title="Traer de bodega">⇄ ${needsRefill?"Reponer":"Traspasar"}</button></div></td></tr>`;}).join("");
   } else {
-    head=`<th class="sticky">Producto</th><th>Categoría</th><th class="num">Bodega</th><th class="num">Kiosko</th><th>Estado</th><th>Caducidad</th><th>Acción</th>`;
+    head=`<th class="sticky">Producto</th><th>Categoría</th><th>Pres(g)</th><th class="num">Bodega</th><th class="num">Kiosko</th><th>Estado</th><th>Caducidad</th><th>Acción</th>`;
     bodyRows=rows.map(({cat,i,it,cfg,name})=>{const so=stockState(it[cfg.orig],it[cfg.origMin]),si=stockState(it[cfg.ind],it[cfg.indMin]);
       const worst=(so.cls==="bad"||si.cls==="bad")?{cls:"bad",txt:"Revisar"}:(so.cls==="warn"||si.cls==="warn")?{cls:"warn",txt:"Bajo"}:{cls:"ok",txt:"OK"};
       return `<tr data-cat="${cat}" data-i="${i}">
-      <td class="sticky">${esc(name)}</td><td class="muted">${CATLABEL[cat]}</td>
+      <td class="sticky">${esc(name)}</td><td class="muted">${CATLABEL[cat]}</td><td>${presG(cat,it)}</td>
       <td class="num">${num(it[cfg.orig])} <span class="muted" style="font-size:11px">${cfg.origUnit}</span></td>
       <td class="num">${num(it[cfg.ind])} <span class="muted" style="font-size:11px">${cfg.indUnit}</span></td>
       <td><span class="statecell"><span class="dot ${worst.cls}"></span><span class="pill ${worst.cls}">${worst.txt}</span></span></td>
