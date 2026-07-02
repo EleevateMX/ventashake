@@ -40,3 +40,4 @@ th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid #eef0f3; 
 td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .chip { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 0.72rem; font-weight: 600; }
 .muted { color: #667085; }
+button.liga { background: none; border: none; color: #2563eb; cursor: pointer; font-size: 0.85rem; }

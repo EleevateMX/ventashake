@@ -214,32 +214,129 @@ export type Database = {
       clientes: {
         Row: {
           activo: boolean
+          codigo: string | null
           created_at: string
           email: string | null
+          fecha_nacimiento: string | null
           id: string
+          mancuernas: number
           nombre: string
           notas: string | null
+          sabor_favorito: string | null
           telefono: string | null
         }
         Insert: {
           activo?: boolean
+          codigo?: string | null
           created_at?: string
           email?: string | null
+          fecha_nacimiento?: string | null
           id?: string
+          mancuernas?: number
           nombre: string
           notas?: string | null
+          sabor_favorito?: string | null
           telefono?: string | null
         }
         Update: {
           activo?: boolean
+          codigo?: string | null
           created_at?: string
           email?: string | null
+          fecha_nacimiento?: string | null
           id?: string
+          mancuernas?: number
           nombre?: string
           notas?: string | null
+          sabor_favorito?: string | null
           telefono?: string | null
         }
         Relationships: []
+      }
+      cupones: {
+        Row: {
+          beneficio: string
+          cliente_id: string
+          codigo: string
+          estado: Database["public"]["Enums"]["estado_cupon"]
+          generado_en: string
+          id: string
+          orden_id_uso: string | null
+          tipo: Database["public"]["Enums"]["tipo_cupon"]
+          usado_en: string | null
+          vence_en: string
+        }
+        Insert: {
+          beneficio?: string
+          cliente_id: string
+          codigo?: string
+          estado?: Database["public"]["Enums"]["estado_cupon"]
+          generado_en?: string
+          id?: string
+          orden_id_uso?: string | null
+          tipo?: Database["public"]["Enums"]["tipo_cupon"]
+          usado_en?: string | null
+          vence_en: string
+        }
+        Update: {
+          beneficio?: string
+          cliente_id?: string
+          codigo?: string
+          estado?: Database["public"]["Enums"]["estado_cupon"]
+          generado_en?: string
+          id?: string
+          orden_id_uso?: string | null
+          tipo?: Database["public"]["Enums"]["tipo_cupon"]
+          usado_en?: string | null
+          vence_en?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cupones_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mancuernas_movimientos: {
+        Row: {
+          cliente_id: string
+          created_at: string
+          descripcion: string | null
+          id: string
+          orden_id: string | null
+          puntos: number
+          tipo: Database["public"]["Enums"]["tipo_mancuerna"]
+        }
+        Insert: {
+          cliente_id: string
+          created_at?: string
+          descripcion?: string | null
+          id?: string
+          orden_id?: string | null
+          puntos: number
+          tipo: Database["public"]["Enums"]["tipo_mancuerna"]
+        }
+        Update: {
+          cliente_id?: string
+          created_at?: string
+          descripcion?: string | null
+          id?: string
+          orden_id?: string | null
+          puntos?: number
+          tipo?: Database["public"]["Enums"]["tipo_mancuerna"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mancuernas_movimientos_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       cocina_items: {
         Row: {
@@ -1318,10 +1415,13 @@ export type Database = {
         | "lista"
         | "entregada"
         | "cancelada"
+      estado_cupon: "activo" | "usado" | "expirado" | "cancelado"
       estado_pago: "pendiente" | "aprobado" | "rechazado" | "cancelado"
       metodo_pago: "clip" | "efectivo" | "tarjeta" | "cortesia" | "otro"
       tipo_almacen: "bodega" | "kiosko"
+      tipo_cupon: "mancuernas" | "cumpleanos"
       tipo_insumo: "proteina" | "shake" | "alimento" | "empaque" | "reventa"
+      tipo_mancuerna: "ganadas" | "canje" | "ajuste" | "promo" | "proximidad"
       tipo_movimiento: "compra" | "venta" | "traspaso" | "ajuste" | "merma"
     }
     CompositeTypes: {
@@ -1466,10 +1566,13 @@ export const Constants = {
         "entregada",
         "cancelada",
       ],
+      estado_cupon: ["activo", "usado", "expirado", "cancelado"],
       estado_pago: ["pendiente", "aprobado", "rechazado", "cancelado"],
       metodo_pago: ["clip", "efectivo", "tarjeta", "cortesia", "otro"],
       tipo_almacen: ["bodega", "kiosko"],
+      tipo_cupon: ["mancuernas", "cumpleanos"],
       tipo_insumo: ["proteina", "shake", "alimento", "empaque", "reventa"],
+      tipo_mancuerna: ["ganadas", "canje", "ajuste", "promo", "proximidad"],
       tipo_movimiento: ["compra", "venta", "traspaso", "ajuste", "merma"],
     },
   },

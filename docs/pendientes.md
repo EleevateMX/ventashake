@@ -23,9 +23,16 @@
       inventario
 - [ ] Fase 8: edge functions `clip-crear-cobro` y `clip-webhook` (cuando haya
       credenciales de Clip; hoy corre en ruta manual con el Stand 2)
-- [ ] Fase 2 del demo (aplazada): lealtad, wallet, gift cards, promociones,
-      delivery, RRHH — requieren ~11 tablas nuevas (aditivas) cuando el
-      negocio las pida
+- [x] Lealtad "Shakeaholic Rewards" núcleo: mancuernas (1 x $10, tope 100),
+      cupones a 100 (vigencia 1 año, máx 5), cupón cumpleaños, identificación
+      teléfono+QR, canje. Conectado al POS. Ver `docs/flujo-lealtad.md`
+- [ ] Lealtad pendientes: programar crons (cumpleaños/vencimientos/reactivación
+      con pg_cron o edge function), PWA del cliente (QR/saldo/historial), UI de
+      canje de cupón en el cobro, promociones personalizadas
+- [ ] Balizas de proximidad (beacons BLE): requieren app móvil nativa +
+      hardware; fuera del POS web
+- [ ] Otras Fase 2 del demo (aplazadas): wallet/monedero, gift cards, delivery,
+      RRHH — tablas aditivas cuando el negocio las pida
 
 ## Cómo operar hoy (checklist de arranque)
 

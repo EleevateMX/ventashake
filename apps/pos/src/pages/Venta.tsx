@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { sb } from '../lib/sb'
-import { listarProductosParaVenta, crearOrden, cobrarOrden } from '@shake/supabase'
-import type { ProductoVenta } from '@shake/supabase'
+import { listarProductosParaVenta, crearOrden, cobrarOrden, identificarCliente } from '@shake/supabase'
+import type { ProductoVenta, ClienteConLealtad } from '@shake/supabase'
 import type { MetodoPago } from '@shake/types'
 import { mxn } from '@shake/utils'
 import type { Contexto } from '../App'
@@ -29,6 +29,10 @@ export default function Venta({ ctx }: { ctx: Contexto }) {
   const [referencia, setReferencia] = useState('')
   const [procesando, setProcesando] = useState(false)
   const [ok, setOk] = useState<string | null>(null)
+  // Lealtad
+  const [buscarCli, setBuscarCli] = useState('')
+  const [cliente, setCliente] = useState<ClienteConLealtad | null>(null)
+  const [cliMsg, setCliMsg] = useState<string | null>(null)
 
   useEffect(() => {
     listarProductosParaVenta(sb)
@@ -62,6 +66,21 @@ export default function Venta({ ctx }: { ctx: Contexto }) {
     )
   }
 
+  async function buscarCliente() {
+    setCliMsg(null)
+    try {
+      const c = await identificarCliente(sb, buscarCli)
+      if (!c) {
+        setCliente(null)
+        setCliMsg('Cliente no encontrado.')
+      } else {
+        setCliente(c)
+      }
+    } catch (e) {
+      setCliMsg(e instanceof Error ? e.message : String(e))
+    }
+  }
+
   async function confirmarCobro() {
     if (carrito.length === 0) return
     setProcesando(true)
@@ -74,6 +93,7 @@ export default function Venta({ ctx }: { ctx: Contexto }) {
           almacen_id: ctx.almacenKioskoId,
           canal: 'pos',
           corte_id: ctx.corte.id,
+          cliente_id: cliente?.id ?? null,
         },
         carrito.map((l) => ({
           producto_id: l.producto.id,
@@ -85,9 +105,15 @@ export default function Venta({ ctx }: { ctx: Contexto }) {
       await cobrarOrden(sb, orden.id, metodo, total, {
         referencia: referencia.trim() || undefined,
       })
-      setOk(`Orden #${orden.folio} cobrada (${metodo}). Enviada a cocina.`)
+      const gana = cliente ? Math.min(100, Math.floor(total / 10)) : 0
+      setOk(
+        `Orden #${orden.folio} cobrada (${metodo}). Enviada a cocina.` +
+          (cliente ? ` ${cliente.nombre} ganó ${gana} mancuernas.` : ''),
+      )
       setCarrito([])
       setReferencia('')
+      setCliente(null)
+      setBuscarCli('')
       setCobrando(false)
       setTimeout(() => setOk(null), 4000)
     } catch (e) {
@@ -128,6 +154,31 @@ export default function Venta({ ctx }: { ctx: Contexto }) {
 
       <div className="panel cart">
         <h2>Ticket</h2>
+
+        <div style={{ marginBottom: 12 }}>
+          {!cliente ? (
+            <>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <input
+                  style={{ flex: 1, padding: '7px 9px', border: '1px solid #d0d5dd', borderRadius: 6 }}
+                  placeholder="Teléfono o QR (SHK-…)"
+                  value={buscarCli}
+                  onChange={(e) => setBuscarCli(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') void buscarCliente() }}
+                />
+                <button className="sec" onClick={() => void buscarCliente()}>Buscar</button>
+              </div>
+              {cliMsg && <p className="muted" style={{ fontSize: '0.8rem' }}>{cliMsg}</p>}
+            </>
+          ) : (
+            <div style={{ background: '#ecfdf3', border: '1px solid #a6f4c5', borderRadius: 8, padding: 8 }}>
+              <b>{cliente.nombre}</b> · 🏋️ {cliente.mancuernas} mancuernas
+              {cliente.cupones.length > 0 && <div className="muted" style={{ fontSize: '0.8rem' }}>{cliente.cupones.length} cupón(es) activo(s)</div>}
+              <button className="liga" style={{ padding: 0, marginTop: 4 }} onClick={() => { setCliente(null); setBuscarCli('') }}>quitar</button>
+            </div>
+          )}
+        </div>
+
         {carrito.length === 0 && <p className="muted">Toca productos para agregarlos.</p>}
         {carrito.map((l) => (
           <div key={l.producto.id} className="cart-item">
