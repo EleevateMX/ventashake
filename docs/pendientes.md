@@ -29,10 +29,11 @@
 - [x] Lealtad: crons con pg_cron (cumpleaños/vencimientos/reactivación),
       PWA del cliente (login Google + QR/saldo/cupones), canje de cupón en el
       cobro (POS y kiosko)
-- [ ] Lealtad pendientes: promociones personalizadas (segmentación por
-      sabor/frecuencia/horario); definir valor del cupón de 100 mancuernas si
-      no será "ítem gratis"; envío de notificaciones (email/push vía edge
-      function + pg_net)
+- [x] Promociones personalizadas: segmentación por sabor/día/hora/frecuencia,
+      tope 15 días, tipos %/$/producto gratis; CRUD en admin y aplicación en POS
+- [ ] Lealtad pendientes: definir valor del cupón de 100 mancuernas si no será
+      "ítem gratis"; envío de notificaciones (email/push vía edge function +
+      pg_net); promos también aplicables en kiosko (hoy en POS)
 - [ ] Balizas de proximidad (beacons BLE): requieren app móvil nativa +
       hardware; fuera del POS web
 - [ ] Otras Fase 2 del demo (aplazadas): wallet/monedero, gift cards, delivery,

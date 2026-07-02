@@ -341,6 +341,96 @@ export type Database = {
           },
         ]
       }
+      promociones: {
+        Row: {
+          activa: boolean
+          categoria_gratis: string | null
+          created_at: string
+          descripcion: string | null
+          dias_semana: number[] | null
+          hora_fin: string | null
+          hora_inicio: string | null
+          id: string
+          min_compras_30d: number | null
+          nombre: string
+          sabor_favorito: string | null
+          tipo: Database["public"]["Enums"]["tipo_promocion"]
+          valor: number
+          vence_en: string | null
+        }
+        Insert: {
+          activa?: boolean
+          categoria_gratis?: string | null
+          created_at?: string
+          descripcion?: string | null
+          dias_semana?: number[] | null
+          hora_fin?: string | null
+          hora_inicio?: string | null
+          id?: string
+          min_compras_30d?: number | null
+          nombre: string
+          sabor_favorito?: string | null
+          tipo: Database["public"]["Enums"]["tipo_promocion"]
+          valor?: number
+          vence_en?: string | null
+        }
+        Update: {
+          activa?: boolean
+          categoria_gratis?: string | null
+          created_at?: string
+          descripcion?: string | null
+          dias_semana?: number[] | null
+          hora_fin?: string | null
+          hora_inicio?: string | null
+          id?: string
+          min_compras_30d?: number | null
+          nombre?: string
+          sabor_favorito?: string | null
+          tipo?: Database["public"]["Enums"]["tipo_promocion"]
+          valor?: number
+          vence_en?: string | null
+        }
+        Relationships: []
+      }
+      promocion_aplicaciones: {
+        Row: {
+          cliente_id: string
+          created_at: string
+          id: string
+          orden_id: string | null
+          promocion_id: string
+        }
+        Insert: {
+          cliente_id: string
+          created_at?: string
+          id?: string
+          orden_id?: string | null
+          promocion_id: string
+        }
+        Update: {
+          cliente_id?: string
+          created_at?: string
+          id?: string
+          orden_id?: string | null
+          promocion_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promocion_aplicaciones_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promocion_aplicaciones_promocion_id_fkey"
+            columns: ["promocion_id"]
+            isOneToOne: false
+            referencedRelation: "promociones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cocina_items: {
         Row: {
           cantidad: number
@@ -1401,7 +1491,22 @@ export type Database = {
       }
     }
     Functions: {
-      [_ in never]: never
+      fn_promos_cliente: {
+        Args: { p_cliente: string }
+        Returns: Database["public"]["Tables"]["promociones"]["Row"][]
+      }
+      fn_generar_cupones_cumpleanos: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
+      fn_expirar_cupones: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
+      fn_reactivacion: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
     }
     Enums: {
       canal_orden: "kiosko" | "pos" | "delivery"
@@ -1426,6 +1531,7 @@ export type Database = {
       tipo_insumo: "proteina" | "shake" | "alimento" | "empaque" | "reventa"
       tipo_mancuerna: "ganadas" | "canje" | "ajuste" | "promo" | "proximidad"
       tipo_movimiento: "compra" | "venta" | "traspaso" | "ajuste" | "merma"
+      tipo_promocion: "descuento_pct" | "descuento_monto" | "producto_gratis"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1577,6 +1683,7 @@ export const Constants = {
       tipo_insumo: ["proteina", "shake", "alimento", "empaque", "reventa"],
       tipo_mancuerna: ["ganadas", "canje", "ajuste", "promo", "proximidad"],
       tipo_movimiento: ["compra", "venta", "traspaso", "ajuste", "merma"],
+      tipo_promocion: ["descuento_pct", "descuento_monto", "producto_gratis"],
     },
   },
 } as const

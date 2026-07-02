@@ -7,9 +7,12 @@ import {
   identificarCliente,
   buscarCupon,
   canjearCupon,
+  promosParaCliente,
+  descuentoPromo as calcDescuentoPromo,
+  registrarAplicacionPromo,
 } from '@shake/supabase'
 import type { ProductoVenta, ClienteConLealtad } from '@shake/supabase'
-import type { MetodoPago, Cupon } from '@shake/types'
+import type { MetodoPago, Cupon, Promocion } from '@shake/types'
 import { mxn } from '@shake/utils'
 import type { Contexto } from '../App'
 
@@ -44,6 +47,9 @@ export default function Venta({ ctx }: { ctx: Contexto }) {
   const [cupon, setCupon] = useState<Cupon | null>(null)
   const [codigoCupon, setCodigoCupon] = useState('')
   const [cuponMsg, setCuponMsg] = useState<string | null>(null)
+  // Promociones
+  const [promosDisp, setPromosDisp] = useState<Promocion[]>([])
+  const [promo, setPromo] = useState<Promocion | null>(null)
 
   useEffect(() => {
     listarProductosParaVenta(sb)
@@ -84,12 +90,24 @@ export default function Venta({ ctx }: { ctx: Contexto }) {
       if (!c) {
         setCliente(null)
         setCliMsg('Cliente no encontrado.')
+        setPromosDisp([])
       } else {
         setCliente(c)
+        setPromosDisp(await promosParaCliente(sb, c.id).catch(() => []))
       }
     } catch (e) {
       setCliMsg(e instanceof Error ? e.message : String(e))
     }
+  }
+
+  // items expandidos por unidad (para calcular descuentos de promo)
+  function itemsPlanos() {
+    return carrito.flatMap((l) =>
+      Array.from({ length: l.cantidad }, () => ({
+        precio: l.producto.precio,
+        categoria: l.producto.categorias?.nombre ?? null,
+      })),
+    )
   }
 
   // Ítems elegibles para un cupón: cumpleaños solo shakes; otros cualquiera.
@@ -101,7 +119,7 @@ export default function Venta({ ctx }: { ctx: Contexto }) {
   }
 
   // El cupón cubre (gratis) el ítem elegible más caro, 1 unidad.
-  const descuento = useMemo(() => {
+  const descuentoCupon = useMemo(() => {
     if (!cupon) return 0
     const eleg = itemsElegibles(cupon)
     if (eleg.length === 0) return 0
@@ -109,6 +127,13 @@ export default function Venta({ ctx }: { ctx: Contexto }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cupon, carrito])
 
+  const descuentoPromoMonto = useMemo(() => {
+    if (!promo) return 0
+    return calcDescuentoPromo(promo, itemsPlanos())
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [promo, carrito])
+
+  const descuento = descuentoCupon + descuentoPromoMonto
   const neto = Math.max(0, total - descuento)
 
   function aplicarCupon(cup: Cupon) {
@@ -157,6 +182,8 @@ export default function Venta({ ctx }: { ctx: Contexto }) {
       )
       // Si hay cupón, canjearlo (marca usado + liga a la orden) antes de cobrar.
       if (cupon) await canjearCupon(sb, cupon.id, orden.id)
+      // Si hay promo, registrar su aplicación (throttle + reporte).
+      if (promo && cliente) await registrarAplicacionPromo(sb, promo.id, cliente.id, orden.id)
       // Cobro inmediato aprobado → el trigger descuenta inventario y manda a cocina.
       await cobrarOrden(sb, orden.id, metodo, neto, {
         referencia: referencia.trim() || undefined,
@@ -174,6 +201,8 @@ export default function Venta({ ctx }: { ctx: Contexto }) {
       setCupon(null)
       setCodigoCupon('')
       setCuponMsg(null)
+      setPromo(null)
+      setPromosDisp([])
       setCobrando(false)
       setTimeout(() => setOk(null), 4000)
     } catch (e) {
@@ -233,7 +262,7 @@ export default function Venta({ ctx }: { ctx: Contexto }) {
           ) : (
             <div style={{ background: '#ecfdf3', border: '1px solid #a6f4c5', borderRadius: 8, padding: 8 }}>
               <b>{cliente.nombre}</b> · 🏋️ {cliente.mancuernas} mancuernas
-              <button className="liga" style={{ padding: 0, marginLeft: 8 }} onClick={() => { setCliente(null); setBuscarCli(''); setCupon(null) }}>quitar</button>
+              <button className="liga" style={{ padding: 0, marginLeft: 8 }} onClick={() => { setCliente(null); setBuscarCli(''); setCupon(null); setPromo(null); setPromosDisp([]) }}>quitar</button>
               {cliente.cupones.length > 0 && !cupon && (
                 <div style={{ marginTop: 6 }}>
                   {cliente.cupones.map((c) => (
@@ -242,6 +271,22 @@ export default function Venta({ ctx }: { ctx: Contexto }) {
                       <button className="sec" onClick={() => aplicarCupon(c)}>Aplicar</button>
                     </div>
                   ))}
+                </div>
+              )}
+              {promosDisp.length > 0 && !promo && (
+                <div style={{ marginTop: 6 }}>
+                  {promosDisp.map((pr) => (
+                    <div key={pr.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                      <span style={{ fontSize: '0.8rem' }}>🎯 {pr.nombre}</span>
+                      <button className="sec" onClick={() => setPromo(pr)}>Aplicar</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {promo && (
+                <div style={{ marginTop: 6, fontSize: '0.8rem' }}>
+                  🎯 Promo: {promo.nombre} (−{mxn(descuentoPromoMonto)}){' '}
+                  <button className="liga" style={{ padding: 0 }} onClick={() => setPromo(null)}>quitar</button>
                 </div>
               )}
             </div>

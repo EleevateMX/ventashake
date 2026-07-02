@@ -8,6 +8,7 @@ export type Empleado = Tables<'empleados'>
 export type Cliente = Tables<'clientes'>
 export type Cupon = Tables<'cupones'>
 export type MancuernaMovimiento = Tables<'mancuernas_movimientos'>
+export type Promocion = Tables<'promociones'>
 export type Caja = Tables<'cajas'>
 export type CajaCorte = Tables<'caja_cortes'>
 export type Insumo = Tables<'insumos'>
@@ -56,6 +57,7 @@ export type CanalOrden = Enums<'canal_orden'>
 export type TipoCupon = Enums<'tipo_cupon'>
 export type EstadoCupon = Enums<'estado_cupon'>
 export type TipoMancuerna = Enums<'tipo_mancuerna'>
+export type TipoPromocion = Enums<'tipo_promocion'>
 
 // ---- Estructura del JSON legacy (app_data.data) ----
 // Solo lectura: la usa el ETL de supabase/seed. No ampliar.
