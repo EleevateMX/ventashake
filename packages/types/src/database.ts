@@ -214,6 +214,7 @@ export type Database = {
       clientes: {
         Row: {
           activo: boolean
+          auth_user_id: string | null
           codigo: string | null
           created_at: string
           email: string | null
@@ -227,6 +228,7 @@ export type Database = {
         }
         Insert: {
           activo?: boolean
+          auth_user_id?: string | null
           codigo?: string | null
           created_at?: string
           email?: string | null
@@ -240,6 +242,7 @@ export type Database = {
         }
         Update: {
           activo?: boolean
+          auth_user_id?: string | null
           codigo?: string | null
           created_at?: string
           email?: string | null

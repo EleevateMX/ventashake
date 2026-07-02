@@ -48,14 +48,43 @@ muestra nombre, mancuernas y cupones activos. Al cobrar, la orden se liga al
 cliente y la base acumula las mancuernas automáticamente (el ticket confirma
 cuántas ganó).
 
-## Pendiente / fases siguientes
+## Jobs programados (pg_cron) — ✅ activos
 
-- **Programar cumpleaños y vencimientos**: `fn_generar_cupones_cumpleanos()`
-  el día 1 de cada mes vía `pg_cron` (extensión de Supabase) o una edge
-  function con schedule. Recordatorio "3 días antes de vencer" y
-  reactivación "30 días sin compra" = jobs similares.
-- **PWA del cliente**: consulta de saldo/cupones/historial + render del QR.
-  App nueva (`apps/cliente-pwa`), consume `@shake/supabase`.
+Extensión `pg_cron` habilitada. Jobs (ver `cron.job`):
+
+| Job | Programación | Acción |
+|---|---|---|
+| `cupones-cumpleanos` | día 1, 06:00 UTC | `fn_generar_cupones_cumpleanos()` |
+| `cupones-expirar` | diario 05:00 UTC | `fn_expirar_cupones()` (marca vencidos) |
+| `lealtad-reactivacion` | lunes 06:00 UTC | `fn_reactivacion()` (+5 mancuernas a inactivos 30 días) |
+
+Reprogramar/pausar: `select cron.schedule('nombre', '<cron>', $$...$$);` /
+`select cron.unschedule('nombre');`. Los envíos de notificación
+(recordatorio 3 días antes, avisos) requieren un canal (email/push) vía
+edge function + `pg_net`; el dato ya está listo, falta el emisor.
+
+## PWA del cliente — ✅ `apps/cliente-pwa`
+
+App instalable (manifest) con **registro/login por Google** (Supabase Auth).
+Al entrar, vincula el usuario con su ficha de cliente (`clientes.auth_user_id`)
+y muestra: saldo de mancuernas, barra "para tu próximo cupón", su **QR**
+(`codigo`, generado local con `qrcode`, sin llamadas externas) y sus cupones
+activos (cada uno con su QR de canje). Puerto dev 5187.
+
+### ⚠️ Configuración de Google (una sola vez, la haces tú)
+
+Requiere credenciales que solo tú puedes crear:
+
+1. **Google Cloud Console** → crea un OAuth 2.0 Client ID (tipo Web).
+   - Authorized redirect URI: `https://zyjtnaystsporbuzcmqk.supabase.co/auth/v1/callback`
+2. **Supabase → Authentication → Providers → Google**: pega Client ID y
+   Client Secret, habilita.
+3. **Supabase → Authentication → URL Configuration**: agrega la URL donde
+   sirvas la PWA (dev `http://localhost:5187`, y tu dominio en producción) a
+   *Redirect URLs*.
+
+Sin esto, el botón "Continuar con Google" dará error de proveedor no
+habilitado; todo lo demás (mancuernas, cupones, POS/kiosko) funciona igual.
 - **Promociones personalizadas** (por sabor/frecuencia/horario): motor de
   segmentación + tabla `promociones`. Aditivo.
 - **Balizas de proximidad (beacons BLE / Google Nearby)**: **requieren una app

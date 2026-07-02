@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { sb } from './lib/sb'
-import { listarAlmacenes, listarProductosParaVenta, crearOrden, cobrarOrden } from '@shake/supabase'
-import type { ProductoVenta } from '@shake/supabase'
+import { listarAlmacenes, listarProductosParaVenta, crearOrden, cobrarOrden, identificarCliente } from '@shake/supabase'
+import type { ProductoVenta, ClienteConLealtad } from '@shake/supabase'
 import type { Almacen } from '@shake/types'
 import type { MetodoPago } from '@shake/types'
 import { mxn } from '@shake/utils'
@@ -37,6 +37,9 @@ export default function App() {
   const [referencia, setReferencia] = useState('')
   const [procesando, setProcesando] = useState(false)
   const [confirmada, setConfirmada] = useState<OrdenConfirmada | null>(null)
+  // Lealtad (opcional en autoservicio)
+  const [buscarCli, setBuscarCli] = useState('')
+  const [cliente, setCliente] = useState<ClienteConLealtad | null>(null)
 
   async function bootstrap() {
     setCargando(true)
@@ -106,6 +109,7 @@ export default function App() {
           sucursal_id: almacen.sucursal_id,
           almacen_id: almacen.id,
           canal: 'kiosko',
+          cliente_id: cliente?.id ?? null,
         },
         carrito.map((l) => ({
           producto_id: l.producto.id,
@@ -121,6 +125,8 @@ export default function App() {
       setCarrito([])
       setReferencia('')
       setMetodo('tarjeta')
+      setCliente(null)
+      setBuscarCli('')
       setCobrando(false)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
@@ -211,6 +217,35 @@ export default function App() {
         <div className="modal-bg" onClick={(e) => { if (e.target === e.currentTarget && !procesando) setCobrando(false) }}>
           <div className="modal">
             <h2>Pagar {mxn(total)}</h2>
+
+            {/* Lealtad opcional: identifícate para ganar mancuernas */}
+            {!cliente ? (
+              <div className="campo">
+                <label>¿Eres miembro Rewards? Teléfono o QR (opcional)</label>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <input
+                    style={{ flex: 1 }}
+                    value={buscarCli}
+                    onChange={(e) => setBuscarCli(e.target.value)}
+                    placeholder="Teléfono o SHK-…"
+                  />
+                  <button
+                    className="sec"
+                    onClick={async () => {
+                      const c = await identificarCliente(sb, buscarCli).catch(() => null)
+                      setCliente(c)
+                    }}
+                  >
+                    Identificar
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <p className="instruccion">
+                ¡Hola {cliente.nombre.split(' ')[0]}! Ganarás {Math.min(100, Math.floor(total / 10))} mancuernas 🏋️
+              </p>
+            )}
+
             <p className="muted">Elige tu forma de pago</p>
             <div className="metodos">
               {METODOS.map((m) => (

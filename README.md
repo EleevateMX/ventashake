@@ -10,7 +10,8 @@ apps/cocina-alimentos  ✅ KDS estación alimentos (realtime)                   
 apps/cocina-bebidas    ✅ KDS estación bebidas (realtime)                      :5183
 apps/cliente-display   ✅ pantalla pública de folios (preparando/listo)        :5184
 apps/admin             ✅ menú CRUD + ventas + inventario                      :5185
-apps/kiosko            ✅ autoservicio (canal kiosko)                          :5186
+apps/kiosko            ✅ autoservicio + Clip + lealtad (canal kiosko)         :5186
+apps/cliente-pwa       ✅ PWA cliente: login Google, mancuernas, QR, cupones   :5187
 packages/{types,supabase,utils,ui}                 código compartido
 supabase/{migrations,seed,functions}               SQL versionado, ETL, edge functions
 docs/                                              diagnóstico, arquitectura, flujos, plan
@@ -33,6 +34,7 @@ pnpm dev:admin     # admin        → :5185
 pnpm dev:cocina-alimentos   # :5182
 pnpm dev:cocina-bebidas     # :5183
 pnpm dev:display   # cliente-display → :5184
+pnpm dev:pwa       # PWA cliente (Rewards) → :5187
 pnpm dev:costos    # costeo      → :5180
 ```
 

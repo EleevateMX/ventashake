@@ -60,6 +60,50 @@ export async function registrarCliente(
   return data
 }
 
+/**
+ * Vincula (o crea) el cliente del programa con el usuario de Supabase Auth.
+ * Se llama tras el login con Google en la PWA. Idempotente por auth_user_id.
+ */
+export async function vincularClienteAuth(
+  sb: ShakeClient,
+  input: { authUserId: string; nombre: string; email?: string | null },
+): Promise<ClienteConLealtad> {
+  const { data: existente, error: e1 } = await sb
+    .from('clientes')
+    .select('*, cupones(*)')
+    .eq('auth_user_id', input.authUserId)
+    .maybeSingle()
+  if (e1) throw e1
+  if (existente) return filtrarCupones(existente as ClienteConLealtad)
+
+  const { data, error } = await sb
+    .from('clientes')
+    .insert({ auth_user_id: input.authUserId, nombre: input.nombre, email: input.email ?? null })
+    .select('*, cupones(*)')
+    .single()
+  if (error) throw error
+  return filtrarCupones(data as ClienteConLealtad)
+}
+
+/** Estado de lealtad del usuario logueado (por auth_user_id). */
+export async function miLealtad(sb: ShakeClient, authUserId: string): Promise<ClienteConLealtad | null> {
+  const { data, error } = await sb
+    .from('clientes')
+    .select('*, cupones(*)')
+    .eq('auth_user_id', authUserId)
+    .maybeSingle()
+  if (error) throw error
+  return data ? filtrarCupones(data as ClienteConLealtad) : null
+}
+
+function filtrarCupones(cli: ClienteConLealtad): ClienteConLealtad {
+  const ahora = Date.now()
+  cli.cupones = (cli.cupones ?? []).filter(
+    (c) => c.estado === 'activo' && new Date(c.vence_en).getTime() >= ahora,
+  )
+  return cli
+}
+
 /** Cupones activos y vigentes de un cliente. */
 export async function cuponesActivos(sb: ShakeClient, clienteId: string): Promise<Cupon[]> {
   const { data, error } = await sb

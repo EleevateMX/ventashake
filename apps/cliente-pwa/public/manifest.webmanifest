@@ -1,0 +1,9 @@
+{
+  "name": "Shakeaholic Rewards",
+  "short_name": "Rewards",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0b3d2e",
+  "theme_color": "#16a34a",
+  "icons": []
+}
