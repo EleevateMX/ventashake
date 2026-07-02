@@ -9,6 +9,7 @@ Historial en el proyecto Supabase **Shakeaholic** (`zyjtnaystsporbuzcmqk`):
 | `20260701...` | `pos_operativo_aditivo` | aplicada — versionada aquí como `20260701220000_pos_operativo_aditivo.sql` |
 | `20260701...` | `fix_sel_ordenes_pos` | aplicada — versionada aquí como `20260701223000_fix_sel_ordenes_pos.sql` |
 | `20260701...` | `costeo_v3_compat_legacy` | aplicada — versionada aquí como `20260701230000_costeo_v3_compat_legacy.sql` |
+| `20260702...` | `reportes_ventas_y_descuento` | aplicada — versionada aquí como `20260702120000_reportes_ventas_y_descuento.sql` |
 
 Las dos primeras se aplicaron directamente en el proyecto hosted antes de
 existir este repo; su SQL vive en el historial de Supabase

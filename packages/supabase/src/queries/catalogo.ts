@@ -7,6 +7,7 @@ import type {
   ProductoInsert,
   ProductoUpdate,
   Categoria,
+  Cocina,
   Receta,
   RecetaInsert,
 } from '@shake/types'
@@ -81,6 +82,63 @@ export async function listarCategorias(sb: ShakeClient): Promise<Categoria[]> {
   const { data, error } = await sb.from('categorias').select('*').eq('activa', true).order('nombre')
   if (error) throw error
   return data
+}
+
+/** Baja lógica de producto: no se borra (histórico de órdenes/recetas). */
+export async function desactivarProducto(sb: ShakeClient, id: string): Promise<void> {
+  const { error } = await sb.from('productos').update({ activo: false }).eq('id', id)
+  if (error) throw error
+}
+
+export async function crearCategoria(
+  sb: ShakeClient,
+  cat: { nombre: string; cocina_id: string },
+): Promise<Categoria> {
+  const { data, error } = await sb.from('categorias').insert(cat).select().single()
+  if (error) throw error
+  return data
+}
+
+export async function listarCocinas(sb: ShakeClient): Promise<Cocina[]> {
+  const { data, error } = await sb.from('cocinas').select('*').order('nombre')
+  if (error) throw error
+  return data
+}
+
+// ------------------------- catálogo para venta -----------------------
+// Producto con su categoría y la cocina/estación a la que ruta.
+export interface ProductoVenta extends Producto {
+  categorias: {
+    id: string
+    nombre: string
+    cocinas: { id: string; nombre: string; slug: string } | null
+  } | null
+}
+
+/** Catálogo activo con categoría y cocina anidada (POS, kiosko, admin). */
+export async function listarProductosParaVenta(sb: ShakeClient): Promise<ProductoVenta[]> {
+  const { data, error } = await sb
+    .from('productos')
+    .select('*, categorias(id, nombre, cocinas(id, nombre, slug))')
+    .eq('activo', true)
+    .order('nombre')
+  if (error) throw error
+  return data as unknown as ProductoVenta[]
+}
+
+/** Catálogo activo de una estación de cocina ('alimentos' | 'bebidas'). */
+export async function listarProductosPorCocina(
+  sb: ShakeClient,
+  cocinaSlug: string,
+): Promise<ProductoVenta[]> {
+  const { data, error } = await sb
+    .from('productos')
+    .select('*, categorias!inner(id, nombre, cocinas!inner(id, nombre, slug))')
+    .eq('activo', true)
+    .eq('categorias.cocinas.slug', cocinaSlug)
+    .order('nombre')
+  if (error) throw error
+  return data as unknown as ProductoVenta[]
 }
 
 // ------------------------------ recetas ------------------------------

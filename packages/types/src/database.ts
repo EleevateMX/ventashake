@@ -704,6 +704,7 @@ export type Database = {
           clip_recibo: string | null
           corte_id: string | null
           created_at: string
+          descuento: number
           empleado_id: string | null
           estado: Database["public"]["Enums"]["estado_orden"]
           folio: number
@@ -721,6 +722,7 @@ export type Database = {
           clip_recibo?: string | null
           corte_id?: string | null
           created_at?: string
+          descuento?: number
           empleado_id?: string | null
           estado?: Database["public"]["Enums"]["estado_orden"]
           folio?: number
@@ -738,6 +740,7 @@ export type Database = {
           clip_recibo?: string | null
           corte_id?: string | null
           created_at?: string
+          descuento?: number
           empleado_id?: string | null
           estado?: Database["public"]["Enums"]["estado_orden"]
           folio?: number
@@ -1237,6 +1240,31 @@ export type Database = {
           precio_con_iva: number | null
           precio_sin_iva: number | null
           precio_sugerido: number | null
+        }
+        Relationships: []
+      }
+      vw_productos_mas_vendidos: {
+        Row: {
+          categoria: string | null
+          id: string | null
+          nombre: string | null
+          total_ingresos: number | null
+          total_vendido: number | null
+        }
+        Relationships: []
+      }
+      vw_ventas_diarias: {
+        Row: {
+          clip: number | null
+          cortesia: number | null
+          dia: string | null
+          efectivo: number | null
+          num_ordenes: number | null
+          otro: number | null
+          sucursal_id: string | null
+          tarjeta: number | null
+          ticket_promedio: number | null
+          total_ventas: number | null
         }
         Relationships: []
       }

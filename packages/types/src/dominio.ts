@@ -29,6 +29,8 @@ export type Parametros = Tables<'parametros'>
 export type CosteoProducto = Tables<'vw_costeo_producto'>
 export type CorteResumen = Tables<'vw_corte_resumen'>
 export type StockAlmacen = Tables<'vw_stock_almacen'>
+export type VentaDiaria = Tables<'vw_ventas_diarias'>
+export type ProductoVendido = Tables<'vw_productos_mas_vendidos'>
 
 // ---- Inserts / Updates más usados ----
 export type InsumoInsert = TablesInsert<'insumos'>
