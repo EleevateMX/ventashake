@@ -1,5 +1,22 @@
 # Reporte de conciliación de datos legacy
 
+## ✅ ETL aplicado (2026-07-02)
+
+Catálogo poblado desde `app_data` (SQL idempotente, `supabase/seed/etl-app-data.sql`):
+**182 insumos, 57 productos, 182 líneas de receta.** `app_data` intacto.
+
+Pendientes de captura en la app de Costos (no bloquean vender lo activo):
+- **27 productos inactivos** (sin precio de venta): 16 shakes, 4 alimentos y
+  algunas reventas. Se crearon `activo=false`; asignar precio para venderlos.
+- **20 productos con líneas de receta sin cantidad** (`PENDIENTE-CANTIDAD`,
+  95 líneas): capturar gramajes para que el costeo/descuento sea exacto.
+- **105 insumos con costo 0**: capturar costo de compra.
+- **0 productos activos con costo cero** → los 30 productos vendibles ya
+  costean bien.
+
+---
+
+
 Auditoría del JSON `app_data` (2026-07-01). **Nada se corrigió en
 automático** — estas listas requieren decisión humana antes o después del
 ETL (el ETL migra la 1ª aparición y omite el resto).
