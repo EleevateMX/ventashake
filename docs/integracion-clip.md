@@ -6,6 +6,30 @@ dentro del Stand. El diseño funciona en tres niveles progresivos — los
 tres terminan igual: `pagos.estado = 'aprobado'` → la base dispara
 cocina + inventario.
 
+## Realidad del hardware (investigado 2026-07, developer.clip.mx)
+
+Clip ofrece dos rutas de integración y **el hardware importa**:
+
+- **API de Checkout (redirigido)**: genera un cobro/link/QR que el cliente
+  paga; se confirma por **webhook**. Sirve para e-commerce y cobro por QR,
+  pero **no empuja el monto a la pantalla del Stand 2**.
+- **Integración por API a terminal física**: Clip la ofrece oficialmente
+  para su **Clip Pin Pad** (terminal de mostrador diseñada para conectarse
+  a un POS externo por API y cobrar sin teclear el monto). El **Clip Stand
+  2** es una terminal Android autónoma con su propia app; **no expone hoy
+  un API local** para que un POS externo le dispare el cobro.
+
+**Conclusión para Shakeaholic (hardware actual = Stand 2):** se opera con
+la **ruta manual** (nivel 1). La confirmación automática requiere la API
+de Checkout (nivel 2/3, opcional, necesita cuenta + token de developer).
+El "cobro automático empujando el monto a la terminal" requeriría un
+**Clip Pin Pad**, no el Stand 2. Decisión del negocio: **arrancamos en
+manual**; el sistema queda listo para subir de nivel sin reescribir.
+
+**Estado en el POS**: el flujo manual ya está implementado en
+`apps/pos` (método "Clip (Stand 2)" pide la referencia del voucher y
+registra el pago aprobado). Ver `Venta.tsx`.
+
 ## Nivel 1 — Ruta manual (disponible HOY)
 
 1. Cajero crea la orden y elige método **clip**.
