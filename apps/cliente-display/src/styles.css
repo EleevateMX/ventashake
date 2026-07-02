@@ -1,0 +1,130 @@
+:root {
+  font-family: system-ui, -apple-system, sans-serif;
+  color: #f5f5f5;
+  background: #0b0f14;
+}
+* { box-sizing: border-box; }
+body { margin: 0; }
+
+.display {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding: 24px 32px 32px;
+}
+
+.display-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+  border-bottom: 3px solid #1f2a37;
+  padding-bottom: 16px;
+}
+.display-header h1 {
+  margin: 0;
+  font-size: 2.6rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.display-header .reloj {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #94a3b8;
+  font-variant-numeric: tabular-nums;
+}
+
+.columnas {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  align-items: stretch;
+}
+@media (max-width: 900px) {
+  .columnas { grid-template-columns: 1fr; }
+}
+
+.columna {
+  background: #111827;
+  border: 2px solid #1f2a37;
+  border-radius: 18px;
+  padding: 20px 22px 28px;
+  display: flex;
+  flex-direction: column;
+}
+.columna.lista { border-color: #15803d; background: #0e1a12; }
+.columna.prep { border-color: #b45309; background: #1a140a; }
+
+.columna h2 {
+  margin: 0 0 18px;
+  font-size: 2rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  text-align: center;
+  padding-bottom: 12px;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.08);
+}
+.columna.lista h2 { color: #4ade80; }
+.columna.prep h2 { color: #fbbf24; }
+
+.folios {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 18px;
+  align-content: start;
+}
+
+.folio {
+  background: #0b0f14;
+  border-radius: 16px;
+  padding: 22px 12px;
+  text-align: center;
+  border: 2px solid transparent;
+}
+.columna.lista .folio {
+  background: #16a34a;
+  color: #041207;
+  box-shadow: 0 0 24px rgba(34, 197, 94, 0.35);
+}
+.columna.prep .folio {
+  background: #1f2937;
+  color: #fde68a;
+  border-color: #b45309;
+}
+.folio .num {
+  display: block;
+  font-size: 4.4rem;
+  font-weight: 900;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.folio .etq {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  opacity: 0.75;
+}
+
+.vacio {
+  color: #64748b;
+  font-size: 1.4rem;
+  text-align: center;
+  padding: 48px 12px;
+}
+
+.estado-full {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  font-weight: 700;
+  color: #94a3b8;
+}
+.estado-full.error { color: #f87171; }
