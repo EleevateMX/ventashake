@@ -1,0 +1,7 @@
+{
+  "extends": "@pos/config/tsconfig/react",
+  "compilerOptions": {
+    "outDir": "./dist"
+  },
+  "include": ["src"]
+}

@@ -1,0 +1,11 @@
+{
+  "name": "@pos/config",
+  "version": "0.0.1",
+  "private": true,
+  "exports": {
+    "./tsconfig/base": "./tsconfig/base.json",
+    "./tsconfig/react": "./tsconfig/react.json",
+    "./tsconfig/electron": "./tsconfig/electron.json",
+    "./eslint": "./eslint/index.js"
+  }
+}

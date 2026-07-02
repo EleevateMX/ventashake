@@ -1,0 +1,13 @@
+{
+  "extends": "@pos/config/tsconfig/react",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
+    },
+    "declaration": false,
+    "declarationMap": false
+  },
+  "include": ["src"]
+}
