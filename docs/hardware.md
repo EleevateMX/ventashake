@@ -12,8 +12,9 @@ aproximados en MXN (referencia 2026, varían).
 |---|---|---|---|
 | Kiosko cliente (autocobro) | `kiosko` | Tablet Android 10"+ en base | Monitor touch 21.5" + mini-PC |
 | Caja / cajero | `pos` | Laptop o mini-PC + monitor | + cajón de dinero + impresora ticket + lector QR |
-| Cocina (alimentos) | `cocina-alimentos` | Smart TV 24-32" + Fire TV Stick | Mini-PC + monitor 24" |
-| Barra de licuados (bebidas) | `cocina-bebidas` | Smart TV 24-32" + Fire TV Stick | Mini-PC + monitor 24" |
+| Cocina + Barra (comparten TV) | `cocina-*` (vista combinada) | **1 Smart TV 24-32"** + Fire TV Stick | Mini-PC + monitor 24" |
+| Comanda cocina | (impresión) | Impresora térmica 80 mm | + puente ESC/POS |
+| Comanda barra | (impresión) | Impresora térmica 80 mm | + puente ESC/POS |
 | Pantalla de folios (cliente) | `cliente-display` | Smart TV + Fire TV Stick | Monitor/TV dedicada |
 | Cobro con tarjeta | (Clip) | **Clip Stand 2 (ya lo tienes)** | Clip Stand 2 / Pin Pad |
 | Red | — | Módem del ISP | Router + **respaldo 4G/LTE con failover** |
@@ -44,15 +45,30 @@ Es la pantalla donde el cliente arma su pedido y paga con Clip.
   - **Cajón de dinero** (se conecta a la impresora térmica, ~$700–1,500)
     para el efectivo.
 
-### 3. Pantallas de cocina y barra (KDS)
-Cada una muestra los pedidos de su estación en tiempo real y el cocinero
-avanza el estado (pendiente → preparando → listo → entregado).
-- **Mínimo/costo bajo**: **Smart TV 24-32"** + **Amazon Fire TV Stick** o un
-  **Android TV Box** con navegador apuntando a la URL. (~$3,500–5,500 total).
+### 3. Pantalla de cocina y barra (KDS) — una sola TV compartida
+Muestra los pedidos en tiempo real y el operador avanza el estado
+(pendiente → preparando → listo → entregado). **Cocina y barra comparten la
+misma TV**: se usa la *vista combinada de cocina* (una app/vista que en un
+solo monitor lista alimentos + bebidas, cada tarjeta rotulada con su estación).
+- **Mínimo/costo bajo**: **una Smart TV 24-32"** + **Amazon Fire TV Stick** o
+  un **Android TV Box** con navegador apuntando a la URL. (~$3,500–5,500).
 - **Recomendado**: **mini-PC** (N100) + **monitor 24"** montado en pared, en
   modo kiosco con autoarranque. Más estable para todo el día.
-- Una por estación: **alimentos** → `cocina-alimentos`; **barra de licuados
-  (bebidas/shakes)** → `cocina-bebidas`.
+- Para marcar **"Listo"** en la TV compartida: pantalla **táctil** o un
+  **mouse/teclado inalámbrico** junto a las estaciones.
+- *Alternativa* si se prefieren dos pantallas separadas: una TV por estación
+  con `cocina-alimentos` y `cocina-bebidas` (las dos apps ya existentes).
+- **Nota (planeado):** la *vista combinada* en una sola TV es una vista nueva
+  aún por construir; hoy existen las dos apps separadas. Ver `pendientes.md`.
+
+#### 3b. Comandas impresas por estación (impresoras térmicas)
+Cada estación imprime la comanda de su pedido para **pegarla o llevarla con
+la orden**: **cocina** imprime los alimentos y **barra** los shakes/bebidas,
+ruteado por la categoría del producto.
+- **1 impresora térmica 80 mm en cocina** + **1 en barra** (~$1,200–2,500 c/u).
+- Con la impresora de tickets de la **caja**, son **3 impresoras** en total.
+- **Nota (planeado):** la impresión automática por estación es una función aún
+  por habilitar (puente ESC/POS o diálogo del navegador). Ver `pendientes.md`.
 
 ### 4. Pantalla de folios para el cliente (display)
 - **Smart TV** o monitor colgado a la vista del público con `cliente-display`
@@ -83,12 +99,13 @@ ventas mientras dure la caída.
 |---|---|
 | Kiosko: monitor touch 21.5" + mini-PC N100 | $8,000 |
 | Caja: mini-PC + monitor + lector QR USB | $6,500 |
-| Impresora térmica + cajón de dinero | $3,000 |
-| Cocina + barra: 2× (Smart TV 24" + Fire Stick) | $9,000 |
+| Impresora térmica (caja) + cajón de dinero | $3,000 |
+| Cocina + barra: 1 Smart TV 24" + Fire Stick (compartida) | $4,500 |
+| 2× impresora térmica de comandas (cocina + barra) | $4,000 |
 | Display folios: Smart TV + Fire Stick | $4,500 |
 | Router con respaldo 4G | $2,500 |
 | 2× No-break | $4,000 |
-| **Total aproximado** | **~$37,500** |
+| **Total aproximado** | **~$37,000** |
 | Clip Stand 2 | (ya lo tienes) |
 
 Versión súper económica (tablets + Smart TVs + una laptop existente) puede

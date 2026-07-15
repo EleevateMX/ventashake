@@ -18,6 +18,19 @@
 - [ ] Fase 6 (pulido): sincronizar `ordenes.estado` global cuando todas las
       estaciones terminen; modificador "proteína elegida" que descuente el
       scoop correcto (hoy la proteína se fija en la receta si viene en el JSON)
+- [ ] **Vista combinada de cocina (una sola TV)**: pantalla que muestra en un
+      mismo monitor los pedidos de alimentos + bebidas, cada tarjeta rotulada
+      con su estación (Cocina / Barra), para cuando cocina y barra comparten
+      una TV. Hoy son dos apps separadas (`cocina-alimentos` y `cocina-bebidas`);
+      es una app/vista nueva sobre `pedidos_cocina` (realtime, misma data).
+      Sin construir todavía — planeado.
+- [ ] **Impresión de comandas automática por estación**: al entrar un pedido,
+      imprimir su comanda en la impresora térmica de la estación que le
+      corresponde (Cocina imprime alimentos, Barra imprime bebidas), ruteado
+      por `categorias.cocina_id`. Para pegar/llevar el ticket con la orden.
+      Requiere impresora térmica en cocina y en barra (ver `hardware.md`) y
+      puente de impresión ESC/POS o diálogo del navegador por estación.
+      Sin construir todavía — planeado.
 - [ ] Fase 7 (pulido): UI de compras/transferencias/mermas en admin;
       política de cortesías; cancelación post-pago con ajuste automático de
       inventario
