@@ -73,3 +73,8 @@
 - [ ] `registrarMovimiento` cliente: read-modify-write → RPC atómica
 - [ ] Backups: activar PITR o respaldo programado antes de operar en vivo
 - [ ] Revisar advisors de Supabase (`get_advisors`) tras cada migración
+- [ ] RPCs de empleados (`fn_crear_empleado`/`fn_actualizar_empleado`) están
+      `grant`-eados a `anon` (consistente con la postura actual del sistema):
+      cualquiera con la anon key podría crear/editar cajeros y sus PIN. Cerrar
+      al migrar a Supabase Auth + rol en JWT (validar rol admin en el RPC).
+      Los PIN sí van hasheados (pgcrypto) y `pin_hash` nunca se expone.
