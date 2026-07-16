@@ -1,3 +1,4 @@
+import milo from '@shake/brand/milo.png'
 import { useEffect, useState } from 'react'
 import { sb } from './lib/sb'
 import { listarPedidosCocina, suscribirPedidosCocina, cambiarEstadoPedido } from '@shake/supabase'
@@ -76,7 +77,7 @@ export default function App() {
   return (
     <div className="app">
       <header className="header">
-        <h1>🍔 {TITULO}</h1>
+        <h1><img className="milo" src={milo} alt="" />{TITULO}</h1>
         <span className="contador">{pedidos.length} activos</span>
       </header>
 

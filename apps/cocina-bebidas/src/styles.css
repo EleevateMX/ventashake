@@ -1,82 +1,55 @@
-:root {
-  --acento: #2563eb;
-  --acento-suave: #eff6ff;
-  font-family: system-ui, -apple-system, sans-serif;
-  color: #f8fafc;
-  background: #0f172a;
-}
+/* Shake Aholic · Barra Bebidas (KDS) — piel de marca oscura (@shake/brand) */
+:root { --acento: var(--sa-blueberry); }
 * { box-sizing: border-box; }
-body { margin: 0; }
+html, body { margin: 0; }
+body {
+  font-family: var(--sa-ff-body); color: var(--sa-cream);
+  background: var(--sa-green-deep);
+  -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+}
 
 .app { max-width: 1600px; margin: 0 auto; padding: 20px; }
 
 .header {
-  display: flex; align-items: center; justify-content: space-between;
-  gap: 16px; margin-bottom: 20px; border-bottom: 4px solid var(--acento);
-  padding-bottom: 12px;
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  margin-bottom: 22px; border-bottom: 3px solid rgba(232,230,204,.16); padding-bottom: 14px;
 }
-.header h1 { font-size: 2rem; margin: 0; }
-.contador {
-  background: var(--acento); color: #fff; font-weight: 700;
-  font-size: 1.1rem; padding: 6px 16px; border-radius: 999px;
-}
+.header h1 { display: flex; align-items: center; gap: 12px; font-family: var(--sa-ff-display); font-weight: 400; font-size: 2rem; margin: 0; color: var(--sa-cream); }
+.header .milo { height: 46px; width: auto; }
+.contador { background: var(--acento); color: var(--sa-cream); font-weight: 700; font-size: 1.1rem; padding: 6px 18px; border-radius: 999px; }
 
-.vacio { text-align: center; color: #94a3b8; font-size: 1.4rem; padding: 60px 20px; }
-.cargando { color: #94a3b8; padding: 40px; text-align: center; font-size: 1.4rem; }
-.error-msg {
-  background: #7f1d1d; border: 1px solid #b91c1c; color: #fecaca;
-  padding: 14px 18px; border-radius: 10px; margin-bottom: 16px; font-size: 1.1rem;
-}
+.vacio { text-align: center; color: var(--sa-mint); font-family: var(--sa-ff-display); font-weight: 400; font-size: 1.8rem; padding: 60px 20px; }
+.cargando { color: var(--sa-cream); opacity: .7; padding: 40px; text-align: center; font-size: 1.4rem; }
+.error-msg { background: rgba(224,78,92,.16); border: 1px solid var(--sa-strawberry); color: #f6b7bd; padding: 14px 18px; border-radius: 12px; margin-bottom: 16px; font-size: 1.1rem; }
 
-.grid-pedidos {
-  display: grid; gap: 16px;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  align-items: start;
-}
+.grid-pedidos { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); align-items: start; }
 
 .comanda {
-  background: #1e293b; border-radius: 14px; padding: 16px;
-  border-left: 10px solid #64748b; display: flex; flex-direction: column; gap: 10px;
+  background: var(--sa-green); border-radius: 16px; padding: 16px;
+  border-left: 10px solid var(--sa-mint); display: flex; flex-direction: column; gap: 10px;
+  box-shadow: 0 10px 30px -16px rgba(0,0,0,.5);
 }
-.comanda.nuevo { border-left-color: #22c55e; }
-.comanda.medio { border-left-color: #eab308; }
-.comanda.tarde { border-left-color: #ef4444; }
+.comanda.nuevo { border-left-color: var(--sa-mint); }
+.comanda.medio { border-left-color: var(--sa-banana); }
+.comanda.tarde { border-left-color: var(--sa-strawberry); }
 
 .comanda-top { display: flex; align-items: baseline; justify-content: space-between; }
-.folio { font-size: 2rem; font-weight: 800; color: #fff; }
-.canal {
-  font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px;
-  color: #cbd5e1; background: #334155; padding: 4px 10px; border-radius: 6px;
-}
+.folio { font-family: var(--sa-ff-display); font-weight: 400; font-size: 2rem; color: var(--sa-cream); }
+.canal { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; color: var(--sa-cream); background: rgba(232,230,204,.14); padding: 4px 10px; border-radius: 8px; }
 
 .comanda-meta { display: flex; align-items: center; justify-content: space-between; }
-.tiempo { font-size: 1.5rem; font-weight: 700; color: #f1f5f9; }
-.estado {
-  font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; font-weight: 700;
-  padding: 4px 10px; border-radius: 999px; background: #334155; color: #e2e8f0;
-}
-.estado.en_preparacion { background: #ca8a04; color: #fff; }
-.estado.listo { background: #16a34a; color: #fff; }
+.tiempo { font-family: var(--sa-ff-mono); font-size: 1.5rem; font-weight: 500; color: var(--sa-cream); }
+.estado { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; padding: 4px 12px; border-radius: 999px; background: rgba(232,230,204,.14); color: var(--sa-cream); }
+.estado.en_preparacion { background: var(--sa-banana); color: var(--sa-green-ink); }
+.estado.listo { background: var(--sa-mint); color: var(--sa-green-ink); }
 
-.items { list-style: none; margin: 0; padding: 8px 0; border-top: 1px solid #334155; }
-.items li {
-  display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px;
-  padding: 8px 0; border-bottom: 1px solid #263449; font-size: 1.25rem;
-}
+.items { list-style: none; margin: 0; padding: 8px 0; border-top: 1px solid rgba(232,230,204,.16); }
+.items li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; padding: 8px 0; border-bottom: 1px solid rgba(232,230,204,.1); font-size: 1.25rem; }
 .items li:last-child { border-bottom: none; }
-.cant {
-  font-weight: 800; color: var(--acento); min-width: 2.5rem;
-  font-size: 1.35rem;
-}
-.nom { flex: 1; color: #f8fafc; font-weight: 600; }
-.pers {
-  flex-basis: 100%; color: #93c5fd; font-size: 1rem; padding-left: 2.5rem;
-}
+.cant { font-family: var(--sa-ff-mono); font-weight: 700; color: var(--sa-mint); min-width: 2.5rem; font-size: 1.35rem; }
+.nom { flex: 1; color: var(--sa-cream); font-weight: 600; }
+.pers { flex-basis: 100%; color: var(--sa-banana); font-size: 1rem; padding-left: 2.5rem; }
 
-.avanzar {
-  margin-top: auto; background: var(--acento); color: #fff; border: none;
-  padding: 16px; border-radius: 10px; cursor: pointer;
-  font-size: 1.3rem; font-weight: 700; width: 100%;
-}
+.avanzar { margin-top: auto; background: var(--acento); color: var(--sa-cream); border: none; padding: 16px; border-radius: 12px; cursor: pointer; font-family: var(--sa-ff-body); font-size: 1.3rem; font-weight: 700; width: 100%; }
 .avanzar:hover { filter: brightness(1.1); }
 .avanzar:active { transform: translateY(1px); }

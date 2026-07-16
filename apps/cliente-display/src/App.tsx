@@ -1,3 +1,4 @@
+import milo from '@shake/brand/milo.png'
 import { useEffect, useMemo, useState } from 'react'
 import { sb } from './lib/sb'
 import { listarPedidosActivos, suscribirPedidosCocina } from '@shake/supabase'
@@ -66,7 +67,7 @@ export default function App() {
   return (
     <div className="display">
       <header className="display-header">
-        <h1>🥤 Shakeaholic · Estado de tu pedido</h1>
+        <h1><img className="milo" src={milo} alt="" />Shake Aholic · Estado de tu pedido</h1>
         <span className="reloj">{hora}</span>
       </header>
 

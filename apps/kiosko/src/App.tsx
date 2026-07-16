@@ -1,3 +1,4 @@
+import milo from '@shake/brand/milo.png'
 import { useEffect, useMemo, useState } from 'react'
 import { sb } from './lib/sb'
 import { listarAlmacenes, listarProductosParaVenta, crearOrden, cobrarOrden, identificarCliente, canjearCupon } from '@shake/supabase'
@@ -182,7 +183,7 @@ export default function App() {
   return (
     <div className="app">
       <header className="header">
-        <h1>🥤 Shakeaholic · Autoservicio</h1>
+        <h1><img className="milo" src={milo} alt="" />Shake Aholic · Autoservicio</h1>
         <span className="hint">Toca para armar tu pedido</span>
       </header>
 

@@ -1,3 +1,4 @@
+import milo from '@shake/brand/milo.png'
 import { useEffect, useState } from 'react'
 import { sb } from './lib/sb'
 import {
@@ -67,8 +68,8 @@ export default function App() {
     return (
       <div className="centro">
         <div className="hero">
-          <div className="logo">🥤</div>
-          <h1>Shakeaholic Rewards</h1>
+          <div className="logo"><img src={milo} alt="" /></div>
+          <h1>Shake Aholic Rewards</h1>
           <p>Acumula <b>mancuernas</b> con cada compra y gana shakes gratis.</p>
           {error && <div className="error-msg">{error}</div>}
           <button className="google" onClick={() => void entrar()}>

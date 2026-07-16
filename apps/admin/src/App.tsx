@@ -1,3 +1,4 @@
+import milo from '@shake/brand/milo.png'
 import { useState } from 'react'
 import Menu from './pages/Menu'
 import Ventas from './pages/Ventas'
@@ -12,7 +13,7 @@ export default function App() {
   return (
     <div className="app">
       <header className="header">
-        <h1>🥤 Shakeaholic · Admin</h1>
+        <h1><img className="milo" src={milo} alt="" />Shake Aholic · Admin</h1>
         <nav>
           <button className={tab === 'menu' ? 'tab activo' : 'tab'} onClick={() => setTab('menu')}>Menú</button>
           <button className={tab === 'ventas' ? 'tab activo' : 'tab'} onClick={() => setTab('ventas')}>Ventas</button>

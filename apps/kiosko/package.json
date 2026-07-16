@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@shake/brand": "workspace:*",
     "@shake/supabase": "workspace:*",
     "@shake/types": "workspace:*",
     "@shake/utils": "workspace:*",
