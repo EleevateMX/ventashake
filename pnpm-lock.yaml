@@ -241,6 +241,9 @@ importers:
       '@shake/types':
         specifier: workspace:*
         version: link:../../packages/types
+      '@shake/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
       '@shake/utils':
         specifier: workspace:*
         version: link:../../packages/utils
