@@ -4,6 +4,7 @@ import { listarAlmacenes, corteAbierto, abrirCaja, listarCajas } from '@shake/su
 import type { Almacen, Caja, CajaCorte } from '@shake/types'
 import Venta from './pages/Venta'
 import Corte from './pages/Corte'
+import milo from '@shake/brand/milo.png'
 
 export interface Contexto {
   sucursalId: string
@@ -58,7 +59,7 @@ export default function App() {
   return (
     <div className="app">
       <header className="header">
-        <h1>🥤 Shakeaholic · Caja POS</h1>
+        <h1><img className="milo" src={milo} alt="" />Shake Aholic · Caja</h1>
         {corte && (
           <nav>
             <button className={tab === 'venta' ? 'tab activo' : 'tab'} onClick={() => setTab('venta')}>Venta</button>

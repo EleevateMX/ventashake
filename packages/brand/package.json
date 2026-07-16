@@ -1,0 +1,16 @@
+{
+  "name": "@shake/brand",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./tokens.css": "./tokens.css",
+    "./milo.png": "./assets/milo-transparent.png",
+    "./milo-solid.png": "./assets/milo.png",
+    "./logo.png": "./assets/logo.png"
+  },
+  "files": [
+    "tokens.css",
+    "assets"
+  ]
+}

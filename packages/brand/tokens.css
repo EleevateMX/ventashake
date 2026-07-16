@@ -1,0 +1,50 @@
+/* Shake Aholic — Brand Tokens
+ * Synced from manual.css. Do not edit values here without updating the brand manual. */
+
+@import url('https://fonts.googleapis.com/css2?family=Bagel+Fat+One&family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&display=swap');
+
+:root {
+  /* Core duo — never replaced */
+  --sa-green:       #2C4A3E;
+  --sa-green-deep:  #1A2E26;
+  --sa-green-ink:   #14241D;
+  --sa-cream:       #E8E6CC;
+  --sa-cream-soft:  #F2EFD9;
+  --sa-cream-paper: #EDE9D0;
+  --sa-cream-warm:  #DDD9B8;
+
+  /* Flavor accents — used sparingly, one per surface */
+  --sa-strawberry: #E04E5C;
+  --sa-banana:     #F0C649;
+  --sa-chocolate:  #5C3825;
+  --sa-mango:      #E58037;
+  --sa-blueberry:  #6C4A9E;
+  --sa-mint:       #88C0A0;
+  --sa-coconut:    #F2EFD9;
+  --sa-coffee:     #3F2A1F;
+
+  /* Lines & shadows */
+  --sa-line:     rgba(232, 230, 204, 0.22);
+  --sa-line-ink: rgba(20, 36, 29, 0.12);
+  --sa-shadow:   0 20px 60px -20px rgba(20, 36, 29, 0.35);
+
+  /* Type */
+  --sa-ff-display: "Bagel Fat One", "Bowlby One", system-ui, sans-serif;
+  --sa-ff-body:    "DM Sans", "Inter", system-ui, sans-serif;
+  --sa-ff-mono:    "DM Mono", "JetBrains Mono", ui-monospace, monospace;
+}
+
+/* Base body styles — opt in by adding `class="sa-base"` on body or root */
+.sa-base {
+  background: var(--sa-cream);
+  color: var(--sa-green-ink);
+  font-family: var(--sa-ff-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Dark surface (kiosko hero, KDS, etc.) */
+.sa-dark {
+  background: var(--sa-green-deep);
+  color: var(--sa-cream);
+}
