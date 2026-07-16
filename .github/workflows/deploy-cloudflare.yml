@@ -49,7 +49,7 @@ jobs:
           - app: cliente-pwa
             project: shake-cliente-pwa
           - app: costos
-            project: shake-costos
+            project: shake-costeo
 
     name: ${{ matrix.app }}
     steps:
