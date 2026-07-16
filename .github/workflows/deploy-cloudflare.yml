@@ -58,8 +58,8 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 9
+        # La versión la toma de "packageManager" (pnpm@9.15.0) en package.json.
+        # No pongas 'version' aquí: chocaría con packageManager y aborta el step.
 
       - name: Setup Node
         uses: actions/setup-node@v4
