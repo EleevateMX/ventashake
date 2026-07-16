@@ -1,0 +1,89 @@
+# Despliega las 8 apps de Shakeaholic a Cloudflare Pages.
+#
+# Qué necesitas configurar UNA sola vez en GitHub
+# (repo → Settings → Secrets and variables → Actions):
+#
+#   Secrets (pestaña "Secrets"):
+#     CLOUDFLARE_API_TOKEN    -> token de Cloudflare con permiso "Cloudflare Pages: Edit"
+#     CLOUDFLARE_ACCOUNT_ID   -> tu Account ID de Cloudflare (Dashboard → Workers & Pages → panel derecho)
+#
+#   (Opcional) Variables (pestaña "Variables") para sobreescribir sin tocar este archivo:
+#     VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY
+#
+# La URL y la anon key de Supabase son PÚBLICAS por diseño (viajan en el
+# bundle del navegador de todas formas). Van aquí como valor por defecto para
+# que funcione sin configurar nada más; puedes sobreescribirlas con Variables.
+#
+# El service_role NUNCA va aquí.
+
+name: Deploy a Cloudflare Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}   # permite lanzarlo a mano desde la pestaña Actions
+
+concurrency:
+  group: deploy-cloudflare
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false      # si una app falla, las demás igual se despliegan
+      matrix:
+        include:
+          - app: pos
+            project: shake-pos
+          - app: kiosko
+            project: shake-kiosko
+          - app: admin
+            project: shake-admin
+          - app: cocina-alimentos
+            project: shake-cocina-alimentos
+          - app: cocina-bebidas
+            project: shake-cocina-bebidas
+          - app: cliente-display
+            project: shake-cliente-display
+          - app: cliente-pwa
+            project: shake-cliente-pwa
+          - app: costos
+            project: shake-costos
+
+    name: ${{ matrix.app }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install deps
+        run: pnpm install --frozen-lockfile
+
+      - name: Build ${{ matrix.app }}
+        env:
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL || 'https://zyjtnaystsporbuzcmqk.supabase.co' }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5anRuYXlzdHNwb3JidXpjbXFrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEyNzMxNDksImV4cCI6MjA5Njg0OTE0OX0.USpCrgpCLMXcpWhA60mKmgMchrxCR3_kybIPIyas7iA' }}
+        run: pnpm --filter @shake/${{ matrix.app }} build
+
+      - name: Ensure Cloudflare Pages project exists
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx wrangler@3 pages project create ${{ matrix.project }} --production-branch=main || true
+
+      - name: Deploy ${{ matrix.app }} to Cloudflare Pages
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx wrangler@3 pages deploy apps/${{ matrix.app }}/dist --project-name=${{ matrix.project }} --branch=main
