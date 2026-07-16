@@ -1,0 +1,118 @@
+import React from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useCarrito } from '@/store/carritoStore'
+
+export function Carrito() {
+  const navigate = useNavigate()
+  const { items, incrementar, decrementar, total, totalItems } = useCarrito()
+
+  if (totalItems() === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen bg-sa-cream-paper gap-6 px-8 text-center">
+        <img src="/milo-transparent.png" alt="Milo" className="h-56" />
+        <p className="font-display text-4xl text-sa-green-ink">
+          La coctelera está vacía
+        </p>
+        <p className="font-body text-sa-green-ink/70 max-w-sm">
+          Échale algo: un shake, un bowl, lo que el cuerpo pida.
+        </p>
+        <button
+          onClick={() => navigate('/catalogo')}
+          className="mt-4 bg-sa-green text-sa-cream px-10 h-16 rounded-full font-display text-2xl shadow-sa-sm active:scale-95 transition-transform"
+        >
+          Volver al menú
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col h-screen bg-sa-cream-paper">
+      <header className="flex items-center gap-4 px-8 py-6 bg-sa-green-deep text-sa-cream">
+        <button
+          onClick={() => navigate('/catalogo')}
+          className="w-12 h-12 rounded-full bg-sa-green-ink hover:bg-sa-green flex items-center justify-center text-2xl"
+          aria-label="Volver"
+        >
+          ←
+        </button>
+        <div>
+          <p className="font-mono text-xs uppercase tracking-[0.25em] text-sa-banana">
+            #PEDIDO
+          </p>
+          <h1 className="font-display text-3xl mt-1">Tu shake en proceso</h1>
+        </div>
+      </header>
+
+      <main className="flex-1 overflow-y-auto px-8 py-6 space-y-4">
+        {items.map((item) => (
+          <div
+            key={item.producto_id}
+            className="flex items-center gap-4 bg-sa-cream-soft rounded-sa-lg p-4 shadow-sa-sm"
+          >
+            {item.imagen_url ? (
+              <img
+                src={item.imagen_url}
+                alt={item.nombre}
+                className="w-20 h-20 rounded-sa object-cover"
+              />
+            ) : (
+              <div className="w-20 h-20 rounded-sa bg-sa-cream-warm flex items-center justify-center">
+                <img src="/milo-transparent.png" alt="" className="h-16 opacity-80" />
+              </div>
+            )}
+            <div className="flex-1 min-w-0">
+              <p className="font-display text-2xl text-sa-green-ink leading-tight truncate">
+                {item.nombre}
+              </p>
+              <p className="font-mono text-base text-sa-green mt-1">
+                ${(item.precio * item.cantidad).toFixed(2)}
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => decrementar(item.producto_id)}
+                className="w-14 h-14 rounded-full bg-sa-cream-warm text-sa-green-ink font-display text-2xl flex items-center justify-center active:scale-95 transition-transform"
+                aria-label="Quitar uno"
+              >
+                −
+              </button>
+              <span className="w-10 text-center font-mono text-xl text-sa-green-ink">
+                {item.cantidad}
+              </span>
+              <button
+                onClick={() => incrementar(item.producto_id)}
+                className="w-14 h-14 rounded-full bg-sa-green text-sa-cream font-display text-2xl flex items-center justify-center active:scale-95 transition-transform"
+                aria-label="Agregar uno"
+              >
+                +
+              </button>
+            </div>
+          </div>
+        ))}
+      </main>
+
+      <footer className="bg-sa-green text-sa-cream px-8 py-6 rounded-t-sa-lg shadow-sa">
+        <div className="flex items-end justify-between mb-5">
+          <div>
+            <p className="font-mono text-xs uppercase tracking-[0.25em] text-sa-banana">
+              Total a agitar
+            </p>
+            <p className="font-mono text-xs text-sa-cream/70 mt-1">
+              {totalItems()} {totalItems() === 1 ? 'cosa' : 'cosas'} · MXN
+            </p>
+          </div>
+          <span className="font-display text-5xl leading-none text-sa-cream">
+            ${total().toFixed(2)}
+          </span>
+        </div>
+        <button
+          onClick={() => navigate('/lealtad')}
+          className="w-full bg-sa-strawberry text-white py-5 rounded-full font-display text-3xl shadow-sa-sm active:scale-[0.98] transition-transform"
+        >
+          A pagar
+        </button>
+      </footer>
+    </div>
+  )
+}

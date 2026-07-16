@@ -4,12 +4,14 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./tailwind-preset": "./tailwind-preset.js",
     "./tokens.css": "./tokens.css",
     "./milo.png": "./assets/milo-transparent.png",
     "./milo-solid.png": "./assets/milo.png",
     "./logo.png": "./assets/logo.png"
   },
   "files": [
+    "tailwind-preset.js",
     "tokens.css",
     "assets"
   ]
