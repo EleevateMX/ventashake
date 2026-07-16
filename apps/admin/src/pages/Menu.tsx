@@ -11,6 +11,7 @@ import {
 } from '@shake/supabase'
 import type { Producto, Categoria, Cocina } from '@shake/types'
 import { mxn } from '@shake/utils'
+import { Panel, PageHeader, Field, Loading, ErrorMsg, OkMsg, Chip, cx } from '../ui'
 
 interface FormProducto {
   nombre: string
@@ -141,118 +142,125 @@ export default function Menu() {
     }
   }
 
-  if (cargando) return <div className="cargando">Cargando menú…</div>
+  if (cargando) return <Loading>Cargando menú…</Loading>
 
   return (
     <div>
-      {error && <div className="error-msg">{error}</div>}
-      {ok && <div className="ok-msg">{ok}</div>}
+      <PageHeader title="Menú" subtitle="Productos y categorías" />
 
-      <div className="panel">
-        <h2>{editId ? 'Editar producto' : 'Nuevo producto'}</h2>
-        <div className="form-grid">
-          <div className="campo">
-            <label>Nombre</label>
-            <input value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} />
+      {error && <ErrorMsg>{error}</ErrorMsg>}
+      {ok && <OkMsg>{ok}</OkMsg>}
+
+      <div className="space-y-6">
+        {/* Form producto */}
+        <Panel title={editId ? 'Editar producto' : 'Nuevo producto'}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Field label="Nombre">
+              <input className={cx.input} value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} />
+            </Field>
+            <Field label="Precio ($)">
+              <input className={cx.input} type="number" value={form.precio} onChange={(e) => setForm({ ...form, precio: e.target.value })} />
+            </Field>
+            <Field label="Categoría">
+              <select className={cx.input} value={form.categoria_id} onChange={(e) => setForm({ ...form, categoria_id: e.target.value })}>
+                <option value="">— Sin categoría —</option>
+                {categorias.map((c) => (
+                  <option key={c.id} value={c.id}>{c.nombre}</option>
+                ))}
+              </select>
+            </Field>
+            <div className="flex flex-col gap-1.5">
+              <span className={cx.label}>IVA</span>
+              <label className="flex items-center gap-2 text-sm text-sa-green-ink h-[42px]">
+                <input
+                  type="checkbox"
+                  className="w-4 h-4 accent-sa-green"
+                  checked={form.iva_incluido}
+                  onChange={(e) => setForm({ ...form, iva_incluido: e.target.checked })}
+                />
+                IVA incluido en el precio
+              </label>
+            </div>
           </div>
-          <div className="campo">
-            <label>Precio ($)</label>
-            <input
-              type="number"
-              value={form.precio}
-              onChange={(e) => setForm({ ...form, precio: e.target.value })}
-            />
+          <div className="flex gap-2 mt-4">
+            <button className={cx.btnPrimary} disabled={guardando || !form.nombre.trim()} onClick={() => void guardarProducto()}>
+              {guardando ? 'Guardando…' : editId ? 'Guardar cambios' : 'Crear producto'}
+            </button>
+            {editId && <button className={cx.btnSec} onClick={cancelarEdicion}>Cancelar</button>}
           </div>
-          <div className="campo">
-            <label>Categoría</label>
-            <select
-              value={form.categoria_id}
-              onChange={(e) => setForm({ ...form, categoria_id: e.target.value })}
-            >
-              <option value="">— Sin categoría —</option>
-              {categorias.map((c) => (
-                <option key={c.id} value={c.id}>{c.nombre}</option>
-              ))}
-            </select>
-          </div>
-          <div className="campo">
-            <label>IVA</label>
-            <label className="check">
-              <input
-                type="checkbox"
-                checked={form.iva_incluido}
-                onChange={(e) => setForm({ ...form, iva_incluido: e.target.checked })}
-              />
-              IVA incluido en el precio
-            </label>
-          </div>
+        </Panel>
+
+        {/* Tabla productos */}
+        <div>
+          <h3 className={`${cx.h3} mb-4`}>Productos</h3>
+          {productos.length === 0 ? (
+            <Panel><p className={cx.muted}>No hay productos activos.</p></Panel>
+          ) : (
+            <div className={cx.tableWrap}>
+              <table className={cx.table}>
+                <thead>
+                  <tr className={cx.thead}>
+                    <th className={cx.th}>Nombre</th>
+                    <th className={cx.th}>Categoría</th>
+                    <th className={cx.thNum}>Precio</th>
+                    <th className={cx.th}>Activo</th>
+                    <th className={cx.thNum}>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody className={cx.tbody}>
+                  {productos.map((p) => (
+                    <tr key={p.id} className={cx.tr}>
+                      <td className={`${cx.td} font-medium`}>{p.nombre}</td>
+                      <td className={cx.td}>{p.categoria_id ? catPorId.get(p.categoria_id)?.nombre ?? '—' : '—'}</td>
+                      <td className={cx.tdNum}>{mxn(p.precio)}</td>
+                      <td className={cx.td}><Chip tone={p.activo ? 'si' : 'no'}>{p.activo ? 'Sí' : 'No'}</Chip></td>
+                      <td className={cx.tdNum}>
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => editar(p)}
+                            className="px-3 py-1.5 text-xs font-medium border border-sa-green-ink/15 rounded-lg hover:bg-sa-cream-soft text-sa-green-ink"
+                          >
+                            Editar
+                          </button>
+                          <button
+                            onClick={() => void handleDesactivar(p)}
+                            className="px-3 py-1.5 text-xs font-medium border border-sa-strawberry/30 rounded-lg hover:bg-sa-strawberry/10 text-sa-strawberry"
+                          >
+                            Desactivar
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
-        <div className="toolbar" style={{ marginTop: 4 }}>
-          <button className="primario" disabled={guardando || !form.nombre.trim()} onClick={() => void guardarProducto()}>
-            {guardando ? 'Guardando…' : editId ? 'Guardar cambios' : 'Crear producto'}
+
+        {/* Form categoría */}
+        <Panel title="Nueva categoría">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label="Nombre">
+              <input className={cx.input} value={catNombre} onChange={(e) => setCatNombre(e.target.value)} />
+            </Field>
+            <Field label="Cocina / estación">
+              <select className={cx.input} value={catCocinaId} onChange={(e) => setCatCocinaId(e.target.value)}>
+                <option value="">— Elige cocina —</option>
+                {cocinas.map((k) => (
+                  <option key={k.id} value={k.id}>{k.nombre}</option>
+                ))}
+              </select>
+            </Field>
+          </div>
+          <button
+            className={`${cx.btnPrimary} mt-4`}
+            disabled={guardandoCat || !catNombre.trim() || !catCocinaId}
+            onClick={() => void guardarCategoria()}
+          >
+            {guardandoCat ? 'Guardando…' : 'Crear categoría'}
           </button>
-          {editId && <button className="sec" onClick={cancelarEdicion}>Cancelar</button>}
-        </div>
-      </div>
-
-      <div className="panel">
-        <h2>Productos</h2>
-        {productos.length === 0 && <p className="muted">No hay productos activos.</p>}
-        {productos.length > 0 && (
-          <table>
-            <thead>
-              <tr>
-                <th>Nombre</th>
-                <th>Categoría</th>
-                <th className="num">Precio</th>
-                <th>Activo</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {productos.map((p) => (
-                <tr key={p.id}>
-                  <td>{p.nombre}</td>
-                  <td>{p.categoria_id ? catPorId.get(p.categoria_id)?.nombre ?? '—' : '—'}</td>
-                  <td className="num">{mxn(p.precio)}</td>
-                  <td>
-                    <span className={p.activo ? 'chip si' : 'chip no'}>{p.activo ? 'Sí' : 'No'}</span>
-                  </td>
-                  <td>
-                    <button className="link" onClick={() => editar(p)}>Editar</button>
-                    <button className="link danger" onClick={() => void handleDesactivar(p)}>Desactivar</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
-
-      <div className="panel">
-        <h2>Nueva categoría</h2>
-        <div className="form-grid">
-          <div className="campo">
-            <label>Nombre</label>
-            <input value={catNombre} onChange={(e) => setCatNombre(e.target.value)} />
-          </div>
-          <div className="campo">
-            <label>Cocina / estación</label>
-            <select value={catCocinaId} onChange={(e) => setCatCocinaId(e.target.value)}>
-              <option value="">— Elige cocina —</option>
-              {cocinas.map((k) => (
-                <option key={k.id} value={k.id}>{k.nombre}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-        <button
-          className="primario"
-          disabled={guardandoCat || !catNombre.trim() || !catCocinaId}
-          onClick={() => void guardarCategoria()}
-        >
-          {guardandoCat ? 'Guardando…' : 'Crear categoría'}
-        </button>
+        </Panel>
       </div>
     </div>
   )

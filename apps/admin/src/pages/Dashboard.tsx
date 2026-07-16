@@ -3,6 +3,7 @@ import { sb } from '../lib/sb'
 import { ventasDiarias, productosMasVendidos, stockPorAlmacen } from '@shake/supabase'
 import type { VentaDiaria, ProductoVendido, StockAlmacen } from '@shake/types'
 import { mxn } from '@shake/utils'
+import { Panel, PageHeader, Loading, ErrorMsg, cx } from '../ui'
 
 const HOY = new Date().toISOString().slice(0, 10)
 
@@ -25,7 +26,7 @@ export default function Dashboard() {
       .finally(() => setCargando(false))
   }, [])
 
-  if (cargando) return <div className="cargando">Cargando panel…</div>
+  if (cargando) return <Loading>Cargando panel…</Loading>
 
   const hoy = dias.find((d) => d.dia === HOY)
   const totalHoy = hoy?.total_ventas ?? 0
@@ -35,106 +36,139 @@ export default function Dashboard() {
   const maxDia = Math.max(1, ...dias.map((d) => d.total_ventas ?? 0))
   const bajos = stock.filter((s) => s.bajo_minimo)
 
+  const kpis = [
+    { lbl: 'Ventas de hoy', val: mxn(totalHoy), sub: `${ordHoy} ${ordHoy === 1 ? 'orden' : 'órdenes'}`, accent: 'text-sa-banana' },
+    { lbl: 'Ticket promedio', val: mxn(ticket), sub: 'hoy', accent: 'text-sa-blueberry' },
+    { lbl: 'Ventas 7 días', val: mxn(semana), sub: 'acumulado', accent: 'text-sa-green' },
+    { lbl: 'Alertas de stock', val: String(bajos.length), sub: 'bajo mínimo', accent: bajos.length ? 'text-sa-strawberry' : 'text-sa-mint' },
+  ]
+
   return (
     <div>
-      {error && <div className="error-msg">{error}</div>}
+      <PageHeader
+        title="Dashboard"
+        subtitle={<>Resumen del día · <span className="font-mono text-sa-green-ink/80">{HOY}</span></>}
+        action={
+          <div className="flex items-center gap-2 bg-white border border-sa-green-ink/10 rounded-full px-4 py-2 shadow-sa-sm">
+            <span className="w-2 h-2 rounded-full bg-sa-mint" />
+            <span className="text-sm font-medium text-sa-green-ink">Sucursal: Principal</span>
+          </div>
+        }
+      />
+
+      {error && <ErrorMsg>{error}</ErrorMsg>}
 
       {/* KPIs del día */}
-      <div className="kpis">
-        <div className="kpi">
-          <span className="kpi-lbl">Ventas de hoy</span>
-          <span className="kpi-val">{mxn(totalHoy)}</span>
-          <span className="kpi-sub">{ordHoy} {ordHoy === 1 ? 'orden' : 'órdenes'}</span>
-        </div>
-        <div className="kpi">
-          <span className="kpi-lbl">Ticket promedio</span>
-          <span className="kpi-val">{mxn(ticket)}</span>
-          <span className="kpi-sub">hoy</span>
-        </div>
-        <div className="kpi">
-          <span className="kpi-lbl">Ventas 7 días</span>
-          <span className="kpi-val">{mxn(semana)}</span>
-          <span className="kpi-sub">acumulado</span>
-        </div>
-        <div className="kpi" style={{ borderTopColor: bajos.length ? 'var(--sa-strawberry)' : 'var(--sa-mint)' }}>
-          <span className="kpi-lbl">Alertas de stock</span>
-          <span className="kpi-val">{bajos.length}</span>
-          <span className="kpi-sub">bajo mínimo</span>
-        </div>
-      </div>
-
-      {/* Desglose de pago de hoy */}
-      <div className="panel">
-        <h2>Cómo se cobró hoy</h2>
-        {!hoy && <p className="muted">Aún no hay ventas registradas hoy.</p>}
-        {hoy && (
-          <div className="pagos-hoy">
-            <div><span className="muted">Efectivo</span><b>{mxn(hoy.efectivo ?? 0)}</b></div>
-            <div><span className="muted">Tarjeta</span><b>{mxn(hoy.tarjeta ?? 0)}</b></div>
-            <div><span className="muted">Clip</span><b>{mxn(hoy.clip ?? 0)}</b></div>
-            <div><span className="muted">Cortesía</span><b>{mxn(hoy.cortesia ?? 0)}</b></div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        {kpis.map((k) => (
+          <div
+            key={k.lbl}
+            className="bg-white rounded-sa p-5 shadow-sa-sm border border-sa-green-ink/5 transition-all hover:shadow-sa hover:-translate-y-0.5"
+          >
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs text-sa-green-ink/60 font-mono uppercase tracking-wide">{k.lbl}</span>
+              <span className={`w-2.5 h-2.5 rounded-full bg-current ${k.accent}`} />
+            </div>
+            <p className="text-4xl font-display text-sa-green-ink leading-none">{k.val}</p>
+            <p className="text-xs mt-3 text-sa-green-ink/60">{k.sub}</p>
           </div>
-        )}
+        ))}
       </div>
 
-      {/* Tendencia 7 días */}
-      <div className="panel">
-        <h2>Últimos 7 días</h2>
-        {dias.length === 0 && <p className="muted">Sin ventas en el periodo.</p>}
-        {dias.length > 0 && (
-          <div className="bars">
-            {dias.map((d) => (
-              <div className="bar-col" key={d.dia}>
-                <div className="bar-wrap">
-                  <div className="bar" style={{ height: `${Math.round(((d.total_ventas ?? 0) / maxDia) * 100)}%` }} title={mxn(d.total_ventas ?? 0)} />
-                </div>
-                <span className="bar-lbl">{new Date(d.dia + 'T00:00:00').toLocaleDateString('es-MX', { weekday: 'short' })}</span>
+      {/* Dos columnas */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-6">
+          {/* Tendencia 7 días */}
+          <Panel title="Ventas últimos 7 días">
+            {dias.length === 0 ? (
+              <p className={cx.muted}>Sin ventas en el periodo.</p>
+            ) : (
+              <div className="flex items-end gap-3 h-44 pt-2">
+                {dias.map((d) => (
+                  <div key={d.dia} className="flex-1 flex flex-col items-center gap-2 h-full">
+                    <div className="flex-1 w-full flex items-end">
+                      <div
+                        className="w-full min-h-[3px] rounded-t-lg bg-sa-green transition-all"
+                        style={{ height: `${Math.round(((d.total_ventas ?? 0) / maxDia) * 100)}%` }}
+                        title={mxn(d.total_ventas ?? 0)}
+                      />
+                    </div>
+                    <span className="text-xs text-sa-green-ink/60 font-mono capitalize">
+                      {new Date(d.dia + 'T00:00:00').toLocaleDateString('es-MX', { weekday: 'short' })}
+                    </span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        )}
-      </div>
+            )}
+          </Panel>
 
-      <div className="dash-2col">
-        {/* Top productos */}
-        <div className="panel">
-          <h2>Más vendidos</h2>
-          {top.length === 0 && <p className="muted">Sin datos aún.</p>}
-          {top.length > 0 && (
-            <table>
-              <thead><tr><th>Producto</th><th className="num">Uds</th><th className="num">Ingreso</th></tr></thead>
-              <tbody>
-                {top.map((p) => (
-                  <tr key={p.id}>
-                    <td>{p.nombre}<span className="chip no" style={{ marginLeft: 6 }}>{p.categoria}</span></td>
-                    <td className="num">{p.total_vendido}</td>
-                    <td className="num">{mxn(p.total_ingresos ?? 0)}</td>
-                  </tr>
+          {/* Desglose de pago de hoy */}
+          <Panel title="Cómo se cobró hoy">
+            {!hoy && <p className={cx.muted}>Aún no hay ventas registradas hoy.</p>}
+            {hoy && (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {[
+                  ['Efectivo', hoy.efectivo ?? 0],
+                  ['Tarjeta', hoy.tarjeta ?? 0],
+                  ['Clip', hoy.clip ?? 0],
+                  ['Cortesía', hoy.cortesia ?? 0],
+                ].map(([lbl, val]) => (
+                  <div key={lbl as string} className="flex flex-col gap-1 bg-sa-cream-soft/60 border border-sa-green-ink/5 rounded-sa px-4 py-3">
+                    <span className="text-xs text-sa-green-ink/60 font-mono uppercase tracking-wide">{lbl}</span>
+                    <b className="font-mono text-lg text-sa-green-ink">{mxn(val as number)}</b>
+                  </div>
                 ))}
-              </tbody>
-            </table>
-          )}
+              </div>
+            )}
+          </Panel>
         </div>
 
-        {/* Alertas de stock */}
-        <div className="panel">
-          <h2>Stock bajo mínimo</h2>
-          {bajos.length === 0 && <p className="muted">Todo por encima del mínimo. 👍</p>}
-          {bajos.length > 0 && (
-            <table>
-              <thead><tr><th>Insumo</th><th>Almacén</th><th className="num">Stock</th><th className="num">Mín</th></tr></thead>
-              <tbody>
-                {bajos.map((s) => (
-                  <tr className="alerta" key={s.id}>
-                    <td>{s.insumo}</td>
-                    <td>{s.almacen}</td>
-                    <td className="num rojo">{s.stock_actual} {s.unidad}</td>
-                    <td className="num">{s.stock_minimo}</td>
-                  </tr>
+        <div className="space-y-6">
+          {/* Top productos */}
+          <Panel title="Más vendidos">
+            {top.length === 0 ? (
+              <p className={cx.muted}>Sin datos aún.</p>
+            ) : (
+              <ol className="space-y-2">
+                {top.map((p, i) => (
+                  <li key={p.id} className="flex items-center justify-between py-2 border-b border-sa-green-ink/5 last:border-0">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="w-6 h-6 flex items-center justify-center rounded-full bg-sa-green text-sa-cream font-mono text-xs font-bold shrink-0">
+                        {i + 1}
+                      </span>
+                      <span className="text-sm text-sa-green-ink truncate">{p.nombre}</span>
+                    </div>
+                    <span className="text-sm font-mono font-semibold text-sa-green-ink shrink-0 ml-2">{p.total_vendido}</span>
+                  </li>
                 ))}
-              </tbody>
-            </table>
-          )}
+              </ol>
+            )}
+          </Panel>
+
+          {/* Alertas de stock */}
+          <Panel title="Stock bajo mínimo">
+            {bajos.length === 0 ? (
+              <div className="text-center py-6 text-sa-green font-medium">Todo por encima del mínimo ✓</div>
+            ) : (
+              <div className="space-y-2">
+                {bajos.map((s) => (
+                  <div
+                    key={s.id}
+                    className="flex items-center justify-between px-3 py-2.5 rounded-sa bg-sa-strawberry/10 border border-sa-strawberry/30"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-sm text-sa-green-ink truncate">{s.insumo}</p>
+                      <p className="text-xs text-sa-green-ink/50">{s.almacen}</p>
+                    </div>
+                    <div className="text-right shrink-0 ml-2">
+                      <p className="text-sm font-mono font-semibold text-sa-strawberry">{s.stock_actual} {s.unidad}</p>
+                      <p className="text-xs font-mono text-sa-green-ink/50">mín {s.stock_minimo}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Panel>
         </div>
       </div>
     </div>
