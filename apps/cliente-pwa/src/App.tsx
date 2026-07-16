@@ -62,66 +62,106 @@ export default function App() {
     }
   }
 
-  if (cargando) return <div className="centro">Cargando…</div>
+  if (cargando)
+    return (
+      <div className="min-h-[100dvh] flex items-center justify-center px-5 font-body text-sa-cream/70">
+        Cargando…
+      </div>
+    )
 
   if (!logueado) {
     return (
-      <div className="centro">
-        <div className="hero">
-          <div className="logo"><img src={milo} alt="" /></div>
-          <h1>Shake Aholic Rewards</h1>
-          <p>Acumula <b>mancuernas</b> con cada compra y gana shakes gratis.</p>
-          {error && <div className="error-msg">{error}</div>}
-          <button className="google" onClick={() => void entrar()}>
+      <div className="min-h-[100dvh] flex items-center justify-center px-5 bg-sa-green-deep font-body">
+        <div className="text-center max-w-[340px] w-full">
+          <img src={milo} alt="" className="w-[132px] h-auto mx-auto" />
+          <h1 className="font-display text-3xl text-sa-cream mt-3 mb-2 leading-tight">
+            Shake Aholic Rewards
+          </h1>
+          <p className="text-sa-mint">
+            Acumula <b className="font-semibold">mancuernas</b> con cada compra y gana shakes gratis.
+          </p>
+          {error && (
+            <div className="mt-4 rounded-sa border border-sa-strawberry/60 bg-sa-strawberry/15 text-sa-strawberry font-mono text-sm px-4 py-3">
+              {error}
+            </div>
+          )}
+          <button
+            className="mt-4 mb-2 w-full rounded-sa-lg bg-sa-cream text-sa-green-ink font-display text-xl py-4 hover:bg-sa-cream-soft transition-colors"
+            onClick={() => void entrar()}
+          >
             Continuar con Google
           </button>
-          <p className="fine">Regístrate en segundos. 1 mancuerna por cada $10.</p>
+          <p className="text-sa-cream/50 text-sm">Regístrate en segundos. 1 mancuerna por cada $10.</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="app">
-      <header className="top">
+    <div className="min-h-[100dvh] max-w-[460px] mx-auto px-4 py-4 bg-sa-green-deep font-body">
+      <header className="flex justify-between items-center mb-3 font-display text-sa-cream text-xl">
         <span>🥤 Rewards</span>
-        <button className="liga" onClick={() => void cerrarSesion(sb)}>Salir</button>
+        <button
+          className="font-body text-sm font-semibold text-sa-mint hover:text-sa-cream transition-colors"
+          onClick={() => void cerrarSesion(sb)}
+        >
+          Salir
+        </button>
       </header>
 
-      {error && <div className="error-msg">{error}</div>}
+      {error && (
+        <div className="mb-3 rounded-sa border border-sa-strawberry/60 bg-sa-strawberry/15 text-sa-strawberry font-mono text-sm px-4 py-3">
+          {error}
+        </div>
+      )}
 
       {cliente && (
         <>
-          <section className="card saldo">
-            <div className="hola">Hola, {cliente.nombre.split(' ')[0]}</div>
-            <div className="mancuernas">🏋️ {cliente.mancuernas}</div>
-            <div className="lbl">mancuernas</div>
-            <div className="barra"><div style={{ width: `${Math.min(100, cliente.mancuernas)}%` }} /></div>
-            <div className="fine">{Math.max(0, 100 - (cliente.mancuernas % 100 || 0))} para tu próximo cupón</div>
-          </section>
-
-          <section className="card">
-            <h2>Tu código</h2>
-            <p className="fine">Muéstralo en caja o en el kiosko para identificarte.</p>
-            <div className="qrbox">
-              {cliente.codigo ? <QR value={cliente.codigo} /> : <span className="fine">—</span>}
+          <section className="rounded-sa-lg p-5 mb-3.5 text-center text-sa-cream shadow-sa bg-gradient-to-br from-sa-green to-sa-green-deep">
+            <div className="text-sm opacity-90">Hola, {cliente.nombre.split(' ')[0]}</div>
+            <div className="font-display text-6xl leading-none mt-1.5 text-sa-banana">
+              🏋️ {cliente.mancuernas}
             </div>
-            <div className="codigo">{cliente.codigo}</div>
+            <div className="uppercase tracking-widest text-xs opacity-85 mt-1">mancuernas</div>
+            <div className="bg-sa-cream/25 rounded-full h-2 my-3 overflow-hidden">
+              <div className="bg-sa-mint h-full" style={{ width: `${Math.min(100, cliente.mancuernas)}%` }} />
+            </div>
+            <div className="text-sa-cream/85 text-sm">
+              {Math.max(0, 100 - (cliente.mancuernas % 100 || 0))} para tu próximo cupón
+            </div>
           </section>
 
-          <section className="card">
-            <h2>Cupones activos ({cliente.cupones.length})</h2>
+          <section className="rounded-sa-lg p-5 mb-3.5 bg-sa-cream-paper text-sa-green-ink shadow-sa">
+            <h2 className="font-display text-lg text-sa-green mb-1.5">Tu código</h2>
+            <p className="text-sa-green-ink/60 text-sm">Muéstralo en caja o en el kiosko para identificarte.</p>
+            <div className="flex justify-center py-2.5">
+              {cliente.codigo ? <QR value={cliente.codigo} /> : <span className="text-sa-green-ink/50 text-sm">—</span>}
+            </div>
+            <div className="text-center font-mono font-medium tracking-widest text-sa-green">{cliente.codigo}</div>
+          </section>
+
+          <section className="rounded-sa-lg p-5 mb-3.5 bg-sa-cream-paper text-sa-green-ink shadow-sa">
+            <h2 className="font-display text-lg text-sa-green mb-1.5">Cupones activos ({cliente.cupones.length})</h2>
             {cliente.cupones.length === 0 && (
-              <p className="fine">Aún no tienes cupones. ¡Junta 100 mancuernas!</p>
+              <p className="text-sa-green-ink/60 text-sm">Aún no tienes cupones. ¡Junta 100 mancuernas!</p>
             )}
             {cliente.cupones.map((c) => (
-              <div key={c.id} className="cupon">
+              <div
+                key={c.id}
+                className="flex justify-between items-center gap-2.5 py-2.5 border-t border-sa-green-ink/10 first-of-type:border-t-0"
+              >
                 <div>
-                  <b>{c.tipo === 'cumpleanos' ? '🎂 Cumpleaños' : '🎁 Recompensa'}</b>
-                  <div className="fine">{c.beneficio}</div>
-                  <div className="fine">Vence: {new Date(c.vence_en).toLocaleDateString('es-MX')}</div>
+                  <b className="font-display font-normal text-base">
+                    {c.tipo === 'cumpleanos' ? '🎂 Cumpleaños' : '🎁 Recompensa'}
+                  </b>
+                  <div className="text-sa-green-ink/60 text-sm">{c.beneficio}</div>
+                  <div className="text-sa-green-ink/60 text-sm">
+                    Vence: {new Date(c.vence_en).toLocaleDateString('es-MX')}
+                  </div>
                 </div>
-                <div className="cupon-qr"><QR value={c.codigo} size={72} /></div>
+                <div className="shrink-0">
+                  <QR value={c.codigo} size={72} />
+                </div>
               </div>
             ))}
           </section>
