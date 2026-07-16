@@ -14,7 +14,7 @@ export interface Empleado {
  */
 export async function loginCajero(sb: ShakeClient, pin: string): Promise<Empleado | null> {
   // rpc no está en los tipos generados; se castea el nombre.
-  const { data, error } = await (sb.rpc as (fn: string, args: Record<string, unknown>) => Promise<{ data: Empleado[] | null; error: unknown }>)(
+  const { data, error } = await (sb.rpc as unknown as (fn: string, args: Record<string, unknown>) => Promise<{ data: Empleado[] | null; error: unknown }>)(
     'fn_login_cajero',
     { p_pin: pin },
   )
@@ -24,7 +24,7 @@ export async function loginCajero(sb: ShakeClient, pin: string): Promise<Emplead
 
 /** Empleados activos (nombre + rol, sin hashes) para el selector del login. */
 export async function listarEmpleadosActivos(sb: ShakeClient, sucursalId?: string): Promise<Empleado[]> {
-  const { data, error } = await (sb.rpc as (fn: string, args: Record<string, unknown>) => Promise<{ data: Empleado[] | null; error: unknown }>)(
+  const { data, error } = await (sb.rpc as unknown as (fn: string, args: Record<string, unknown>) => Promise<{ data: Empleado[] | null; error: unknown }>)(
     'fn_empleados_activos',
     { p_sucursal: sucursalId ?? null },
   )

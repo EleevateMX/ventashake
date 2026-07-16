@@ -1,95 +1,25 @@
-import { useEffect, useState } from 'react'
-import { sb } from './lib/sb'
-import { listarAlmacenes, corteAbierto, abrirCaja, listarCajas } from '@shake/supabase'
-import type { Almacen, Caja, CajaCorte } from '@shake/types'
-import Venta from './pages/Venta'
-import Corte from './pages/Corte'
-import milo from '@shake/brand/milo.png'
+import React from 'react'
+import { Routes, Route, Navigate } from 'react-router-dom'
+import { Login } from './pages/Login'
+import { Caja } from './pages/Caja'
+import { Cobro } from './pages/Cobro'
+import { CorteCaja } from './pages/CorteCaja'
+import { usePosStore } from './store/posStore'
 
-export interface Contexto {
-  sucursalId: string
-  almacenKioskoId: string
-  caja: Caja
-  corte: CajaCorte
+function RequireAuth({ children }: { children: React.ReactNode }) {
+  const empleado = usePosStore((s) => s.empleado)
+  if (!empleado) return <Navigate to="/login" replace />
+  return <>{children}</>
 }
 
 export default function App() {
-  const [almacen, setAlmacen] = useState<Almacen | null>(null)
-  const [caja, setCaja] = useState<Caja | null>(null)
-  const [corte, setCorte] = useState<CajaCorte | null>(null)
-  const [fondo, setFondo] = useState('0')
-  const [cargando, setCargando] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [tab, setTab] = useState<'venta' | 'corte'>('venta')
-
-  async function bootstrap() {
-    try {
-      const almacenes = await listarAlmacenes(sb)
-      const kiosko = almacenes.find((a) => a.tipo === 'kiosko') ?? almacenes[0]
-      if (!kiosko) throw new Error('No hay almacenes configurados.')
-      setAlmacen(kiosko)
-      const cajas = await listarCajas(sb)
-      const c = cajas.find((x) => x.sucursal_id === kiosko.sucursal_id) ?? cajas[0]
-      if (!c) throw new Error('No hay cajas configuradas.')
-      setCaja(c)
-      setCorte(await corteAbierto(sb, c.id))
-      setError(null)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
-    } finally {
-      setCargando(false)
-    }
-  }
-
-  useEffect(() => {
-    void bootstrap()
-  }, [])
-
-  async function handleAbrir() {
-    if (!caja) return
-    try {
-      setCorte(await abrirCaja(sb, caja.id, Number(fondo) || 0))
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
-    }
-  }
-
-  if (cargando) return <div className="cargando">Cargando caja…</div>
-
   return (
-    <div className="app">
-      <header className="header">
-        <h1><img className="milo" src={milo} alt="" />Shake Aholic · Caja</h1>
-        {corte && (
-          <nav>
-            <button className={tab === 'venta' ? 'tab activo' : 'tab'} onClick={() => setTab('venta')}>Venta</button>
-            <button className={tab === 'corte' ? 'tab activo' : 'tab'} onClick={() => setTab('corte')}>Corte</button>
-          </nav>
-        )}
-      </header>
-
-      {error && <div className="error-msg">{error}</div>}
-
-      {!corte && caja && almacen && (
-        <div className="panel" style={{ maxWidth: 420 }}>
-          <h2>Abrir caja — {caja.nombre}</h2>
-          <p className="muted">No hay un corte abierto. Ingresa el fondo inicial para comenzar a vender.</p>
-          <div className="campo">
-            <label>Fondo inicial en efectivo ($)</label>
-            <input type="number" value={fondo} onChange={(e) => setFondo(e.target.value)} />
-          </div>
-          <button className="primario" onClick={() => void handleAbrir()}>Abrir caja</button>
-        </div>
-      )}
-
-      {corte && almacen && caja && tab === 'venta' && (
-        <Venta
-          ctx={{ sucursalId: almacen.sucursal_id, almacenKioskoId: almacen.id, caja, corte }}
-        />
-      )}
-      {corte && caja && tab === 'corte' && (
-        <Corte corte={corte} onCerrado={() => { setCorte(null); setTab('venta') }} />
-      )}
-    </div>
+    <Routes>
+      <Route path="/login" element={<Login />} />
+      <Route path="/" element={<RequireAuth><Caja /></RequireAuth>} />
+      <Route path="/cobro" element={<RequireAuth><Cobro /></RequireAuth>} />
+      <Route path="/corte" element={<RequireAuth><CorteCaja /></RequireAuth>} />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   )
 }
