@@ -21,6 +21,27 @@ const ETIQUETA_ESTADO: Record<string, string> = {
   listo: 'Listo',
 }
 
+// Franja de acento superior de la tarjeta según estado.
+const ACENTO_ESTADO: Record<string, string> = {
+  pendiente: 'bg-sa-strawberry animate-pulse',
+  en_preparacion: 'bg-sa-banana',
+  listo: 'bg-sa-mint',
+}
+
+// Badge de estado (fondo + texto).
+const BADGE_ESTADO: Record<string, string> = {
+  pendiente: 'bg-sa-strawberry text-white',
+  en_preparacion: 'bg-sa-banana text-sa-coffee',
+  listo: 'bg-sa-mint text-sa-green-ink',
+}
+
+// Botón de avance según estado.
+const BOTON_ESTADO: Record<string, string> = {
+  pendiente: 'bg-sa-green hover:bg-sa-green-deep text-sa-cream',
+  en_preparacion: 'bg-sa-mint hover:bg-sa-mint/80 text-sa-green-ink',
+  listo: 'bg-sa-blueberry hover:bg-sa-blueberry/80 text-white',
+}
+
 function minutosDesde(iso: string, ahora: number): number {
   return Math.floor((ahora - new Date(iso).getTime()) / 60000)
 }
@@ -29,6 +50,21 @@ function claseAntiguedad(min: number): string {
   if (min < 5) return 'nuevo'
   if (min < 10) return 'medio'
   return 'tarde'
+}
+
+// Color del contador de minutos según antigüedad.
+function colorAntiguedad(min: number): string {
+  const c = claseAntiguedad(min)
+  if (c === 'nuevo') return 'text-sa-mint'
+  if (c === 'medio') return 'text-sa-banana'
+  return 'text-sa-strawberry'
+}
+
+function formatReloj(ms: number): string {
+  const d = new Date(ms)
+  const hh = d.getHours().toString().padStart(2, '0')
+  const mm = d.getMinutes().toString().padStart(2, '0')
+  return `${hh}:${mm}`
 }
 
 export default function App() {
@@ -72,57 +108,192 @@ export default function App() {
     }
   }
 
-  if (cargando) return <div className="cargando">Cargando comandas…</div>
+  if (cargando) {
+    return (
+      <div className="min-h-screen bg-sa-green-ink flex items-center justify-center">
+        <p className="font-display text-sa-cream/70 text-2xl tracking-wide">Cargando comandas…</p>
+      </div>
+    )
+  }
+
+  const pendientes = pedidos.filter((p) => p.estado === 'pendiente').length
+  const preparando = pedidos.filter((p) => p.estado === 'en_preparacion').length
+  const listos = pedidos.filter((p) => p.estado === 'listo').length
 
   return (
-    <div className="app">
-      <header className="header">
-        <h1><img className="milo" src={milo} alt="" />{TITULO}</h1>
-        <span className="contador">{pedidos.length} activos</span>
+    <div className="min-h-screen bg-sa-green-ink flex flex-col font-body">
+      {/* ── Header ── */}
+      <header className="px-6 py-4 bg-sa-green-deep border-b border-sa-cream/10">
+        <div className="flex items-center justify-between gap-6">
+          <div className="flex items-center gap-4 shrink-0">
+            <img
+              src={milo}
+              alt="Shake Aholic"
+              className="h-14 w-auto drop-shadow-[0_2px_8px_rgba(0,0,0,0.4)]"
+            />
+          </div>
+
+          <div className="flex-1 text-center">
+            <h1 className="font-display text-sa-cream text-3xl md:text-4xl tracking-wide leading-none">
+              {TITULO}
+            </h1>
+            <p className="font-mono text-sa-cream/50 text-xs mt-1 uppercase tracking-widest">
+              Kitchen Display · En vivo
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3 shrink-0">
+            <span className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-sa-mint animate-pulse" />
+              <span className="font-mono text-sa-cream/70 text-xl tabular-nums">{formatReloj(ahora)}</span>
+            </span>
+          </div>
+        </div>
+
+        {/* Stats row */}
+        <div className="flex flex-wrap gap-3 mt-4 justify-center md:justify-end">
+          <StatPill count={pedidos.length} label="Activos" bg="bg-sa-blueberry" text="text-white" />
+          <StatPill count={pendientes} label="Pendientes" bg="bg-sa-strawberry" text="text-white" pulse />
+          <StatPill count={preparando} label="Preparando" bg="bg-sa-banana" text="text-sa-coffee" />
+          <StatPill count={listos} label="Listos" bg="bg-sa-mint" text="text-sa-green-ink" />
+        </div>
       </header>
 
-      {error && <div className="error-msg">{error}</div>}
+      {/* ── Main ── */}
+      <main className="flex-1 p-6">
+        {error && (
+          <div className="mb-6 rounded-sa border border-sa-strawberry bg-sa-strawberry/10 px-5 py-3 font-mono text-sm text-sa-strawberry">
+            {error}
+          </div>
+        )}
 
-      {pedidos.length === 0 && !error && (
-        <div className="vacio">Sin comandas activas. Todo al día 🎉</div>
-      )}
+        {pedidos.length === 0 && !error ? (
+          <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6 text-center">
+            <img
+              src={milo}
+              alt="Milo descansando"
+              className="w-[240px] h-auto opacity-90 drop-shadow-[0_10px_30px_rgba(0,0,0,0.5)]"
+            />
+            <p className="font-display text-sa-cream text-4xl md:text-5xl tracking-wide">
+              Todo limpio. A descansar.
+            </p>
+            <p className="font-mono text-sa-cream/50 text-sm uppercase tracking-widest">
+              Las comandas nuevas aparecerán aquí
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+            {pedidos.map((pedido) => {
+              const min = minutosDesde(pedido.created_at, ahora)
+              const paso = AVANCE[pedido.estado]
+              return (
+                <div
+                  key={pedido.id}
+                  className="bg-sa-cream rounded-sa-lg shadow-sa overflow-hidden flex flex-col"
+                >
+                  {/* Franja de acento por estado */}
+                  <div className={`h-1.5 w-full ${ACENTO_ESTADO[pedido.estado] ?? 'bg-sa-mint'}`} />
 
-      <div className="grid-pedidos">
-        {pedidos.map((pedido) => {
-          const min = minutosDesde(pedido.created_at, ahora)
-          const paso = AVANCE[pedido.estado]
-          return (
-            <div key={pedido.id} className={`comanda ${claseAntiguedad(min)}`}>
-              <div className="comanda-top">
-                <span className="folio">#{pedido.ordenes?.folio ?? '—'}</span>
-                <span className="canal">{pedido.ordenes?.canal ?? ''}</span>
-              </div>
-              <div className="comanda-meta">
-                <span className="tiempo">{min} min</span>
-                <span className={`estado ${pedido.estado}`}>
-                  {ETIQUETA_ESTADO[pedido.estado] ?? pedido.estado}
-                </span>
-              </div>
-              <ul className="items">
-                {pedido.cocina_items.map((item) => (
-                  <li key={item.id}>
-                    <span className="cant">{item.cantidad}×</span>
-                    <span className="nom">{item.productos?.nombre ?? '—'}</span>
-                    {item.personalizacion && (
-                      <span className="pers">↳ {item.personalizacion}</span>
+                  {/* Cabecera: folio + canal */}
+                  <div className="flex items-start justify-between px-5 pt-4">
+                    <div className="flex flex-col">
+                      <span className="font-mono text-[10px] uppercase tracking-widest text-sa-green-ink/50">
+                        Folio
+                      </span>
+                      <span className="font-display text-sa-green-ink text-3xl leading-none mt-0.5">
+                        #{pedido.ordenes?.folio ?? '—'}
+                      </span>
+                    </div>
+                    {pedido.ordenes?.canal && (
+                      <span className="inline-flex items-center px-3 py-1 rounded-sa font-mono text-[11px] uppercase tracking-wider bg-sa-green text-sa-cream">
+                        {pedido.ordenes.canal}
+                      </span>
                     )}
-                  </li>
-                ))}
-              </ul>
-              {paso && (
-                <button className="avanzar" onClick={() => void avanzar(pedido)}>
-                  {paso.etiqueta}
-                </button>
-              )}
-            </div>
-          )
-        })}
-      </div>
+                  </div>
+
+                  {/* Tiempo + estado */}
+                  <div className="px-5 pt-3 pb-2 flex items-end justify-between">
+                    <div className="flex items-baseline gap-2">
+                      <span className={`font-display text-4xl leading-none ${colorAntiguedad(min)}`}>
+                        {min}
+                      </span>
+                      <span className="font-mono text-xs uppercase tracking-widest text-sa-green-ink/50">
+                        {min < 1 ? 'recién' : 'min'}
+                      </span>
+                    </div>
+                    <span
+                      className={`inline-flex items-center px-2.5 py-1 rounded-sa font-mono text-[10px] uppercase tracking-widest ${BADGE_ESTADO[pedido.estado] ?? 'bg-sa-mint text-sa-green-ink'}`}
+                    >
+                      {ETIQUETA_ESTADO[pedido.estado] ?? pedido.estado}
+                    </span>
+                  </div>
+
+                  <div className="mx-5 my-1 h-px bg-sa-green-ink/10" />
+
+                  {/* Items */}
+                  <div className="px-3 py-2 flex-1">
+                    {pedido.cocina_items.map((item) => (
+                      <div
+                        key={item.id}
+                        className="flex gap-3 items-start px-2 py-2 rounded-sa hover:bg-sa-cream-soft transition-colors"
+                      >
+                        <span className="font-mono font-medium text-sm bg-sa-green-ink text-sa-cream px-2.5 py-1 rounded-sa min-w-[2.75rem] text-center shrink-0 tabular-nums">
+                          {item.cantidad}×
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-body font-medium text-sa-green-ink leading-tight">
+                            {item.productos?.nombre ?? '—'}
+                          </p>
+                          {item.personalizacion && (
+                            <p className="font-mono text-[11px] mt-1 text-sa-strawberry uppercase tracking-wide">
+                              ↳ {item.personalizacion}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Botón de avance */}
+                  {paso && (
+                    <div className="px-5 pb-5 pt-2">
+                      <button
+                        onClick={() => void avanzar(pedido)}
+                        className={`w-full font-display text-xl tracking-wide py-3 rounded-sa transition-colors shadow-sa-sm ${BOTON_ESTADO[pedido.estado] ?? 'bg-sa-green text-sa-cream'}`}
+                      >
+                        {paso.etiqueta}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </main>
     </div>
+  )
+}
+
+function StatPill({
+  count,
+  label,
+  bg,
+  text,
+  pulse = false,
+}: {
+  count: number
+  label: string
+  bg: string
+  text: string
+  pulse?: boolean
+}) {
+  return (
+    <span className={`inline-flex items-center gap-2.5 pl-2 pr-4 py-1.5 rounded-sa ${bg} ${text} shadow-sa-sm`}>
+      <span className={`font-display text-2xl leading-none min-w-[2rem] text-center px-2 ${pulse ? 'animate-pulse' : ''}`}>
+        {count}
+      </span>
+      <span className="font-mono text-xs uppercase tracking-widest">{label}</span>
+    </span>
   )
 }
