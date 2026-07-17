@@ -13,6 +13,7 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit",
     "test-print": "tsx src/testPrint.ts",
+    "diagnose": "tsx src/diagnose.ts",
     "install-windows-service": "tsx src/installWindowsService.ts"
   },
   "dependencies": {

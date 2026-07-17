@@ -84,6 +84,19 @@ que el agente le puede hablar a la impresora. Si no sale nada:
   (es cuestión de ajustar `characterSet` en `src/comanda.ts` para tu
   modelo de impresora).
 
+Después (o en vez) de `test-print`, corre el diagnóstico completo — revisa
+conexión a Supabase, que el token sea válido, que la sucursal/estación
+coincidan con Admin, y el estado de la cola, además de la impresora física:
+
+```bash
+npm run diagnose                    # todas las impresoras de printers.config.json
+npm run diagnose -- cocina-01       # solo esa
+npm run diagnose -- --imprimir      # además imprime una prueba física (acentos + corte)
+```
+
+Ver `docs/diagnostico-impresion.md` para qué significa cada resultado y qué
+tan lejos llega cada chequeo sin hardware real.
+
 ## 5. Arrancar el agente de verdad
 
 ```bash
@@ -160,6 +173,7 @@ hecho.
 - [ ] `agente-impresion` instalado en un equipo de esa sucursal
 - [ ] `printers.config.json` con el token correcto por impresora
 - [ ] `npm run test-print` sale bien (hardware ok)
+- [ ] `npm run diagnose -- --imprimir` sin fallos (conexión + auth + sucursal/estación + cola + hardware)
 - [ ] `npm run start` conecta (Realtime SUBSCRIBED, latido sin error)
 - [ ] Venta de prueba real imprime la comanda sola
 - [ ] Agente configurado para arrancar solo con el equipo
