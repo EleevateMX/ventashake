@@ -55,18 +55,18 @@ export default function App() {
   const [tab, setTab] = useState<Tab>('dashboard')
 
   return (
-    <div className="flex min-h-screen bg-sa-cream-paper">
-      {/* Sidebar */}
-      <aside className="w-60 shrink-0 bg-sa-green-deep text-sa-cream flex flex-col">
-        <div className="px-6 pt-7 pb-6">
-          <img src={logo} alt="Shake Aholic" className="w-[140px] h-auto select-none" draggable={false} />
+    <div className="flex flex-col md:flex-row min-h-screen bg-sa-cream-paper">
+      {/* Sidebar (barra superior en móvil, lateral en escritorio) */}
+      <aside className="w-full md:w-60 shrink-0 bg-sa-green-deep text-sa-cream flex flex-col">
+        <div className="px-5 md:px-6 pt-5 md:pt-7 pb-4 md:pb-6">
+          <img src={logo} alt="Shake Aholic" className="w-[112px] md:w-[140px] h-auto select-none" draggable={false} />
         </div>
-        <nav className="flex-1 px-3 space-y-1">
+        <nav className="flex md:flex-col gap-1 px-3 pb-3 md:pb-0 md:flex-1 overflow-x-auto">
           {navItems.map(({ id, label, Icon }) => (
             <button
               key={id}
               onClick={() => setTab(id)}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-sa-lg text-sm transition-colors ${
+              className={`shrink-0 md:w-full flex items-center gap-2 md:gap-3 px-4 py-2.5 md:py-3 rounded-sa-lg text-sm whitespace-nowrap transition-colors ${
                 tab === id
                   ? 'bg-sa-cream text-sa-green-ink font-semibold shadow-sa-sm'
                   : 'text-sa-cream/80 hover:text-sa-cream hover:bg-white/5 font-medium'
@@ -77,7 +77,7 @@ export default function App() {
             </button>
           ))}
         </nav>
-        <div className="px-4 py-4 border-t border-sa-cream/10">
+        <div className="hidden md:block px-4 py-4 border-t border-sa-cream/10">
           <p className="text-[11px] font-mono uppercase tracking-wider text-sa-cream/40 px-1">
             Shake Aholic · Admin
           </p>
@@ -85,7 +85,7 @@ export default function App() {
       </aside>
 
       {/* Contenido */}
-      <main className="flex-1 min-w-0 p-8">
+      <main className="flex-1 min-w-0 p-4 md:p-8">
         {tab === 'dashboard' && <Dashboard />}
         {tab === 'menu' && <Menu />}
         {tab === 'ventas' && <Ventas />}
