@@ -19,6 +19,7 @@ security definer
 set search_path to 'public'
 as $function$
 begin
+  drop table if exists _ins; -- idempotente si hay 2 guardados en la misma tx
   create temp table _ins on commit drop as
   with cand as (
     select * from (
@@ -54,6 +55,7 @@ begin
   select nombre,tipo,unidad,contenido,costo_compra,marca,proveedor,codigo,codigo_barras,presentacion
   from _ins d where not exists (select 1 from insumos i where lower(i.nombre)=lower(d.nombre));
 
+  drop table if exists _prod;
   create temp table _prod on commit drop as
   select distinct on (lower(nombre)) nombre, precio, iva, es_rev, cat, codigo, codigo_barras, merma from (
     select 1 ord, trim(x->>'nombre') nombre, coalesce(nullif(x->>'precio','')::numeric,0) precio, true iva, true es_rev, 'Bebidas' cat,

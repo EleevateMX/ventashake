@@ -7,11 +7,18 @@
       **NO toca stock** (lo maneja el POS con cada venta). Probado e2e:
       capturar precio a un shake en costosshake lo activa al instante en
       kiosko y POS. Ver `supabase/migrations/auto_sync_app_data_trigger.sql`.
-- [ ] **Puente de STOCK (decisión pendiente de fuente de la verdad)**:
-      costosshake guarda inventarios ABSOLUTOS (bodega=invOriginal,
-      kiosko=invIndividual); el POS DECREMENTA `inventario_stock` con cada
-      venta. Si sincronizamos absolutos, pisamos las bajas por venta. Falta
-      decidir el modelo (delta/traspaso vs. absoluto) antes de construirlo.
+- [x] **Puente de STOCK — modelo "traspaso suma" (LISTO)**: costosshake surte
+      (bodega=invOriginal, kiosko=invIndividual) y el POS vende. Se aplican
+      DELTAS (no absolutos): `delta = nuevo_en_costosshake − último_aplicado`,
+      sumado a `inventario_stock` y registrado en `inventario_movimientos`
+      (traspaso=kiosko, ajuste=bodega). El POS sigue restando por venta, así
+      que guardar en costosshake NUNCA borra ventas. Estado en
+      `costos_stock_sync`. Probado e2e con reversa: surtir 20 → vender 3 → 17;
+      re-guardar 25 en costosshake → 22 (no 25, la venta se respeta). Ver
+      `supabase/migrations/auto_sync_stock_delta.sql`.
+      Nota operativa: en la 1ª corrida siembra el inventario actual como línea
+      base (la bodega ya trae valores; el kiosko arranca en 0 hasta que el
+      cliente "suba al kiosko" en costosshake).
 
 ## Datos (los captura el cliente en costosshake → fluyen solos al POS)
 
