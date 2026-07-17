@@ -28,7 +28,30 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Gate único antes de desplegar nada: si el código no pasa lint/typecheck,
+  # ninguna app se despliega (evita subir a producción un frontend roto).
+  # El build de cada app abajo YA corre `tsc --noEmit` individualmente; este
+  # job además corre eslint (detecta cosas que el compilador no, ej. hooks
+  # de React mal usados) una sola vez para las 8 apps, en vez de 8 veces.
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - name: Install deps
+        run: pnpm install --frozen-lockfile
+      - name: Lint
+        run: pnpm lint
+
   deploy:
+    needs: lint
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false      # si una app falla, las demás igual se despliegan

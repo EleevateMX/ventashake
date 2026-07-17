@@ -46,13 +46,14 @@
       una TV. Hoy son dos apps separadas (`cocina-alimentos` y `cocina-bebidas`);
       es una app/vista nueva sobre `pedidos_cocina` (realtime, misma data).
       Sin construir todavía — planeado.
-- [ ] **Impresión de comandas automática por estación**: al entrar un pedido,
-      imprimir su comanda en la impresora térmica de la estación que le
-      corresponde (Cocina imprime alimentos, Barra imprime bebidas), ruteado
-      por `categorias.cocina_id`. Para pegar/llevar el ticket con la orden.
-      Requiere impresora térmica en cocina y en barra (ver `hardware.md`) y
-      puente de impresión ESC/POS o diálogo del navegador por estación.
-      Sin construir todavía — planeado.
+- [x] **Impresión de comandas automática por estación — LISTO**: cola
+      persistente (`trabajos_impresion`) + agente local ESC/POS
+      (`agente-impresion/`), reclamo atómico, reintentos con backoff,
+      reimpresión auditada, panel en Admin. Ver `docs/impresion-comandas.md`,
+      `docs/instalacion-agente-impresion.md`, `docs/configuracion-impresoras.md`.
+      Falta que el usuario registre las impresoras reales de cada sucursal en
+      Admin e instale el agente en un equipo junto a cada una (checklist en
+      `docs/instalacion-agente-impresion.md` §8).
 - [ ] Fase 7 (pulido): UI de compras/transferencias/mermas en admin;
       política de cortesías; cancelación post-pago con ajuste automático de
       inventario
@@ -83,13 +84,33 @@
 - [ ] Cargar stock inicial en Kiosko (entrada de inventario) para que el
       descuento por venta no deje negativos
 
+## Auditoría de producción (LISTO lo crítico — ver docs/auditoria-produccion.md)
+
+- [x] **Órdenes y cobros atómicos e idempotentes**: `fn_crear_orden`/
+      `fn_cobrar_orden` (transaccionales, precio/total recalculado en
+      servidor, un solo pago aprobado por orden aunque se reintente).
+      Cierra: total/precio manipulable desde el navegador, órdenes fantasma
+      por inserts sueltos, pagos duplicados por doble clic.
+- [x] **Cierre de acceso directo a `pagos`/`ordenes`/`empleados.pin_hash`**:
+      antes cualquiera con la anon key podía aprobar un pago falso o leer
+      los hashes de PIN por REST directo (sin pasar por la app). Cerrado
+      con RLS + grants de columna. Ver detalle y pruebas en
+      `docs/auditoria-produccion.md`.
+- [ ] **Decisión de negocio pendiente** (no se tocó sin confirmar): el
+      kiosko autoaprueba el pago "terminal" tras una animación de 7s y
+      "efectivo" de inmediato, sin que nadie confirme un cobro real —
+      viable solo mientras no hay Clip conectado y hay un cajero de
+      respaldo. Ver `docs/auditoria-produccion.md` hallazgo C4/M2.
+
 ## Seguridad (fase 9 — hardening) ⚠️
 
 - [ ] `app_users` es legible por `anon` (expone hashes) — postura legacy
       heredada, cerrar al retirar el login propio
 - [ ] `app_data` escribible por `anon` — cerrar tras congelar el legacy
-- [ ] Policies `using (true)` en todo el catálogo: cualquiera con la anon
-      key puede escribir. Sustituir por Supabase Auth + rol en JWT
+- [ ] Policies `using (true)` en el resto del catálogo (productos,
+      inventario, promociones, etc. — `pagos`/`ordenes`/`empleados` ya se
+      cerraron, ver arriba): cualquiera con la anon key puede escribir.
+      Sustituir por Supabase Auth + rol en JWT
 - [ ] `parametros.clave_traspaso/clave_compras` legibles ("1234"): mover
       validación a RPC y rotar claves
 - [ ] `registrarMovimiento` cliente: read-modify-write → RPC atómica

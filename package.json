@@ -2,6 +2,7 @@
   "name": "shake-pos-ecosistema",
   "private": true,
   "version": "0.1.0",
+  "type": "module",
   "description": "Ecosistema POS + Costos de Shakeaholic sobre Supabase",
   "packageManager": "pnpm@9.15.0",
   "engines": {
@@ -19,7 +20,19 @@
     "build": "pnpm -r --if-present build",
     "build:costos": "pnpm --filter @shake/costos build",
     "typecheck": "pnpm -r --if-present typecheck",
+    "lint": "eslint .",
+    "test": "pnpm -r --if-present test",
+    "test:integration": "echo 'Sin suite de integración automatizada todavía — ver docs/auditoria-produccion.md §7 (deuda técnica) y las pruebas SQL documentadas en docs/checklist-produccion.md.' && exit 0",
+    "test:e2e": "echo 'Sin suite e2e automatizada todavía — ver docs/auditoria-produccion.md §7.' && exit 0",
+    "audit:production": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
     "etl:dry": "pnpm --filter @shake/seed migrar -- --dry-run",
     "etl:aplicar": "pnpm --filter @shake/seed migrar -- --aplicar"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.15.0",
+    "eslint": "^9.15.0",
+    "eslint-plugin-react-hooks": "^5.0.0",
+    "eslint-plugin-react-refresh": "^0.4.14",
+    "typescript-eslint": "^8.15.0"
   }
 }

@@ -451,6 +451,89 @@ Ver Fase 3, documentada por separado en `docs/impresion-comandas.md`.
 - Credenciales de Clip (API key, webhook secret) — siguen pendientes, no se
   inventan.
 
+## 7a. Criterios de aceptación — evaluación honesta
+
+| # | Criterio | Estado |
+|---|---|---|
+| 1 | Venta confirmada genera un pedido una sola vez | ✅ Verificado (guard `OLD.pagado IS DISTINCT FROM true` + `fn_cobrar_orden` idempotente) |
+| 2 | Inventario se descuenta una sola vez | ✅ Verificado (mismo guard) |
+| 3 | Puntos se entregan una sola vez | ✅ Verificado (mismo guard) |
+| 4 | Cocina recibe únicamente sus productos | ✅ Verificado (prueba con orden mixta) |
+| 5 | Barra recibe únicamente sus productos | ✅ Verificado (prueba con orden mixta) |
+| 6 | Cada estación recibe su comanda | ✅ Verificado (1 trabajo de impresión por `pedido_cocina`) |
+| 7 | La comanda se imprime automáticamente sin abrir el diálogo del navegador | ✅ Cola + agente ESC/POS construidos y probados a nivel de base; impresión física real en hardware **no verificada** en este entorno (sandbox sin salida de red directa — ver `agente-impresion` commit) |
+| 8 | Impresora apagada no pierde la comanda | ✅ Verificado (queda en la cola, se reintenta) |
+| 9 | Trabajos fallidos se reintentan | ✅ Verificado (backoff exponencial probado) |
+| 10 | Trabajo abandonado se libera automáticamente | ✅ Verificado (claim vencido + cron de respaldo) |
+| 11 | Dos agentes no imprimen la misma comanda | ✅ Verificado (`FOR UPDATE SKIP LOCKED`) |
+| 12 | Pérdida de conexión no duplica ventas | ✅ Verificado (idempotencia de `fn_cobrar_orden`) |
+| 13 | Webhook duplicado no duplica pagos | ⏸ No aplica todavía — no hay webhook de Clip real (pendiente de credenciales); la RPC que lo recibiría (`fn_cobrar_orden`) ya es idempotente por diseño para cuando exista |
+| 14 | Recarga del kiosko no crea otra venta | ✅ Verificado a nivel de datos (idempotencia de cobro); el kiosko no reintenta solo hoy — reintento es manual, siempre seguro |
+| 15 | Reimpresión queda auditada | ✅ Verificado (`impresion_auditoria`) |
+| 16 | POS y KDS estables durante una jornada completa | ⏸ No verificado — requiere una jornada real en producción; el código de suscripción Realtime limpia sus canales al desmontar (revisado por lectura), pero no se sometió a una prueba de varias horas |
+| 17 | Todas las apps compilan | ✅ Verificado (`pnpm build`, 8/8 en verde) |
+| 18 | Pruebas críticas pasan | ✅ Parcial — pruebas SQL exhaustivas de los flujos nuevos (orden/cobro/impresión) verificadas en vivo con rollback; pruebas unitarias reales para lógica de costeo/dinero (20/20 en verde); **no** hay suite e2e ni de integración automatizada (ver §7 abajo) |
+| 19 | Documentación explica cómo instalar en una sucursal nueva | ✅ `docs/instalacion-agente-impresion.md`, `docs/configuracion-impresoras.md`, `docs/checklist-produccion.md` |
+| 20 | No hay secretos privados en el frontend | ✅ Verificado — solo anon key (pública por diseño) en las 8 apps; `service_role`/tokens de agente nunca salen del backend o del `.env` local del agente |
+
+## 7b. Entregables de esta ronda
+
+**Código:**
+- `supabase/migrations/produccion_ordenes_atomicas.sql` — `fn_crear_orden`/`fn_cobrar_orden`
+- `supabase/migrations/produccion_seguridad_pagos_empleados.sql` +
+  `produccion_seguridad_columnas_fix.sql` — cierre de RLS/grants
+- `supabase/migrations/impresion_comandas.sql` +
+  `impresion_reimprimir_empleado_opcional` (aplicada, no versionada aparte
+  — cambio de un parámetro) — cola de impresión completa
+- `packages/supabase/src/queries/ordenes.ts` (reescrito), `impresion.ts` (nuevo)
+- `packages/types/src/database.ts` (regenerado), `dominio.ts` (tipos nuevos)
+- `apps/pos/src/pages/Cobro.tsx`, `apps/kiosko/src/pages/Pago.tsx` — idempotencyKey
+- `apps/admin/src/pages/Impresoras.tsx` (nuevo) + `App.tsx` (nav)
+- `apps/cocina-alimentos/src/App.tsx`, `apps/cocina-bebidas/src/App.tsx` — indicador de impresión
+- `agente-impresion/` completo (nuevo) — agente local Node/TS + ESC/POS
+- `packages/utils/src/costeo.test.ts`, `dinero.test.ts` (nuevos, 20 pruebas)
+- `eslint.config.js` + scripts `lint`/`test`/`test:integration`/`test:e2e`/`audit:production` en el `package.json` raíz
+- `.github/workflows/deploy-cloudflare.yml` — gate de lint antes de desplegar
+
+**Documentación:**
+- `docs/auditoria-produccion.md` (este documento)
+- `docs/impresion-comandas.md`, `docs/instalacion-agente-impresion.md`,
+  `docs/configuracion-impresoras.md` (nuevos)
+- `docs/recuperacion-fallas.md`, `docs/checklist-produccion.md` (nuevos)
+- `docs/pendientes.md`, `docs/hardware.md` (actualizados)
+
+**Pruebas ejecutadas y resultado:**
+- Precio/total recalculado en servidor: ✅ coincide con catálogo real
+- Monto manipulado: ✅ rechazado
+- Doble cobro sin/con idempotency_key: ✅ un solo pago aprobado en ambos casos
+- Cadena completa crear→cobrar→inventario→cocina→mancuernas vía las RPCs nuevas: ✅
+- `anon` no puede insertar orden/item/pago-aprobado directo, sí puede insertar pago-pendiente y cancelar orden: ✅ los 7 casos como se esperaba
+- `anon` no puede leer `pin_hash`, RPCs de empleados siguen funcionando: ✅
+- Orden mixta → 2 comandas separadas por estación, cada una con sus items: ✅
+- Reclamo atómico (2 agentes, mismo trabajo): ✅ solo uno se lo lleva
+- Fallo → retry con backoff → claim abandonado se libera → reimpresión con auditoría: ✅
+- Prueba de humo en vivo del agente contra Supabase real (con limpieza posterior, cero residuos): ✅ maneja la falla de red sin caerse; impresión física en hardware real **no probada** (limitación del sandbox, no del código)
+- `pnpm audit:production` (lint + typecheck + test + build, 14 paquetes/apps): ✅ verde
+
+**Riesgos pendientes:**
+- A3 (RLS `using(true)` en el resto del catálogo) — deuda documentada, requiere Supabase Auth
+- C4/M2 (autoaprobación de pago en kiosko sin Clip real) — decisión de negocio pendiente del usuario
+- Impresión física en hardware real — no probada en este entorno; probarla es el primer paso al instalar en sucursal (`docs/instalacion-agente-impresion.md` §4)
+- Sin suite e2e/integración automatizada — mitigado con pruebas SQL exhaustivas de los flujos críticos nuevos, pero no reemplaza CI automatizado de extremo a extremo
+
+**Configuraciones que debe proporcionar el usuario:**
+- IP/puerto (o dispositivo USB) de cada impresora térmica real
+- Decisión sobre autoaprobación de pago en kiosko (§6)
+- Credenciales de Clip cuando estén disponibles (`docs/integracion-clip.md`)
+- Habilitar Google en Supabase Auth (pendiente de otra sesión, ya documentado)
+
+**Pasos exactos para producción:**
+1. Revisar y confirmar la decisión de C4/M2 (autoaprobación del kiosko)
+2. Registrar cada impresora real en Admin → Impresoras
+3. Instalar `agente-impresion` en un equipo por sucursal/estación (`docs/instalacion-agente-impresion.md`)
+4. Probar impresión física real con `npm run test-print`, luego con una venta real
+5. Recorrer `docs/checklist-produccion.md` completo antes de abrir
+
 ## 7. Deuda técnica documentada, no atacada en esta ronda
 
 - A3 (RLS `using(true)` generalizado) — requiere migrar a Supabase Auth +

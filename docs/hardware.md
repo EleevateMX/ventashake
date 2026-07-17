@@ -61,14 +61,19 @@ solo monitor lista alimentos + bebidas, cada tarjeta rotulada con su estación).
 - **Nota (planeado):** la *vista combinada* en una sola TV es una vista nueva
   aún por construir; hoy existen las dos apps separadas. Ver `pendientes.md`.
 
-#### 3b. Comandas impresas por estación (impresoras térmicas)
+#### 3b. Comandas impresas por estación (impresoras térmicas) — LISTO
 Cada estación imprime la comanda de su pedido para **pegarla o llevarla con
 la orden**: **cocina** imprime los alimentos y **barra** los shakes/bebidas,
-ruteado por la categoría del producto.
+ruteado por la categoría del producto. **Ya implementado y funcional** (cola
+persistente + agente local ESC/POS, no depende del navegador) — ver
+`docs/impresion-comandas.md` para cómo funciona y
+`docs/instalacion-agente-impresion.md` para instalar el agente en cada
+sucursal.
 - **1 impresora térmica 80 mm en cocina** + **1 en barra** (~$1,200–2,500 c/u).
 - Con la impresora de tickets de la **caja**, son **3 impresoras** en total.
-- **Nota (planeado):** la impresión automática por estación es una función aún
-  por habilitar (puente ESC/POS o diálogo del navegador). Ver `pendientes.md`.
+- Cada impresora necesita un equipo (mini-PC/laptop) en la misma red
+  corriendo el agente local — puede ser el mismo mini-PC del KDS si tiene
+  puerto de red/USB libre, o uno aparte.
 
 ### 4. Pantalla de folios para el cliente (display)
 - **Smart TV** o monitor colgado a la vista del público con `cliente-display`

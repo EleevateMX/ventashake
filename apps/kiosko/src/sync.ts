@@ -61,7 +61,7 @@ export function subscribeKds(handler: (orden: {
     ch.onmessage = (m) => {
       if (m.data?.type === 'new-order') handler(m.data.orden)
     }
-    return () => { try { ch.close() } catch {} }
+    return () => { try { ch.close() } catch { /* el canal ya pudo haberse cerrado; no hay nada que hacer */ } }
   } catch {
     return () => {}
   }
