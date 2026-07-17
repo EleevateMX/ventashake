@@ -71,8 +71,11 @@ export function Cobro() {
       // Promo: registrar su aplicación (throttle + reporte).
       if (promo && cliente) await registrarAplicacionPromo(sb, promo.id, cliente.id, orden.id)
       // Cobro inmediato aprobado → el trigger descuenta inventario y manda a cocina.
+      // idempotencyKey: si esta llamada se reintenta (timeout de red, doble
+      // tap) la base devuelve el mismo pago en vez de crear uno duplicado.
       await cobrarOrden(sb, orden.id, metodo, totalNeto, {
         referencia: referencia.trim() || undefined,
+        idempotencyKey: crypto.randomUUID(),
       })
 
       const gana = cliente ? Math.min(100, Math.floor(totalNeto / 10)) : 0

@@ -216,7 +216,7 @@ export function Pago() {
                 personalizacion: i.personalizacion ?? null,
               })),
             )
-            await cobrarOrden(sb, orden.id, 'clip', totalOrden)
+            await cobrarOrden(sb, orden.id, 'clip', totalOrden, { idempotencyKey: crypto.randomUUID() })
             folioRef.current = String(orden.folio)
           } catch (e) {
             console.error('[Kiosko] Error cobrando (terminal):', e)
@@ -246,7 +246,7 @@ export function Pago() {
             personalizacion: i.personalizacion ?? null,
           })),
         )
-        await cobrarOrden(sb, orden.id, 'efectivo', totalOrden)
+        await cobrarOrden(sb, orden.id, 'efectivo', totalOrden, { idempotencyKey: crypto.randomUUID() })
         folio = String(orden.folio)
       } catch (e) {
         console.error('[Kiosko] Error guardando orden:', e)
