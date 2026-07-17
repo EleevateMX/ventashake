@@ -12,6 +12,20 @@ import {
 import type { ClienteConLealtad } from '@shake/supabase'
 import QR from './QR'
 
+// Traduce errores técnicos a un mensaje amable en español.
+// Mientras el cliente termina de habilitar Google en Supabase Auth, el
+// proveedor responde "provider is not enabled"; no queremos asustar al usuario.
+function mensajeAmable(e: unknown): string {
+  const raw = (e instanceof Error ? e.message : String(e)).toLowerCase()
+  if (raw.includes('provider is not enabled') || raw.includes('unsupported provider')) {
+    return 'Rewards estará disponible en un momentito. Estamos afinando el acceso — vuelve a intentar muy pronto. 🥤'
+  }
+  if (raw.includes('failed to fetch') || raw.includes('networkerror') || raw.includes('network')) {
+    return 'Sin conexión. Revisa tu internet e inténtalo de nuevo.'
+  }
+  return 'Algo salió mal. Inténtalo de nuevo en un momento.'
+}
+
 export default function App() {
   const [cargando, setCargando] = useState(true)
   const [logueado, setLogueado] = useState(false)
@@ -42,7 +56,7 @@ export default function App() {
       setCliente(cli)
       setError(null)
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(mensajeAmable(e))
     } finally {
       setCargando(false)
     }
@@ -58,7 +72,7 @@ export default function App() {
     try {
       await iniciarSesionGoogle(sb, window.location.origin)
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(mensajeAmable(e))
     }
   }
 
@@ -81,7 +95,7 @@ export default function App() {
             Acumula <b className="font-semibold">mancuernas</b> con cada compra y gana shakes gratis.
           </p>
           {error && (
-            <div className="mt-4 rounded-sa border border-sa-strawberry/60 bg-sa-strawberry/15 text-sa-strawberry font-mono text-sm px-4 py-3">
+            <div className="mt-4 rounded-sa border border-sa-mint/40 bg-sa-mint/10 text-sa-cream font-body text-sm px-4 py-3 leading-snug">
               {error}
             </div>
           )}
