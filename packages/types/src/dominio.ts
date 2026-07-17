@@ -27,6 +27,9 @@ export type InventarioMovimiento = Tables<'inventario_movimientos'>
 export type Transferencia = Tables<'transferencias'>
 export type Merma = Tables<'mermas'>
 export type Parametros = Tables<'parametros'>
+export type Impresora = Tables<'impresoras'>
+export type TrabajoImpresion = Tables<'trabajos_impresion'>
+export type ImpresionAuditoria = Tables<'impresion_auditoria'>
 
 // ---- Vistas ----
 export type CosteoProducto = Tables<'vw_costeo_producto'>
@@ -44,6 +47,8 @@ export type RecetaInsert = TablesInsert<'recetas'>
 export type OrdenInsert = TablesInsert<'ordenes'>
 export type OrdenItemInsert = TablesInsert<'orden_items'>
 export type PagoInsert = TablesInsert<'pagos'>
+export type ImpresoraInsert = TablesInsert<'impresoras'>
+export type ImpresoraUpdate = TablesUpdate<'impresoras'>
 
 // ---- Enums ----
 export type MetodoPago = Enums<'metodo_pago'>
@@ -58,6 +63,10 @@ export type TipoCupon = Enums<'tipo_cupon'>
 export type EstadoCupon = Enums<'estado_cupon'>
 export type TipoMancuerna = Enums<'tipo_mancuerna'>
 export type TipoPromocion = Enums<'tipo_promocion'>
+export type EstadoTrabajoImpresion = Enums<'estado_trabajo_impresion'>
+export type TipoConexionImpresora = Enums<'tipo_conexion_impresora'>
+export type AnchoPapel = Enums<'ancho_papel'>
+export type TipoDocumentoImpresion = Enums<'tipo_documento_impresion'>
 
 // ---- Estructura del JSON legacy (app_data.data) ----
 // Solo lectura: la usa el ETL de supabase/seed. No ampliar.

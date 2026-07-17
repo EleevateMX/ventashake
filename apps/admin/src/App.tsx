@@ -6,8 +6,9 @@ import Ventas from './pages/Ventas'
 import Inventario from './pages/Inventario'
 import Promos from './pages/Promos'
 import Empleados from './pages/Empleados'
+import Impresoras from './pages/Impresoras'
 
-type Tab = 'dashboard' | 'menu' | 'inventario' | 'promos' | 'ventas' | 'empleados'
+type Tab = 'dashboard' | 'menu' | 'inventario' | 'promos' | 'ventas' | 'empleados' | 'impresoras'
 
 const w = 18
 
@@ -41,6 +42,11 @@ const IconEmpleados = () => (
     <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
   </svg>
 )
+const IconImpresoras = () => (
+  <svg width={w} height={w} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="6 9 6 2 18 2 18 9" /><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><rect x="6" y="14" width="12" height="8" />
+  </svg>
+)
 
 const navItems: { id: Tab; label: string; Icon: () => ReactElement }[] = [
   { id: 'dashboard', label: 'Dashboard', Icon: IconDashboard },
@@ -49,6 +55,7 @@ const navItems: { id: Tab; label: string; Icon: () => ReactElement }[] = [
   { id: 'promos', label: 'Promos', Icon: IconPromos },
   { id: 'ventas', label: 'Ventas', Icon: IconVentas },
   { id: 'empleados', label: 'Empleados', Icon: IconEmpleados },
+  { id: 'impresoras', label: 'Impresoras', Icon: IconImpresoras },
 ]
 
 export default function App() {
@@ -92,6 +99,7 @@ export default function App() {
         {tab === 'inventario' && <Inventario />}
         {tab === 'promos' && <Promos />}
         {tab === 'empleados' && <Empleados />}
+        {tab === 'impresoras' && <Impresoras />}
       </main>
     </div>
   )

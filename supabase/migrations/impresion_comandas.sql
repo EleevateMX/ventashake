@@ -340,8 +340,12 @@ $function$;
 -- mismo modelo de confianza que el resto de la app operativa). Crea un
 -- trabajo NUEVO (no reencola el mismo, para no reclamar dos veces la fila
 -- original) y dispara el guardado de la auditoría.
+-- p_empleado_id es NULLABLE a propósito: Cocina/Barra son pantallas de
+-- estación sin login individual (a diferencia de POS/Admin, que sí tienen
+-- empleado en sesión). Reimprimir desde el KDS queda auditado igual, solo
+-- que sin nombre de empleado.
 create or replace function public.fn_imprimir_reimprimir(
-  p_trabajo_id uuid, p_empleado_id uuid, p_motivo text default null, p_printer_id uuid default null
+  p_trabajo_id uuid, p_empleado_id uuid default null, p_motivo text default null, p_printer_id uuid default null
 ) returns trabajos_impresion
 language plpgsql
 security definer

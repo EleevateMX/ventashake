@@ -1,9 +1,36 @@
 import milo from '@shake/brand/milo.png'
 import { useEffect, useState } from 'react'
 import { sb } from './lib/sb'
-import { listarPedidosCocina, suscribirPedidosCocina, cambiarEstadoPedido } from '@shake/supabase'
+import {
+  listarPedidosCocina, suscribirPedidosCocina, cambiarEstadoPedido,
+  trabajosDeVariosPedidos, suscribirTrabajosImpresion, reimprimirTrabajo,
+} from '@shake/supabase'
 import type { PedidoConItems } from '@shake/supabase'
-import type { EstadoCocina } from '@shake/types'
+import type { EstadoCocina, TrabajoImpresion } from '@shake/types'
+
+// Indicador de estado de impresión de la comanda de este pedido.
+function EstadoImpresion({ trabajo, onReimprimir }: { trabajo: TrabajoImpresion | undefined; onReimprimir: () => void }) {
+  if (!trabajo) {
+    return <span className="font-mono text-[10px] text-sa-green-ink/30 uppercase tracking-wide">Sin impresora asignada</span>
+  }
+  if (trabajo.estado === 'printed') {
+    return <span className="font-mono text-[10px] text-sa-mint uppercase tracking-wide">🖨️ Impreso</span>
+  }
+  if (trabajo.estado === 'failed') {
+    return (
+      <button
+        onClick={onReimprimir}
+        className="font-mono text-[10px] text-sa-strawberry uppercase tracking-wide underline underline-offset-2"
+      >
+        ⚠ No se imprimió — Reimprimir
+      </button>
+    )
+  }
+  if (trabajo.estado === 'retry') {
+    return <span className="font-mono text-[10px] text-sa-banana uppercase tracking-wide animate-pulse">🔄 Reintentando impresión…</span>
+  }
+  return <span className="font-mono text-[10px] text-sa-green-ink/40 uppercase tracking-wide">🖨️ Imprimiendo…</span>
+}
 
 const ESTACION = 'alimentos'
 const TITULO = 'Cocina · Alimentos'
@@ -69,6 +96,7 @@ function formatReloj(ms: number): string {
 
 export default function App() {
   const [pedidos, setPedidos] = useState<PedidoConItems[]>([])
+  const [impresion, setImpresion] = useState<Record<string, TrabajoImpresion>>({})
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [ahora, setAhora] = useState(Date.now())
@@ -78,6 +106,8 @@ export default function App() {
       const data = await listarPedidosCocina(sb, ESTACION)
       setPedidos(data)
       setError(null)
+      const estados = await trabajosDeVariosPedidos(sb, data.map((p) => p.id))
+      setImpresion(estados)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
@@ -87,9 +117,21 @@ export default function App() {
 
   useEffect(() => {
     void recargar()
-    const off = suscribirPedidosCocina(sb, () => { void recargar() })
-    return () => { off() }
+    const offPedidos = suscribirPedidosCocina(sb, () => { void recargar() })
+    const offImpresion = suscribirTrabajosImpresion(sb, () => { void recargar() })
+    return () => { offPedidos(); offImpresion() }
   }, [])
+
+  async function reimprimirComanda(pedidoId: string) {
+    const trabajo = impresion[pedidoId]
+    if (!trabajo) return
+    try {
+      await reimprimirTrabajo(sb, trabajo.id, { motivo: 'Reimpresión desde KDS (falló la automática)' })
+      await recargar()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    }
+  }
 
   // Refresca los contadores de minutos cada 30 s.
   useEffect(() => {
@@ -226,6 +268,10 @@ export default function App() {
                     >
                       {ETIQUETA_ESTADO[pedido.estado] ?? pedido.estado}
                     </span>
+                  </div>
+
+                  <div className="px-5 pb-1">
+                    <EstadoImpresion trabajo={impresion[pedido.id]} onReimprimir={() => void reimprimirComanda(pedido.id)} />
                   </div>
 
                   <div className="mx-5 my-1 h-px bg-sa-green-ink/10" />

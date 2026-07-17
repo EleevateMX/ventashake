@@ -256,181 +256,6 @@ export type Database = {
         }
         Relationships: []
       }
-      cupones: {
-        Row: {
-          beneficio: string
-          cliente_id: string
-          codigo: string
-          estado: Database["public"]["Enums"]["estado_cupon"]
-          generado_en: string
-          id: string
-          orden_id_uso: string | null
-          tipo: Database["public"]["Enums"]["tipo_cupon"]
-          usado_en: string | null
-          vence_en: string
-        }
-        Insert: {
-          beneficio?: string
-          cliente_id: string
-          codigo?: string
-          estado?: Database["public"]["Enums"]["estado_cupon"]
-          generado_en?: string
-          id?: string
-          orden_id_uso?: string | null
-          tipo?: Database["public"]["Enums"]["tipo_cupon"]
-          usado_en?: string | null
-          vence_en: string
-        }
-        Update: {
-          beneficio?: string
-          cliente_id?: string
-          codigo?: string
-          estado?: Database["public"]["Enums"]["estado_cupon"]
-          generado_en?: string
-          id?: string
-          orden_id_uso?: string | null
-          tipo?: Database["public"]["Enums"]["tipo_cupon"]
-          usado_en?: string | null
-          vence_en?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "cupones_cliente_id_fkey"
-            columns: ["cliente_id"]
-            isOneToOne: false
-            referencedRelation: "clientes"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      mancuernas_movimientos: {
-        Row: {
-          cliente_id: string
-          created_at: string
-          descripcion: string | null
-          id: string
-          orden_id: string | null
-          puntos: number
-          tipo: Database["public"]["Enums"]["tipo_mancuerna"]
-        }
-        Insert: {
-          cliente_id: string
-          created_at?: string
-          descripcion?: string | null
-          id?: string
-          orden_id?: string | null
-          puntos: number
-          tipo: Database["public"]["Enums"]["tipo_mancuerna"]
-        }
-        Update: {
-          cliente_id?: string
-          created_at?: string
-          descripcion?: string | null
-          id?: string
-          orden_id?: string | null
-          puntos?: number
-          tipo?: Database["public"]["Enums"]["tipo_mancuerna"]
-        }
-        Relationships: [
-          {
-            foreignKeyName: "mancuernas_movimientos_cliente_id_fkey"
-            columns: ["cliente_id"]
-            isOneToOne: false
-            referencedRelation: "clientes"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      promociones: {
-        Row: {
-          activa: boolean
-          categoria_gratis: string | null
-          created_at: string
-          descripcion: string | null
-          dias_semana: number[] | null
-          hora_fin: string | null
-          hora_inicio: string | null
-          id: string
-          min_compras_30d: number | null
-          nombre: string
-          sabor_favorito: string | null
-          tipo: Database["public"]["Enums"]["tipo_promocion"]
-          valor: number
-          vence_en: string | null
-        }
-        Insert: {
-          activa?: boolean
-          categoria_gratis?: string | null
-          created_at?: string
-          descripcion?: string | null
-          dias_semana?: number[] | null
-          hora_fin?: string | null
-          hora_inicio?: string | null
-          id?: string
-          min_compras_30d?: number | null
-          nombre: string
-          sabor_favorito?: string | null
-          tipo: Database["public"]["Enums"]["tipo_promocion"]
-          valor?: number
-          vence_en?: string | null
-        }
-        Update: {
-          activa?: boolean
-          categoria_gratis?: string | null
-          created_at?: string
-          descripcion?: string | null
-          dias_semana?: number[] | null
-          hora_fin?: string | null
-          hora_inicio?: string | null
-          id?: string
-          min_compras_30d?: number | null
-          nombre?: string
-          sabor_favorito?: string | null
-          tipo?: Database["public"]["Enums"]["tipo_promocion"]
-          valor?: number
-          vence_en?: string | null
-        }
-        Relationships: []
-      }
-      promocion_aplicaciones: {
-        Row: {
-          cliente_id: string
-          created_at: string
-          id: string
-          orden_id: string | null
-          promocion_id: string
-        }
-        Insert: {
-          cliente_id: string
-          created_at?: string
-          id?: string
-          orden_id?: string | null
-          promocion_id: string
-        }
-        Update: {
-          cliente_id?: string
-          created_at?: string
-          id?: string
-          orden_id?: string | null
-          promocion_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "promocion_aplicaciones_cliente_id_fkey"
-            columns: ["cliente_id"]
-            isOneToOne: false
-            referencedRelation: "clientes"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "promocion_aplicaciones_promocion_id_fkey"
-            columns: ["promocion_id"]
-            isOneToOne: false
-            referencedRelation: "promociones"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       cocina_items: {
         Row: {
           cantidad: number
@@ -488,6 +313,13 @@ export type Database = {
             referencedRelation: "vw_costeo_producto"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "cocina_items_producto_id_fkey"
+            columns: ["producto_id"]
+            isOneToOne: false
+            referencedRelation: "vw_productos_mas_vendidos"
+            referencedColumns: ["id"]
+          },
         ]
       }
       cocinas: {
@@ -507,6 +339,96 @@ export type Database = {
           slug?: string
         }
         Relationships: []
+      }
+      costos_stock_sync: {
+        Row: {
+          almacen_id: string
+          insumo_id: string
+          ultimo_valor: number
+          updated_at: string
+        }
+        Insert: {
+          almacen_id: string
+          insumo_id: string
+          ultimo_valor?: number
+          updated_at?: string
+        }
+        Update: {
+          almacen_id?: string
+          insumo_id?: string
+          ultimo_valor?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "costos_stock_sync_almacen_id_fkey"
+            columns: ["almacen_id"]
+            isOneToOne: false
+            referencedRelation: "almacenes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "costos_stock_sync_insumo_id_fkey"
+            columns: ["insumo_id"]
+            isOneToOne: false
+            referencedRelation: "insumos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cupones: {
+        Row: {
+          beneficio: string
+          cliente_id: string
+          codigo: string
+          estado: Database["public"]["Enums"]["estado_cupon"]
+          generado_en: string
+          id: string
+          orden_id_uso: string | null
+          tipo: Database["public"]["Enums"]["tipo_cupon"]
+          usado_en: string | null
+          vence_en: string
+        }
+        Insert: {
+          beneficio?: string
+          cliente_id: string
+          codigo?: string
+          estado?: Database["public"]["Enums"]["estado_cupon"]
+          generado_en?: string
+          id?: string
+          orden_id_uso?: string | null
+          tipo?: Database["public"]["Enums"]["tipo_cupon"]
+          usado_en?: string | null
+          vence_en: string
+        }
+        Update: {
+          beneficio?: string
+          cliente_id?: string
+          codigo?: string
+          estado?: Database["public"]["Enums"]["estado_cupon"]
+          generado_en?: string
+          id?: string
+          orden_id_uso?: string | null
+          tipo?: Database["public"]["Enums"]["tipo_cupon"]
+          usado_en?: string | null
+          vence_en?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cupones_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cupones_orden_id_uso_fkey"
+            columns: ["orden_id_uso"]
+            isOneToOne: false
+            referencedRelation: "ordenes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       empleados: {
         Row: {
@@ -556,6 +478,133 @@ export type Database = {
           },
         ]
       }
+      impresion_auditoria: {
+        Row: {
+          created_at: string
+          empleado_id: string | null
+          id: string
+          motivo: string | null
+          trabajo_id: string
+          trabajo_original_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          empleado_id?: string | null
+          id?: string
+          motivo?: string | null
+          trabajo_id: string
+          trabajo_original_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          empleado_id?: string | null
+          id?: string
+          motivo?: string | null
+          trabajo_id?: string
+          trabajo_original_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "impresion_auditoria_empleado_id_fkey"
+            columns: ["empleado_id"]
+            isOneToOne: false
+            referencedRelation: "empleados"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "impresion_auditoria_trabajo_id_fkey"
+            columns: ["trabajo_id"]
+            isOneToOne: false
+            referencedRelation: "trabajos_impresion"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "impresion_auditoria_trabajo_original_id_fkey"
+            columns: ["trabajo_original_id"]
+            isOneToOne: false
+            referencedRelation: "trabajos_impresion"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      impresoras: {
+        Row: {
+          activa: boolean
+          agente_id: string | null
+          agente_token: string
+          ancho_papel: Database["public"]["Enums"]["ancho_papel"]
+          buzzer: boolean
+          cocina_id: string | null
+          copias: number
+          corte_automatico: boolean
+          created_at: string
+          id: string
+          ip: string | null
+          nombre: string
+          nombre_dispositivo: string | null
+          puerto: number | null
+          sucursal_id: string
+          tipo_conexion: Database["public"]["Enums"]["tipo_conexion_impresora"]
+          ultima_conexion: string | null
+          ultima_impresion: string | null
+        }
+        Insert: {
+          activa?: boolean
+          agente_id?: string | null
+          agente_token?: string
+          ancho_papel?: Database["public"]["Enums"]["ancho_papel"]
+          buzzer?: boolean
+          cocina_id?: string | null
+          copias?: number
+          corte_automatico?: boolean
+          created_at?: string
+          id?: string
+          ip?: string | null
+          nombre: string
+          nombre_dispositivo?: string | null
+          puerto?: number | null
+          sucursal_id: string
+          tipo_conexion?: Database["public"]["Enums"]["tipo_conexion_impresora"]
+          ultima_conexion?: string | null
+          ultima_impresion?: string | null
+        }
+        Update: {
+          activa?: boolean
+          agente_id?: string | null
+          agente_token?: string
+          ancho_papel?: Database["public"]["Enums"]["ancho_papel"]
+          buzzer?: boolean
+          cocina_id?: string | null
+          copias?: number
+          corte_automatico?: boolean
+          created_at?: string
+          id?: string
+          ip?: string | null
+          nombre?: string
+          nombre_dispositivo?: string | null
+          puerto?: number | null
+          sucursal_id?: string
+          tipo_conexion?: Database["public"]["Enums"]["tipo_conexion_impresora"]
+          ultima_conexion?: string | null
+          ultima_impresion?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "impresoras_cocina_id_fkey"
+            columns: ["cocina_id"]
+            isOneToOne: false
+            referencedRelation: "cocinas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "impresoras_sucursal_id_fkey"
+            columns: ["sucursal_id"]
+            isOneToOne: false
+            referencedRelation: "sucursales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       insumo_categorias: {
         Row: {
           activa: boolean
@@ -579,6 +628,7 @@ export type Database = {
           activo: boolean
           categoria_id: string | null
           codigo: string | null
+          codigo_barras: string | null
           contenido: number
           costo_compra: number
           costo_unitario: number | null
@@ -601,6 +651,7 @@ export type Database = {
           activo?: boolean
           categoria_id?: string | null
           codigo?: string | null
+          codigo_barras?: string | null
           contenido?: number
           costo_compra?: number
           costo_unitario?: number | null
@@ -623,6 +674,7 @@ export type Database = {
           activo?: boolean
           categoria_id?: string | null
           codigo?: string | null
+          codigo_barras?: string | null
           contenido?: number
           costo_compra?: number
           costo_unitario?: number | null
@@ -792,6 +844,51 @@ export type Database = {
           },
         ]
       }
+      mancuernas_movimientos: {
+        Row: {
+          cliente_id: string
+          created_at: string
+          descripcion: string | null
+          id: string
+          orden_id: string | null
+          puntos: number
+          tipo: Database["public"]["Enums"]["tipo_mancuerna"]
+        }
+        Insert: {
+          cliente_id: string
+          created_at?: string
+          descripcion?: string | null
+          id?: string
+          orden_id?: string | null
+          puntos: number
+          tipo: Database["public"]["Enums"]["tipo_mancuerna"]
+        }
+        Update: {
+          cliente_id?: string
+          created_at?: string
+          descripcion?: string | null
+          id?: string
+          orden_id?: string | null
+          puntos?: number
+          tipo?: Database["public"]["Enums"]["tipo_mancuerna"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mancuernas_movimientos_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mancuernas_movimientos_orden_id_fkey"
+            columns: ["orden_id"]
+            isOneToOne: false
+            referencedRelation: "ordenes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       mermas: {
         Row: {
           almacen_id: string
@@ -882,6 +979,13 @@ export type Database = {
             columns: ["producto_id"]
             isOneToOne: false
             referencedRelation: "vw_costeo_producto"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orden_items_producto_id_fkey"
+            columns: ["producto_id"]
+            isOneToOne: false
+            referencedRelation: "vw_productos_mas_vendidos"
             referencedColumns: ["id"]
           },
         ]
@@ -995,6 +1099,7 @@ export type Database = {
           created_at: string
           estado: Database["public"]["Enums"]["estado_pago"]
           id: string
+          idempotency_key: string | null
           metodo: Database["public"]["Enums"]["metodo_pago"]
           monto: number
           orden_id: string
@@ -1009,6 +1114,7 @@ export type Database = {
           created_at?: string
           estado?: Database["public"]["Enums"]["estado_pago"]
           id?: string
+          idempotency_key?: string | null
           metodo: Database["public"]["Enums"]["metodo_pago"]
           monto: number
           orden_id: string
@@ -1023,6 +1129,7 @@ export type Database = {
           created_at?: string
           estado?: Database["public"]["Enums"]["estado_pago"]
           id?: string
+          idempotency_key?: string | null
           metodo?: Database["public"]["Enums"]["metodo_pago"]
           monto?: number
           orden_id?: string
@@ -1126,6 +1233,7 @@ export type Database = {
           activo: boolean
           categoria_id: string | null
           codigo: string | null
+          codigo_barras: string | null
           created_at: string
           descripcion: string | null
           es_reventa: boolean
@@ -1141,6 +1249,7 @@ export type Database = {
           activo?: boolean
           categoria_id?: string | null
           codigo?: string | null
+          codigo_barras?: string | null
           created_at?: string
           descripcion?: string | null
           es_reventa?: boolean
@@ -1156,6 +1265,7 @@ export type Database = {
           activo?: boolean
           categoria_id?: string | null
           codigo?: string | null
+          codigo_barras?: string | null
           created_at?: string
           descripcion?: string | null
           es_reventa?: boolean
@@ -1176,6 +1286,103 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      promocion_aplicaciones: {
+        Row: {
+          cliente_id: string
+          created_at: string
+          id: string
+          orden_id: string | null
+          promocion_id: string
+        }
+        Insert: {
+          cliente_id: string
+          created_at?: string
+          id?: string
+          orden_id?: string | null
+          promocion_id: string
+        }
+        Update: {
+          cliente_id?: string
+          created_at?: string
+          id?: string
+          orden_id?: string | null
+          promocion_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promocion_aplicaciones_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promocion_aplicaciones_orden_id_fkey"
+            columns: ["orden_id"]
+            isOneToOne: false
+            referencedRelation: "ordenes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promocion_aplicaciones_promocion_id_fkey"
+            columns: ["promocion_id"]
+            isOneToOne: false
+            referencedRelation: "promociones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      promociones: {
+        Row: {
+          activa: boolean
+          categoria_gratis: string | null
+          created_at: string
+          descripcion: string | null
+          dias_semana: number[] | null
+          hora_fin: string | null
+          hora_inicio: string | null
+          id: string
+          min_compras_30d: number | null
+          nombre: string
+          sabor_favorito: string | null
+          tipo: Database["public"]["Enums"]["tipo_promocion"]
+          valor: number
+          vence_en: string | null
+        }
+        Insert: {
+          activa?: boolean
+          categoria_gratis?: string | null
+          created_at?: string
+          descripcion?: string | null
+          dias_semana?: number[] | null
+          hora_fin?: string | null
+          hora_inicio?: string | null
+          id?: string
+          min_compras_30d?: number | null
+          nombre: string
+          sabor_favorito?: string | null
+          tipo: Database["public"]["Enums"]["tipo_promocion"]
+          valor?: number
+          vence_en?: string | null
+        }
+        Update: {
+          activa?: boolean
+          categoria_gratis?: string | null
+          created_at?: string
+          descripcion?: string | null
+          dias_semana?: number[] | null
+          hora_fin?: string | null
+          hora_inicio?: string | null
+          id?: string
+          min_compras_30d?: number | null
+          nombre?: string
+          sabor_favorito?: string | null
+          tipo?: Database["public"]["Enums"]["tipo_promocion"]
+          valor?: number
+          vence_en?: string | null
+        }
+        Relationships: []
       }
       recetas: {
         Row: {
@@ -1221,6 +1428,13 @@ export type Database = {
             referencedRelation: "vw_costeo_producto"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "recetas_producto_id_fkey"
+            columns: ["producto_id"]
+            isOneToOne: false
+            referencedRelation: "vw_productos_mas_vendidos"
+            referencedColumns: ["id"]
+          },
         ]
       }
       roles: {
@@ -1264,6 +1478,117 @@ export type Database = {
           nombre?: string
         }
         Relationships: []
+      }
+      trabajos_impresion: {
+        Row: {
+          claim_expires_at: string | null
+          claimed_by: string | null
+          copia_de: string | null
+          created_at: string
+          error_ultimo: string | null
+          estacion_id: string | null
+          estado: Database["public"]["Enums"]["estado_trabajo_impresion"]
+          failed_at: string | null
+          id: string
+          idempotency_key: string | null
+          intentos: number
+          max_intentos: number
+          next_retry_at: string | null
+          numero_copia: number
+          orden_id: string | null
+          payload: Json
+          pedido_id: string | null
+          printed_at: string | null
+          printer_id: string | null
+          processing_at: string | null
+          queued_at: string
+          tipo_documento: Database["public"]["Enums"]["tipo_documento_impresion"]
+        }
+        Insert: {
+          claim_expires_at?: string | null
+          claimed_by?: string | null
+          copia_de?: string | null
+          created_at?: string
+          error_ultimo?: string | null
+          estacion_id?: string | null
+          estado?: Database["public"]["Enums"]["estado_trabajo_impresion"]
+          failed_at?: string | null
+          id?: string
+          idempotency_key?: string | null
+          intentos?: number
+          max_intentos?: number
+          next_retry_at?: string | null
+          numero_copia?: number
+          orden_id?: string | null
+          payload: Json
+          pedido_id?: string | null
+          printed_at?: string | null
+          printer_id?: string | null
+          processing_at?: string | null
+          queued_at?: string
+          tipo_documento?: Database["public"]["Enums"]["tipo_documento_impresion"]
+        }
+        Update: {
+          claim_expires_at?: string | null
+          claimed_by?: string | null
+          copia_de?: string | null
+          created_at?: string
+          error_ultimo?: string | null
+          estacion_id?: string | null
+          estado?: Database["public"]["Enums"]["estado_trabajo_impresion"]
+          failed_at?: string | null
+          id?: string
+          idempotency_key?: string | null
+          intentos?: number
+          max_intentos?: number
+          next_retry_at?: string | null
+          numero_copia?: number
+          orden_id?: string | null
+          payload?: Json
+          pedido_id?: string | null
+          printed_at?: string | null
+          printer_id?: string | null
+          processing_at?: string | null
+          queued_at?: string
+          tipo_documento?: Database["public"]["Enums"]["tipo_documento_impresion"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trabajos_impresion_copia_de_fkey"
+            columns: ["copia_de"]
+            isOneToOne: false
+            referencedRelation: "trabajos_impresion"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trabajos_impresion_estacion_id_fkey"
+            columns: ["estacion_id"]
+            isOneToOne: false
+            referencedRelation: "cocinas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trabajos_impresion_orden_id_fkey"
+            columns: ["orden_id"]
+            isOneToOne: false
+            referencedRelation: "ordenes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trabajos_impresion_pedido_id_fkey"
+            columns: ["pedido_id"]
+            isOneToOne: false
+            referencedRelation: "pedidos_cocina"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trabajos_impresion_printer_id_fkey"
+            columns: ["printer_id"]
+            isOneToOne: false
+            referencedRelation: "impresoras"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       transferencia_items: {
         Row: {
@@ -1443,21 +1768,6 @@ export type Database = {
         }
         Relationships: []
       }
-      vw_ventas_diarias: {
-        Row: {
-          clip: number | null
-          cortesia: number | null
-          dia: string | null
-          efectivo: number | null
-          num_ordenes: number | null
-          otro: number | null
-          sucursal_id: string | null
-          tarjeta: number | null
-          ticket_promedio: number | null
-          total_ventas: number | null
-        }
-        Relationships: []
-      }
       vw_stock_almacen: {
         Row: {
           almacen: string | null
@@ -1489,26 +1799,314 @@ export type Database = {
           },
         ]
       }
+      vw_ventas_diarias: {
+        Row: {
+          clip: number | null
+          cortesia: number | null
+          dia: string | null
+          efectivo: number | null
+          num_ordenes: number | null
+          otro: number | null
+          sucursal_id: string | null
+          tarjeta: number | null
+          ticket_promedio: number | null
+          total_ventas: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ordenes_sucursal_id_fkey"
+            columns: ["sucursal_id"]
+            isOneToOne: false
+            referencedRelation: "sucursales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
+      _aplicar_delta_almacen: {
+        Args: {
+          p_almacen: string
+          p_cual: string
+          p_tipo: Database["public"]["Enums"]["tipo_movimiento"]
+        }
+        Returns: undefined
+      }
+      fn_actualizar_empleado: {
+        Args: {
+          p_activo?: boolean
+          p_id: string
+          p_nombre?: string
+          p_pin?: string
+          p_rol_id?: string
+        }
+        Returns: undefined
+      }
+      fn_admin_empleados: {
+        Args: never
+        Returns: {
+          activo: boolean
+          id: string
+          nombre: string
+          rol: string
+          rol_id: string
+          sucursal_id: string
+          tiene_pin: boolean
+        }[]
+      }
+      fn_cobrar_orden: {
+        Args: {
+          p_autorizado_por?: string
+          p_idempotency_key?: string
+          p_metodo: Database["public"]["Enums"]["metodo_pago"]
+          p_monto: number
+          p_orden_id: string
+          p_referencia?: string
+        }
+        Returns: {
+          autorizado_por: string | null
+          clip_payload: Json | null
+          clip_payment_id: string | null
+          clip_terminal_id: string | null
+          created_at: string
+          estado: Database["public"]["Enums"]["estado_pago"]
+          id: string
+          idempotency_key: string | null
+          metodo: Database["public"]["Enums"]["metodo_pago"]
+          monto: number
+          orden_id: string
+          referencia: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "pagos"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      fn_crear_empleado: {
+        Args: {
+          p_nombre: string
+          p_pin?: string
+          p_rol_id: string
+          p_sucursal?: string
+        }
+        Returns: string
+      }
+      fn_crear_orden: {
+        Args: {
+          p_almacen_id: string
+          p_canal: Database["public"]["Enums"]["canal_orden"]
+          p_cliente_id?: string
+          p_corte_id?: string
+          p_descuento?: number
+          p_empleado_id?: string
+          p_items: Json
+          p_sucursal_id: string
+        }
+        Returns: {
+          almacen_id: string | null
+          canal: Database["public"]["Enums"]["canal_orden"]
+          cliente_id: string | null
+          clip_recibo: string | null
+          corte_id: string | null
+          created_at: string
+          descuento: number
+          empleado_id: string | null
+          estado: Database["public"]["Enums"]["estado_orden"]
+          folio: number
+          id: string
+          metodo_pago: Database["public"]["Enums"]["metodo_pago"] | null
+          pagado: boolean
+          sucursal_id: string | null
+          total: number
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ordenes"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      fn_empleados_activos: {
+        Args: { p_sucursal?: string }
+        Returns: {
+          id: string
+          nombre: string
+          rol: string
+          sucursal_id: string
+        }[]
+      }
+      fn_encolar_comanda_para_pedido: {
+        Args: { p_pedido_id: string }
+        Returns: undefined
+      }
+      fn_expirar_cupones: { Args: never; Returns: number }
+      fn_generar_cupones_cumpleanos: { Args: never; Returns: number }
+      fn_imprimir_confirmar: {
+        Args: { p_token: string; p_trabajo_id: string }
+        Returns: undefined
+      }
+      fn_imprimir_fallar: {
+        Args: { p_error: string; p_token: string; p_trabajo_id: string }
+        Returns: undefined
+      }
+      fn_imprimir_latido: { Args: { p_token: string }; Returns: undefined }
+      fn_imprimir_liberar_vencidos: { Args: never; Returns: number }
+      fn_imprimir_prueba: {
+        Args: { p_token: string }
+        Returns: {
+          claim_expires_at: string | null
+          claimed_by: string | null
+          copia_de: string | null
+          created_at: string
+          error_ultimo: string | null
+          estacion_id: string | null
+          estado: Database["public"]["Enums"]["estado_trabajo_impresion"]
+          failed_at: string | null
+          id: string
+          idempotency_key: string | null
+          intentos: number
+          max_intentos: number
+          next_retry_at: string | null
+          numero_copia: number
+          orden_id: string | null
+          payload: Json
+          pedido_id: string | null
+          printed_at: string | null
+          printer_id: string | null
+          processing_at: string | null
+          queued_at: string
+          tipo_documento: Database["public"]["Enums"]["tipo_documento_impresion"]
+        }
+        SetofOptions: {
+          from: "*"
+          to: "trabajos_impresion"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      fn_imprimir_reclamar_trabajos: {
+        Args: { p_agente: string; p_limite?: number; p_token: string }
+        Returns: {
+          claim_expires_at: string | null
+          claimed_by: string | null
+          copia_de: string | null
+          created_at: string
+          error_ultimo: string | null
+          estacion_id: string | null
+          estado: Database["public"]["Enums"]["estado_trabajo_impresion"]
+          failed_at: string | null
+          id: string
+          idempotency_key: string | null
+          intentos: number
+          max_intentos: number
+          next_retry_at: string | null
+          numero_copia: number
+          orden_id: string | null
+          payload: Json
+          pedido_id: string | null
+          printed_at: string | null
+          printer_id: string | null
+          processing_at: string | null
+          queued_at: string
+          tipo_documento: Database["public"]["Enums"]["tipo_documento_impresion"]
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "trabajos_impresion"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      fn_imprimir_reimprimir: {
+        Args: {
+          p_empleado_id?: string
+          p_motivo?: string
+          p_printer_id?: string
+          p_trabajo_id: string
+        }
+        Returns: {
+          claim_expires_at: string | null
+          claimed_by: string | null
+          copia_de: string | null
+          created_at: string
+          error_ultimo: string | null
+          estacion_id: string | null
+          estado: Database["public"]["Enums"]["estado_trabajo_impresion"]
+          failed_at: string | null
+          id: string
+          idempotency_key: string | null
+          intentos: number
+          max_intentos: number
+          next_retry_at: string | null
+          numero_copia: number
+          orden_id: string | null
+          payload: Json
+          pedido_id: string | null
+          printed_at: string | null
+          printer_id: string | null
+          processing_at: string | null
+          queued_at: string
+          tipo_documento: Database["public"]["Enums"]["tipo_documento_impresion"]
+        }
+        SetofOptions: {
+          from: "*"
+          to: "trabajos_impresion"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      fn_login_cajero: {
+        Args: { p_pin: string }
+        Returns: {
+          id: string
+          nombre: string
+          rol: string
+          sucursal_id: string
+        }[]
+      }
       fn_promos_cliente: {
         Args: { p_cliente: string }
-        Returns: Database["public"]["Tables"]["promociones"]["Row"][]
+        Returns: {
+          activa: boolean
+          categoria_gratis: string | null
+          created_at: string
+          descripcion: string | null
+          dias_semana: number[] | null
+          hora_fin: string | null
+          hora_inicio: string | null
+          id: string
+          min_compras_30d: number | null
+          nombre: string
+          sabor_favorito: string | null
+          tipo: Database["public"]["Enums"]["tipo_promocion"]
+          valor: number
+          vence_en: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "promociones"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
-      fn_generar_cupones_cumpleanos: {
-        Args: Record<PropertyKey, never>
-        Returns: number
+      fn_reactivacion: { Args: never; Returns: number }
+      fn_roles: {
+        Args: never
+        Returns: {
+          id: string
+          nombre: string
+          slug: string
+        }[]
       }
-      fn_expirar_cupones: {
-        Args: Record<PropertyKey, never>
-        Returns: number
-      }
-      fn_reactivacion: {
-        Args: Record<PropertyKey, never>
-        Returns: number
-      }
+      fn_sync_app_data: { Args: never; Returns: undefined }
+      fn_sync_stock_costos: { Args: never; Returns: undefined }
     }
     Enums: {
+      ancho_papel: "58mm" | "80mm"
       canal_orden: "kiosko" | "pos" | "delivery"
       estado_cocina:
         | "pendiente"
@@ -1517,17 +2115,27 @@ export type Database = {
         | "entregado"
         | "cancelado"
       estado_corte: "abierta" | "cerrada"
+      estado_cupon: "activo" | "usado" | "expirado" | "cancelado"
       estado_orden:
         | "pendiente"
         | "en_preparacion"
         | "lista"
         | "entregada"
         | "cancelada"
-      estado_cupon: "activo" | "usado" | "expirado" | "cancelado"
       estado_pago: "pendiente" | "aprobado" | "rechazado" | "cancelado"
+      estado_trabajo_impresion:
+        | "pending"
+        | "claimed"
+        | "printing"
+        | "printed"
+        | "retry"
+        | "failed"
+        | "cancelled"
       metodo_pago: "clip" | "efectivo" | "tarjeta" | "cortesia" | "otro"
       tipo_almacen: "bodega" | "kiosko"
+      tipo_conexion_impresora: "usb" | "red"
       tipo_cupon: "mancuernas" | "cumpleanos"
+      tipo_documento_impresion: "comanda" | "ticket"
       tipo_insumo: "proteina" | "shake" | "alimento" | "empaque" | "reventa"
       tipo_mancuerna: "ganadas" | "canje" | "ajuste" | "promo" | "proximidad"
       tipo_movimiento: "compra" | "venta" | "traspaso" | "ajuste" | "merma"
@@ -1659,6 +2267,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      ancho_papel: ["58mm", "80mm"],
       canal_orden: ["kiosko", "pos", "delivery"],
       estado_cocina: [
         "pendiente",
@@ -1668,6 +2277,7 @@ export const Constants = {
         "cancelado",
       ],
       estado_corte: ["abierta", "cerrada"],
+      estado_cupon: ["activo", "usado", "expirado", "cancelado"],
       estado_orden: [
         "pendiente",
         "en_preparacion",
@@ -1675,11 +2285,21 @@ export const Constants = {
         "entregada",
         "cancelada",
       ],
-      estado_cupon: ["activo", "usado", "expirado", "cancelado"],
       estado_pago: ["pendiente", "aprobado", "rechazado", "cancelado"],
+      estado_trabajo_impresion: [
+        "pending",
+        "claimed",
+        "printing",
+        "printed",
+        "retry",
+        "failed",
+        "cancelled",
+      ],
       metodo_pago: ["clip", "efectivo", "tarjeta", "cortesia", "otro"],
       tipo_almacen: ["bodega", "kiosko"],
+      tipo_conexion_impresora: ["usb", "red"],
       tipo_cupon: ["mancuernas", "cumpleanos"],
+      tipo_documento_impresion: ["comanda", "ticket"],
       tipo_insumo: ["proteina", "shake", "alimento", "empaque", "reventa"],
       tipo_mancuerna: ["ganadas", "canje", "ajuste", "promo", "proximidad"],
       tipo_movimiento: ["compra", "venta", "traspaso", "ajuste", "merma"],
