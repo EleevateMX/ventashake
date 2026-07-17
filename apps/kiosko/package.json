@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@shake/brand": "workspace:*",
+    "@shake/payments": "workspace:*",
     "@shake/supabase": "workspace:*",
     "@shake/types": "workspace:*",
     "@shake/ui": "workspace:*",

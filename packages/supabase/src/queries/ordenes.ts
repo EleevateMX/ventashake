@@ -53,6 +53,7 @@ export async function crearOrden(
     p_empleado_id: orden.empleado_id ?? null,
     p_cliente_id: orden.cliente_id ?? null,
     p_descuento: orden.descuento ?? 0,
+    p_es_demo: orden.es_demo ?? false,
   })
 }
 

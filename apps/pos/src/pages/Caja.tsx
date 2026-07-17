@@ -141,6 +141,12 @@ export function Caja() {
             {empleado?.nombre.split(' ')[0]}
           </span>
           <button
+            onClick={() => navigate('/pendientes')}
+            className="font-mono text-xs uppercase tracking-wide bg-sa-cream-warm/10 hover:bg-sa-cream-warm/20 text-sa-cream px-4 py-2 rounded-full transition-colors border border-sa-cream/20"
+          >
+            Pedidos de kiosko
+          </button>
+          <button
             onClick={() => navigate('/corte')}
             className="font-mono text-xs uppercase tracking-wide bg-sa-cream-warm/10 hover:bg-sa-cream-warm/20 text-sa-cream px-4 py-2 rounded-full transition-colors border border-sa-cream/20"
           >

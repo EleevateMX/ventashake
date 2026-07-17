@@ -5,6 +5,7 @@ import { Carrito } from './pages/Carrito'
 import { LoginLealtad } from './pages/LoginLealtad'
 import { AuthCallback } from './pages/AuthCallback'
 import { Pago } from './pages/Pago'
+import { PagarEnCaja } from './pages/PagarEnCaja'
 import { Confirmacion } from './pages/Confirmacion'
 
 export default function App() {
@@ -17,6 +18,7 @@ export default function App() {
         <Route path="/lealtad" element={<LoginLealtad />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/pago" element={<Pago />} />
+        <Route path="/pagar-en-caja" element={<PagarEnCaja />} />
         <Route path="/confirmacion" element={<Confirmacion />} />
       </Routes>
     </div>

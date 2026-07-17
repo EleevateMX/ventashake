@@ -1,13 +1,14 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { crearOrden, cobrarOrden, listarAlmacenes } from '@shake/supabase'
+import { crearOrden, crearOrdenKioskoCaja, cobrarOrden, listarAlmacenes } from '@shake/supabase'
+import { obtenerPaymentProvider } from '@shake/payments'
 import type { Almacen } from '@shake/types'
+import type { ModoPagoKiosko } from '@shake/types'
 import { useCarrito } from '@/store/carritoStore'
 import { sb } from '@/lib/sb'
-import { displayOrderPaid, kdsNewOrder } from '@/sync'
+import { resolverModoKiosko } from '@/lib/modoKiosko'
 
-type MetodoPago = 'terminal' | 'efectivo'
-type EstadoPago = 'eligiendo' | 'terminal_tap' | 'terminal_procesando' | 'terminal_ok'
+type EstadoPago = 'cargando' | 'eligiendo' | 'procesando' | 'no_disponible'
 
 const IconCard = () => (
   <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -16,116 +17,21 @@ const IconCard = () => (
   </svg>
 )
 
-const IconCash = () => (
+const IconCounter = () => (
   <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="2" y="6" width="20" height="12" rx="2"/>
-    <circle cx="12" cy="12" r="3"/>
-    <path d="M6 12h.01M18 12h.01"/>
+    <path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6" />
   </svg>
 )
 
-function TerminalOverlay({ estado, monto }: { estado: EstadoPago; monto: number }) {
-  const montoFmt = `$${monto.toFixed(2)}`
-
+function ProcesandoOverlay({ monto }: { monto: number }) {
   return (
     <div className="fixed inset-0 z-50 bg-sa-green-deep flex flex-col items-center justify-center gap-6 px-8 text-sa-cream">
-      <p className="font-mono text-xs uppercase tracking-[0.3em] text-sa-banana absolute top-10 left-10">
-        #TERMINAL · MP
-      </p>
-
-      {estado === 'terminal_tap' && (
-        <>
-          {/* Terminal illustration */}
-          <div className="relative flex flex-col items-center">
-            {/* Device body */}
-            <div className="w-32 h-48 rounded-2xl border-4 border-sa-cream/30 bg-sa-green-ink flex flex-col items-center justify-center gap-3 shadow-2xl">
-              <div className="w-20 h-12 rounded-lg bg-sa-cream/10 border border-sa-cream/20 flex items-center justify-center">
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#88C0A0" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
-                  <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
-                </svg>
-              </div>
-              <div className="w-20 h-1.5 rounded bg-sa-cream/20" />
-              <div className="flex gap-1.5">
-                {[...Array(3)].map((_, i) => (
-                  <div key={i} className="w-4 h-4 rounded bg-sa-cream/10 border border-sa-cream/20" />
-                ))}
-              </div>
-            </div>
-            {/* Slot */}
-            <div className="w-32 h-3 bg-sa-green-ink rounded-b-xl border-x-4 border-b-4 border-sa-cream/30" />
-            {/* Animated card approaching */}
-            <div className="absolute -right-16 top-14 animate-bounce">
-              <div className="w-24 h-14 rounded-lg bg-gradient-to-br from-sa-banana to-sa-mango shadow-lg border border-white/20 flex flex-col justify-between p-2">
-                <div className="w-6 h-4 rounded bg-white/40" />
-                <div className="space-y-1">
-                  <div className="w-16 h-1 rounded bg-white/30" />
-                  <div className="w-10 h-1 rounded bg-white/20" />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="text-center mt-2">
-            <p className="font-display text-3xl text-sa-cream">Acerque su tarjeta</p>
-            <p className="font-mono text-sm text-sa-cream/60 mt-2 uppercase tracking-wider">
-              o insértela en la ranura
-            </p>
-          </div>
-
-          <div className="bg-sa-green-ink rounded-sa-lg px-8 py-4 text-center">
-            <p className="font-mono text-xs uppercase tracking-[0.25em] text-sa-banana">Total a cobrar</p>
-            <p className="font-display text-5xl text-sa-cream mt-1 leading-none">{montoFmt}</p>
-            <p className="font-mono text-xs text-sa-cream/50 mt-1">MXN</p>
-          </div>
-
-          <div className="flex gap-1 mt-2">
-            {[...Array(3)].map((_, i) => (
-              <div
-                key={i}
-                className="w-2 h-2 rounded-full bg-sa-cream/30 animate-pulse"
-                style={{ animationDelay: `${i * 0.3}s` }}
-              />
-            ))}
-          </div>
-        </>
-      )}
-
-      {estado === 'terminal_procesando' && (
-        <>
-          <svg className="animate-spin w-16 h-16 text-sa-banana" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
-            <path className="opacity-80" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-          </svg>
-          <div className="text-center">
-            <p className="font-display text-3xl text-sa-cream">Procesando...</p>
-            <p className="font-mono text-sm text-sa-cream/60 mt-2 uppercase tracking-wider">
-              No retire la tarjeta
-            </p>
-          </div>
-          <p className="font-display text-4xl text-sa-cream">{montoFmt}</p>
-        </>
-      )}
-
-      {estado === 'terminal_ok' && (
-        <>
-          <div className="w-28 h-28 rounded-full bg-emerald-500 flex items-center justify-center shadow-2xl animate-pulse">
-            <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="20 6 9 17 4 12"/>
-            </svg>
-          </div>
-          <div className="text-center">
-            <p className="font-display text-4xl text-sa-cream">¡Pago aprobado!</p>
-            <p className="font-mono text-sm text-emerald-400 mt-2 uppercase tracking-wider">
-              Transacción autorizada
-            </p>
-          </div>
-          <p className="font-display text-5xl text-sa-cream">{montoFmt}</p>
-          <p className="font-mono text-xs text-sa-cream/40 uppercase tracking-widest">
-            Mercado Pago · Terminal
-          </p>
-        </>
-      )}
+      <svg className="animate-spin w-16 h-16 text-sa-banana" fill="none" viewBox="0 0 24 24">
+        <circle className="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+        <path className="opacity-80" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+      </svg>
+      <p className="font-display text-3xl">Procesando…</p>
+      <p className="font-display text-4xl">${monto.toFixed(2)}</p>
     </div>
   )
 }
@@ -133,238 +39,297 @@ function TerminalOverlay({ estado, monto }: { estado: EstadoPago; monto: number 
 export function Pago() {
   const navigate = useNavigate()
   const { items, total, usuario, limpiar } = useCarrito()
-  const [metodo, setMetodo] = useState<MetodoPago | null>(null)
-  const [estado, setEstado] = useState<EstadoPago>('eligiendo')
-  const [error, setError] = useState<string | null>(null)
+  const [estado, setEstado] = useState<EstadoPago>('cargando')
+  const [modo, setModo] = useState<ModoPagoKiosko | null>(null)
   const [almacen, setAlmacen] = useState<Almacen | null>(null)
-  const folioRef = useRef<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [errorProveedor, setErrorProveedor] = useState<string | null>(null)
 
-  // Fetch the kiosko warehouse once (for orders)
   useEffect(() => {
-    listarAlmacenes(sb)
-      .then((almacenes) => {
+    ;(async () => {
+      try {
+        const almacenes = await listarAlmacenes(sb)
         const kiosko = almacenes.find((a) => a.tipo === 'kiosko') ?? almacenes[0] ?? null
+        if (!kiosko) throw new Error('No hay almacén configurado para el kiosko.')
         setAlmacen(kiosko)
-      })
-      .catch((e) => setError(e instanceof Error ? e.message : String(e)))
+        const modoResuelto = await resolverModoKiosko(sb, kiosko.sucursal_id)
+        setModo(modoResuelto)
+        setEstado('eligiendo')
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e))
+        setEstado('eligiendo')
+      }
+    })()
   }, [])
 
-  // Run terminal animation sequence
-  useEffect(() => {
-    if (estado !== 'terminal_tap') return
-    const t1 = setTimeout(() => setEstado('terminal_procesando'), 3000)
-    const t2 = setTimeout(() => setEstado('terminal_ok'), 5500)
-    const t3 = setTimeout(() => {
-      const folio = folioRef.current ?? String(Math.floor(100 + Math.random() * 900))
-      displayOrderPaid(folio)
-      kdsNewOrder({
-        id: `kiosko-${Date.now()}`,
-        folio,
-        canal: 'kiosko',
-        created_at: new Date().toISOString(),
-        items: items.map((i) => ({
-          id: i.producto_id,
-          nombre: i.nombre,
-          cantidad: i.cantidad,
-          personalizacion: i.personalizacion,
-        })),
-      })
-      limpiar()
-      navigate('/confirmacion', {
-        state: {
-          folio: folioRef.current,
-          total: total(),
-          metodo: 'terminal',
-          items: [...items],
-          usuario: usuario ? { ...usuario } : null,
-        },
-      })
-    }, 7200)
-    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3) }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [estado])
-
-  async function confirmarPago() {
-    if (!metodo) return
-    const totalOrden = total()
-    const itemsSnapshot = [...items]
+  /**
+   * Modo "pagar en caja": crea la orden en awaiting_counter_payment y
+   * punto — NINGUNA venta se confirma aquí. El cliente se va a caja con
+   * su folio/código; solo cuando el cajero la cobre desde POS se
+   * descuenta inventario, se otorgan mancuernas y se generan comandas.
+   */
+  async function confirmarPagarEnCaja() {
+    if (!almacen) return
+    setEstado('procesando')
     setError(null)
-
     try {
-      if (!almacen) throw new Error('No hay almacén configurado para el kiosko.')
-
-      if (metodo === 'terminal') {
-        setEstado('terminal_tap')
-        // Create + charge the order in the background while animation plays.
-        // SEAM Clip: aquí se conectará la edge function clip-cobro. Por ahora
-        // registra el pago aprobado igual que caja manual.
-        ;(async () => {
-          try {
-            const orden = await crearOrden(
-              sb,
-              {
-                sucursal_id: almacen.sucursal_id,
-                almacen_id: almacen.id,
-                canal: 'kiosko',
-                cliente_id: usuario?.clienteId ?? null,
-                descuento: 0,
-              },
-              itemsSnapshot.map((i) => ({
-                producto_id: i.producto_id,
-                cantidad: i.cantidad,
-                precio_unitario: i.precio,
-                personalizacion: i.personalizacion ?? null,
-              })),
-            )
-            await cobrarOrden(sb, orden.id, 'clip', totalOrden, { idempotencyKey: crypto.randomUUID() })
-            folioRef.current = String(orden.folio)
-          } catch (e) {
-            console.error('[Kiosko] Error cobrando (terminal):', e)
-            setError(e instanceof Error ? e.message : String(e))
-          }
-        })()
-        return
-      }
-
-      // Efectivo: process inline
-      setEstado('terminal_procesando' as EstadoPago)
-      let folio: string | null = null
-      try {
-        const orden = await crearOrden(
-          sb,
-          {
-            sucursal_id: almacen.sucursal_id,
-            almacen_id: almacen.id,
-            canal: 'kiosko',
-            cliente_id: usuario?.clienteId ?? null,
-            descuento: 0,
-          },
-          itemsSnapshot.map((i) => ({
-            producto_id: i.producto_id,
-            cantidad: i.cantidad,
-            precio_unitario: i.precio,
-            personalizacion: i.personalizacion ?? null,
-          })),
-        )
-        await cobrarOrden(sb, orden.id, 'efectivo', totalOrden, { idempotencyKey: crypto.randomUUID() })
-        folio = String(orden.folio)
-      } catch (e) {
-        console.error('[Kiosko] Error guardando orden:', e)
-        setError(e instanceof Error ? e.message : String(e))
-      }
-
-      const folioFinal = folio ?? String(Math.floor(100 + Math.random() * 900))
-      displayOrderPaid(folioFinal)
-      kdsNewOrder({
-        id: `kiosko-${Date.now()}`,
-        folio: folioFinal,
-        canal: 'kiosko',
-        created_at: new Date().toISOString(),
-        items: itemsSnapshot.map((i) => ({
-          id: i.producto_id,
-          nombre: i.nombre,
+      const orden = await crearOrdenKioskoCaja(
+        sb,
+        { sucursalId: almacen.sucursal_id, almacenId: almacen.id, clienteId: usuario?.clienteId ?? null },
+        items.map((i) => ({
+          producto_id: i.producto_id,
           cantidad: i.cantidad,
-          personalizacion: i.personalizacion,
+          personalizacion: i.personalizacion ?? null,
         })),
-      })
+      )
       limpiar()
-      navigate('/confirmacion', {
-        state: {
-          folio: folioFinal,
-          total: totalOrden,
-          metodo: 'efectivo',
-          items: itemsSnapshot,
-          usuario: usuario ? { ...usuario } : null,
-        },
-      })
+      navigate('/pagar-en-caja', { state: { orden } })
     } catch (e) {
-      console.error('[Kiosko] Error en confirmarPago:', e)
-      setEstado('eligiendo')
       setError(e instanceof Error ? e.message : String(e))
+      setEstado('eligiendo')
     }
   }
 
-  return (
-    <>
-      {estado !== 'eligiendo' && <TerminalOverlay estado={estado} monto={total()} />}
+  /**
+   * Modo "clip": SIEMPRE pasa por el proveedor de pagos real — nunca se
+   * autoaprueba nada aquí. Mientras Clip no tenga credenciales
+   * configuradas (ver supabase/functions/clip-crear-cobro), el proveedor
+   * devuelve ok:false y se ofrece "pagar en caja" como salida segura.
+   */
+  async function confirmarClip() {
+    if (!almacen) return
+    setEstado('procesando')
+    setError(null)
+    setErrorProveedor(null)
+    try {
+      const orden = await crearOrden(
+        sb,
+        {
+          sucursal_id: almacen.sucursal_id,
+          almacen_id: almacen.id,
+          canal: 'kiosko',
+          cliente_id: usuario?.clienteId ?? null,
+          descuento: 0,
+        },
+        items.map((i) => ({
+          producto_id: i.producto_id,
+          cantidad: i.cantidad,
+          personalizacion: i.personalizacion ?? null,
+        })),
+      )
 
-      <div className="flex flex-col h-screen bg-sa-cream-paper">
-        <header className="flex items-center gap-4 px-8 py-6 bg-sa-green-deep text-sa-cream">
+      const proveedor = obtenerPaymentProvider('clip', sb)
+      const resultado = await proveedor.createPayment({
+        ordenId: orden.id,
+        monto: orden.total,
+        idempotencyKey: crypto.randomUUID(),
+        sucursalId: almacen.sucursal_id,
+      })
+
+      if (!resultado.ok) {
+        // La orden queda en pending_payment y expira sola (ver
+        // configuracion_kiosko.expira_minutos) — no hace falta cancelarla
+        // a mano. No se intenta ningún fallback automático a "aprobado".
+        setErrorProveedor(resultado.error?.mensaje ?? 'Pago temporalmente no disponible.')
+        setEstado('no_disponible')
+        return
+      }
+
+      // A partir de aquí (cuando exista Clip real) el flujo esperado es:
+      // mostrar "esperando confirmación" y depender del webhook
+      // (clip-webhook) para que fn_confirmar_venta se dispare del lado
+      // servidor — nunca confiar en la respuesta que ve el navegador.
+      // Hoy este camino no se ejecuta porque createPayment() siempre
+      // regresa ok:false sin credenciales configuradas.
+      setErrorProveedor('Esperando confirmación del pago…')
+      setEstado('no_disponible')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+      setEstado('eligiendo')
+    }
+  }
+
+  /**
+   * Modo "demo": SOLO alcanzable si resolverModoKiosko() lo permitió (es
+   * decir, nunca en un build de producción — ver lib/modoKiosko.ts). Usa
+   * MockPaymentProvider (simulado, se niega a existir en build de
+   * producción por su cuenta también) y crea la orden con
+   * `es_demo=true`: se marca pagada para que la pantalla de confirmación
+   * se vea completa, pero el trigger de inventario/cocina/mancuernas la
+   * ignora por completo — cero efectos reales.
+   */
+  async function confirmarDemo() {
+    if (!almacen) return
+    setEstado('procesando')
+    setError(null)
+    try {
+      const orden = await crearOrden(
+        sb,
+        {
+          sucursal_id: almacen.sucursal_id,
+          almacen_id: almacen.id,
+          canal: 'kiosko',
+          cliente_id: usuario?.clienteId ?? null,
+          descuento: 0,
+          es_demo: true,
+        },
+        items.map((i) => ({
+          producto_id: i.producto_id,
+          cantidad: i.cantidad,
+          personalizacion: i.personalizacion ?? null,
+        })),
+      )
+
+      const proveedor = obtenerPaymentProvider('demo', sb)
+      const resultado = await proveedor.createPayment({
+        ordenId: orden.id,
+        monto: orden.total,
+        idempotencyKey: crypto.randomUUID(),
+        sucursalId: almacen.sucursal_id,
+      })
+      if (!resultado.ok) throw new Error(resultado.error?.mensaje ?? 'Fallo simulado')
+
+      await cobrarOrden(sb, orden.id, 'clip', orden.total, { idempotencyKey: crypto.randomUUID() })
+
+      const itemsSnapshot = [...items]
+      limpiar()
+      navigate('/confirmacion', {
+        state: {
+          folio: String(orden.folio),
+          total: orden.total,
+          metodo: 'terminal',
+          items: itemsSnapshot,
+          usuario: usuario ? { ...usuario } : null,
+          demo: true,
+        },
+      })
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+      setEstado('eligiendo')
+    }
+  }
+
+  if (estado === 'cargando') {
+    return (
+      <div className="flex flex-col h-screen items-center justify-center bg-sa-cream-paper">
+        <p className="font-mono text-sm text-sa-green-ink/50 animate-pulse">Cargando…</p>
+      </div>
+    )
+  }
+
+  if (estado === 'procesando') {
+    return <ProcesandoOverlay monto={total()} />
+  }
+
+  if (estado === 'no_disponible') {
+    return (
+      <div className="flex flex-col h-screen items-center justify-center gap-6 px-8 bg-sa-cream-paper text-center">
+        <div className="w-20 h-20 rounded-full bg-sa-strawberry/15 flex items-center justify-center">
+          <span className="text-4xl">⚠️</span>
+        </div>
+        <h1 className="font-display text-3xl text-sa-green-ink">Pago temporalmente no disponible</h1>
+        <p className="font-body text-sa-green-ink/60 max-w-sm">{errorProveedor}</p>
+        <div className="flex flex-col gap-3 w-full max-w-xs">
           <button
-            onClick={() => navigate('/carrito')}
-            className="w-12 h-12 rounded-full bg-sa-green-ink hover:bg-sa-green flex items-center justify-center text-2xl"
-            aria-label="Volver"
+            onClick={() => void confirmarPagarEnCaja()}
+            className="bg-sa-green text-sa-cream py-4 rounded-sa-lg font-display text-xl hover:bg-sa-green-deep transition-colors"
           >
-            ←
+            Pagar en caja
           </button>
-          <div>
-            <p className="font-mono text-xs uppercase tracking-[0.25em] text-sa-banana">#PAGO</p>
-            <h1 className="font-display text-3xl mt-1">¿Cómo lo pagas?</h1>
-          </div>
-        </header>
+          <button
+            onClick={() => setEstado('eligiendo')}
+            className="border border-sa-green-ink/15 text-sa-green-ink py-3 rounded-sa font-mono text-sm uppercase tracking-wide"
+          >
+            Volver
+          </button>
+        </div>
+      </div>
+    )
+  }
 
-        <main className="flex-1 flex flex-col items-center justify-center gap-8 px-8 py-10">
-          <div className="text-center">
-            <p className="font-mono text-xs uppercase tracking-[0.25em] text-sa-green/70">
-              Total a soltar
-            </p>
-            <p className="font-display text-7xl text-sa-green-ink leading-none mt-2">
-              ${total().toFixed(2)}
-            </p>
-            <p className="font-mono text-sm text-sa-green-ink/60 mt-2">MXN · sin pelos en la lengua</p>
-          </div>
+  return (
+    <div className="flex flex-col h-screen bg-sa-cream-paper">
+      {modo === 'demo' && (
+        <div className="bg-sa-banana text-sa-coffee text-center py-1.5 font-mono text-xs uppercase tracking-[0.3em]">
+          ⚠ Modo demostración — ninguna venta es real
+        </div>
+      )}
+      <header className="flex items-center gap-4 px-8 py-6 bg-sa-green-deep text-sa-cream">
+        <button
+          onClick={() => navigate('/carrito')}
+          className="w-12 h-12 rounded-full bg-sa-green-ink hover:bg-sa-green flex items-center justify-center text-2xl"
+          aria-label="Volver"
+        >
+          ←
+        </button>
+        <div>
+          <p className="font-mono text-xs uppercase tracking-[0.25em] text-sa-banana">#PAGO</p>
+          <h1 className="font-display text-3xl mt-1">¿Cómo lo pagas?</h1>
+        </div>
+      </header>
 
-          <div className="flex flex-col gap-4 w-full max-w-md">
+      <main className="flex-1 flex flex-col items-center justify-center gap-8 px-8 py-10">
+        <div className="text-center">
+          <p className="font-mono text-xs uppercase tracking-[0.25em] text-sa-green/70">
+            Total a soltar
+          </p>
+          <p className="font-display text-7xl text-sa-green-ink leading-none mt-2">
+            ${total().toFixed(2)}
+          </p>
+          <p className="font-mono text-sm text-sa-green-ink/60 mt-2">MXN</p>
+        </div>
+
+        <div className="flex flex-col gap-4 w-full max-w-md">
+          {modo === 'clip' && (
             <button
-              onClick={() => setMetodo('terminal')}
-              className={`flex items-center gap-5 p-6 rounded-sa-lg transition-all text-left ${
-                metodo === 'terminal'
-                  ? 'bg-sa-cream-soft ring-4 ring-sa-green shadow-sa'
-                  : 'bg-sa-cream-soft hover:bg-sa-cream shadow-sa-sm'
-              }`}
+              onClick={() => void confirmarClip()}
+              className="flex items-center gap-5 p-6 rounded-sa-lg bg-sa-cream-soft hover:bg-sa-cream shadow-sa-sm transition-all text-left"
             >
               <span className="text-sa-green-ink/70"><IconCard /></span>
               <div>
                 <p className="font-display text-2xl text-sa-green-ink leading-tight">Terminal</p>
                 <p className="font-mono text-xs uppercase tracking-wider text-sa-green-ink/60 mt-1">
-                  Mercado Pago · tarjeta
+                  Clip · tarjeta
                 </p>
               </div>
             </button>
-
-            <button
-              onClick={() => setMetodo('efectivo')}
-              className={`flex items-center gap-5 p-6 rounded-sa-lg transition-all text-left ${
-                metodo === 'efectivo'
-                  ? 'bg-sa-cream-soft ring-4 ring-sa-green shadow-sa'
-                  : 'bg-sa-cream-soft hover:bg-sa-cream shadow-sa-sm'
-              }`}
-            >
-              <span className="text-sa-green-ink/70"><IconCash /></span>
-              <div>
-                <p className="font-display text-2xl text-sa-green-ink leading-tight">Efectivo</p>
-                <p className="font-mono text-xs uppercase tracking-wider text-sa-green-ink/60 mt-1">
-                  Paga en caja · billete en mano
-                </p>
-              </div>
-            </button>
-          </div>
-
-          {error && (
-            <p className="font-mono text-sm text-sa-strawberry text-center max-w-md">{error}</p>
           )}
-        </main>
 
-        <footer className="px-8 py-6 bg-sa-cream-paper">
-          <button
-            onClick={confirmarPago}
-            disabled={!metodo}
-            className="w-full bg-sa-strawberry disabled:bg-sa-cream-warm disabled:text-sa-green-ink/40 text-white py-5 rounded-full font-display text-3xl shadow-sa-sm active:scale-[0.98] transition-transform"
-          >
-            Confirmar pago
-          </button>
-        </footer>
-      </div>
-    </>
+          {modo === 'pagar_en_caja' && (
+            <button
+              onClick={() => void confirmarPagarEnCaja()}
+              className="flex items-center gap-5 p-6 rounded-sa-lg bg-sa-cream-soft hover:bg-sa-cream shadow-sa-sm transition-all text-left"
+            >
+              <span className="text-sa-green-ink/70"><IconCounter /></span>
+              <div>
+                <p className="font-display text-2xl text-sa-green-ink leading-tight">Pagar en caja</p>
+                <p className="font-mono text-xs uppercase tracking-wider text-sa-green-ink/60 mt-1">
+                  Toma tu folio y paga con el cajero
+                </p>
+              </div>
+            </button>
+          )}
+
+          {modo === 'demo' && (
+            <button
+              onClick={() => void confirmarDemo()}
+              className="flex items-center gap-5 p-6 rounded-sa-lg bg-sa-banana/20 hover:bg-sa-banana/30 shadow-sa-sm transition-all text-left border-2 border-dashed border-sa-banana"
+            >
+              <span className="text-sa-coffee"><IconCard /></span>
+              <div>
+                <p className="font-display text-2xl text-sa-green-ink leading-tight">Confirmar pago (demo)</p>
+                <p className="font-mono text-xs uppercase tracking-wider text-sa-green-ink/60 mt-1">
+                  Simulado — no descuenta inventario ni imprime nada real
+                </p>
+              </div>
+            </button>
+          )}
+        </div>
+
+        {error && (
+          <p className="font-mono text-sm text-sa-strawberry text-center max-w-md">{error}</p>
+        )}
+      </main>
+    </div>
   )
 }

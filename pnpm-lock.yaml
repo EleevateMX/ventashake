@@ -264,6 +264,9 @@ importers:
       '@shake/brand':
         specifier: workspace:*
         version: link:../../packages/brand
+      '@shake/payments':
+        specifier: workspace:*
+        version: link:../../packages/payments
       '@shake/supabase':
         specifier: workspace:*
         version: link:../../packages/supabase
@@ -376,6 +379,28 @@ importers:
         version: 6.4.3(@types/node@22.20.0)(jiti@1.21.7)(tsx@4.22.4)
 
   packages/brand: {}
+
+  packages/payments:
+    dependencies:
+      '@shake/supabase':
+        specifier: workspace:*
+        version: link:../supabase
+      '@shake/types':
+        specifier: workspace:*
+        version: link:../types
+      '@supabase/supabase-js':
+        specifier: ^2.47.0
+        version: 2.110.0
+    devDependencies:
+      '@types/node':
+        specifier: ^22.10.0
+        version: 22.20.0
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+      vite:
+        specifier: ^6.0.0
+        version: 6.4.3(@types/node@22.20.0)(jiti@1.21.7)(tsx@4.22.4)
 
   packages/supabase:
     dependencies:

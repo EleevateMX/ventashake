@@ -12,6 +12,7 @@ interface EstadoConfirmacion {
   metodo?: 'terminal' | 'efectivo'
   items?: ItemCarrito[]
   usuario?: UsuarioKiosko | null
+  demo?: boolean
 }
 
 export function Confirmacion() {
@@ -35,6 +36,7 @@ export function Confirmacion() {
   )
   const numeroOrden   = folioReal ?? fallbackNumero
   const puntosGanados = usuario?.clienteId ? Math.floor(totalOrden / 10) : 0
+  const esDemo        = state.demo ?? false
 
   useEffect(() => {
     const data = JSON.stringify({
@@ -77,6 +79,11 @@ export function Confirmacion() {
 
   return (
     <div className="relative flex flex-col items-center justify-center h-screen bg-sa-green-deep text-sa-cream overflow-hidden px-8">
+      {esDemo && (
+        <div className="absolute top-0 left-0 right-0 bg-sa-banana text-sa-coffee text-center py-1.5 font-mono text-xs uppercase tracking-[0.3em]">
+          ⚠ Modo demostración — ninguna venta es real
+        </div>
+      )}
       <span className="absolute top-10 left-10 font-mono text-xs uppercase tracking-[0.3em] text-sa-banana">
         #ORDEN {numeroOrden}
       </span>

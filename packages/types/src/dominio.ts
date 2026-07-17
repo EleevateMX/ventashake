@@ -30,6 +30,9 @@ export type Parametros = Tables<'parametros'>
 export type Impresora = Tables<'impresoras'>
 export type TrabajoImpresion = Tables<'trabajos_impresion'>
 export type ImpresionAuditoria = Tables<'impresion_auditoria'>
+export type ConfiguracionKiosko = Tables<'configuracion_kiosko'>
+export type VentaConfirmacion = Tables<'venta_confirmaciones'>
+export type OrdenAuditoria = Tables<'ordenes_auditoria'>
 
 // ---- Vistas ----
 export type CosteoProducto = Tables<'vw_costeo_producto'>
@@ -67,6 +70,9 @@ export type EstadoTrabajoImpresion = Enums<'estado_trabajo_impresion'>
 export type TipoConexionImpresora = Enums<'tipo_conexion_impresora'>
 export type AnchoPapel = Enums<'ancho_papel'>
 export type TipoDocumentoImpresion = Enums<'tipo_documento_impresion'>
+export type EstadoPagoOrden = Enums<'estado_pago_orden'>
+export type EstadoTransaccionPago = Enums<'estado_transaccion_pago'>
+export type ModoPagoKiosko = Enums<'modo_pago_kiosko'>
 
 // ---- Estructura del JSON legacy (app_data.data) ----
 // Solo lectura: la usa el ETL de supabase/seed. No ampliar.

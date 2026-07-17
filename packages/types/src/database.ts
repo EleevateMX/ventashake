@@ -340,6 +340,38 @@ export type Database = {
         }
         Relationships: []
       }
+      configuracion_kiosko: {
+        Row: {
+          clip_configurado: boolean
+          expira_minutos: number
+          modo_pago: Database["public"]["Enums"]["modo_pago_kiosko"]
+          sucursal_id: string
+          updated_at: string
+        }
+        Insert: {
+          clip_configurado?: boolean
+          expira_minutos?: number
+          modo_pago?: Database["public"]["Enums"]["modo_pago_kiosko"]
+          sucursal_id: string
+          updated_at?: string
+        }
+        Update: {
+          clip_configurado?: boolean
+          expira_minutos?: number
+          modo_pago?: Database["public"]["Enums"]["modo_pago_kiosko"]
+          sucursal_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "configuracion_kiosko_sucursal_id_fkey"
+            columns: ["sucursal_id"]
+            isOneToOne: true
+            referencedRelation: "sucursales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       costos_stock_sync: {
         Row: {
           almacen_id: string
@@ -996,11 +1028,15 @@ export type Database = {
           canal: Database["public"]["Enums"]["canal_orden"]
           cliente_id: string | null
           clip_recibo: string | null
+          codigo_corto: string | null
           corte_id: string | null
           created_at: string
           descuento: number
           empleado_id: string | null
+          es_demo: boolean
           estado: Database["public"]["Enums"]["estado_orden"]
+          estado_pago_orden: Database["public"]["Enums"]["estado_pago_orden"]
+          expira_en: string | null
           folio: number
           id: string
           metodo_pago: Database["public"]["Enums"]["metodo_pago"] | null
@@ -1014,11 +1050,15 @@ export type Database = {
           canal?: Database["public"]["Enums"]["canal_orden"]
           cliente_id?: string | null
           clip_recibo?: string | null
+          codigo_corto?: string | null
           corte_id?: string | null
           created_at?: string
           descuento?: number
           empleado_id?: string | null
+          es_demo?: boolean
           estado?: Database["public"]["Enums"]["estado_orden"]
+          estado_pago_orden?: Database["public"]["Enums"]["estado_pago_orden"]
+          expira_en?: string | null
           folio?: number
           id?: string
           metodo_pago?: Database["public"]["Enums"]["metodo_pago"] | null
@@ -1032,11 +1072,15 @@ export type Database = {
           canal?: Database["public"]["Enums"]["canal_orden"]
           cliente_id?: string | null
           clip_recibo?: string | null
+          codigo_corto?: string | null
           corte_id?: string | null
           created_at?: string
           descuento?: number
           empleado_id?: string | null
+          es_demo?: boolean
           estado?: Database["public"]["Enums"]["estado_orden"]
+          estado_pago_orden?: Database["public"]["Enums"]["estado_pago_orden"]
+          expira_en?: string | null
           folio?: number
           id?: string
           metodo_pago?: Database["public"]["Enums"]["metodo_pago"] | null
@@ -1090,6 +1134,38 @@ export type Database = {
           },
         ]
       }
+      ordenes_auditoria: {
+        Row: {
+          created_at: string
+          detalle: Json | null
+          evento: string
+          id: string
+          orden_id: string
+        }
+        Insert: {
+          created_at?: string
+          detalle?: Json | null
+          evento: string
+          id?: string
+          orden_id: string
+        }
+        Update: {
+          created_at?: string
+          detalle?: Json | null
+          evento?: string
+          id?: string
+          orden_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ordenes_auditoria_orden_id_fkey"
+            columns: ["orden_id"]
+            isOneToOne: false
+            referencedRelation: "ordenes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pagos: {
         Row: {
           autorizado_por: string | null
@@ -1098,11 +1174,15 @@ export type Database = {
           clip_terminal_id: string | null
           created_at: string
           estado: Database["public"]["Enums"]["estado_pago"]
+          estado_transaccion: Database["public"]["Enums"]["estado_transaccion_pago"]
           id: string
           idempotency_key: string | null
           metodo: Database["public"]["Enums"]["metodo_pago"]
           monto: number
           orden_id: string
+          proveedor: string
+          proveedor_error: string | null
+          proveedor_payment_id: string | null
           referencia: string | null
           updated_at: string
         }
@@ -1113,11 +1193,15 @@ export type Database = {
           clip_terminal_id?: string | null
           created_at?: string
           estado?: Database["public"]["Enums"]["estado_pago"]
+          estado_transaccion?: Database["public"]["Enums"]["estado_transaccion_pago"]
           id?: string
           idempotency_key?: string | null
           metodo: Database["public"]["Enums"]["metodo_pago"]
           monto: number
           orden_id: string
+          proveedor?: string
+          proveedor_error?: string | null
+          proveedor_payment_id?: string | null
           referencia?: string | null
           updated_at?: string
         }
@@ -1128,11 +1212,15 @@ export type Database = {
           clip_terminal_id?: string | null
           created_at?: string
           estado?: Database["public"]["Enums"]["estado_pago"]
+          estado_transaccion?: Database["public"]["Enums"]["estado_transaccion_pago"]
           id?: string
           idempotency_key?: string | null
           metodo?: Database["public"]["Enums"]["metodo_pago"]
           monto?: number
           orden_id?: string
+          proveedor?: string
+          proveedor_error?: string | null
+          proveedor_payment_id?: string | null
           referencia?: string | null
           updated_at?: string
         }
@@ -1460,6 +1548,7 @@ export type Database = {
           activa: boolean
           created_at: string
           direccion: string | null
+          es_produccion: boolean
           id: string
           nombre: string
         }
@@ -1467,6 +1556,7 @@ export type Database = {
           activa?: boolean
           created_at?: string
           direccion?: string | null
+          es_produccion?: boolean
           id?: string
           nombre: string
         }
@@ -1474,6 +1564,7 @@ export type Database = {
           activa?: boolean
           created_at?: string
           direccion?: string | null
+          es_produccion?: boolean
           id?: string
           nombre?: string
         }
@@ -1668,6 +1759,39 @@ export type Database = {
           },
         ]
       }
+      venta_confirmaciones: {
+        Row: {
+          confirmado_en: string
+          orden_id: string
+          pago_id: string
+        }
+        Insert: {
+          confirmado_en?: string
+          orden_id: string
+          pago_id: string
+        }
+        Update: {
+          confirmado_en?: string
+          orden_id?: string
+          pago_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "venta_confirmaciones_orden_id_fkey"
+            columns: ["orden_id"]
+            isOneToOne: true
+            referencedRelation: "ordenes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "venta_confirmaciones_pago_id_fkey"
+            columns: ["pago_id"]
+            isOneToOne: false
+            referencedRelation: "pagos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ventas: {
         Row: {
           cfdi_solicitado: boolean
@@ -1832,6 +1956,27 @@ export type Database = {
         }
         Returns: undefined
       }
+      fn_actualizar_configuracion_kiosko: {
+        Args: {
+          p_clip_configurado?: boolean
+          p_expira_minutos?: number
+          p_modo_pago: Database["public"]["Enums"]["modo_pago_kiosko"]
+          p_sucursal_id: string
+        }
+        Returns: {
+          clip_configurado: boolean
+          expira_minutos: number
+          modo_pago: Database["public"]["Enums"]["modo_pago_kiosko"]
+          sucursal_id: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "configuracion_kiosko"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       fn_actualizar_empleado: {
         Args: {
           p_activo?: boolean
@@ -1870,17 +2015,52 @@ export type Database = {
           clip_terminal_id: string | null
           created_at: string
           estado: Database["public"]["Enums"]["estado_pago"]
+          estado_transaccion: Database["public"]["Enums"]["estado_transaccion_pago"]
           id: string
           idempotency_key: string | null
           metodo: Database["public"]["Enums"]["metodo_pago"]
           monto: number
           orden_id: string
+          proveedor: string
+          proveedor_error: string | null
+          proveedor_payment_id: string | null
           referencia: string | null
           updated_at: string
         }
         SetofOptions: {
           from: "*"
           to: "pagos"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      fn_confirmar_venta: {
+        Args: { p_orden_id: string; p_pago_id: string }
+        Returns: {
+          almacen_id: string | null
+          canal: Database["public"]["Enums"]["canal_orden"]
+          cliente_id: string | null
+          clip_recibo: string | null
+          codigo_corto: string | null
+          corte_id: string | null
+          created_at: string
+          descuento: number
+          empleado_id: string | null
+          es_demo: boolean
+          estado: Database["public"]["Enums"]["estado_orden"]
+          estado_pago_orden: Database["public"]["Enums"]["estado_pago_orden"]
+          expira_en: string | null
+          folio: number
+          id: string
+          metodo_pago: Database["public"]["Enums"]["metodo_pago"] | null
+          pagado: boolean
+          sucursal_id: string | null
+          total: number
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ordenes"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -1894,14 +2074,93 @@ export type Database = {
         }
         Returns: string
       }
-      fn_crear_orden: {
+      fn_crear_orden:
+        | {
+            Args: {
+              p_almacen_id: string
+              p_canal: Database["public"]["Enums"]["canal_orden"]
+              p_cliente_id?: string
+              p_corte_id?: string
+              p_descuento?: number
+              p_empleado_id?: string
+              p_items: Json
+              p_sucursal_id: string
+            }
+            Returns: {
+              almacen_id: string | null
+              canal: Database["public"]["Enums"]["canal_orden"]
+              cliente_id: string | null
+              clip_recibo: string | null
+              codigo_corto: string | null
+              corte_id: string | null
+              created_at: string
+              descuento: number
+              empleado_id: string | null
+              es_demo: boolean
+              estado: Database["public"]["Enums"]["estado_orden"]
+              estado_pago_orden: Database["public"]["Enums"]["estado_pago_orden"]
+              expira_en: string | null
+              folio: number
+              id: string
+              metodo_pago: Database["public"]["Enums"]["metodo_pago"] | null
+              pagado: boolean
+              sucursal_id: string | null
+              total: number
+              updated_at: string
+            }
+            SetofOptions: {
+              from: "*"
+              to: "ordenes"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
+        | {
+            Args: {
+              p_almacen_id: string
+              p_canal: Database["public"]["Enums"]["canal_orden"]
+              p_cliente_id?: string
+              p_corte_id?: string
+              p_descuento?: number
+              p_empleado_id?: string
+              p_es_demo?: boolean
+              p_items: Json
+              p_sucursal_id: string
+            }
+            Returns: {
+              almacen_id: string | null
+              canal: Database["public"]["Enums"]["canal_orden"]
+              cliente_id: string | null
+              clip_recibo: string | null
+              codigo_corto: string | null
+              corte_id: string | null
+              created_at: string
+              descuento: number
+              empleado_id: string | null
+              es_demo: boolean
+              estado: Database["public"]["Enums"]["estado_orden"]
+              estado_pago_orden: Database["public"]["Enums"]["estado_pago_orden"]
+              expira_en: string | null
+              folio: number
+              id: string
+              metodo_pago: Database["public"]["Enums"]["metodo_pago"] | null
+              pagado: boolean
+              sucursal_id: string | null
+              total: number
+              updated_at: string
+            }
+            SetofOptions: {
+              from: "*"
+              to: "ordenes"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
+      fn_crear_orden_kiosko_caja: {
         Args: {
           p_almacen_id: string
-          p_canal: Database["public"]["Enums"]["canal_orden"]
           p_cliente_id?: string
-          p_corte_id?: string
           p_descuento?: number
-          p_empleado_id?: string
           p_items: Json
           p_sucursal_id: string
         }
@@ -1910,11 +2169,15 @@ export type Database = {
           canal: Database["public"]["Enums"]["canal_orden"]
           cliente_id: string | null
           clip_recibo: string | null
+          codigo_corto: string | null
           corte_id: string | null
           created_at: string
           descuento: number
           empleado_id: string | null
+          es_demo: boolean
           estado: Database["public"]["Enums"]["estado_orden"]
+          estado_pago_orden: Database["public"]["Enums"]["estado_pago_orden"]
+          expira_en: string | null
           folio: number
           id: string
           metodo_pago: Database["public"]["Enums"]["metodo_pago"] | null
@@ -1944,6 +2207,8 @@ export type Database = {
         Returns: undefined
       }
       fn_expirar_cupones: { Args: never; Returns: number }
+      fn_expirar_ordenes_kiosko: { Args: never; Returns: number }
+      fn_generar_codigo_corto: { Args: never; Returns: string }
       fn_generar_cupones_cumpleanos: { Args: never; Returns: number }
       fn_imprimir_confirmar: {
         Args: { p_token: string; p_trabajo_id: string }
@@ -2094,6 +2359,14 @@ export type Database = {
         }
       }
       fn_reactivacion: { Args: never; Returns: number }
+      fn_reconciliar_pagos: {
+        Args: never
+        Returns: {
+          accion: string
+          detalle: string
+          orden_id: string
+        }[]
+      }
       fn_roles: {
         Args: never
         Returns: {
@@ -2123,6 +2396,17 @@ export type Database = {
         | "entregada"
         | "cancelada"
       estado_pago: "pendiente" | "aprobado" | "rechazado" | "cancelado"
+      estado_pago_orden:
+        | "draft"
+        | "pending_payment"
+        | "awaiting_counter_payment"
+        | "payment_processing"
+        | "paid"
+        | "cancelled"
+        | "expired"
+        | "payment_unknown"
+        | "refunded_partial"
+        | "refunded_full"
       estado_trabajo_impresion:
         | "pending"
         | "claimed"
@@ -2131,7 +2415,19 @@ export type Database = {
         | "retry"
         | "failed"
         | "cancelled"
+      estado_transaccion_pago:
+        | "created"
+        | "pending"
+        | "processing"
+        | "authorized"
+        | "declined"
+        | "cancelled"
+        | "expired"
+        | "unknown"
+        | "refunded_partial"
+        | "refunded_full"
       metodo_pago: "clip" | "efectivo" | "tarjeta" | "cortesia" | "otro"
+      modo_pago_kiosko: "clip" | "pagar_en_caja" | "demo"
       tipo_almacen: "bodega" | "kiosko"
       tipo_conexion_impresora: "usb" | "red"
       tipo_cupon: "mancuernas" | "cumpleanos"
@@ -2286,6 +2582,18 @@ export const Constants = {
         "cancelada",
       ],
       estado_pago: ["pendiente", "aprobado", "rechazado", "cancelado"],
+      estado_pago_orden: [
+        "draft",
+        "pending_payment",
+        "awaiting_counter_payment",
+        "payment_processing",
+        "paid",
+        "cancelled",
+        "expired",
+        "payment_unknown",
+        "refunded_partial",
+        "refunded_full",
+      ],
       estado_trabajo_impresion: [
         "pending",
         "claimed",
@@ -2295,7 +2603,20 @@ export const Constants = {
         "failed",
         "cancelled",
       ],
+      estado_transaccion_pago: [
+        "created",
+        "pending",
+        "processing",
+        "authorized",
+        "declined",
+        "cancelled",
+        "expired",
+        "unknown",
+        "refunded_partial",
+        "refunded_full",
+      ],
       metodo_pago: ["clip", "efectivo", "tarjeta", "cortesia", "otro"],
+      modo_pago_kiosko: ["clip", "pagar_en_caja", "demo"],
       tipo_almacen: ["bodega", "kiosko"],
       tipo_conexion_impresora: ["usb", "red"],
       tipo_cupon: ["mancuernas", "cumpleanos"],
