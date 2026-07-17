@@ -7,8 +7,9 @@ import Inventario from './pages/Inventario'
 import Promos from './pages/Promos'
 import Empleados from './pages/Empleados'
 import Impresoras from './pages/Impresoras'
+import Sistema from './pages/Sistema'
 
-type Tab = 'dashboard' | 'menu' | 'inventario' | 'promos' | 'ventas' | 'empleados' | 'impresoras'
+type Tab = 'dashboard' | 'menu' | 'inventario' | 'promos' | 'ventas' | 'empleados' | 'impresoras' | 'sistema'
 
 const w = 18
 
@@ -47,6 +48,11 @@ const IconImpresoras = () => (
     <polyline points="6 9 6 2 18 2 18 9" /><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><rect x="6" y="14" width="12" height="8" />
   </svg>
 )
+const IconSistema = () => (
+  <svg width={w} height={w} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+  </svg>
+)
 
 const navItems: { id: Tab; label: string; Icon: () => ReactElement }[] = [
   { id: 'dashboard', label: 'Dashboard', Icon: IconDashboard },
@@ -56,6 +62,7 @@ const navItems: { id: Tab; label: string; Icon: () => ReactElement }[] = [
   { id: 'ventas', label: 'Ventas', Icon: IconVentas },
   { id: 'empleados', label: 'Empleados', Icon: IconEmpleados },
   { id: 'impresoras', label: 'Impresoras', Icon: IconImpresoras },
+  { id: 'sistema', label: 'Sistema', Icon: IconSistema },
 ]
 
 export default function App() {
@@ -100,6 +107,7 @@ export default function App() {
         {tab === 'promos' && <Promos />}
         {tab === 'empleados' && <Empleados />}
         {tab === 'impresoras' && <Impresoras />}
+        {tab === 'sistema' && <Sistema />}
       </main>
     </div>
   )

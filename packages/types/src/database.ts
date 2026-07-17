@@ -2375,6 +2375,20 @@ export type Database = {
           slug: string
         }[]
       }
+      fn_salud_sistema: {
+        Args: never
+        Returns: {
+          impresoras_activas: number
+          impresoras_conectadas: number
+          ordenes_esperando_caja: number
+          ordenes_expiradas_24h: number
+          pagos_desconocidos: number
+          pagos_pendientes: number
+          pedidos_sin_comanda: number
+          trabajos_impresion_fallidos: number
+          ventas_sin_movimiento_inventario: number
+        }[]
+      }
       fn_sync_app_data: { Args: never; Returns: undefined }
       fn_sync_stock_costos: { Args: never; Returns: undefined }
     }
