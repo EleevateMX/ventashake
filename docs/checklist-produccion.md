@@ -82,6 +82,24 @@ esa ronda.
       `fn_reconciliar_pagos()` lo resuelve solo, sin duplicar nada — ver
       `docs/reconciliacion-pagos.md`
 
+## Concurrencia (probado con concurrencia real, no simulada — ver `docs/pruebas-concurrencia.md`)
+
+- [x] Dos cobros / dos cajeros, misma orden → un solo pago, una sola venta
+- [x] Dos webhooks idénticos → una sola confirmación (PK estructural)
+- [x] Webhook + reconciliación simultáneos → una sola confirmación
+- [x] Pago vs. cancelación concurrentes → estado final único, en ambos órdenes de ejecución
+- [x] Dos agentes reclamando un trabajo de impresión → uno lo reclama, el otro nada
+- [x] Dos canjes del mismo cupón → uno se canjea, el otro no hace nada
+- [x] Dos ventas cruzando 100 mancuernas a la vez → saldo correcto, un solo cupón
+- [ ] **Decisión de negocio pendiente (hallazgo real de la prueba de
+      concurrencia de inventario):** el sistema no impide vender más
+      unidades de las que hay en stock — dos ventas concurrentes de la
+      última unidad AMBAS se cobran con éxito (la aritmética del descuento
+      es correcta y segura, pero no hay un piso de disponibilidad). Decidir
+      si se agrega un bloqueo duro (`WHERE stock_actual >= cantidad`) antes
+      de permitir el cobro, sabiendo que eso podría rechazar una venta real
+      si una receta está mal capturada — ver `docs/pruebas-concurrencia.md` §6.
+
 ## Pruebas de impresora (por sucursal, por impresora)
 
 - [ ] Impresora registrada en Admin → Impresoras con su estación correcta
