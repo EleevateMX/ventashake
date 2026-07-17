@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { sb } from '../lib/sb'
 import {
   obtenerSaludSistema, listarConfiguracionesKiosko, actualizarConfiguracionKiosko,
-  reconciliarPagos, expirarOrdenesKiosko, listarAlmacenes,
+  reconciliarPagos, expirarOrdenesKiosko,
   type SaludSistema, type ResultadoReconciliacion,
 } from '@shake/supabase'
 import type { ConfiguracionKiosko, ModoPagoKiosko } from '@shake/types'
@@ -69,7 +69,6 @@ const MODO_LABEL: Record<ModoPagoKiosko, string> = {
 export default function Sistema() {
   const [salud, setSalud] = useState<SaludSistema | null>(null)
   const [configs, setConfigs] = useState<ConfiguracionKiosko[]>([])
-  const [sucursales, setSucursales] = useState<{ id: string; nombre: string }[]>([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [ok, setOk] = useState<string | null>(null)
@@ -78,14 +77,11 @@ export default function Sistema() {
 
   async function cargar() {
     try {
-      const [saludData, configsData, almacenes] = await Promise.all([
-        obtenerSaludSistema(sb), listarConfiguracionesKiosko(sb), listarAlmacenes(sb),
+      const [saludData, configsData] = await Promise.all([
+        obtenerSaludSistema(sb), listarConfiguracionesKiosko(sb),
       ])
       setSalud(saludData)
       setConfigs(configsData)
-      const sucursalesUnicas = new Map<string, string>()
-      for (const a of almacenes) sucursalesUnicas.set(a.sucursal_id, a.sucursal_id)
-      setSucursales([...sucursalesUnicas.keys()].map((id) => ({ id, nombre: id.slice(0, 8) })))
       setError(null)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))

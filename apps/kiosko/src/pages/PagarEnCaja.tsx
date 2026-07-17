@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import QRCode from 'qrcode'
 import { suscribirOrden } from '@shake/supabase'
@@ -39,6 +39,10 @@ export function PagarEnCaja() {
     if (orden.estado_pago_orden === 'paid') return
     const off = suscribirOrden(sb, orden.id, (actualizada) => setOrden(actualizada))
     return off
+    // Deps acotadas a propósito a id/estado: incluir `orden` completo
+    // resuscribiría en cada actualización que la propia suscripción
+    // provoca (setOrden dispara un re-render con un `orden` nuevo).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orden?.id, orden?.estado_pago_orden])
 
   const codigo = orden?.codigo_corto ?? '—'
