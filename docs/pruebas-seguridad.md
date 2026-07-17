@@ -25,8 +25,10 @@ falle, deja datos de prueba en la base productiva.
 
 > Regla seguida en esta ronda: **no se asumió que las correcciones de rondas
 > anteriores cubrían todo.** Cada punto de la lista se volvió a probar en
-> vivo contra el esquema actual, y se encontraron y cerraron dos brechas
-> reales que no estaban cubiertas (ver §2).
+> vivo contra el esquema actual, y se encontraron y cerraron tres brechas
+> reales que no estaban cubiertas (ver §2) — incluida una crítica
+> (`impresoras.agente_token` totalmente expuesto, §2.4) que solo salió a la
+> luz por documentar honestamente el punto #9 en vez de darlo por bueno.
 
 ## 1. Resultado por cada acción prohibida (lista del encargo)
 
@@ -40,7 +42,7 @@ falle, deja datos de prueba en la base productiva.
 | 6 | Otorgarse mancuernas | ✅ Bloqueado (brecha cerrada esta ronda) | `clientes.mancuernas`: `REVOKE UPDATE` de tabla + `GRANT UPDATE (activo)` solamente; `mancuernas_movimientos`: sin policy INSERT — ver §2.2 |
 | 7 | Crear cupones | ✅ Bloqueado (brecha cerrada esta ronda) | `cupones`: sin policy INSERT para `anon`/`authenticated` — ver §2.2 |
 | 8 | Crear trabajos de impresión arbitrarios | ✅ Bloqueado | `trabajos_impresion` INSERT solo vía trigger `fn_encolar_impresion_pedido` (`SECURITY DEFINER`), disparado por `fn_crear_pedidos_cocina`; no hay policy INSERT directa para `anon` |
-| 9 | Reclamar trabajos de otra sucursal | ✅ Bloqueado | El agente de impresión (`agente-impresion/`) usa `service_role`, nunca `anon`/`authenticated` — confirmado de nuevo esta ronda leyendo `agente-impresion/src/worker.ts`; no hay ruta de reclamo expuesta a `anon` |
+| 9 | Reclamar trabajos de otra sucursal | ✅ Bloqueado (tras cerrar una brecha crítica esta ronda, ver §2.4) | El agente de impresión SÍ usa la anon key (no `service_role`); cada impresora tiene su propio `agente_token` y `fn_imprimir_reclamar_trabajos(p_token, ...)` solo reclama trabajos con `printer_id` derivado de ESE token. Pero la tabla `impresoras` tenía RLS+GRANT completamente abiertos, así que el token de CUALQUIER impresora era legible por cualquiera con la anon key — el aislamiento por token era real en la RPC pero inútil porque el secreto no era secreto. Cerrado revocando todo acceso directo a `impresoras` y moviendo lectura/escritura a funciones `SECURITY DEFINER` que nunca exponen `agente_token` salvo al crear o rotar explícitamente |
 | 10 | Leer `pin_hash` | ✅ Bloqueado | Columna excluida por `REVOKE`+`GRANT` selectivo desde la ronda anterior; releído y confirmado que sigue vigente (`information_schema` no expone `pin_hash` a `anon`) |
 | 11 | Modificar precios (`productos.precio`) | ⚠️ **Deuda documentada (A3)**, sin cambio esta ronda | Ver §4 — Admin edita precios directo con la anon key porque no existe todavía un rol autenticado distinto; cerrarlo requiere una RPC dedicada + Supabase Auth para Admin |
 | 12 | Modificar totales de una orden | ✅ Bloqueado | Los totales se recalculan siempre en servidor dentro de `fn_crear_orden`/`fn_cobrar_orden` a partir de precios de catálogo; no hay policy UPDATE de `ordenes.total` para `anon` |
@@ -96,6 +98,72 @@ rol rompería la gestión de promociones desde Admin. Queda documentado como
 deuda A3 (idéntica en naturaleza a `productos.precio` y `caja_cortes`, ver
 §4) — no se improvisa un cierre a medias que después habría que deshacer.
 
+### 2.4 CRÍTICO: `impresoras.agente_token` completamente expuesto (encontrado y cerrado esta ronda)
+
+Este es el hallazgo más serio de toda la re-verificación, y solo se encontró
+porque documentar honestamente la fila #9 de la tabla de arriba ("reclamar
+trabajos de otra sucursal") obligó a leer el código real del agente
+(`agente-impresion/src/config.ts`, `worker.ts`) en vez de asumir que seguía
+usando `service_role` como se había dicho de palabra en una ronda anterior.
+
+Al leer el código se confirmó que el agente usa la **anon key pública**, con
+el `agente_token` de cada impresora como único secreto que la identifica
+ante `fn_imprimir_reclamar_trabajos`/`fn_imprimir_confirmar`/
+`fn_imprimir_fallar`/`fn_imprimir_latido`. Al verificar en vivo cómo estaba
+protegida la tabla `impresoras`, se encontró:
+
+- Policies RLS `using(true)`/`with_check(true)` sin restricción para
+  SELECT/INSERT/UPDATE.
+- `GRANT` de tabla completa (incluida la columna `agente_token`) a
+  `anon` y `authenticated`.
+
+En conjunto, esto significaba que **cualquiera con la anon key pública podía
+leer el token de cada impresora de cada sucursal** con un simple
+`GET /impresoras?select=agente_token,nombre,sucursal_id`, y con ese token
+reclamar/confirmar/fallar trabajos de esa impresora exactamente como si
+fuera el agente legítimo — o hacer `PATCH /impresoras?id=eq.X {"activa":
+false}` para apagar cualquier impresora del sistema de comandas sin dejar
+ningún rastro de quién lo hizo. Esto invalidaba por completo la garantía
+"un token robado no puede reclamar trabajos de otra sucursal" — el token no
+necesitaba robarse, ya era público.
+
+**Cerrado en `impresion_seguridad_tokens_agente.sql`** con el mismo patrón
+que ya protege `empleados.pin_hash`: `REVOKE ALL` de tabla a
+`anon`/`authenticated`, cero policies para esos roles, y acceso
+exclusivamente vía funciones `SECURITY DEFINER`:
+
+- `fn_admin_impresoras()` — listado para Admin, nunca incluye `agente_token`.
+- `fn_crear_impresora(...)` — crea la impresora y devuelve el token una sola
+  vez (igual que ya hacía la UI, ahora también verdad a nivel de acceso).
+- `fn_actualizar_impresora(...)` / `fn_activar_impresora(...)` — edición de
+  campos seguros, nunca tocan el token. (Se separaron en dos funciones tras
+  encontrar, en la misma verificación, que una única función con
+  `coalesce(p_x, x)` para todos los campos rompía silenciosamente el caso
+  real "cambiar de red a usb debe limpiar el ip" — un NULL intencional se
+  interpretaba como "no cambiar". Probado en vivo, ver evidencia abajo.)
+- `fn_rotar_token_impresora(p_id)` — genera y devuelve un token nuevo una
+  sola vez, para el siguiente punto.
+
+**Acción de seguimiento obligatoria:** como los tokens actuales ya
+estuvieron expuestos públicamente antes de este cierre, deben considerarse
+comprometidos. El botón "Rotar token" ya está disponible en Admin →
+Impresoras; cada impresora en producción debe rotarse y su
+`printers.config.json` local actualizarse con el nuevo valor antes de
+confiar en el aislamiento por sucursal.
+
+Evidencia de ejecución (rollback intencional, sin dejar impresoras de
+prueba):
+
+```
+RESULTADO_A_OK: SELECT directo a impresoras bloqueado (sin GRANT)
+RESULTADO_B_OK: UPDATE directo a impresoras bloqueado
+RESULTADO_C_OK: fn_admin_impresoras ejecuta correctamente
+RESULTADO_D_OK: fn_crear_impresora funciona
+RESULTADO_OK: ip se limpió correctamente al cambiar de red a usb
+RESULTADO_OK: fn_activar_impresora solo tocó activa
+→ ROLLBACK_INTENCIONAL, cero impresoras de prueba persistidas
+```
+
 ## 3. Tabla de funciones críticas
 
 Para cada función `SECURITY DEFINER` que toca dinero, inventario, recompensas
@@ -114,6 +182,8 @@ o el estado de una orden:
 | `fn_descontar_inventario_por_orden` (trigger) | Nadie la invoca directo — dispara sola en `UPDATE` de `ordenes` cuando `pagado` pasa a `true` | Implícita — solo corre en la transacción que ya pasó por `fn_confirmar_venta` | Vía `orden.sucursal_id`/`almacen_id` | No aplica | **Sí** — `and not NEW.es_demo` (no descuenta inventario real en modo demo) | Sí — un solo `UPDATE` por orden dispara el trigger una sola vez | `inventario_movimientos`, `insumos_stock` |
 | `fn_crear_pedidos_cocina` (trigger) | Igual — disparo automático, no invocable directo desde UI | Implícita | Vía `orden.sucursal_id` | No aplica | `and not NEW.es_demo` | Sí | `pedidos_cocina`, `trabajos_impresion` (vía `fn_encolar_impresion_pedido`) |
 | `fn_acumular_mancuernas` (trigger) | Igual — disparo automático | Implícita | Vía `orden.cliente_id`→`clientes` | No aplica | `and not NEW.es_demo`; solo suma si `cliente_id is not null` | Sí — un `UPDATE` de orden = un solo incremento | `clientes.mancuernas`, `mancuernas_movimientos`, `cupones` (al llegar a 100) |
+| `fn_imprimir_reclamar_trabajos` | `anon`, `authenticated` (llamada por el agente con la anon key) | **Sí, vía `p_token`** — resuelve `impresoras.agente_token = p_token and activa`; sin token válido, `raise exception` | **Sí** — el `UPDATE` de `trabajos_impresion` está acotado a `printer_id = v_printer_id`, derivado exclusivamente del token, nunca de un parámetro que el llamador controle | Implícita en el token (1 token = 1 impresora física) | Solo reclama `pending`/`retry`, o `claimed`/`printing` con `claim_expires_at` vencido | Sí — `FOR UPDATE SKIP LOCKED` + `claim_expires_at`, dos agentes no pueden reclamar el mismo trabajo | `trabajos_impresion` (`estado='claimed'`), `impresoras.ultima_conexion` |
+| `fn_imprimir_confirmar` / `fn_imprimir_fallar` / `fn_imprimir_latido` | `anon`, `authenticated` | Igual — vía `p_token` | Igual — acotado al `printer_id` del token | Igual | Exigen que el trabajo esté `claimed` por ese mismo token antes de mutarlo | Sí | `trabajos_impresion`, `impresoras.ultima_conexion` |
 
 **Nota sobre "validar identidad/terminal":** el sistema no tiene todavía
 Supabase Auth para POS/Admin/Cocina — todas las apps usan la misma anon key
@@ -169,3 +239,8 @@ no hubo ninguna migración nueva que las tocara.)
   Supabase Auth de personal antes de poder cerrarse sin romper Admin/POS.
 - Ninguna función crítica valida "qué cajero/terminal" hizo la llamada, por
   la misma razón (sin Auth de personal todavía).
+- **Pendiente operativo, no de código:** los `agente_token` de las
+  impresoras ya desplegadas en producción deben rotarse (botón "Rotar
+  token" en Admin → Impresoras) y actualizarse en el `printers.config.json`
+  de cada agente local, porque estuvieron expuestos públicamente hasta el
+  cierre de §2.4 de esta ronda.

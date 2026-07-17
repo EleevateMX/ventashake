@@ -1956,6 +1956,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      fn_activar_impresora: {
+        Args: { p_activa: boolean; p_id: string }
+        Returns: undefined
+      }
       fn_actualizar_configuracion_kiosko: {
         Args: {
           p_clip_configurado?: boolean
@@ -1987,6 +1991,22 @@ export type Database = {
         }
         Returns: undefined
       }
+      fn_actualizar_impresora: {
+        Args: {
+          p_ancho_papel: Database["public"]["Enums"]["ancho_papel"]
+          p_buzzer: boolean
+          p_cocina_id: string
+          p_copias: number
+          p_corte_automatico: boolean
+          p_id: string
+          p_ip: string
+          p_nombre: string
+          p_nombre_dispositivo: string
+          p_puerto: number
+          p_tipo_conexion: Database["public"]["Enums"]["tipo_conexion_impresora"]
+        }
+        Returns: undefined
+      }
       fn_admin_empleados: {
         Args: never
         Returns: {
@@ -1997,6 +2017,29 @@ export type Database = {
           rol_id: string
           sucursal_id: string
           tiene_pin: boolean
+        }[]
+      }
+      fn_admin_impresoras: {
+        Args: never
+        Returns: {
+          activa: boolean
+          agente_id: string
+          ancho_papel: Database["public"]["Enums"]["ancho_papel"]
+          buzzer: boolean
+          cocina_id: string
+          conectada: boolean
+          copias: number
+          corte_automatico: boolean
+          created_at: string
+          id: string
+          ip: string
+          nombre: string
+          nombre_dispositivo: string
+          puerto: number
+          sucursal_id: string
+          tipo_conexion: Database["public"]["Enums"]["tipo_conexion_impresora"]
+          ultima_conexion: string
+          ultima_impresion: string
         }[]
       }
       fn_cobrar_orden: {
@@ -2073,6 +2116,25 @@ export type Database = {
           p_sucursal?: string
         }
         Returns: string
+      }
+      fn_crear_impresora: {
+        Args: {
+          p_ancho_papel?: Database["public"]["Enums"]["ancho_papel"]
+          p_buzzer?: boolean
+          p_cocina_id: string
+          p_copias?: number
+          p_corte_automatico?: boolean
+          p_ip?: string
+          p_nombre: string
+          p_nombre_dispositivo?: string
+          p_puerto?: number
+          p_sucursal_id: string
+          p_tipo_conexion: Database["public"]["Enums"]["tipo_conexion_impresora"]
+        }
+        Returns: {
+          agente_token: string
+          id: string
+        }[]
       }
       fn_crear_orden:
         | {
@@ -2375,6 +2437,7 @@ export type Database = {
           slug: string
         }[]
       }
+      fn_rotar_token_impresora: { Args: { p_id: string }; Returns: string }
       fn_salud_sistema: {
         Args: never
         Returns: {

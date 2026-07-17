@@ -1,33 +1,95 @@
-import type { Impresora, ImpresoraInsert, ImpresoraUpdate, TrabajoImpresion, Cocina } from '@shake/types'
+import type { Impresora, TrabajoImpresion, Cocina, TipoConexionImpresora, AnchoPapel } from '@shake/types'
 import type { ShakeClient } from '../client'
 
-export interface ImpresoraConEstacion extends Impresora {
-  cocinas: { nombre: string; slug: string } | null
-}
-
-/** Impresoras configuradas (todas — Admin decide cuáles mostrar activas/inactivas). */
-export async function listarImpresoras(sb: ShakeClient): Promise<ImpresoraConEstacion[]> {
-  const { data, error } = await sb
-    .from('impresoras')
-    .select('*, cocinas(nombre, slug)')
-    .order('nombre')
+// El generador de tipos de Supabase no distingue "parámetro nullable" de
+// "parámetro requerido" en los Args de RPC — para fn_crear_impresora/
+// fn_actualizar_impresora (que sí aceptan null real en ip/cocina_id/
+// nombre_dispositivo/puerto) se llama vía este cast, mismo patrón que
+// empleados.ts/ordenes.ts/pagos.ts.
+type RpcFn = (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>
+async function rpc<T>(sb: ShakeClient, fn: string, args: Record<string, unknown>): Promise<T> {
+  const { data, error } = await (sb.rpc as unknown as RpcFn)(fn, args)
   if (error) throw error
-  return data as ImpresoraConEstacion[]
+  return data as T
 }
 
-export async function crearImpresora(sb: ShakeClient, datos: ImpresoraInsert): Promise<Impresora> {
-  const { data, error } = await sb.from('impresoras').insert(datos).select().single()
-  if (error) throw error
-  return data
+/**
+ * Impresora sin `agente_token` — esa columna ya no es legible ni escribible
+ * directo por anon/authenticated (ver pagos_maquina_estados_p9 y
+ * impresion_seguridad_tokens_agente: el token es el único secreto que
+ * prueba la identidad de una impresora física ante
+ * fn_imprimir_reclamar_trabajos/confirmar/fallar/latido, así que nunca debe
+ * viajar salvo el instante de creación o rotación explícita).
+ */
+export type ImpresoraAdmin = Omit<Impresora, 'agente_token'> & { conectada: boolean }
+
+export interface ImpresoraInsertDatos {
+  sucursal_id: string
+  nombre: string
+  cocina_id: string | null
+  tipo_conexion: TipoConexionImpresora
+  ip: string | null
+  puerto: number | null
+  nombre_dispositivo: string | null
+  ancho_papel: AnchoPapel
+  copias: number
+  corte_automatico: boolean
+  buzzer: boolean
+}
+export type ImpresoraUpdateDatos = Omit<ImpresoraInsertDatos, 'sucursal_id'>
+
+/** Impresoras configuradas (todas — Admin decide cuáles mostrar activas/inactivas). Nunca incluye el token. */
+export async function listarImpresoras(sb: ShakeClient): Promise<ImpresoraAdmin[]> {
+  return (await rpc<ImpresoraAdmin[] | null>(sb, 'fn_admin_impresoras', {})) ?? []
 }
 
+/** Crea la impresora y devuelve su token UNA vez — cópialo a printers.config.json del agente local. */
+export async function crearImpresora(sb: ShakeClient, datos: ImpresoraInsertDatos): Promise<{ id: string; agente_token: string }> {
+  const filas = await rpc<{ id: string; agente_token: string }[]>(sb, 'fn_crear_impresora', {
+    p_sucursal_id: datos.sucursal_id,
+    p_nombre: datos.nombre,
+    p_cocina_id: datos.cocina_id,
+    p_tipo_conexion: datos.tipo_conexion,
+    p_ip: datos.ip,
+    p_puerto: datos.puerto,
+    p_nombre_dispositivo: datos.nombre_dispositivo,
+    p_ancho_papel: datos.ancho_papel,
+    p_copias: datos.copias,
+    p_corte_automatico: datos.corte_automatico,
+    p_buzzer: datos.buzzer,
+  })
+  return filas[0]
+}
+
+/** Sobrescribe TODOS los campos del formulario (nunca parcial — usa activarImpresora() para el toggle). */
 export async function actualizarImpresora(
   sb: ShakeClient,
   id: string,
-  cambios: ImpresoraUpdate,
+  cambios: ImpresoraUpdateDatos,
 ): Promise<void> {
-  const { error } = await sb.from('impresoras').update(cambios).eq('id', id)
-  if (error) throw error
+  await rpc(sb, 'fn_actualizar_impresora', {
+    p_id: id,
+    p_nombre: cambios.nombre,
+    p_cocina_id: cambios.cocina_id,
+    p_tipo_conexion: cambios.tipo_conexion,
+    p_ip: cambios.ip,
+    p_puerto: cambios.puerto,
+    p_nombre_dispositivo: cambios.nombre_dispositivo,
+    p_ancho_papel: cambios.ancho_papel,
+    p_copias: cambios.copias,
+    p_corte_automatico: cambios.corte_automatico,
+    p_buzzer: cambios.buzzer,
+  })
+}
+
+/** Activa/desactiva una impresora sin tocar el resto de su configuración. */
+export async function activarImpresora(sb: ShakeClient, id: string, activa: boolean): Promise<void> {
+  await rpc(sb, 'fn_activar_impresora', { p_id: id, p_activa: activa })
+}
+
+/** Rota el token de una impresora (sospecha de compromiso, o se perdió printers.config.json). Devuelve el nuevo token UNA vez. */
+export async function rotarTokenImpresora(sb: ShakeClient, id: string): Promise<string> {
+  return rpc<string>(sb, 'fn_rotar_token_impresora', { p_id: id })
 }
 
 /** Estaciones disponibles para asignar impresora (mismo catálogo que Cocina/Barra). */
@@ -35,16 +97,6 @@ export async function listarCocinasParaImpresoras(sb: ShakeClient): Promise<Coci
   const { data, error } = await sb.from('cocinas').select('*').order('nombre')
   if (error) throw error
   return data
-}
-
-/**
- * Estado de conexión derivado de `ultima_conexion`: el agente manda latido
- * cada ~30s (ver agente-impresion/.env.example); si no se ve hace más de
- * 2 minutos, se considera desconectada.
- */
-export function impresoraConectada(imp: Impresora, ahoraMs: number = Date.now()): boolean {
-  if (!imp.ultima_conexion) return false
-  return ahoraMs - new Date(imp.ultima_conexion).getTime() < 2 * 60 * 1000
 }
 
 /** Trabajos de impresión de UN pedido de cocina (para el indicador en KDS). */

@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { sb } from '../lib/sb'
 import {
-  listarImpresoras, crearImpresora, actualizarImpresora, listarCocinasParaImpresoras,
-  impresoraConectada, listarTrabajosImpresion, suscribirTrabajosImpresion, reimprimirTrabajo,
-  listarAlmacenes, type ImpresoraConEstacion,
+  listarImpresoras, crearImpresora, actualizarImpresora, activarImpresora, rotarTokenImpresora, listarCocinasParaImpresoras,
+  listarTrabajosImpresion, suscribirTrabajosImpresion, reimprimirTrabajo,
+  listarAlmacenes, type ImpresoraAdmin,
 } from '@shake/supabase'
 import type { Cocina, TrabajoImpresion, TipoConexionImpresora, AnchoPapel, EstadoTrabajoImpresion } from '@shake/types'
 import { PageHeader, Loading, ErrorMsg, OkMsg, Panel, Field, cx, Chip } from '../ui'
@@ -36,7 +36,7 @@ const ESTADO_TONO: Record<EstadoTrabajoImpresion, 'si' | 'no' | 'neutral'> = {
 }
 
 export default function Impresoras() {
-  const [impresoras, setImpresoras] = useState<ImpresoraConEstacion[]>([])
+  const [impresoras, setImpresoras] = useState<ImpresoraAdmin[]>([])
   const [cocinas, setCocinas] = useState<Cocina[]>([])
   const [trabajos, setTrabajos] = useState<TrabajoImpresion[]>([])
   const [cargando, setCargando] = useState(true)
@@ -112,7 +112,19 @@ export default function Impresoras() {
     }
   }
 
-  function editar(imp: ImpresoraConEstacion) {
+  async function rotarToken(imp: ImpresoraAdmin) {
+    setError(null); setOk(null)
+    if (!window.confirm(`¿Rotar el token de "${imp.nombre}"? El agente local dejará de poder reclamar trabajos hasta que actualices printers.config.json con el nuevo token.`)) return
+    try {
+      const nuevoToken = await rotarTokenImpresora(sb, imp.id)
+      setTokenVisible(nuevoToken)
+      setOk(`Token de "${imp.nombre}" rotado. Actualiza printers.config.json del agente local.`)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    }
+  }
+
+  function editar(imp: ImpresoraAdmin) {
     setForm({
       id: imp.id, nombre: imp.nombre, cocina_id: imp.cocina_id ?? '', tipo_conexion: imp.tipo_conexion,
       ip: imp.ip ?? '', puerto: String(imp.puerto ?? 9100), nombre_dispositivo: imp.nombre_dispositivo ?? '',
@@ -122,10 +134,10 @@ export default function Impresoras() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  async function toggleActiva(imp: ImpresoraConEstacion) {
+  async function toggleActiva(imp: ImpresoraAdmin) {
     setError(null); setOk(null)
     try {
-      await actualizarImpresora(sb, imp.id, { activa: !imp.activa })
+      await activarImpresora(sb, imp.id, !imp.activa)
       await cargar()
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
@@ -143,6 +155,11 @@ export default function Impresoras() {
       setError(e instanceof Error ? e.message : String(e))
     }
   }
+
+  const cocinaNombrePorId = useMemo(
+    () => new Map(cocinas.map((c) => [c.id, c.nombre])),
+    [cocinas],
+  )
 
   const trabajosFiltrados = useMemo(
     () => (filtroEstado === 'todos' ? trabajos : trabajos.filter((t) => t.estado === filtroEstado)),
@@ -272,12 +289,12 @@ export default function Impresoras() {
                     <span className="font-medium">{imp.nombre}</span>
                     <div className="text-xs font-mono text-sa-green-ink/40">{imp.ancho_papel} · {imp.copias} copia{imp.copias > 1 ? 's' : ''}</div>
                   </td>
-                  <td className={cx.td}>{imp.cocinas?.nombre ?? <span className={cx.muted}>Sin asignar</span>}</td>
+                  <td className={cx.td}>{cocinaNombrePorId.get(imp.cocina_id ?? '') ?? <span className={cx.muted}>Sin asignar</span>}</td>
                   <td className={cx.td}>
                     {imp.tipo_conexion === 'red' ? `${imp.ip}:${imp.puerto}` : imp.nombre_dispositivo}
                   </td>
                   <td className={cx.td}>
-                    {impresoraConectada(imp) ? <Chip tone="si">🟢 En línea</Chip> : <Chip tone="no">⚪ Desconectada</Chip>}
+                    {imp.conectada ? <Chip tone="si">🟢 En línea</Chip> : <Chip tone="no">⚪ Desconectada</Chip>}
                   </td>
                   <td className={cx.td}>
                     {imp.ultima_impresion ? new Date(imp.ultima_impresion).toLocaleString('es-MX') : <span className={cx.muted}>—</span>}
@@ -286,6 +303,7 @@ export default function Impresoras() {
                     <div className="inline-flex gap-2">
                       <button className={cx.btnSec} onClick={() => editar(imp)}>Editar</button>
                       <button className={cx.btnSec} onClick={() => void toggleActiva(imp)}>{imp.activa ? 'Desactivar' : 'Activar'}</button>
+                      <button className={cx.btnSec} onClick={() => void rotarToken(imp)}>Rotar token</button>
                     </div>
                   </td>
                 </tr>
