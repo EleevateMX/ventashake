@@ -1,0 +1,22 @@
+[
+  {
+    "id": "cocina-01",
+    "descripcion": "Impresora térmica de Cocina (alimentos)",
+    "token": "PEGA-AQUI-EL-agente_token-DE-LA-IMPRESORA-EN-ADMIN",
+    "interface": "tcp://192.168.1.50:9100",
+    "anchoPapel": "80mm",
+    "copias": 1,
+    "corteAutomatico": true,
+    "buzzer": false
+  },
+  {
+    "id": "barra-01",
+    "descripcion": "Impresora térmica de Barra (bebidas)",
+    "token": "PEGA-AQUI-EL-agente_token-DE-LA-IMPRESORA-EN-ADMIN",
+    "interface": "tcp://192.168.1.51:9100",
+    "anchoPapel": "80mm",
+    "copias": 1,
+    "corteAutomatico": true,
+    "buzzer": true
+  }
+]
