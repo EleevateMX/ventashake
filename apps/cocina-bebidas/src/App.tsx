@@ -108,6 +108,16 @@ export default function App() {
     }
   }
 
+  // Barra: entregar directo (sin esperar a "listo") conforme se preparan.
+  async function entregar(pedido: PedidoConItems) {
+    try {
+      await cambiarEstadoPedido(sb, pedido.id, 'entregado')
+      await recargar()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    }
+  }
+
   if (cargando) {
     return (
       <div className="min-h-screen bg-sa-green-ink flex items-center justify-center">
@@ -263,6 +273,15 @@ export default function App() {
                       >
                         {paso.etiqueta}
                       </button>
+                      {/* Barra: entregar directo mientras se prepara */}
+                      {(pedido.estado === 'pendiente' || pedido.estado === 'en_preparacion') && (
+                        <button
+                          onClick={() => void entregar(pedido)}
+                          className="w-full mt-2 font-body text-sm text-sa-green-ink/60 hover:text-sa-green underline underline-offset-2 transition-colors"
+                        >
+                          Entregar ya ➜
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
