@@ -174,6 +174,13 @@ anon key** — no pasa por ningún RPC que valide el monto contra la orden.
   fallar tras el fix. Implementada en Fase 2.
 
 #### C4 — El kiosko autoaprueba el pago "terminal" sin ninguna confirmación externa
+
+> ✅ **RESUELTO en la ronda de "cierre pre-Clip"** — ver §8 al final de este
+> documento y `docs/flujo-pagos.md`/`docs/maquina-estados.md`. El
+> `setTimeout` que se describe abajo ya no existe; `Pago.tsx` fue
+> reescrito por completo. Se deja el hallazgo original sin editar, como
+> registro histórico de lo que se encontró y por qué se decidió cerrarlo.
+
 - **Módulo**: Kiosko. **Archivo**: `apps/kiosko/src/pages/Pago.tsx`
   (`confirmarPago`, rama `metodo === 'terminal'`).
 - **Verificado por lectura de código**: la animación de "Acerque su
@@ -291,6 +298,12 @@ anon key** — no pasa por ningún RPC que valide el monto contra la orden.
   tiempo; queda documentado.
 
 #### M2 — Kiosko "efectivo" marca la orden como pagada de inmediato, sin que el cliente haya pagado
+
+> ✅ **RESUELTO junto con C4** — ver §8. La opción "efectivo" ya no existe
+> como autoaprobación; el equivalente hoy es el modo `pagar_en_caja`, que sí
+> crea la orden pendiente y requiere que el POS la cobre (exactamente la
+> corrección que este hallazgo pedía).
+
 - **Módulo**: Kiosko. **Archivo**: `apps/kiosko/src/pages/Pago.tsx`, rama
   `efectivo`.
 - **Verificado por lectura de código**: el texto dice "Paga en caja · billete
@@ -545,3 +558,84 @@ Ver Fase 3, documentada por separado en `docs/impresion-comandas.md`.
   completo de unit/integration/e2e para las 8 apps.
 - M1, M3 — paneles de observabilidad y reconexión Realtime con backoff
   explícito quedan para Fase 4 si el tiempo de esta ronda lo permite.
+
+## 8. Actualización — cierre de C4/M2 y preparación de Clip
+
+Ronda posterior a todo lo anterior, con prioridad explícita: "primero
+elimina de producción el autoaprobado del kiosco, después prepara la
+integración de Clip y ejecuta las pruebas de seguridad y concurrencia."
+
+### C4/M2 — resueltos
+
+`Pago.tsx` fue reescrito por completo. Ya no existe ningún `setTimeout` ni
+autoaprobación. El kiosko opera bajo tres modos explícitos
+(`configuracion_kiosko.modo_pago`: `clip` / `pagar_en_caja` / `demo` — el
+enum `modo_pago_kiosko` no admite ningún otro valor, no existe ni puede
+existir un modo `autoapprove`), y una orden solo se confirma como venta
+pagada a través de `fn_confirmar_venta()`, que exige un pago con
+`estado_transaccion='authorized'` real. Detalle completo:
+`docs/flujo-pagos.md`, `docs/maquina-estados.md`, `docs/modo-pagar-en-caja.md`.
+
+### Máquina de estados formal
+
+Se separaron por completo tres conceptos que antes se confundían en
+`ordenes.pagado`: estado de la **orden** (`estado_pago_orden`, 10 valores),
+estado del **pago** (`estado_transaccion`, 10 valores) y confirmación de
+**venta** (`venta_confirmaciones`, con `orden_id PRIMARY KEY` como garantía
+estructural contra doble confirmación). Todas las transiciones están
+bloqueadas a nivel de base con triggers `BEFORE UPDATE`, no solo validadas
+en el frontend. Ver `docs/maquina-estados.md` para la tabla completa de
+transiciones permitidas/bloqueadas.
+
+### Preparación de Clip
+
+Se construyó la abstracción `PaymentProvider` (`packages/payments/`) y las
+Edge Functions correspondientes (`supabase/functions/clip-*`, cinco en
+total) — escritas pero deliberadamente sin desplegar ni con credenciales,
+porque no hay documentación oficial confirmada de la API real de Clip para
+el Stand 2 (ver `docs/integracion-clip.md`, que ya documentaba esta
+limitación de hardware desde la ronda anterior). Ninguna responde una
+aprobación simulada: sin credenciales dicen `not_configured`; con
+credenciales pero sin la llamada real implementada, dicen
+`not_implemented`. Pasos exactos para activar Clip el día que lleguen las
+credenciales: `docs/integracion-clip.md` sección final.
+
+### Re-verificación de seguridad — no se dio por hecho lo ya cerrado
+
+Se volvió a probar en vivo, como `anon`, cada ítem de seguridad de la lista
+original más los nuevos de esta ronda. Se encontraron y cerraron **tres
+brechas reales** que las rondas anteriores no cubrían:
+
+1. `pagos.estado_transaccion` no estaba cubierto por la policy de INSERT
+   (solo la columna legada `estado` lo estaba).
+2. `clientes.mancuernas`/`cupones`/`mancuernas_movimientos` con
+   INSERT/UPDATE directo abierto.
+3. **Crítica**: `impresoras.agente_token` — el secreto que identifica a
+   cada impresora física — era legible por cualquiera con la anon key,
+   invalidando el aislamiento por sucursal del sistema de comandas.
+
+Detalle completo, incluida la tabla de qué función crítica valida qué y
+cómo, en `docs/pruebas-seguridad.md`. Deuda A3 reconfirmada y ampliada:
+`productos.precio`, `caja_cortes` y ahora también `promociones` (encontrado
+esta ronda) siguen con acceso directo porque Admin/POS aún no tienen un rol
+de Supabase Auth distinto del kiosko público.
+
+### Impresión — diagnóstico honesto
+
+Se agregó `agente-impresion/src/diagnose.ts` (`npm run diagnose`), que
+separa explícitamente qué se probó automatizado (conexión a Supabase,
+autenticación, sucursal/estación, cola) de qué solo se prueba con hardware
+real conectado (USB/red, impresión física, legibilidad de acentos, corte).
+Ver `docs/diagnostico-impresion.md` para el desglose de qué se validó en
+esta ronda y qué sigue pendiente de una impresora física real.
+
+### Pendiente para la siguiente ronda
+
+- Rotar los `agente_token` ya expuestos (operativo, no de código).
+- Cerrar la deuda A3 (`productos.precio`, `caja_cortes`, `promociones`)
+  cuando exista Supabase Auth de personal.
+- Conseguir credenciales + documentación real de Clip y seguir los pasos de
+  `docs/integracion-clip.md`.
+- Botón de "reabrir orden expirada a mano" en Admin (hoy solo la
+  reconciliación automática puede reabrir una orden `expired`, cuando
+  encuentra evidencia de pago autorizado real).

@@ -27,37 +27,70 @@ esa ronda.
 
 ## RLS y seguridad
 
-- [ ] `pagos`: sin policy de UPDATE para anon/authenticated; INSERT solo
-      permite `estado <> 'aprobado'` (verificado en `auditoria-produccion.md`)
-- [ ] `ordenes`/`orden_items`: sin policy de INSERT directo (solo vía
-      `fn_crear_orden`); `ordenes` UPDATE de anon/authenticated limitado a
-      la columna `estado`
-- [ ] `empleados.pin_hash`: SELECT de anon/authenticated no incluye esa
-      columna
+- [x] `pagos`: sin policy de UPDATE para anon/authenticated; INSERT
+      bloquea `estado='aprobado'` Y `estado_transaccion in
+      ('authorized','refunded_partial','refunded_full')` (brecha en la
+      segunda columna encontrada y cerrada esta ronda, ver
+      `docs/pruebas-seguridad.md` §2.1)
+- [x] `ordenes`/`orden_items`: sin policy de INSERT directo (solo vía
+      `fn_crear_orden`/`fn_crear_orden_kiosko_caja`); ninguna transición de
+      `estado_pago_orden` posible fuera de las funciones `SECURITY DEFINER`
+      (máquina de estados con triggers, ver `docs/maquina-estados.md`)
+- [x] `empleados.pin_hash`: cero acceso directo de tabla, solo RPCs
+- [x] `clientes.mancuernas`: cero UPDATE directo (solo columna `activo`);
+      `cupones`/`mancuernas_movimientos`: cero INSERT directo (encontrado y
+      cerrado esta ronda, ver `docs/pruebas-seguridad.md` §2.2)
+- [x] `impresoras.agente_token`: cero acceso directo de tabla — **brecha
+      crítica encontrada y cerrada esta ronda**, ver
+      `docs/pruebas-seguridad.md` §2.4
+      - [ ] **Acción pendiente de operación, no de código:** rotar el
+            `agente_token` de cada impresora ya desplegada (botón "Rotar
+            token" en Admin → Impresoras) y actualizar
+            `printers.config.json` en cada agente local — los tokens
+            actuales estuvieron expuestos antes de este cierre
 - [ ] Revisar `mcp__Supabase__get_advisors` (o el equivalente en el panel
       de Supabase) tras cualquier migración nueva
-- [ ] Pendiente conocido: el resto del catálogo sigue con RLS `using(true)`
-      (documentado en `docs/pendientes.md` §Seguridad) — aceptable mientras
-      no haya Supabase Auth, pero **no exponer la anon key fuera de las
-      apps oficiales**
+- [ ] Pendiente conocido (deuda A3, ver `docs/pruebas-seguridad.md` §4):
+      `productos.precio`, `caja_cortes`, `promociones` siguen con acceso
+      directo de tabla para anon/authenticated — requieren Supabase Auth de
+      personal antes de poder cerrarse sin romper Admin/POS. No exponer la
+      anon key fuera de las apps oficiales.
 
-## Pruebas de pago
+## Pruebas de pago del kiosko (máquina de estados)
 
+- [x] Ver `docs/maquina-estados.md`, `docs/flujo-pagos.md`,
+      `docs/pruebas-seguridad.md` — **el autoaprobado del kiosko fue
+      eliminado de producción esta ronda.** Ninguna orden del kiosko puede
+      convertirse en venta pagada sin un pago con `estado_transaccion =
+      'authorized'` real, verificado por `fn_confirmar_venta()`.
+- [x] Modo `pagar_en_caja` (default, sembrado para todas las sucursales):
+      orden nace en `awaiting_counter_payment`, sin efectos, hasta que el
+      cajero la cobra desde POS → `/pendientes` — probado en vivo
+      (rollback intencional), incluida la doble-cobro-simultáneo
+- [x] Modo `demo`: bloqueado en producción por dos capas independientes
+      (build `import.meta.env.PROD` + `sucursales.es_produccion` en base) —
+      probado que ninguna de las dos por sí sola alcanza si la otra falla
+- [ ] Modo `clip`: Edge Functions escritas pero SIN credenciales ni
+      desplegar — ver `docs/integracion-clip.md` sección "Pasos exactos
+      para activar Clip" antes de usarlo en una sucursal real
 - [ ] Cobro en efectivo desde POS: aparece en el corte de caja
-- [ ] Cobro "Clip" manual desde POS (referencia de voucher): aparece en
-      `total_clip` del corte
+- [ ] Cobro "Clip" manual desde POS (referencia de voucher, Stand 2):
+      aparece en `total_clip` del corte — este flujo NO cambió esta ronda
 - [ ] Doble clic en "Confirmar pago": un solo pago aprobado, un solo
       pedido de cocina
-- [ ] **Decisión de negocio pendiente**: confirmar cómo se autoriza un
-      pago del kiosko mientras no haya Clip conectado (hoy se autoaprueba
-      solo — ver `docs/auditoria-produccion.md` hallazgo C4)
+- [ ] Simular `payment_unknown` (cortar red a medio cobro) y confirmar que
+      `fn_reconciliar_pagos()` lo resuelve solo, sin duplicar nada — ver
+      `docs/reconciliacion-pagos.md`
 
 ## Pruebas de impresora (por sucursal, por impresora)
 
 - [ ] Impresora registrada en Admin → Impresoras con su estación correcta
-- [ ] `npm run test-print` desde `agente-impresion/` imprime correctamente
-      (acentos/eñes legibles — ajustar `characterSet` si no, ver
-      `docs/configuracion-impresoras.md`)
+- [ ] `npm run diagnose -- --imprimir` desde `agente-impresion/` sin
+      ningún ✘ — cubre conexión a Supabase, autenticación, sucursal/estación,
+      coherencia de config, cola de impresión Y la prueba física de
+      hardware en un solo comando (ver `docs/diagnostico-impresion.md` para
+      qué se validó automatizado en esta ronda vs. qué sigue pendiente de
+      hardware real por sucursal)
 - [ ] Agente corriendo (`npm run start` o como servicio) y
       `http://localhost:7777/status` muestra la impresora conectada
 - [ ] Venta real de prueba con un producto de esa estación imprime la
@@ -101,6 +134,11 @@ esa ronda.
 
 ## Monitoreo (día a día)
 
+- [ ] Revisar Admin → **Sistema** (nuevo esta ronda): pagos pendientes/
+      desconocidos, órdenes esperando caja, órdenes expiradas, impresoras
+      conectadas, comandas fallidas, pedidos sin comanda, ventas sin
+      movimiento de inventario — un solo lugar para ver si algo se
+      atoró (ver `docs/reconciliacion-pagos.md`)
 - [ ] Revisar Admin → Impresoras: comandas `failed`, impresoras
       desconectadas
 - [ ] Revisar el corte de caja por diferencias inusuales
