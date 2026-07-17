@@ -1,9 +1,24 @@
 # Pendientes
 
-## Datos (bloquean fase 4 completa)
+## Auto-sync costosshake → POS (LISTO)
 
+- [x] Trigger `app_data_sync` en la base: cada vez que costosshake guarda,
+      vuelca catálogo + precios + recetas a `insumos`/`productos`/`recetas`.
+      **NO toca stock** (lo maneja el POS con cada venta). Probado e2e:
+      capturar precio a un shake en costosshake lo activa al instante en
+      kiosko y POS. Ver `supabase/migrations/auto_sync_app_data_trigger.sql`.
+- [ ] **Puente de STOCK (decisión pendiente de fuente de la verdad)**:
+      costosshake guarda inventarios ABSOLUTOS (bodega=invOriginal,
+      kiosko=invIndividual); el POS DECREMENTA `inventario_stock` con cada
+      venta. Si sincronizamos absolutos, pisamos las bajas por venta. Falta
+      decidir el modelo (delta/traspaso vs. absoluto) antes de construirlo.
+
+## Datos (los captura el cliente en costosshake → fluyen solos al POS)
+
+- [ ] Capturar precios de los 17 shakes (hoy sin precio → inactivos en el POS
+      y en el autocobro; por eso "faltan los shakes"). Al capturarlos en
+      costosshake se activan automáticamente vía el trigger de arriba.
 - [ ] Ejecutar `pnpm etl:dry`, conciliar duplicados, `pnpm etl:aplicar`
-- [ ] Capturar 16 precios de shakes + 4 de alimentos (productos inactivos)
 - [ ] Capturar 106 cantidades de receta (`PENDIENTE-CANTIDAD`)
 - [ ] Capturar costos de 38 ingredientes sin costo
 - [ ] Validar costeo de 2–3 productos contra el tablero legacy
