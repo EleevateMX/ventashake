@@ -22,7 +22,7 @@ with cand as (
       nullif(x->>'marca',''),nullif(x->>'proveedor',''),nullif(x->>'codigo',''),nullif(x->>'codigoBarras',''),nullif(x->>'presCompra','')
     from app_data, jsonb_array_elements(data->'foodIngs') x where coalesce(trim(x->>'nombre'),'')<>''
     union all select 4,trim(x->>'nombre'),'empaque','pza',1,coalesce(nullif(x->>'costo','')::numeric,0),
-      nullif(x->>'marca',''),nullif(x->>'proveedor',''),nullif(x->>'codigo',''),nullif(x->>'codigoBarras',''),null
+      nullif(x->>'marca',''),nullif(x->>'proveedor',''),nullif(x->>'codigo',''),nullif(x->>'codigoBarras',''),nullif(x->>'presentacion','')
     from app_data, jsonb_array_elements(data->'empaque') x where coalesce(trim(x->>'nombre'),'')<>''
     union all select 5,trim(x->>'nombre'),'reventa','pza',1,
       coalesce(nullif(x->>'costo','')::numeric, case when coalesce(nullif(x->>'equivPiezas','')::numeric,0)>0 then nullif(x->>'costoCaja','')::numeric/nullif(x->>'equivPiezas','')::numeric else 0 end),
@@ -87,4 +87,24 @@ select distinct on (pr.id,i.id) pr.id,i.id,coalesce(nullif(ing->>1,'')::numeric,
 from app_data ad cross join jsonb_array_elements(ad.data->'foodRecipes') x
 join productos pr on lower(pr.nombre)=lower(trim(x->>'nombre')) cross join jsonb_array_elements(x->'ings') ing join insumos i on lower(i.nombre)=lower(trim(ing->>0))
 where coalesce(trim(ing->>0),'')<>'' and not exists (select 1 from recetas r where r.producto_id=pr.id) order by pr.id,i.id,(nullif(ing->>1,'') is null);
+
+-- Empaques por receta (corrección del error de costeo — ver
+-- docs/auditoria-costeo-empaques.md). A diferencia de los bloques de ings
+-- de arriba (que solo corren si el producto todavía no tiene NINGUNA
+-- receta, para no duplicar en cada sync), este bloque valida por
+-- (producto, insumo) igual que la línea de proteína — así, si mañana se
+-- agrega un empaque a un shake que ya tenía receta, el siguiente sync sí
+-- lo agrega, sin duplicar los que ya existen.
+insert into recetas (producto_id,insumo_id,cantidad,nota)
+select distinct on (pr.id,i.id) pr.id,i.id,coalesce(nullif(emp->>1,'')::numeric,0),case when nullif(emp->>1,'') is null then 'PENDIENTE-CANTIDAD' else nullif(emp->>2,'') end
+from app_data ad cross join jsonb_array_elements(ad.data->'shakeRecipes') x
+join productos pr on lower(pr.nombre)=lower(trim(x->>'nombre')) cross join jsonb_array_elements(x->'empaques') emp join insumos i on lower(i.nombre)=lower(trim(emp->>0)) and i.tipo='empaque'
+where coalesce(trim(emp->>0),'')<>'' and not exists (select 1 from recetas r where r.producto_id=pr.id and r.insumo_id=i.id)
+order by pr.id,i.id,(nullif(emp->>1,'') is null);
+insert into recetas (producto_id,insumo_id,cantidad,nota)
+select distinct on (pr.id,i.id) pr.id,i.id,coalesce(nullif(emp->>1,'')::numeric,0),case when nullif(emp->>1,'') is null then 'PENDIENTE-CANTIDAD' else nullif(emp->>2,'') end
+from app_data ad cross join jsonb_array_elements(ad.data->'foodRecipes') x
+join productos pr on lower(pr.nombre)=lower(trim(x->>'nombre')) cross join jsonb_array_elements(x->'empaques') emp join insumos i on lower(i.nombre)=lower(trim(emp->>0)) and i.tipo='empaque'
+where coalesce(trim(emp->>0),'')<>'' and not exists (select 1 from recetas r where r.producto_id=pr.id and r.insumo_id=i.id)
+order by pr.id,i.id,(nullif(emp->>1,'') is null);
 commit;

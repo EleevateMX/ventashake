@@ -344,17 +344,17 @@ function defaultState(){
     "Lechuga romana","Tomate seco","Pepino","Zanahoria","Tomate cherry","Cebolla morada","Pepinillos","Elote",
     "Cebollitas crispy","Garbanzo","Pesto","Ranch light","Mostaza miel","Chipotle","Soya y limón","César","Guacamole","Sal de mar"].map(n=>ing(n));
   (()=>{const po=foodIngs.find(x=>x.nombre==="Pollo");if(po){po.unidad="g";po.cont=1000;po.costo=140;po.presCompra="Paquete 1 kg";po.stockBase=5000;po.porciones=[{nombre:"Ensalada",cant:80},{nombre:"Sándwich",cant:100}];}})();
-  const emp=(nombre,costo,shake,food,ex={})=>Object.assign({codigo:"",nombre,proveedor:"",costo,shake,food,ultimaCompra:"",stock:"",stockMin:""},ex);
-  const empaque=[emp("Vaso 16 oz",3.5,true,false),emp("Tapa domo",1.8,true,false),emp("Popote",0.5,true,false),
-    emp("Servilleta",0.2,true,true),emp("Bolsa kraft",1.2,false,true),emp("Contenedor sándwich/wrap",4.5,false,true),emp("Papel encerado",0.6,false,true)];
-  const sh=(nombre,codigo)=>({codigo,nombre,protein:"",scoops:1,ings:[],precio:"",merma:"",ivaIncluido:true});
+  const emp=(nombre,costo,ex={})=>Object.assign({codigo:"",nombre,proveedor:"",presentacion:"",costo,ultimaCompra:"",stock:"",stockMin:""},ex);
+  const empaque=[emp("Vaso 16 oz",3.5),emp("Tapa domo",1.8),emp("Popote",0.5),
+    emp("Servilleta",0.2),emp("Bolsa kraft",1.2),emp("Contenedor sándwich/wrap",4.5),emp("Papel encerado",0.6)];
+  const sh=(nombre,codigo)=>({codigo,nombre,protein:"",scoops:1,ings:[],empaques:[],precio:"",merma:"",ivaIncluido:true});
   const shakeNames=["Chocolover","Mr. Nutty","Dubai Pistachio Chocolate","Churro Crush","Blue Lagoon","Matcha Coco Cream",
     "Golden Maca","Matcha Glow","Strawberry Vibes","Berry Açai Dream","Blueberry Vibes","Island Colada","Mocha Rush",
     "Matcha Latte","Dirty Chai Latte","Horchata Latte"];
   const shakeRecipes=shakeNames.map((n,i)=>sh(n,"Shake "+(i+1)));
   shakeRecipes[0]={codigo:"Shake 1",nombre:"Chocolover",protein:"CBUM ISO - Chocolate",scoops:1,
-    ings:[["Leche deslactosada",250],["Plátano",60],["Crema de cacahuate",15],["Cacao en polvo",8],["Cacao nibs",5],["Syrup de chocolate",15]],precio:119,merma:"",ivaIncluido:true};
-  const fo=(nombre,codigo)=>({codigo,nombre,ings:[],precio:"",merma:"",ivaIncluido:true});
+    ings:[["Leche deslactosada",250],["Plátano",60],["Crema de cacahuate",15],["Cacao en polvo",8],["Cacao nibs",5],["Syrup de chocolate",15]],empaques:[],precio:119,merma:"",ivaIncluido:true};
+  const fo=(nombre,codigo)=>({codigo,nombre,ings:[],empaques:[],precio:"",merma:"",ivaIncluido:true});
   const foodNames=["Mediterranean Chicken","Turkey Fit","Honey Roast Deli","Smoky Chipotle Chicken (wrap)","Fresh & Crunch Tuna (wrap)","César Crunch (ensalada)","Mediterranean Tuna (ensalada)"];
   const foodRecipes=foodNames.map((n,i)=>fo(n,"Alimento "+(i+1)));
   const rs=(nombre,ex={})=>Object.assign({codigo:"",nombre,proveedor:"",ultimaCompra:"",caducidad:"",costo:"",precio:"",presOriginal:"",equivPiezas:"",invOriginal:"",minOriginal:"",invIndividual:"",minIndividual:""},ex);
@@ -376,14 +376,15 @@ function migrate(s){
   fill(s.shakeIngs,idf);fill(s.foodIngs,idf);
   [...(s.shakeIngs||[]),...(s.foodIngs||[])].forEach(it=>{if((it.invOriginal===""||it.invOriginal==null)&&it.stock)it.invOriginal=it.stock;});
   [...(s.shakeIngs||[]),...(s.foodIngs||[])].forEach(it=>{if(!Array.isArray(it.porciones))it.porciones=[];});
-  fill(s.empaque,{codigo:"",proveedor:"",ultimaCompra:"",stock:"",stockMin:""});
+  fill(s.empaque,{codigo:"",proveedor:"",presentacion:"",ultimaCompra:"",stock:"",stockMin:""});
   const rd={codigo:"",proveedor:"",ultimaCompra:"",caducidad:"",costoCaja:"",costo:"",presOriginal:"",equivPiezas:"",invOriginal:"",minOriginal:"",invIndividual:"",minIndividual:""};
   fill(s.bebidas,rd);fill(s.snacks,rd);
   [...(s.bebidas||[]),...(s.snacks||[])].forEach(p=>{const pz=+p.equivPiezas||0;if((p.costoCaja===""||p.costoCaja==null)&&(+p.costo||0)>0&&pz>0)p.costoCaja=(+p.costo||0)*pz;const pz2=+p.equivPiezas||0;p.costo=pz2?(+p.costoCaja||0)/pz2:(+p.costo||0);});
   [...(s.proteins||[]),...(s.shakeIngs||[]),...(s.foodIngs||[]),...(s.bebidas||[]),...(s.snacks||[]),...(s.empaque||[])].forEach(it=>{if(!Array.isArray(it.kardex))it.kardex=[];});
   (s.shakeRecipes||[]).forEach((r,i)=>{if(r.codigo===undefined)r.codigo="Shake "+(i+1);});
   (s.foodRecipes||[]).forEach((r,i)=>{if(r.codigo===undefined)r.codigo="Alimento "+(i+1);});
-  [...(s.shakeRecipes||[]),...(s.foodRecipes||[])].forEach(r=>{if(Array.isArray(r.ings))r.ings=r.ings.filter(p=>p&&p[0]);if(r.ivaIncluido===undefined)r.ivaIncluido=true;});
+  [...(s.shakeRecipes||[]),...(s.foodRecipes||[])].forEach(r=>{if(Array.isArray(r.ings))r.ings=r.ings.filter(p=>p&&p[0]);if(r.ivaIncluido===undefined)r.ivaIncluido=true;
+    if(!Array.isArray(r.empaques))r.empaques=[];else r.empaques=r.empaques.filter(p=>p&&p[0]);});
   return s;
 }
 let lastLocalSave=0, realtimeReady=false;
@@ -442,14 +443,17 @@ function ingPpres(it){const v=porcPres(it),u=it.unidad||"u";return num(Math.floo
 function ingPpor(it){const g=+it.gananciaPct||0,c=costPortion(it),v=pricePortion(it);return fmt(v)+infoIcon(`<b>Precio por porción</b><br>Costo por porción × (1 + % ganancia)<br>${fmt(c)} × (1 + ${g}%) = <b>${fmt(v)}</b>`);}
 function findProt(key){return state.proteins.find(p=>protKey(p)===key);}
 function findIng(list,name){return list.find(i=>i.nombre===name);}
-function comboShake(){return state.empaque.filter(e=>e.shake).reduce((a,e)=>a+(+e.costo||0),0);}
-function comboFood(){return state.empaque.filter(e=>e.food).reduce((a,e)=>a+(+e.costo||0),0);}
+function findEmp(name){return state.empaque.find(e=>e.nombre===name);}
+/* Empaque por receta: SOLO se suman los empaques que esa receta tiene en
+   su propio arreglo `empaques` (mismo patrón que `ings`). Nunca un combo
+   global — ver docs/auditoria-costeo-empaques.md. */
+function recipeEmpaqueCost(r){return (r.empaques||[]).reduce((a,[n,q])=>{const e=findEmp(n);return a+(e&&q?(+e.costo||0)*(+q||0):0);},0);}
 function calcShake(r){let ins=0,prot=0;
   if(r.protein){const p=findProt(r.protein);if(p){prot=costPerScoop(p)*(+r.scoops||0);ins+=prot;}}
   (r.ings||[]).forEach(([n,q])=>{const i=findIng(state.shakeIngs,n);if(i&&q)ins+=costPerUnit(i)*(+q||0);});
-  return finishCalc(ins,r,comboShake(),prot);}
+  return finishCalc(ins,r,recipeEmpaqueCost(r),prot);}
 function calcFood(r){let ins=0;(r.ings||[]).forEach(([n,q])=>{const i=findIng(state.foodIngs,n);if(i&&q)ins+=costPerUnit(i)*(+q||0);});
-  return finishCalc(ins,r,comboFood(),0);}
+  return finishCalc(ins,r,recipeEmpaqueCost(r),0);}
 function finishCalc(ins,r,empaque,prot){
   const merma=r.merma!==""&&r.merma!=null?(+r.merma)/((+r.merma)>1?100:1):state.params.merma;
   const conMerma=ins*(1+merma),total=conMerma+empaque+(+state.params.mano||0);
@@ -461,12 +465,15 @@ function finishCalc(ins,r,empaque,prot){
 function fcClass(fc){if(!fc)return"";return fc>0.4?"bad":fc>state.params.foodCost?"warn":"ok";}
 
 /* ---------------- INVENTARIO / TRASPASOS ---------------- */
+/* "Marca — Producto" solo para mostrar (nunca se concatena en el dato
+   guardado — marca y nombre siguen siendo campos separados). */
+function withMarca(it){return it.marca&&it.marca.trim()?it.marca.trim()+" — "+it.nombre:it.nombre;}
 const INV={
   proteins:{label:"Proteínas",name:p=>protKey(p),orig:"invOriginal",origMin:"minOriginal",origUnit:"botes",ind:"invScoops",indMin:"minScoops",indUnit:"scoops",equiv:p=>+p.scoops||0,equivLbl:"scoops/bote",cad:"fechaCaducidad"},
-  shakeIngs:{label:"Ingredientes shakes",name:i=>i.nombre,orig:"invOriginal",origMin:"minOriginal",origUnit:"pres.",ind:"invPorcion",indMin:"minPorcion",indUnit:"porciones",equiv:i=>{const c=+i.cont,q=+i.porcionQty;return c&&q?Math.floor(c/q):0;},equivLbl:"porciones/pres.",cad:"fechaCaducidad"},
-  foodIngs:{label:"Ingredientes alimentos",name:i=>i.nombre,orig:"invOriginal",origMin:"minOriginal",origUnit:"pres.",ind:"invPorcion",indMin:"minPorcion",indUnit:"porciones",equiv:i=>{const c=+i.cont,q=+i.porcionQty;return c&&q?Math.floor(c/q):0;},equivLbl:"porciones/pres.",cad:"fechaCaducidad"},
-  bebidas:{label:"Bebidas",name:b=>b.nombre,orig:"invOriginal",origMin:"minOriginal",origUnit:"cajas",ind:"invIndividual",indMin:"minIndividual",indUnit:"piezas",equiv:b=>+b.equivPiezas||0,equivLbl:"piezas/caja",cad:"caducidad"},
-  snacks:{label:"Snacks/Treats",name:s=>s.nombre,orig:"invOriginal",origMin:"minOriginal",origUnit:"cajas",ind:"invIndividual",indMin:"minIndividual",indUnit:"piezas",equiv:s=>+s.equivPiezas||0,equivLbl:"piezas/caja",cad:"caducidad"},
+  shakeIngs:{label:"Ingredientes shakes",name:i=>withMarca(i),orig:"invOriginal",origMin:"minOriginal",origUnit:"pres.",ind:"invPorcion",indMin:"minPorcion",indUnit:"porciones",equiv:i=>{const c=+i.cont,q=+i.porcionQty;return c&&q?Math.floor(c/q):0;},equivLbl:"porciones/pres.",cad:"fechaCaducidad"},
+  foodIngs:{label:"Ingredientes alimentos",name:i=>withMarca(i),orig:"invOriginal",origMin:"minOriginal",origUnit:"pres.",ind:"invPorcion",indMin:"minPorcion",indUnit:"porciones",equiv:i=>{const c=+i.cont,q=+i.porcionQty;return c&&q?Math.floor(c/q):0;},equivLbl:"porciones/pres.",cad:"fechaCaducidad"},
+  bebidas:{label:"Bebidas",name:b=>withMarca(b),orig:"invOriginal",origMin:"minOriginal",origUnit:"cajas",ind:"invIndividual",indMin:"minIndividual",indUnit:"piezas",equiv:b=>+b.equivPiezas||0,equivLbl:"piezas/caja",cad:"caducidad"},
+  snacks:{label:"Snacks/Treats",name:s=>withMarca(s),orig:"invOriginal",origMin:"minOriginal",origUnit:"cajas",ind:"invIndividual",indMin:"minIndividual",indUnit:"piezas",equiv:s=>+s.equivPiezas||0,equivLbl:"piezas/caja",cad:"caducidad"},
 };
 function low(v,min){const n=+v||0,m=+min||0;return m>0&&n<=m;}
 function daysTo(d){if(!d)return null;const t=(new Date(d)-new Date())/86400000;return Math.ceil(t);}
@@ -521,8 +528,8 @@ function render(){const m=document.getElementById("main");
   if(tab==="emp")return renderEmp(m);
   if(tab==="shakes")return renderRecipes(m,"shake");
   if(tab==="alimentos")return renderRecipes(m,"food");
-  if(tab==="bebidas")return renderResale(m,"bebidas","Bebidas");
-  if(tab==="snacks")return renderResale(m,"snacks","Snacks / Treats");
+  if(tab==="bebidas")return renderResale(m,"bebidas","Bebidas","Beb");
+  if(tab==="snacks")return renderResale(m,"snacks","Snacks / Treats","Pza");
   if(tab==="inv")return renderInventario(m);
   if(tab==="compras")return renderCompras(m);}
 
@@ -781,45 +788,54 @@ function updIngRow(tr,it){tr.querySelector('[data-d="cpu"]').innerHTML=ingCpu(it
 
 /* ---------------- EMPAQUE ---------------- */
 function renderEmp(m){
-  m.innerHTML=`<h2>Empaque</h2><p class="hint">Código, proveedor, última compra, stock y stock mínimo. Marca qué insumos forman cada combo (se suman al costeo).</p>
-   <div class="cards"><div class="card"><div class="k">Combo empaque shake</div><div class="v" id="cs">${fmt(comboShake())}</div></div>
-   <div class="card"><div class="k">Combo empaque alimento</div><div class="v" id="cf">${fmt(comboFood())}</div></div></div>
-   <div class="scroll"><table><thead><tr><th class="sticky">Item</th><th>Clave</th><th>Cód. barras</th><th>Marca</th><th>Proveedor</th><th class="num">Costo unit.</th><th>Última compra</th><th class="num">Stock</th><th class="num">Stock mín</th><th class="num">Combo shake</th><th class="num">Combo alim.</th><th>Acción</th></tr></thead><tbody>
+  m.innerHTML=`<h2>Empaque</h2><p class="hint">Catálogo de empaques: clave, proveedor, presentación de compra, costo y existencias. Para que un empaque afecte el costo de un shake o alimento, asígnalo directo en la receta de ese producto (pestaña Costeo Shakes / Costeo Alimentos, sección Empaques) — este catálogo ya no asigna empaques de forma global.</p>
+   <div class="scroll"><table><thead><tr><th class="sticky">Producto</th><th>Clave</th><th>Cód. barras</th><th>Marca</th><th>Proveedor</th><th>Presentación</th><th class="num">Costo unit.</th><th>Última compra</th><th class="num">Stock</th><th class="num">Stock mín</th><th>Acción</th></tr></thead><tbody>
    ${state.empaque.map((e,i)=>`<tr data-i="${i}">
      <td class="sticky"><input class="w-tx" data-f="nombre" value="${esc(e.nombre)}" style="font-weight:600"></td>
      <td><input class="w-md" data-f="codigo" value="${esc(e.codigo)}"></td>
      <td><input class="w-md" data-f="codigoBarras" value="${esc(e.codigoBarras)}"></td>
      <td><input class="w-tx" data-f="marca" value="${esc(e.marca)}"></td>
      <td><input class="w-tx" data-f="proveedor" value="${esc(e.proveedor)}"></td>
+     <td><input class="w-tx" data-f="presentacion" value="${esc(e.presentacion)}" placeholder="Caja x 1,000 piezas"></td>
      <td><input class="n w-sm" data-f="costo" value="${esc(e.costo)}"></td>
      <td><input type="date" class="w-dt" data-f="ultimaCompra" value="${esc(e.ultimaCompra)}"></td>
      <td><input class="n w-sm" data-f="stock" value="${esc(e.stock)}"></td>
      <td><input class="n w-sm" data-f="stockMin" value="${esc(e.stockMin)}"></td>
-     <td class="num"><input type="checkbox" data-f="shake" ${e.shake?'checked':''} style="width:auto"></td>
-     <td class="num"><input type="checkbox" data-f="food" ${e.food?'checked':''} style="width:auto"></td>
      <td><div style="display:flex;gap:5px;align-items:center">${reorderBtns()}<button class="xbtn" data-act="del" style="padding:6px 9px">✕</button></div></td></tr>`).join("")}</tbody></table></div>
    <div class="addbar"><button class="btn ghost" id="addE">+ Agregar empaque</button></div>`;
-  const upd=()=>{document.getElementById("cs").textContent=fmt(comboShake());document.getElementById("cf").textContent=fmt(comboFood());};
-  state.empaque.forEach((e,i)=>{const tr=m.querySelector(`tr[data-i="${i}"]`);bindRow(tr,"empaque",i,upd);
+  state.empaque.forEach((e,i)=>{const tr=m.querySelector(`tr[data-i="${i}"]`);bindRow(tr,"empaque",i);
     tr.querySelector('[data-act="del"]').onclick=()=>{if(confirm("¿Eliminar "+e.nombre+"?")){state.empaque.splice(i,1);save();render();}};
     bindReorder(tr,"empaque",i);});
-  m.querySelector("#addE").onclick=()=>{state.empaque.push({codigo:"",codigoBarras:"",marca:"",nombre:"Nuevo empaque",proveedor:"",costo:"",shake:false,food:false,ultimaCompra:"",stock:"",stockMin:""});save();render();};
+  m.querySelector("#addE").onclick=()=>{state.empaque.push({codigo:"",codigoBarras:"",marca:"",nombre:"Nuevo empaque",proveedor:"",presentacion:"",costo:"",ultimaCompra:"",stock:"",stockMin:""});save();render();};
 }
 
 /* ---------------- COSTEO RECETAS ---------------- */
 function renderRecipes(m,type){
   const isShake=type==="shake",list=isShake?state.shakeRecipes:state.foodRecipes,ingList=isShake?state.shakeIngs:state.foodIngs;
+  const flagKey=isShake?"shake":"food";
+  const legacyCombo=state.empaque.filter(e=>e[flagKey]).reduce((a,e)=>a+(+e.costo||0),0);
+  const legacyItems=state.empaque.filter(e=>e[flagKey]);
+  const pendientes=list.filter(r=>!(r.empaques&&r.empaques.length));
+  const migBanner=(legacyCombo>0||pendientes.length)?`<div class="empty" style="border:1px solid var(--warn);background:var(--warn-bg);color:var(--ink);text-align:left;padding:12px 14px;margin-bottom:14px">
+     <b>⚠ Empaques por configurar.</b> Antes de esta corrección, cada ${isShake?"shake":"alimento"} sumaba automáticamente
+     ${legacyCombo>0?`<b>${fmt(legacyCombo)}</b> de empaque (${legacyItems.map(e=>esc(e.nombre)).join(", ")})`:"un combo de empaque"},
+     sin importar cuál usaba de verdad. Eso ya no ocurre — cada ${isShake?"shake":"alimento"} necesita sus propios empaques
+     asignados abajo, en su sección “Empaques”.
+     ${pendientes.length?`<br><b>${pendientes.length} de ${list.length}</b> todavía no tienen ningún empaque asignado: ${pendientes.map(r=>esc(r.nombre)).join(", ")}.`:""}
+   </div>`:"";
   m.innerHTML=`<h2>Costeo ${isShake?"Shakes":"Alimentos"}</h2>
    <p class="hint">Cada uno tiene su <b>número de item</b>. Puedes editar el nombre, agregar o quitar ingredientes con los botones. “% merma” vacío usa el default (${pct(state.params.merma)}). El <b>precio de referencia</b> es solo orientativo; tu precio de venta manda. Si un ingrediente tiene <b>porciones</b> definidas (ej. pollo de Ensalada o Sándwich), elígelas en el menú (líneas con “↳”) y la cantidad se pone sola. Marca o desmarca <b>“El precio ya incluye IVA”</b> y el desglose (base, IVA y total) se ajusta solo.</p>
+   ${migBanner}
    <div id="reclist"></div><button class="btn ghost" id="addrec">+ Agregar ${isShake?"shake":"alimento"}</button>`;
   const cont=m.querySelector("#reclist");
   list.forEach((r,ri)=>cont.appendChild(recipeCard(r,ri,type,ingList,isShake)));
   m.querySelector("#addrec").onclick=()=>{const n=list.length+1;
-    list.push(isShake?{codigo:"Shake "+n,codigoBarras:"",nombre:"Nuevo shake",protein:"",scoops:1,ings:[],precio:"",merma:"",ivaIncluido:true}
-                     :{codigo:"Alimento "+n,codigoBarras:"",nombre:"Nuevo alimento",ings:[],precio:"",merma:"",ivaIncluido:true});save();render();};
+    list.push(isShake?{codigo:"Shake "+n,codigoBarras:"",nombre:"Nuevo shake",protein:"",scoops:1,ings:[],empaques:[],precio:"",merma:"",ivaIncluido:true}
+                     :{codigo:"Alimento "+n,codigoBarras:"",nombre:"Nuevo alimento",ings:[],empaques:[],precio:"",merma:"",ivaIncluido:true});save();render();};
 }
 function recipeCard(r,ri,type,ingList,isShake){
   if(!Array.isArray(r.ings))r.ings=[];
+  if(!Array.isArray(r.empaques))r.empaques=[];
   const calc=isShake?calcShake(r):calcFood(r);
   const div=document.createElement("div");div.className="recipe";
   const sepP="§§";
@@ -836,6 +852,10 @@ function recipeCard(r,ri,type,ingList,isShake){
      ${isShake?`<select data-f="protein" style="max-width:220px">${protOpts}</select><input class="n" data-f="scoops" value="${esc(r.scoops)}" style="width:58px" title="scoops">`:''}</div>
    <div class="ings"></div>
    <div class="addbar"><button class="btn ghost mini" data-act="adding">+ ingrediente</button></div>
+   <div class="gtitle" style="margin-top:14px">Empaques</div>
+   <div class="hint" style="margin:2px 0 6px">Solo los empaques que agregues aquí forman parte del costo de este producto — no se suman empaques de otros productos.</div>
+   <div class="empaques"></div>
+   <div class="addbar"><button class="btn ghost mini" data-act="addingemp">+ empaque</button></div>
    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-top:12px">
      <label style="flex:0 0 auto"><div class="t muted" style="font-size:11px">Precio de venta</div><input class="n" data-f="precio" value="${esc(r.precio)}" style="width:120px"></label>
      <label class="ivachk" title="Si el precio que escribiste ya trae IVA, déjalo marcado. Si lo escribiste sin IVA, desmárcalo y se le suma 16%."><input type="checkbox" data-f="ivaIncluido" ${r.ivaIncluido!==false?'checked':''}> El precio ya incluye IVA</label>
@@ -851,6 +871,19 @@ function recipeCard(r,ri,type,ingList,isShake){
     const i=findIng(ingList,pair[0]);const lc=i&&pair[1]?costPerUnit(i)*(+pair[1]):0;
     row.innerHTML=`<select data-ing="${idx}">${ingOpts(pair)}</select><input class="n" data-cant="${idx}" value="${esc(pair[1])}" placeholder="cant"><span class="ing-u muted" data-u="${idx}">${i?esc(i.unidad):''}</span><div class="c">${lc?fmt(lc):'—'}</div><button class="xbtn" data-rm="${idx}" title="Quitar">✕</button>`;
     ingsBox.appendChild(row);});
+  const empOpts=(sel)=>`<option value="">— empaque —</option>`+state.empaque.map(e=>`<option value="${esc(e.nombre)}" ${e.nombre===sel?'selected':''}>${esc(e.nombre)}</option>`).join("");
+  const empBox=div.querySelector(".empaques");
+  if(!r.empaques.length)empBox.innerHTML=`<div class="ing-empty">Sin empaques asignados. Toca <b>“+ empaque”</b> para agregar el vaso, tapa, charola, etc. que usa este producto.</div>`;
+  r.empaques.forEach((pair,idx)=>{const row=document.createElement("div");row.className="ing-row";
+    const e=findEmp(pair[0]);const cu=e?(+e.costo||0):0,lc=e&&pair[1]?cu*(+pair[1]):0;
+    row.innerHTML=`<select data-emp="${idx}">${empOpts(pair[0])}</select>
+      <span class="muted" style="font-size:11px;min-width:70px" data-empmarca="${idx}">${e&&e.marca?esc(e.marca):''}</span>
+      <span class="muted" style="font-size:11px;min-width:90px" data-emppres="${idx}">${e&&e.presentacion?esc(e.presentacion):''}</span>
+      <input class="n" data-empcant="${idx}" value="${esc(pair[1])}" placeholder="cant">
+      <span class="muted" style="font-size:11px" data-empcu="${idx}">${e?fmtU(cu):''}</span>
+      <div class="c" data-empsub="${idx}">${lc?fmt(lc):'—'}</div>
+      <button class="xbtn" data-emprm="${idx}" title="Quitar">✕</button>`;
+    empBox.appendChild(row);});
   const listRef=isShake?state.shakeRecipes:state.foodRecipes;
   div.querySelectorAll("[data-f]").forEach(inp=>{const ev=(inp.tagName==="SELECT"||inp.type==="checkbox")?"change":"input";
     inp.addEventListener(ev,e=>{r[e.target.dataset.f]= e.target.type==="checkbox"? e.target.checked : e.target.value; save();updateTotals();});});
@@ -862,9 +895,19 @@ function recipeCard(r,ri,type,ingList,isShake){
   div.querySelectorAll("[data-cant]").forEach(inp=>inp.addEventListener("input",e=>{r.ings[+e.target.dataset.cant][1]=e.target.value;save();updateTotals();updateLine(+e.target.dataset.cant);}));
   div.querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{r.ings.splice(+b.dataset.rm,1);save();render();});
   div.querySelector('[data-act="adding"]').onclick=()=>{r.ings.push(["",""]);save();render();};
+  div.querySelectorAll("[data-emp]").forEach(sel=>sel.addEventListener("change",e=>{const idx=+e.target.dataset.emp;r.empaques[idx][0]=e.target.value;save();updateTotals();updateEmpLine(idx);}));
+  div.querySelectorAll("[data-empcant]").forEach(inp=>inp.addEventListener("input",e=>{r.empaques[+e.target.dataset.empcant][1]=e.target.value;save();updateTotals();updateEmpLine(+e.target.dataset.empcant);}));
+  div.querySelectorAll("[data-emprm]").forEach(b=>b.onclick=()=>{r.empaques.splice(+b.dataset.emprm,1);save();render();});
+  div.querySelector('[data-act="addingemp"]').onclick=()=>{r.empaques.push(["",""]);save();render();};
   div.querySelector('[data-act="del"]').onclick=()=>{if(confirm("¿Eliminar “"+r.nombre+"”?")){listRef.splice(ri,1);save();render();}};
   function updateLine(idx){const pair=r.ings[idx];const i=findIng(ingList,pair[0]);const lc=i&&pair[1]?costPerUnit(i)*(+pair[1]):0;
-    div.querySelectorAll(".ing-row")[idx].querySelector(".c").textContent=lc?fmt(lc):"";}
+    ingsBox.querySelectorAll(".ing-row")[idx].querySelector(".c").textContent=lc?fmt(lc):"";}
+  function updateEmpLine(idx){const pair=r.empaques[idx];const e=findEmp(pair[0]);const cu=e?(+e.costo||0):0,lc=e&&pair[1]?cu*(+pair[1]):0;
+    const row=empBox.querySelectorAll(".ing-row")[idx];
+    row.querySelector(`[data-empmarca="${idx}"]`).textContent=e&&e.marca?e.marca:"";
+    row.querySelector(`[data-emppres="${idx}"]`).textContent=e&&e.presentacion?e.presentacion:"";
+    row.querySelector(`[data-empcu="${idx}"]`).textContent=e?fmtU(cu):"";
+    row.querySelector(`[data-empsub="${idx}"]`).textContent=lc?fmt(lc):"—";}
   function updateTotals(){const c=isShake?calcShake(r):calcFood(r);
     div.querySelector(".totals").innerHTML=totBlocks(c);
     const ivp=div.querySelector(".ivapanel");if(ivp)ivp.innerHTML=ivaPanel(c);
@@ -873,15 +916,16 @@ function recipeCard(r,ri,type,ingList,isShake){
 }
 
 /* ---------------- BEBIDAS / SNACKS ---------------- */
-function renderResale(m,key,title){
+function renderResale(m,key,title,unitLabel){
+  unitLabel=unitLabel||"Beb";
   m.innerHTML=`<h2>${title} <span class="muted" style="font-size:13px">(reventa)</span></h2>
-   <p class="hint">Código, proveedor, última compra y caducidad. <b>Costo caja</b> y <b>Pzas/caja</b> generan el <b>Costo/Beb</b> automático. Inventario doble (cajas en bodega / piezas en kiosko). Usa <b>⇄</b> para traspasar una caja a piezas con clave, y <b>⠿</b> / <b>↑ ↓</b> para acomodar el orden.</p>
+   <p class="hint">Clave, proveedor, última compra y caducidad. <b>Costo caja</b> y <b>Pzas/caja</b> generan el <b>Costo/${unitLabel}</b> automático. Inventario doble (cajas en bodega / piezas en kiosko). Usa <b>⇄</b> para traspasar una caja a piezas con clave, y <b>⠿</b> / <b>↑ ↓</b> para acomodar el orden.</p>
    <div class="scroll"><table><thead><tr><th class="sticky">Producto</th><th>Clave</th><th>Cód. barras</th><th>Marca</th><th>Proveedor</th>
-   <th>Pres. orig.</th><th class="num">Costo caja</th><th class="num">Pzas/caja</th><th class="num">Costo/Beb</th><th class="num">Precio/Beb</th><th class="num">Margen %</th>
+   <th>Pres. orig.</th><th class="num">Costo caja</th><th class="num">Pzas/caja</th><th class="num">Costo/${unitLabel}</th><th class="num">Precio/${unitLabel}</th><th class="num">Margen %</th>
    <th class="num">Inv cajas</th><th class="num">Mín cajas</th><th class="num">Inv piezas</th><th class="num">Mín piezas</th><th>Acción</th></tr></thead><tbody>
    ${state[key].map((p,i)=>{const pz=+p.equivPiezas||0;const costo=pz?(+p.costoCaja||0)/pz:0;const sin=(+p.precio||0)/(1+state.params.iva);const mp=sin?(sin-costo)/sin:0;
-     const cbInfo='<b>Costo/Beb</b><br>Costo caja ÷ Pzas por caja<br>'+fmt(+p.costoCaja||0)+' ÷ '+num(pz)+' = <b>'+fmtU(costo)+'</b>';
-     const mpInfo='<b>Margen %</b><br>(Precio/Beb sin IVA − Costo/Beb) ÷ Precio sin IVA<br>Precio sin IVA = '+fmt(sin)+' → <b>'+pct(mp)+'</b>';
+     const cbInfo='<b>Costo/'+unitLabel+'</b><br>Costo caja ÷ Pzas por caja<br>'+fmt(+p.costoCaja||0)+' ÷ '+num(pz)+' = <b>'+fmtU(costo)+'</b>';
+     const mpInfo='<b>Margen %</b><br>(Precio/'+unitLabel+' sin IVA − Costo/'+unitLabel+') ÷ Precio sin IVA<br>Precio sin IVA = '+fmt(sin)+' → <b>'+pct(mp)+'</b>';
      return `<tr data-i="${i}">
      <td class="sticky"><input class="w-tx" data-f="nombre" value="${esc(p.nombre)}" style="font-weight:600"></td>
      <td><input class="w-md" data-f="codigo" value="${esc(p.codigo)}"></td>
@@ -902,8 +946,8 @@ function renderResale(m,key,title){
    <div class="addbar"><button class="btn ghost" id="addR">+ Agregar ${title.toLowerCase()}</button></div>`;
   state[key].forEach((p,i)=>{const tr=m.querySelector(`tr[data-i="${i}"]`);
     bindRow(tr,key,i,(tr2,o)=>{const pz=+o.equivPiezas||0;o.costo=pz?(+o.costoCaja||0)/pz:0;const sin=(+o.precio||0)/(1+state.params.iva);const mp=sin?(sin-o.costo)/sin:0;
-      const cbInfo='<b>Costo/Beb</b><br>Costo caja ÷ Pzas por caja<br>'+fmt(+o.costoCaja||0)+' ÷ '+num(pz)+' = <b>'+fmtU(o.costo)+'</b>';
-      const mpInfo='<b>Margen %</b><br>(Precio/Beb sin IVA − Costo/Beb) ÷ Precio sin IVA<br>Precio sin IVA = '+fmt(sin)+' → <b>'+pct(mp)+'</b>';
+      const cbInfo='<b>Costo/'+unitLabel+'</b><br>Costo caja ÷ Pzas por caja<br>'+fmt(+o.costoCaja||0)+' ÷ '+num(pz)+' = <b>'+fmtU(o.costo)+'</b>';
+      const mpInfo='<b>Margen %</b><br>(Precio/'+unitLabel+' sin IVA − Costo/'+unitLabel+') ÷ Precio sin IVA<br>Precio sin IVA = '+fmt(sin)+' → <b>'+pct(mp)+'</b>';
       const a=tr2.querySelector('[data-d="cbeb"]');if(a)a.innerHTML=fmtU(o.costo)+infoIcon(cbInfo);
       const b=tr2.querySelector('[data-d="mp"]');if(b)b.innerHTML=pct(mp)+infoIcon(mpInfo);});
     tr.querySelector('[data-act="tr"]').onclick=()=>openTraspaso(key,i);
@@ -995,7 +1039,7 @@ function paintInv(){
   if(!rows.length){body.innerHTML=kpis(rows)+`<div class="empty">No hay productos que coincidan con la búsqueda o el filtro.</div>`;return;}
   let head,bodyRows;
   if(invView==="bodega"){
-    head=`<th class="sticky">Producto</th><th>Categoría</th><th>Código</th><th>Pres(g)</th><th class="num">En bodega</th><th class="num">Mín</th><th class="num">Conteo</th><th class="num">Dif.</th><th>Estado</th><th>Caducidad</th><th>Acción</th>`;
+    head=`<th class="sticky">Producto</th><th>Categoría</th><th>Clave</th><th>Pres(g)</th><th class="num">En bodega</th><th class="num">Mín</th><th class="num">Conteo</th><th class="num">Dif.</th><th>Estado</th><th>Caducidad</th><th>Acción</th>`;
     bodyRows=rows.map(({cat,i,it,cfg,name})=>`<tr data-cat="${cat}" data-i="${i}">
       <td class="sticky">${esc(name)}</td><td class="muted">${CATLABEL[cat]}</td><td class="muted">${esc(it.codigo)}</td>
       <td>${presG(cat,it)}</td>
@@ -1007,7 +1051,7 @@ function paintInv(){
       <td>${cadCell(it[cfg.cad])}</td>
       <td><div style="display:flex;gap:5px;align-items:center"><button class="btn ghost mini" data-act="kx" title="Ver kardex / movimientos">📜</button><button class="btn tr" data-act="tr" title="Traspasar a kiosko">⇄ Traspasar</button></div></td></tr>`).join("");
   } else if(invView==="kiosko"){
-    head=`<th class="sticky">Producto</th><th>Categoría</th><th>Código</th><th>Pres(g)</th><th class="num">Disponible</th><th class="num">Mín</th><th class="num">Conteo</th><th class="num">Dif.</th><th>Estado</th><th class="num">En bodega</th><th>Acción</th>`;
+    head=`<th class="sticky">Producto</th><th>Categoría</th><th>Clave</th><th>Pres(g)</th><th class="num">Disponible</th><th class="num">Mín</th><th class="num">Conteo</th><th class="num">Dif.</th><th>Estado</th><th class="num">En bodega</th><th>Acción</th>`;
     bodyRows=rows.map(({cat,i,it,cfg,name})=>{const s=stockState(it[cfg.ind],it[cfg.indMin]);
       const needsRefill=(s.cls!=="ok")&&((+it[cfg.orig]||0)>0);
       return `<tr data-cat="${cat}" data-i="${i}">
@@ -1055,13 +1099,15 @@ function presDefault(cat,it){
   if(cat==="proteins")return (it.pres!==""&&it.pres!=null&&+it.pres)?(it.pres+" g"):"";
   if(cat==="shakeIngs"||cat==="foodIngs")return (it.cont!==""&&it.cont!=null&&+it.cont)?(it.cont+" "+(it.unidad||"")):(it.presCompra||"");
   if(cat==="bebidas"||cat==="snacks")return it.presOriginal||"";
+  if(cat==="empaque")return it.presentacion||"";
   return "";}
 function findByBarcode(val){const v=(val||"").trim();if(!v)return null;for(const cfg of BUY){const arr=state[cfg.cat]||[];for(let i=0;i<arr.length;i++){if(String(arr[i].codigoBarras||"").trim()===v)return{cat:cfg.cat,i,key:cfg.cat+":"+i};}}return null;}
 function applyPres(cat,it,txt){if(txt==null||!(""+txt).trim())return;txt=(""+txt).trim();
   const m=txt.match(/([\d.]+)\s*(kg|g|l|ml)?/i),numv=m?+m[1]:null,u=m&&m[2]?m[2].toLowerCase():"";
   if(cat==="proteins"){if(numv!=null)it.pres=(u==="kg")?numv*1000:numv;}
   else if(cat==="shakeIngs"||cat==="foodIngs"){it.presCompra=txt;if(numv!=null){let c=numv,uu=u;if(u==="kg"){c=numv*1000;uu="g";}else if(u==="l"){c=numv*1000;uu="ml";}it.cont=c;if(uu)it.unidad=uu;}}
-  else if(cat==="bebidas"||cat==="snacks"){it.presOriginal=txt;}}
+  else if(cat==="bebidas"||cat==="snacks"){it.presOriginal=txt;}
+  else if(cat==="empaque"){it.presentacion=txt;}}
 function kardexPush(cat,i,mov){const it=state[cat][i];if(!Array.isArray(it.kardex))it.kardex=[];it.kardex.push(mov);}
 function openEntrada(){
   const provsAll=[...new Set(BUY.flatMap(cfg=>(state[cfg.cat]||[]).map(it=>(it[cfg.prov]||"").trim()).filter(Boolean)))].sort((a,b)=>a.localeCompare(b,"es",{sensitivity:"base"}));
@@ -1089,21 +1135,29 @@ function openEntrada(){
       <div class="mrow"><button class="btn ghost mini" id="e_cancel">Cancelar</button><button class="btn mini" id="e_ok">✓ Dar entrada</button></div>
     </div></div>`;
     const lc=host.querySelector("#e_lines");
+    function lineMeta(ln){if(!ln.key)return null;const a=ln.key.split(":"),cat=a[0],i=+a[1],it=state[cat]&&state[cat][i],cfg=buyCfg(cat);
+      if(!it)return null;return{producto:cfg.name(it),marca:it.marca||"",proveedor:it[cfg.prov]||"",unidad:cat==="proteins"?"botes":(cat==="shakeIngs"||cat==="foodIngs")?"pres.":(cat==="empaque")?"pza":"cajas"};}
     lc.innerHTML = ent.lines.length ? ent.lines.map((ln,j)=>{const cc=curCost(ln.key),hi=(cc!=null&&cc>0&&(+ln.precio||0)>cc);
-      return `<div class="eline" data-j="${j}">
+      const meta=lineMeta(ln);const importe=(+ln.cant||0)*(+ln.precio||0);
+      return `<div class="eline" data-j="${j}" style="flex-direction:column;align-items:stretch;gap:4px">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <select data-lk="${j}" style="flex:2;min-width:150px">${prodOptions(ln.key)}</select>
-        <input data-lpres="${j}" value="${esc(ln.pres||'')}" placeholder="presentación (g/L)" title="Presentación en que llega (por cambio de gramaje)" style="width:132px">
-        <input class="n" data-lcant="${j}" value="${esc(ln.cant||"")}" placeholder="cant" style="width:62px">
+        <input data-lpres="${j}" value="${esc(ln.pres||'')}" placeholder="presentación de compra" title="Presentación en que llega (se carga sola del catálogo; edítala si cambió el gramaje)" style="width:150px">
+        <input class="n" data-lcant="${j}" value="${esc(ln.cant||"")}" placeholder="cant" style="width:62px" title="Cantidad capturada (piezas reales)">
         <input type="date" data-lcad="${j}" value="${esc(ln.cad||"")}" style="width:138px" title="Caducidad">
-        <input class="n" data-lprec="${j}" value="${esc(ln.precio||"")}" placeholder="precio" style="width:78px">
+        <input class="n" data-lprec="${j}" value="${esc(ln.precio||"")}" placeholder="costo unitario" style="width:78px">
         <span class="ealert ${hi?"hi":""}" data-lalert="${j}">${hi?"▲ subió":(cc!=null&&cc>0?"ant. "+fmt(cc):"")}</span>
-        <button class="xbtn" data-lrm="${j}" style="padding:6px 9px">✕</button></div>`;}).join("")
+        <button class="xbtn" data-lrm="${j}" style="padding:6px 9px">✕</button>
+      </div>
+      ${meta?`<div class="muted" style="font-size:11px;padding-left:2px">${esc(meta.marca)?esc(meta.marca)+" · ":""}${esc(meta.proveedor)?esc(meta.proveedor)+" · ":""}Unidad: ${meta.unidad} · Importe: <b data-limporte="${j}">${fmt(importe)}</b></div>`:""}
+      </div>`;}).join("")
       : `<div class="muted" style="font-size:12px;margin:6px 0">Agrega los productos que llegaron en la factura.</div>`;
     lc.querySelectorAll("[data-lk]").forEach(s=>s.addEventListener("change",e=>{const j=+e.target.dataset.lk;ent.lines[j].key=e.target.value;if(e.target.value){const a=e.target.value.split(":"),cat=a[0],ix=+a[1],it=state[cat][ix],cfg=buyCfg(cat);ent.lines[j].pres=presDefault(cat,it);const cc=cfg?+it[cfg.cost]||0:0;ent.lines[j].precio=cc?cc:"";}else{ent.lines[j].pres="";ent.lines[j].precio="";}draw();}));
-    lc.querySelectorAll("[data-lcant]").forEach(s=>s.addEventListener("input",e=>{ent.lines[+e.target.dataset.lcant].cant=e.target.value;}));
+    function updImporte(j){const im=lc.querySelector(`[data-limporte="${j}"]`);if(im)im.textContent=fmt((+ent.lines[j].cant||0)*(+ent.lines[j].precio||0));}
+    lc.querySelectorAll("[data-lcant]").forEach(s=>s.addEventListener("input",e=>{const j=+e.target.dataset.lcant;ent.lines[j].cant=e.target.value;updImporte(j);}));
     lc.querySelectorAll("[data-lpres]").forEach(s=>s.addEventListener("input",e=>{ent.lines[+e.target.dataset.lpres].pres=e.target.value;}));
     lc.querySelectorAll("[data-lcad]").forEach(s=>s.addEventListener("input",e=>{ent.lines[+e.target.dataset.lcad].cad=e.target.value;}));
-    lc.querySelectorAll("[data-lprec]").forEach(s=>s.addEventListener("input",e=>{const j=+e.target.dataset.lprec;ent.lines[j].precio=e.target.value;const cc=curCost(ent.lines[j].key),al=lc.querySelector(`[data-lalert="${j}"]`);if(al){const hi=(cc!=null&&cc>0&&(+e.target.value||0)>cc);al.textContent=hi?"▲ subió":(cc!=null&&cc>0?"ant. "+fmt(cc):"");al.classList.toggle("hi",hi);}}));
+    lc.querySelectorAll("[data-lprec]").forEach(s=>s.addEventListener("input",e=>{const j=+e.target.dataset.lprec;ent.lines[j].precio=e.target.value;const cc=curCost(ent.lines[j].key),al=lc.querySelector(`[data-lalert="${j}"]`);if(al){const hi=(cc!=null&&cc>0&&(+e.target.value||0)>cc);al.textContent=hi?"▲ subió":(cc!=null&&cc>0?"ant. "+fmt(cc):"");al.classList.toggle("hi",hi);}updImporte(j);}));
     lc.querySelectorAll("[data-lrm]").forEach(b=>b.onclick=()=>{ent.lines.splice(+b.dataset.lrm,1);draw();});
     host.querySelector("#e_fac").addEventListener("input",e=>ent.factura=e.target.value);
     host.querySelector("#e_pago").addEventListener("change",e=>ent.pago=e.target.value);
@@ -1158,7 +1212,7 @@ function openKardex(cat,i){
   host.innerHTML=`<div class="modal-bg"><div class="modal" style="max-width:840px">
     <h3>📜 Kardex · ${esc(name)}</h3>
     <div class="kxgen">
-      <span><b>Categoría:</b> ${CATLABEL[cat]}</span><span><b>Código:</b> ${esc(it.codigo||"—")}</span>
+      <span><b>Categoría:</b> ${CATLABEL[cat]}</span><span><b>Clave:</b> ${esc(it.codigo||"—")}</span>
       <span><b>Proveedor:</b> ${esc(it.proveedor||"—")}</span><span><b>Presentación:</b> ${esc(invPres(cat,it))}</span>
       <span><b>Bodega:</b> ${num(it[cfg.orig])} ${cfg.origUnit}</span><span><b>Kiosko:</b> ${num(it[cfg.ind])} ${cfg.indUnit}</span>
       <span><b>Caducidad:</b> ${it[cfg.cad]?esc(it[cfg.cad]):"—"}</span>
@@ -1245,17 +1299,17 @@ function exportCsv(){
   download(`shakeaholic_costeo_${new Date().toISOString().slice(0,10)}.csv`,csv,"text/csv;charset=utf-8");}
 function csvOf(rows){return "\ufeff"+rows.map(r=>r.map(x=>`"${String(x==null?"":x).replace(/"/g,'""')}"`).join(",")).join("\n");}
 function catalogoCsv(){
-  const rows=[["Categoría","Producto","Marca","Código","Cód. barras","Proveedor","Presentación","Contenido","Unidad","Costo","Precio","Existencia (bodega)","Mínimo","Existencia (kiosko)","Mín kiosko","Caducidad"]];
+  const rows=[["Categoría","Producto","Marca","Clave","Cód. barras","Proveedor","Presentación","Contenido","Unidad","Costo","Precio","Existencia (bodega)","Mínimo","Existencia (kiosko)","Mín kiosko","Caducidad"]];
   const P=(c,n,it,o)=>rows.push([c,n,it.marca||"",it.codigo||"",it.codigoBarras||"",it.proveedor||"",o.pres||"",o.cont||"",o.unidad||"",o.costo||"",o.precio||"",o.stock||"",o.min||"",o.ind||"",o.indMin||"",o.cad||""]);
   (state.proteins||[]).forEach(p=>P("Proteína",protKey(p),p,{pres:p.pres?p.pres+" g":"",cont:p.pres,unidad:"g",costo:p.costo,precio:p.precioScoop,stock:p.invOriginal,min:p.minOriginal,ind:p.invScoops,indMin:p.minScoops,cad:p.fechaCaducidad}));
   (state.shakeIngs||[]).forEach(i=>P("Ingred. Shake",i.nombre,i,{pres:i.presCompra,cont:i.cont,unidad:i.unidad,costo:i.costo,precio:i.precioPorcion,stock:i.invOriginal,min:i.minOriginal,ind:i.invPorcion,indMin:i.minPorcion,cad:i.fechaCaducidad}));
   (state.foodIngs||[]).forEach(i=>P("Ingred. Alimento",i.nombre,i,{pres:i.presCompra,cont:i.cont,unidad:i.unidad,costo:i.costo,precio:i.precioPorcion,stock:i.invOriginal,min:i.minOriginal,ind:i.invPorcion,indMin:i.minPorcion,cad:i.fechaCaducidad}));
-  (state.empaque||[]).forEach(e=>P("Empaque",e.nombre,e,{pres:"Unidad",costo:e.costo,stock:e.stock,min:e.stockMin}));
+  (state.empaque||[]).forEach(e=>P("Empaque",e.nombre,e,{pres:e.presentacion||"",costo:e.costo,stock:e.stock,min:e.stockMin}));
   (state.bebidas||[]).forEach(b=>P("Bebida",b.nombre,b,{pres:b.presOriginal,cont:b.equivPiezas,unidad:"pz",costo:b.costoCaja,precio:b.precio,stock:b.invOriginal,min:b.minOriginal,ind:b.invIndividual,indMin:b.minIndividual,cad:b.caducidad}));
   (state.snacks||[]).forEach(s=>P("Snack/Treat",s.nombre,s,{pres:s.presOriginal,cont:s.equivPiezas,unidad:"pz",costo:s.costoCaja,precio:s.precio,stock:s.invOriginal,min:s.minOriginal,ind:s.invIndividual,indMin:s.minIndividual,cad:s.caducidad}));
   return csvOf(rows);}
 function recetasCsv(){
-  const rows=[["Tipo","Código","Receta","Ingrediente","Cantidad"]];
+  const rows=[["Tipo","Clave","Receta","Ingrediente","Cantidad"]];
   (state.shakeRecipes||[]).forEach(r=>{if(r.protein)rows.push(["Shake",r.codigo||"",r.nombre,"Proteína: "+r.protein,(r.scoops||1)+" scoop(s)"]);
     (r.ings||[]).forEach(p=>{if(p[0])rows.push(["Shake",r.codigo||"",r.nombre,p[0],p[1]||""]);});});
   (state.foodRecipes||[]).forEach(r=>(r.ings||[]).forEach(p=>{if(p[0])rows.push(["Alimento",r.codigo||"",r.nombre,p[0],p[1]||""]);}));

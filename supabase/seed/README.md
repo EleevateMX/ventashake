@@ -38,10 +38,19 @@ Aplicado por primera vez el 2026-07-02 tras las ediciones del cliente.
 | `proteins[]` | `insumos` tipo `proteina` | nombre = `MARCA - SABOR` (formato protKey del legacy), unidad `scoop`, contenido = scoops |
 | `shakeIngs[]` | `insumos` tipo `shake` | unidad/contenido/costo directos |
 | `foodIngs[]` | `insumos` tipo `alimento` | |
-| `empaque[]` | `insumos` tipo `empaque` | contenido 1, costo unitario directo |
+| `empaque[]` | `insumos` tipo `empaque` | contenido 1, costo unitario directo, presentación de compra |
 | `bebidas[]`, `snacks[]` | `insumos` tipo `reventa` **+** `productos` (`es_reventa`) con receta 1:1 | costo unitario = costoCaja / equivPiezas |
-| `shakeRecipes[]` | `productos` (categoría Shakes) + `recetas` | + empaques `shake:true` como líneas; proteína fija (si la hay) con sus scoops; si viene vacía se elige al vender |
-| `foodRecipes[]` | `productos` (categoría Alimentos) + `recetas` | + empaques `food:true` como líneas |
+| `shakeRecipes[]` | `productos` (categoría Shakes) + `recetas` | + `empaques[]` de la receta como líneas (por producto, no un combo global — ver `docs/auditoria-costeo-empaques.md`); proteína fija (si la hay) con sus scoops; si viene vacía se elige al vender |
+| `foodRecipes[]` | `productos` (categoría Alimentos) + `recetas` | + `empaques[]` de la receta como líneas (por producto) |
+
+> **Corrección histórica (esta ronda):** antes, esta tabla decía que los
+> empaques se migraban desde los checkboxes globales `shake:true`/
+> `food:true` del catálogo de Empaque. Eso nunca fue cierto — el SQL real
+> nunca leyó esos checkboxes, así que ningún shake/alimento real llegó a
+> tener líneas de empaque en `recetas` por esa vía (verificado en vivo,
+> `n_lineas_empaque = 0` para los 17 shakes antes de esta corrección). Los
+> checkboxes globales ya no existen en costosshake — cada receta tiene su
+> propio arreglo `empaques[]`, que es lo que este ETL sincroniza ahora.
 
 ## Decisiones importantes
 

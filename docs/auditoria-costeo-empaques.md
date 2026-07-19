@@ -302,3 +302,62 @@ Clave en vez de Código) — cambios de bajo riesgo, reversibles, sin tocar
 la lógica de costeo. La Fase 2 (eliminar checkboxes globales + empaques
 por receta) es el siguiente paso después, ya con el resultado de esta
 auditoría como base. Fase 3+ espera confirmación de la pregunta en §6.
+
+## 9. Fase 1 y Fase 2 — completadas
+
+**Estado: implementado y probado.** Detalle operativo de cómo usar el
+sistema ya corregido en `docs/empaques-por-receta.md`. Resumen de lo que
+se hizo:
+
+- **Fase 1** (`apps/costos/index.html`): columna Presentación en Empaque
+  (persistida en el documento, no solo en pantalla); Entradas muestra
+  marca/proveedor/importe y carga la presentación del catálogo
+  automáticamente; Inventario Bodega/Kiosco muestra "Marca — Producto"
+  para ingredientes de shakes/alimentos y bebidas/snacks (mismo patrón que
+  ya tenían las proteínas — campos `marca`/`nombre` siguen separados en el
+  dato, la unión es solo de vista); Snacks/Treats usa "Costo/Pza" y
+  "Precio/Pza" (Bebidas conserva "Costo/Beb"/"Precio/Beb"); Inventario,
+  kardex y exportaciones CSV usan "Clave" en vez de "Código" (la columna
+  física `codigo` no se renombró, solo la etiqueta visible, tal como se
+  pidió).
+- **Fase 2**: eliminados los checkboxes globales `shake`/`food` del
+  catálogo de Empaque — el catálogo ya solo guarda información del
+  artículo. `comboShake()`/`comboFood()` (la causa raíz) se eliminaron.
+  Cada receta de shake/alimento tiene ahora su propia sección "Empaques"
+  (mismo patrón de fila que "Ingredientes": seleccionar, cantidad, costo
+  unitario vigente, subtotal, eliminar) y `calcShake()`/`calcFood()` solo
+  suman los empaques de **esa** receta (`recipeEmpaqueCost()`), probado
+  explícitamente con dos recetas usando empaques distintos y con una
+  tercera sin empaques (ver evidencia abajo). Se agregó un aviso de
+  migración asistida en cada tarjeta de Costeo Shakes/Alimentos con
+  cuántos productos siguen sin empaques asignados y qué solían sumarles
+  los checkboxes anteriores — sin reasignar nada automáticamente. El
+  puente ETL (`supabase/seed/sync-app-data.sql`) ahora sincroniza el
+  arreglo `empaques[]` de cada receta hacia `recetas` reales (antes no
+  sincronizaba empaques en absoluto, pese a que el README lo describía —
+  corregido también).
+
+### Evidencia de prueba
+
+No fue posible una prueba de extremo a extremo en navegador en este
+entorno (sin acceso de red saliente hacia el sitio desplegado ni hacia
+Chrome for Testing) — verificado explícitamente, no asumido. En su lugar
+se probó lo que sí se pudo probar con rigor:
+
+- **Sintaxis**: `node --check` sobre el JS extraído del HTML, limpio.
+- **Lógica del costeo, con Node ejecutando el JS real del archivo**
+  (no una reimplementación aparte): 12 aserciones, todas correctas —
+  incluida la prueba directa de que dos recetas con empaques distintos
+  terminan con costos de empaque distintos y no comparten un total global;
+  que una receta sin empaques asignados da $0 aunque otras ya tengan
+  empaques; y que `migrate()` sobre datos con los checkboxes viejos
+  (`shake:true`) ya no revive ese costo.
+- **SQL del ETL actualizado**: corrida completa en modo simulacro
+  (`begin; ... rollback;`) contra el proyecto real — sin errores,
+  confirmado que no persistió ningún cambio.
+- **Pendiente, honestamente**: una prueba manual en el navegador real
+  (clic por clic) de las pantallas modificadas, y correr
+  `sync-app-data.sql` de verdad una vez que se capturen empaques reales
+  por receta — ninguna de las dos requiere código adicional, son pasos
+  operativos que le tocan al usuario o a una sesión con acceso de red al
+  sitio desplegado.

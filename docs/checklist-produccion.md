@@ -171,6 +171,31 @@ esa ronda.
       el fallback manual es operar el corte/pagos directo en Supabase
       mientras se corrige — no hay pérdida de datos históricos
 
+## Costeo de empaques (costosshake) — ver `docs/auditoria-costeo-empaques.md`
+
+- [x] Causa raíz corregida: eliminado el combo global de empaques
+      (`comboShake()`/`comboFood()`); cada shake/alimento usa solo sus
+      propios empaques (sección "Empaques" en su tarjeta de costeo)
+- [x] Confirmado que el bug nunca llegó a `recetas`/inventario/ventas
+      reales — no hay historial que corregir
+- [x] `supabase/seed/sync-app-data.sql` actualizado para sincronizar
+      `empaques[]` por receta (antes no sincronizaba empaques en absoluto)
+- [x] Probado: sintaxis del JS, 12 aserciones de lógica de costeo
+      ejecutando el código real del archivo, dry-run del SQL del ETL
+      contra el proyecto real (rollback, sin persistir)
+- [ ] **Pendiente operativo (no de código):** asignar los empaques reales
+      a cada uno de los 17 shakes y 7 alimentos en costosshake (el aviso
+      amarillo en cada tarjeta indica cuáles faltan), y después correr
+      `sync-app-data.sql` de verdad para que el esquema real reciba los
+      costos de empaque por primera vez
+- [ ] Prueba manual en navegador de las pantallas modificadas (Empaque,
+      Entradas, Inventario, Snacks/Treats, Costeo Shakes/Alimentos) — no
+      se pudo hacer en este entorno por falta de acceso de red al sitio
+      desplegado; queda pendiente para una sesión con esa capacidad
+- [ ] Fase 3+ (envío prorrateado, historial de costos, combos/promos)
+      espera confirmación explícita sobre migrar ese dominio a tablas
+      relacionales reales — ver `docs/auditoria-costeo-empaques.md` §6
+
 ## Responsables / soporte
 
 - [ ] Definir quién resuelve una impresora caída durante el turno
