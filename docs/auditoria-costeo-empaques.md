@@ -442,6 +442,36 @@ Detalle completo del diseño, la fórmula de prorrateo y cómo se prueba en
   que en Fase 1-2, sin acceso de red al sitio desplegado en este entorno.
   Cancelar una entrada capturada por error solo tiene RPC (`fn_entrada_cancelar`),
   todavía no un botón en la interfaz — ver `docs/prorrateo-envio.md`.
-- **Fase 4 (combos/promociones) sigue sin empezar**, tal como se pidió, y
-  ahora sí sobre una base de costeo corregida (empaques por receta) y con
-  el dominio de compras que necesitaba tablas reales ya migrado.
+- **Fase 4 (combos) sigue sin empezar en este punto del documento** — ver
+  §12, completada después.
+
+## 12. Fase 4 — completada: Combos
+
+Detalle completo del diseño en `docs/combos-promociones.md`. Resumen:
+
+- Un combo es un `producto` normal (`es_combo = true`, mismo patrón que
+  `es_reventa`) compuesto de otros productos vía `combo_items` — se
+  vende, descuenta inventario, cuesta e imprime exactamente igual que
+  cualquier producto, sin tocar `fn_crear_orden`/`fn_cobrar_orden`/
+  `fn_descontar_inventario_por_orden`.
+- Su receta se materializa sola (suma de las recetas de sus componentes)
+  y se **recalcula automáticamente** cada vez que cambia la receta de
+  cualquier producto que sea su componente — así nunca hereda un costo
+  incorrecto, que era la preocupación explícita de este mismo encargo.
+- Disponibilidad en tiempo real de un solo sentido: un componente que se
+  desactiva apaga el combo automáticamente; reactivar el componente no
+  reactiva el combo solo.
+- Limitación v1 documentada: un combo solo puede combinar productos de la
+  misma estación (Alimentos o Bebidas, no ambas) — evita tocar el
+  subsistema de impresión/KDS ya endurecido en la ronda de seguridad
+  anterior; ver el porqué en `docs/combos-promociones.md`.
+- Admin → Combos (pantalla nueva) para crear combos y gestionar sus
+  componentes.
+- Probado contra producción con datos revertidos: materialización de
+  receta, rechazo de auto-referencia/anidado/mezcla de estación,
+  recálculo en cascada, desactivación en cascada de un solo sentido, y
+  dos hallazgos de seguridad de `get_advisors` corregidos antes de cerrar
+  (vista con semántica SECURITY DEFINER, funciones internas con EXECUTE
+  público de más). `pnpm audit:production` en verde.
+- Pendiente honesto: prueba manual en navegador (mismo motivo que las
+  fases anteriores — sin acceso de red en este entorno).

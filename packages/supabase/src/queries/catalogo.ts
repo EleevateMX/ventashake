@@ -10,6 +10,7 @@ import type {
   Cocina,
   Receta,
   RecetaInsert,
+  ComboVista,
 } from '@shake/types'
 import type { ShakeClient } from '../client'
 
@@ -164,5 +165,61 @@ export async function guardarReceta(
   const { error } = await sb
     .from('recetas')
     .insert(lineas.map((l) => ({ ...l, producto_id: productoId })))
+  if (error) throw error
+}
+
+// ------------------------------- combos -------------------------------
+// Un combo es un producto normal (`productos.es_combo = true`) compuesto
+// de otros productos vía `combo_items`. Su receta se materializa sola en
+// el servidor (triggers, ver supabase/migrations/costeo_combos_productos.sql)
+// — aquí solo se gestiona la cabecera y los componentes.
+
+/** Todos los combos (activos e inactivos, para poder gestionarlos). */
+export async function listarCombos(sb: ShakeClient): Promise<ComboVista[]> {
+  const { data, error } = await sb.from('vw_combos').select('*').order('nombre')
+  if (error) throw error
+  return data
+}
+
+export async function crearCombo(
+  sb: ShakeClient,
+  combo: { nombre: string; precio: number; categoria_id: string | null },
+): Promise<Producto> {
+  const { data, error } = await sb
+    .from('productos')
+    .insert({ ...combo, es_combo: true })
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+/**
+ * Agrega un producto como componente del combo, o actualiza su cantidad
+ * si ya estaba agregado. El servidor valida que todos los componentes
+ * sean de la misma estación (cocina) y recalcula la receta del combo.
+ */
+export async function agregarComponenteCombo(
+  sb: ShakeClient,
+  comboId: string,
+  productoId: string,
+  cantidad: number,
+): Promise<void> {
+  const { error } = await sb
+    .from('combo_items')
+    .upsert({ combo_id: comboId, producto_id: productoId, cantidad }, { onConflict: 'combo_id,producto_id' })
+  if (error) throw error
+}
+
+export async function quitarComponenteCombo(
+  sb: ShakeClient,
+  comboId: string,
+  productoId: string,
+): Promise<void> {
+  const { error } = await sb
+    .from('combo_items')
+    .delete()
+    .eq('combo_id', comboId)
+    .eq('producto_id', productoId)
   if (error) throw error
 }

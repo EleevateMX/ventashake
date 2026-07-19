@@ -340,6 +340,39 @@ export type Database = {
         }
         Relationships: []
       }
+      combo_items: {
+        Row: {
+          cantidad: number
+          combo_id: string
+          producto_id: string
+        }
+        Insert: {
+          cantidad: number
+          combo_id: string
+          producto_id: string
+        }
+        Update: {
+          cantidad?: number
+          combo_id?: string
+          producto_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "combo_items_combo_id_fkey"
+            columns: ["combo_id"]
+            isOneToOne: false
+            referencedRelation: "productos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "combo_items_producto_id_fkey"
+            columns: ["producto_id"]
+            isOneToOne: false
+            referencedRelation: "productos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       configuracion_kiosko: {
         Row: {
           clip_configurado: boolean
@@ -1324,6 +1357,7 @@ export type Database = {
           codigo_barras: string | null
           created_at: string
           descripcion: string | null
+          es_combo: boolean
           es_reventa: boolean
           id: string
           imagen_url: string | null
@@ -1340,6 +1374,7 @@ export type Database = {
           codigo_barras?: string | null
           created_at?: string
           descripcion?: string | null
+          es_combo?: boolean
           es_reventa?: boolean
           id?: string
           imagen_url?: string | null
@@ -1356,6 +1391,7 @@ export type Database = {
           codigo_barras?: string | null
           created_at?: string
           descripcion?: string | null
+          es_combo?: boolean
           es_reventa?: boolean
           id?: string
           imagen_url?: string | null
@@ -1867,6 +1903,7 @@ export type Database = {
           costo_insumos: number | null
           costo_receta: number | null
           costo_total: number | null
+          es_combo: boolean | null
           es_reventa: boolean | null
           food_cost_pct: number | null
           id: string | null
@@ -1881,6 +1918,34 @@ export type Database = {
           precio_sugerido: number | null
         }
         Relationships: []
+      }
+      vw_combos: {
+        Row: {
+          activo: boolean | null
+          categoria_id: string | null
+          categoria_nombre: string | null
+          componentes: Json | null
+          costo_insumos: number | null
+          costo_total: number | null
+          food_cost_pct: number | null
+          id: string | null
+          margen: number | null
+          margen_pct: number | null
+          nombre: string | null
+          precio: number | null
+          precio_sin_iva: number | null
+          precio_sugerido: number | null
+          todos_componentes_activos: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "productos_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "categorias"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       vw_productos_mas_vendidos: {
         Row: {

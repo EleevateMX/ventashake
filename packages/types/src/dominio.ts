@@ -14,6 +14,7 @@ export type CajaCorte = Tables<'caja_cortes'>
 export type Insumo = Tables<'insumos'>
 export type InsumoCategoria = Tables<'insumo_categorias'>
 export type Producto = Tables<'productos'>
+export type ComboItem = Tables<'combo_items'>
 export type Categoria = Tables<'categorias'>
 export type Receta = Tables<'recetas'>
 export type Cocina = Tables<'cocinas'>
@@ -36,6 +37,7 @@ export type OrdenAuditoria = Tables<'ordenes_auditoria'>
 
 // ---- Vistas ----
 export type CosteoProducto = Tables<'vw_costeo_producto'>
+export type ComboVista = Tables<'vw_combos'>
 export type CorteResumen = Tables<'vw_corte_resumen'>
 export type StockAlmacen = Tables<'vw_stock_almacen'>
 export type VentaDiaria = Tables<'vw_ventas_diarias'>
@@ -46,6 +48,7 @@ export type InsumoInsert = TablesInsert<'insumos'>
 export type InsumoUpdate = TablesUpdate<'insumos'>
 export type ProductoInsert = TablesInsert<'productos'>
 export type ProductoUpdate = TablesUpdate<'productos'>
+export type ComboItemInsert = TablesInsert<'combo_items'>
 export type RecetaInsert = TablesInsert<'recetas'>
 export type OrdenInsert = TablesInsert<'ordenes'>
 export type OrdenItemInsert = TablesInsert<'orden_items'>

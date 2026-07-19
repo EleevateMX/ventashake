@@ -2,6 +2,7 @@ import logo from '@shake/brand/logo.png'
 import { useState, type ReactElement } from 'react'
 import Dashboard from './pages/Dashboard'
 import Menu from './pages/Menu'
+import Combos from './pages/Combos'
 import Ventas from './pages/Ventas'
 import Inventario from './pages/Inventario'
 import Promos from './pages/Promos'
@@ -9,7 +10,7 @@ import Empleados from './pages/Empleados'
 import Impresoras from './pages/Impresoras'
 import Sistema from './pages/Sistema'
 
-type Tab = 'dashboard' | 'menu' | 'inventario' | 'promos' | 'ventas' | 'empleados' | 'impresoras' | 'sistema'
+type Tab = 'dashboard' | 'menu' | 'combos' | 'inventario' | 'promos' | 'ventas' | 'empleados' | 'impresoras' | 'sistema'
 
 const w = 18
 
@@ -21,6 +22,11 @@ const IconDashboard = () => (
 const IconMenu = () => (
   <svg width={w} height={w} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2" /><line x1="7" y1="2" x2="7" y2="22" /><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Z" /><line x1="21" y1="15" x2="21" y2="22" />
+  </svg>
+)
+const IconCombos = () => (
+  <svg width={w} height={w} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" />
   </svg>
 )
 const IconInventario = () => (
@@ -57,6 +63,7 @@ const IconSistema = () => (
 const navItems: { id: Tab; label: string; Icon: () => ReactElement }[] = [
   { id: 'dashboard', label: 'Dashboard', Icon: IconDashboard },
   { id: 'menu', label: 'Menú', Icon: IconMenu },
+  { id: 'combos', label: 'Combos', Icon: IconCombos },
   { id: 'inventario', label: 'Inventario', Icon: IconInventario },
   { id: 'promos', label: 'Promos', Icon: IconPromos },
   { id: 'ventas', label: 'Ventas', Icon: IconVentas },
@@ -102,6 +109,7 @@ export default function App() {
       <main className="flex-1 min-w-0 p-4 md:p-8">
         {tab === 'dashboard' && <Dashboard />}
         {tab === 'menu' && <Menu />}
+        {tab === 'combos' && <Combos />}
         {tab === 'ventas' && <Ventas />}
         {tab === 'inventario' && <Inventario />}
         {tab === 'promos' && <Promos />}

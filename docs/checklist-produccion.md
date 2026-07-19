@@ -222,8 +222,14 @@ esa ronda.
 - [ ] Prueba manual en navegador de las tres pantallas (captura → vista
       previa → confirmación) y del botón "📋 Historial de entradas" — no
       se pudo hacer en este entorno por falta de acceso de red
-- [ ] Fase 4 (combos/promociones) sigue sin empezar, según lo pedido —
-      espera a que se termine de asignar/probar lo de arriba
+- [x] Fase 4 (combos) completada — ver `docs/combos-promociones.md`.
+      Admin → Combos para crear combos y gestionar sus componentes. Un
+      combo solo puede combinar productos de una misma estación
+      (Alimentos o Bebidas) en esta versión — limitación documentada, no
+      un descuido
+- [ ] Prueba manual en navegador de Admin → Combos y de vender un combo
+      desde POS/Kiosko en vivo (comanda, descuento de inventario) — no se
+      pudo hacer en este entorno por falta de acceso de red
 
 ## Responsables / soporte
 
