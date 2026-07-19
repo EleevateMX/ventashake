@@ -107,13 +107,16 @@ hay una entrada más nueva, se conserva el costo más reciente y solo se
 revierte el stock/ledger de la que se cancela, para no pisar información
 más actual con una corrección vieja).
 
-**Pendiente**: por ahora `fn_entrada_cancelar` solo se puede llamar desde
-Supabase (SQL Editor o `execute_sql`) — no hay todavía un botón
-"Cancelar" en el historial de entradas de costosshake, porque revertir
-también el documento JSON (stock/costo mostrados en Inventario) de forma
-segura requeriría más diseño para no dejar los dos lados desalineados. El
-historial (botón "📋 Historial de entradas" en la pestaña Compras) sí
-muestra el estado real de cada entrada (`confirmada`/`cancelada`).
+El botón "📋 Historial de entradas" (pestaña Compras) lista las entradas
+recientes con su estado, y cada entrada `confirmada` tiene un botón
+**Cancelar** que pide confirmación y clave y llama a
+`fn_entrada_cancelar`. **Importante**: cancelar revierte el stock/costo
+en el **esquema real** (tablas), pero **no** revierte el documento JSON
+de costosshake (lo que ven Inventario/Kardex/Compras) — hacerlo de forma
+segura requeriría poder identificar exactamente qué líneas del JSON
+corresponden a esa entrada, y el JSON no guarda esa referencia. Si se
+cancela una entrada, hay que corregir a mano el stock/costo en Inventario
+si hace falta que coincida. El modal lo advierte explícitamente.
 
 ## Qué se probó (contra producción, con datos de prueba revertidos)
 

@@ -1147,26 +1147,45 @@ async function resolveInsumoIds(lines){
 }
 async function openHistorialEntradas(){
   const host=document.getElementById("modalHost");
-  host.innerHTML=`<div class="modal-bg"><div class="modal" style="max-width:780px">
+  host.innerHTML=`<div class="modal-bg"><div class="modal" style="max-width:820px">
     <h3>📋 Historial de entradas</h3>
-    <div class="sub">Entradas confirmadas contra el esquema real (con envío prorrateado). Cancelar una entrada capturada por error se hace desde Supabase (fn_entrada_cancelar) por ahora.</div>
+    <div class="sub">Entradas confirmadas contra el esquema real (con envío prorrateado). Cancelar revierte el stock/costo del insumo en el esquema real, pero <b>no revierte</b> el stock/costo mostrado en Inventario de costosshake (documento JSON) — corrígelo ahí a mano si hace falta.</div>
     <div id="he_body" class="muted" style="padding:10px 0">Cargando…</div>
     <div class="mrow"><button class="btn ghost mini" id="he_close">Cerrar</button></div>
   </div></div>`;
   host.querySelector("#he_close").onclick=()=>host.innerHTML="";
   host.querySelector(".modal-bg").onclick=ev=>{if(ev.target.classList.contains("modal-bg"))host.innerHTML="";};
-  try{
-    const {data,error}=await sb.rpc("fn_entrada_historial",{p_limite:30});
-    if(error)throw error;
-    const rows=data||[];
+  async function loadRows(){
     const body=host.querySelector("#he_body");
-    body.innerHTML=rows.length?`<div class="scroll"><table><thead><tr>
-      <th>Fecha</th><th>Proveedor</th><th>Factura</th><th class="num">Productos</th><th class="num">Mercancía</th><th class="num">Envío</th><th class="num">Total</th><th>Estado</th></tr></thead><tbody>${rows.map(r=>`<tr>
-      <td>${esc(r.fecha)}</td><td class="muted">${esc(r.proveedor||"—")}</td><td class="muted">${esc(r.factura||"—")}</td>
-      <td class="num">${r.n_lineas}</td><td class="num">${fmt(r.subtotal_mercancia)}</td><td class="num">${fmt(r.costo_envio)}</td><td class="num"><b>${fmt(r.total)}</b></td>
-      <td>${r.estado==="cancelada"?'<span class="pill bad">Cancelada</span>':'<span class="pill ok">Confirmada</span>'}</td></tr>`).join("")}</tbody></table></div>`
-      :`<p class="muted">Aún no hay entradas registradas en el esquema real.</p>`;
-  }catch(e){host.querySelector("#he_body").innerHTML=`<p class="merr" style="display:block">No se pudo cargar: ${esc(e.message||String(e))}</p>`;}
+    body.innerHTML="Cargando…";
+    try{
+      const {data,error}=await sb.rpc("fn_entrada_historial",{p_limite:30});
+      if(error)throw error;
+      const rows=data||[];
+      body.innerHTML=rows.length?`<div class="scroll"><table><thead><tr>
+        <th>Fecha</th><th>Proveedor</th><th>Factura</th><th class="num">Productos</th><th class="num">Mercancía</th><th class="num">Envío</th><th class="num">Total</th><th>Estado</th><th></th></tr></thead><tbody>${rows.map(r=>`<tr data-eid="${r.id}">
+        <td>${esc(r.fecha)}</td><td class="muted">${esc(r.proveedor||"—")}</td><td class="muted">${esc(r.factura||"—")}</td>
+        <td class="num">${r.n_lineas}</td><td class="num">${fmt(r.subtotal_mercancia)}</td><td class="num">${fmt(r.costo_envio)}</td><td class="num"><b>${fmt(r.total)}</b></td>
+        <td>${r.estado==="cancelada"?'<span class="pill bad">Cancelada</span>':'<span class="pill ok">Confirmada</span>'}</td>
+        <td>${r.estado==="confirmada"?'<button class="btn ghost mini" data-cancel>Cancelar</button>':""}</td></tr>`).join("")}</tbody></table></div>`
+        :`<p class="muted">Aún no hay entradas registradas en el esquema real.</p>`;
+      body.querySelectorAll("[data-cancel]").forEach(b=>{
+        const id=b.closest("tr").dataset.eid;
+        b.onclick=()=>cancelarEntrada(id);
+      });
+    }catch(e){body.innerHTML=`<p class="merr" style="display:block">No se pudo cargar: ${esc(e.message||String(e))}</p>`;}
+  }
+  async function cancelarEntrada(id){
+    if(!confirm("¿Cancelar esta entrada? Revierte el stock y el costo del insumo en el esquema real (si nadie compró ese insumo después). No se borra nada, queda marcada como cancelada."))return;
+    const clave=prompt("Clave de compras (o de encargado):");
+    if(clave==null)return;
+    try{
+      const {error}=await sb.rpc("fn_entrada_cancelar",{p_entrada_id:id,p_clave:clave});
+      if(error)throw error;
+      await loadRows();
+    }catch(e){alert("No se pudo cancelar: "+(e.message||String(e)));}
+  }
+  loadRows();
 }
 function openEntrada(){
   const provsAll=[...new Set(BUY.flatMap(cfg=>(state[cfg.cat]||[]).map(it=>(it[cfg.prov]||"").trim()).filter(Boolean)))].sort((a,b)=>a.localeCompare(b,"es",{sensitivity:"base"}));

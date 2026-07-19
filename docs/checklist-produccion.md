@@ -215,12 +215,13 @@ esa ronda.
       final (factura + envío); `lotes` queda sembrado por compra para un
       futuro costo promedio ponderado (no calculado todavía, según lo
       pedido)
+- [x] Botón "Cancelar" en el historial de entradas (llama a
+      `fn_entrada_cancelar`, pide confirmación y clave) — revierte el
+      esquema real pero NO el documento JSON de costosshake, advertido en
+      el modal — ver `docs/prorrateo-envio.md`
 - [ ] Prueba manual en navegador de las tres pantallas (captura → vista
       previa → confirmación) y del botón "📋 Historial de entradas" — no
       se pudo hacer en este entorno por falta de acceso de red
-- [ ] Cancelar una entrada solo tiene RPC por ahora (`fn_entrada_cancelar`
-      desde Supabase), no un botón en la interfaz — ver
-      `docs/prorrateo-envio.md`
 - [ ] Fase 4 (combos/promociones) sigue sin empezar, según lo pedido —
       espera a que se termine de asignar/probar lo de arriba
 
