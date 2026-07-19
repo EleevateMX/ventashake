@@ -188,9 +188,16 @@ esa ronda.
 - [x] Probado: sintaxis del JS, 12 aserciones de lógica de costeo
       ejecutando el código real del archivo, dry-run del SQL del ETL
       contra el proyecto real (rollback, sin persistir)
-- [ ] **Pendiente operativo (no de código):** asignar los empaques reales
-      a cada uno de los 17 shakes y 7 alimentos en costosshake (el aviso
-      amarillo en cada tarjeta indica cuáles faltan)
+- [x] Empaques reales asignados (2026-07-19, confirmado contigo antes de
+      aplicar): los 17 shakes → Vaso 16oz + Tapa Domo + Popotes + Fajilla;
+      alimentos tipo sandwich/wrap (5) → Bolsa Kraft; alimentos tipo
+      ensalada (2) → Bowl Ensalada + Tapa Bowl Ensalada. Verificado en
+      `vw_costeo_producto`: los 17 shakes ya muestran `costo_empaque =
+      $5.19`. Los empaques de alimentos (Bolsa Kraft, Bowl Ensalada, Tapa
+      Bowl Ensalada) siguen en `costo_empaque = $0.00` porque ese
+      catálogo no tiene costo capturado todavía — se corrige solo en
+      cuanto se registre una entrada de compra con precio para esos
+      artículos (Compras → Dar entrada)
 - [ ] Prueba manual en navegador de las pantallas modificadas (Empaque,
       Entradas, Inventario, Snacks/Treats, Costeo Shakes/Alimentos) — no
       se pudo hacer en este entorno por falta de acceso de red al sitio
