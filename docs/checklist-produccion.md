@@ -178,23 +178,51 @@ esa ronda.
       propios empaques (sección "Empaques" en su tarjeta de costeo)
 - [x] Confirmado que el bug nunca llegó a `recetas`/inventario/ventas
       reales — no hay historial que corregir
-- [x] `supabase/seed/sync-app-data.sql` actualizado para sincronizar
-      `empaques[]` por receta (antes no sincronizaba empaques en absoluto)
+- [x] `supabase/seed/sync-app-data.sql` (script manual) **y**
+      `fn_sync_app_data()` (el trigger que corre solo en cada guardado)
+      sincronizan `empaques[]` por receta — se encontró y corrigió que
+      solo el script manual tenía el arreglo; la función automática se
+      había quedado sin actualizar (ver
+      `docs/auditoria-costeo-empaques.md` §10), verificado en vivo con
+      `rollback`
 - [x] Probado: sintaxis del JS, 12 aserciones de lógica de costeo
       ejecutando el código real del archivo, dry-run del SQL del ETL
       contra el proyecto real (rollback, sin persistir)
 - [ ] **Pendiente operativo (no de código):** asignar los empaques reales
       a cada uno de los 17 shakes y 7 alimentos en costosshake (el aviso
-      amarillo en cada tarjeta indica cuáles faltan), y después correr
-      `sync-app-data.sql` de verdad para que el esquema real reciba los
-      costos de empaque por primera vez
+      amarillo en cada tarjeta indica cuáles faltan)
 - [ ] Prueba manual en navegador de las pantallas modificadas (Empaque,
       Entradas, Inventario, Snacks/Treats, Costeo Shakes/Alimentos) — no
       se pudo hacer en este entorno por falta de acceso de red al sitio
       desplegado; queda pendiente para una sesión con esa capacidad
-- [ ] Fase 3+ (envío prorrateado, historial de costos, combos/promos)
-      espera confirmación explícita sobre migrar ese dominio a tablas
-      relacionales reales — ver `docs/auditoria-costeo-empaques.md` §6
+
+## Entradas de compra con prorrateo de envío (Fase 3) — ver `docs/prorrateo-envio.md`
+
+- [x] Dominio migrado a tablas relacionales reales (`entradas_compra`,
+      `entrada_lineas`) con RPCs `SECURITY DEFINER` como único camino de
+      escritura (`fn_entrada_previsualizar`/`confirmar`/`cancelar`/
+      `historial`) — mismo patrón que pagos/impresoras/empleados
+- [x] Vista previa obligatoria antes de confirmar; el servidor recalcula
+      el prorrateo siempre, nunca confía en lo que mande el cliente
+- [x] Probado en vivo contra producción (datos de prueba revertidos):
+      fórmula de prorrateo (incluido Σ subtotal = 0 y el ajuste de
+      redondeo), rechazo de clave incorrecta sin escribir nada, escritura
+      atómica completa verificada campo por campo, **dos confirmaciones
+      concurrentes reales sobre el mismo insumo** sin pérdida de
+      actualización, y cancelación con reversa correcta
+- [x] `insumos.costo_compra` (y por lo tanto `insumos.costo_unitario` →
+      `vw_costeo_producto` → recetas) se actualiza con el costo real
+      final (factura + envío); `lotes` queda sembrado por compra para un
+      futuro costo promedio ponderado (no calculado todavía, según lo
+      pedido)
+- [ ] Prueba manual en navegador de las tres pantallas (captura → vista
+      previa → confirmación) y del botón "📋 Historial de entradas" — no
+      se pudo hacer en este entorno por falta de acceso de red
+- [ ] Cancelar una entrada solo tiene RPC por ahora (`fn_entrada_cancelar`
+      desde Supabase), no un botón en la interfaz — ver
+      `docs/prorrateo-envio.md`
+- [ ] Fase 4 (combos/promociones) sigue sin empezar, según lo pedido —
+      espera a que se termine de asignar/probar lo de arriba
 
 ## Responsables / soporte
 

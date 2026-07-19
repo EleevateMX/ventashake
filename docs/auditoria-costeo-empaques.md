@@ -361,3 +361,87 @@ se probó lo que sí se pudo probar con rigor:
   por receta — ninguna de las dos requiere código adicional, son pasos
   operativos que le tocan al usuario o a una sesión con acceso de red al
   sitio desplegado.
+
+## 10. Corrección crítica encontrada al preparar la Fase 3
+
+Antes de construir Fase 3 se releyó el mecanismo real de sincronización
+para diseñar dónde enganchar el prorrateo de envío, y apareció un hallazgo
+que **invalidaba parcialmente lo reportado como "completado" en la Fase 2**:
+el arreglo de empaques se aplicó correctamente a
+`supabase/seed/sync-app-data.sql`, pero ese archivo es un **script manual**
+(se corre a mano, `psql` o `pnpm etl:aplicar`). La sincronización que
+**sí corre sola**, en cada guardado de costosshake, vive en
+`supabase/migrations/auto_sync_app_data_trigger.sql` (función
+`fn_sync_app_data()`, enganchada al trigger `app_data_sync` sobre
+`app_data`) — y esa copia **nunca se actualizó**. Sin este arreglo, un
+operador podía seguir el manual de `docs/empaques-por-receta.md`, asignar
+empaques a cada receta, guardar, y los empaques **seguirían sin llegar a
+`recetas`** por la vía automática — solo llegarían si alguien corría el
+script manual aparte, algo que no estaba documentado como necesario después
+de guardar.
+
+**Corregido** en
+`supabase/migrations/costeo_fix_auto_sync_empaques.sql`: se reemplazó
+`fn_sync_app_data()` (mismo patrón `create or replace function`, aditivo)
+con la lógica de siempre más los dos bloques de empaques, idénticos a los
+ya probados en el script manual. **Verificado en vivo** con una prueba de
+transacción con `rollback` real contra producción: se agregó
+temporalmente un empaque a la receta de "Choco Killer" dentro de
+`app_data.data` (disparando el trigger real, sin ningún atajo), se
+confirmó que apareció la línea nueva en `recetas` (`producto_id` de Choco
+Killer + `insumo_id` del empaque, `tipo='empaque'`), y se revirtió todo
+con `rollback` — cero residuo. A partir de esta migración, asignar
+empaques en costosshake y simplemente guardar (sin correr nada a mano) sí
+llega a `recetas` reales.
+
+## 11. Fase 3 — completada: entradas de compra con prorrateo de envío
+
+**Decisión tomada** (respuesta a la pregunta abierta de §6): se migró el
+dominio de entradas de mercancía a tablas relacionales reales, con RPCs
+`SECURITY DEFINER` como único camino de escritura — mismo patrón que
+pagos/impresoras/empleados. El resto de costosshake (catálogos,
+ingredientes, recetas) sigue en el documento JSON por ahora; solo el
+dominio que necesitaba garantías atómicas y un historial que no se pueda
+perder se movió.
+
+Detalle completo del diseño, la fórmula de prorrateo y cómo se prueba en
+`docs/prorrateo-envio.md`. Resumen:
+
+- Tablas nuevas `entradas_compra`/`entrada_lineas`
+  (`supabase/migrations/costeo_entradas_compra_prorrateo_envio.sql`), sin
+  acceso directo para `anon`/`authenticated` — todo pasa por
+  `fn_entrada_previsualizar` (pura, sin escritura), `fn_entrada_confirmar`
+  (todo o nada, recalcula el prorrateo server-side, nunca confía en lo que
+  mande el cliente), `fn_entrada_cancelar` (nunca borra, revierte con un
+  movimiento de ajuste) y `fn_entrada_historial`.
+- La pantalla "Entradas" de costosshake ahora tiene un paso obligatorio de
+  **vista previa** (con el desglose por producto: cantidad, costo unitario
+  de factura, envío prorrateado, costo unitario final, importe) antes de
+  poder confirmar — no se puede saltar.
+- Al confirmar, se actualiza `insumos.costo_compra` (el costo real más
+  reciente, que ya alimenta `insumos.costo_unitario` — columna generada —
+  y por lo tanto `vw_costeo_producto`/recetas) y se siembra una fila en
+  `lotes` con el costo de esa compra específica, dejando la estructura
+  lista para un futuro costo promedio ponderado (no calculado todavía, tal
+  como se pidió: "utilizar inicialmente el último costo real unitario").
+- El documento JSON de costosshake se sigue actualizando también (mismo
+  stock/costo/kardex de siempre) para que Inventario/Kardex/Compras no
+  cambien de comportamiento — pero ahora reflejan el costo **final**
+  (factura + envío prorrateado), no solo el precio de factura.
+- Probado en vivo contra producción, todo con datos de prueba
+  eliminados/revertidos al terminar: fórmula de prorrateo (incluido el
+  caso de $0 de subtotal y el ajuste de redondeo en la última línea para
+  que la suma sea exacta al centavo), rechazo de clave incorrecta sin
+  escribir nada, escritura atómica completa (línea, movimiento, lote,
+  stock, insumo) verificada campo por campo, **dos confirmaciones
+  concurrentes reales sobre el mismo insumo** (despacho paralelo genuino)
+  sin pérdida de actualización (`stock_actual` quedó exactamente en la
+  suma de ambas), y cancelación con reversa correcta.
+- **Pendiente, honestamente**: prueba manual en navegador de las tres
+  pantallas nuevas (captura → vista previa → confirmación) — mismo motivo
+  que en Fase 1-2, sin acceso de red al sitio desplegado en este entorno.
+  Cancelar una entrada capturada por error solo tiene RPC (`fn_entrada_cancelar`),
+  todavía no un botón en la interfaz — ver `docs/prorrateo-envio.md`.
+- **Fase 4 (combos/promociones) sigue sin empezar**, tal como se pidió, y
+  ahora sí sobre una base de costeo corregida (empaques por receta) y con
+  el dominio de compras que necesitaba tablas reales ya migrado.

@@ -257,7 +257,7 @@ const DOC_ID="shakeaholic", SESS="shakeaholic_session_v1", CACHE="shakeaholic_ca
 const sb=(window.supabase&&window.supabase.createClient)?window.supabase.createClient(SB_URL,SB_KEY):null;
 let currentUser=null;
 /* ===== Auto-actualización (sin borrar caché a mano) ===== */
-const APP_VERSION="2026-07-13-02";
+const APP_VERSION="2026-07-19-01";
 async function checkForUpdate(){try{
   const r=await fetch(location.pathname+"?_="+Date.now(),{cache:"no-store"});
   if(!r.ok)return;const t=await r.text();
@@ -583,7 +583,15 @@ function renderParams(m){const p=state.params;
   document.getElementById("p_merma").addEventListener("input",e=>{p.merma=(parseFloat(e.target.value)||0)/100;save();});
   document.getElementById("p_mano").addEventListener("input",e=>{p.mano=parseFloat(e.target.value)||0;save();});
   document.getElementById("p_clave").addEventListener("input",e=>{p.clave=e.target.value;save();});
-  document.getElementById("p_claveC").addEventListener("input",e=>{p.claveCompras=e.target.value;save();});
+  document.getElementById("p_claveC").addEventListener("input",e=>{p.claveCompras=e.target.value;save();syncClaveCompras(e.target.value);});
+}
+let _claveCTimer=null;
+function syncClaveCompras(val){
+  // fn_entrada_confirmar/cancelar validan la clave contra la tabla real
+  // parametros.clave_compras (no contra este JSON) — se sincroniza aquí
+  // para que no queden desalineadas.
+  clearTimeout(_claveCTimer);
+  _claveCTimer=setTimeout(()=>{sb.from("parametros").update({clave_compras:val}).eq("id","default").then(()=>{});},600);
 }
 
 /* ---------------- PROTEÍNAS ---------------- */
@@ -1109,30 +1117,83 @@ function applyPres(cat,it,txt){if(txt==null||!(""+txt).trim())return;txt=(""+txt
   else if(cat==="bebidas"||cat==="snacks"){it.presOriginal=txt;}
   else if(cat==="empaque"){it.presentacion=txt;}}
 function kardexPush(cat,i,mov){const it=state[cat][i];if(!Array.isArray(it.kardex))it.kardex=[];it.kardex.push(mov);}
+
+/* ===== Entradas de compra: prorrateo de envío contra el esquema real =====
+   El costeo (recetas/vw_costeo_producto) ya no vive solo en este JSON — una
+   entrada de mercancía necesita garantías atómicas y un historial que no se
+   pueda perder, así que esta parte SÍ escribe directo a Supabase (tablas
+   entradas_compra/entrada_lineas vía RPC, ver
+   supabase/migrations/costeo_entradas_compra_prorrateo_envio.sql y
+   docs/prorrateo-envio.md), y solo después refleja el resultado en este
+   documento para que Inventario/Kardex/Compras sigan mostrando lo mismo. */
+const CAT2TIPO={proteins:"proteina",shakeIngs:"shake",foodIngs:"alimento",bebidas:"reventa",snacks:"reventa",empaque:"empaque"};
+let _bodegaIdCache=null;
+async function getBodegaId(){
+  if(_bodegaIdCache)return _bodegaIdCache;
+  const {data,error}=await sb.from("almacenes").select("id").eq("tipo","bodega").limit(1).maybeSingle();
+  if(error||!data)throw new Error("No se encontró el almacén de bodega en el esquema real.");
+  return _bodegaIdCache=data.id;
+}
+async function resolveInsumoIds(lines){
+  const tipos=[...new Set(lines.map(l=>CAT2TIPO[l.key.split(":")[0]]))];
+  const {data,error}=await sb.from("insumos").select("id,nombre,tipo").in("tipo",tipos);
+  if(error)throw error;
+  const byKey=new Map(data.map(r=>[r.tipo+"|"+r.nombre.toLowerCase(),r.id]));
+  return lines.map(l=>{
+    const a=l.key.split(":"),cat=a[0],i=+a[1],it=state[cat][i],cfg=buyCfg(cat);
+    const nombre=cfg.name(it);
+    return {line:l,insumo_id:byKey.get(CAT2TIPO[cat]+"|"+nombre.toLowerCase())||null,nombre};
+  });
+}
+async function openHistorialEntradas(){
+  const host=document.getElementById("modalHost");
+  host.innerHTML=`<div class="modal-bg"><div class="modal" style="max-width:780px">
+    <h3>📋 Historial de entradas</h3>
+    <div class="sub">Entradas confirmadas contra el esquema real (con envío prorrateado). Cancelar una entrada capturada por error se hace desde Supabase (fn_entrada_cancelar) por ahora.</div>
+    <div id="he_body" class="muted" style="padding:10px 0">Cargando…</div>
+    <div class="mrow"><button class="btn ghost mini" id="he_close">Cerrar</button></div>
+  </div></div>`;
+  host.querySelector("#he_close").onclick=()=>host.innerHTML="";
+  host.querySelector(".modal-bg").onclick=ev=>{if(ev.target.classList.contains("modal-bg"))host.innerHTML="";};
+  try{
+    const {data,error}=await sb.rpc("fn_entrada_historial",{p_limite:30});
+    if(error)throw error;
+    const rows=data||[];
+    const body=host.querySelector("#he_body");
+    body.innerHTML=rows.length?`<div class="scroll"><table><thead><tr>
+      <th>Fecha</th><th>Proveedor</th><th>Factura</th><th class="num">Productos</th><th class="num">Mercancía</th><th class="num">Envío</th><th class="num">Total</th><th>Estado</th></tr></thead><tbody>${rows.map(r=>`<tr>
+      <td>${esc(r.fecha)}</td><td class="muted">${esc(r.proveedor||"—")}</td><td class="muted">${esc(r.factura||"—")}</td>
+      <td class="num">${r.n_lineas}</td><td class="num">${fmt(r.subtotal_mercancia)}</td><td class="num">${fmt(r.costo_envio)}</td><td class="num"><b>${fmt(r.total)}</b></td>
+      <td>${r.estado==="cancelada"?'<span class="pill bad">Cancelada</span>':'<span class="pill ok">Confirmada</span>'}</td></tr>`).join("")}</tbody></table></div>`
+      :`<p class="muted">Aún no hay entradas registradas en el esquema real.</p>`;
+  }catch(e){host.querySelector("#he_body").innerHTML=`<p class="merr" style="display:block">No se pudo cargar: ${esc(e.message||String(e))}</p>`;}
+}
 function openEntrada(){
   const provsAll=[...new Set(BUY.flatMap(cfg=>(state[cfg.cat]||[]).map(it=>(it[cfg.prov]||"").trim()).filter(Boolean)))].sort((a,b)=>a.localeCompare(b,"es",{sensitivity:"base"}));
-  const ent={factura:"",pago:"Efectivo",prov:"",fecha:new Date().toISOString().slice(0,10),lines:[{}],q:""};
+  const ent={factura:"",pago:"Efectivo",prov:"",fecha:new Date().toISOString().slice(0,10),lines:[{}],q:"",envio:"",step:"captura",preview:null,resolved:null};
   const host=document.getElementById("modalHost");
   function prodOptions(selKey){let o='<option value="">— Selecciona producto —</option>';
     BUY.forEach(cfg=>(state[cfg.cat]||[]).forEach((it,i)=>{const prov=(it[cfg.prov]||"").trim();if(ent.prov&&prov!==ent.prov)return;if(ent.q){const qq=ent.q.toLowerCase();if(cfg.name(it).toLowerCase().indexOf(qq)<0&&String(it.codigoBarras||"").toLowerCase().indexOf(qq)<0&&String(it.marca||"").toLowerCase().indexOf(qq)<0)return;}const key=cfg.cat+":"+i;const g=presDefault(cfg.cat,it);const nm=cfg.name(it);const mk=(it.marca||"").trim();const dupM=mk&&nm.toLowerCase().indexOf(mk.toLowerCase())>=0;o+=`<option value="${key}" ${key===selKey?"selected":""}>${esc(nm)}${g?" ("+esc(g)+")":""}${(mk&&!dupM)?" · "+esc(mk):""}${prov?" · "+esc(prov):""}</option>`;}));return o;}
   function curCost(key){if(!key)return null;const a=key.split(":"),cat=a[0],i=+a[1],cfg=buyCfg(cat);return +state[cat][i][cfg.cost]||0;}
+  function showErr(msg){const err=host.querySelector("#e_err");if(!err)return;err.textContent=msg;err.style.display="block";}
   function draw(){
+    if(ent.step==="preview"){drawPreview();return;}
     host.innerHTML=`<div class="modal-bg"><div class="modal" style="max-width:780px">
       <h3>📥 Entrada de compra (llegó pedido)</h3>
-      <div class="sub">Captura la factura. El <b>proveedor</b> y la <b>fecha</b> se aplican a todos los productos. Si un precio llega más alto que el anterior, te avisamos.</div>
+      <div class="sub">Captura la factura. El <b>proveedor</b> y la <b>fecha</b> se aplican a todos los productos. Si un precio llega más alto que el anterior, te avisamos. El <b>costo de envío</b> se prorratea entre los productos según su valor — verás el desglose antes de confirmar.</div>
       <div class="ifields" style="grid-template-columns:repeat(auto-fill,minmax(150px,1fr));margin-bottom:10px">
         <label class="fld"><span>Factura #</span><input id="e_fac" value="${esc(ent.factura)}"></label>
         <label class="fld"><span>Forma de pago</span><select id="e_pago">${["Efectivo","Tarjeta","Transferencia","Crédito"].map(x=>`<option ${x===ent.pago?"selected":""}>${x}</option>`).join("")}</select></label>
         <label class="fld"><span>Proveedor (a todos)</span><select id="e_prov"><option value="">— Todos —</option>${provsAll.map(pp=>`<option ${pp===ent.prov?"selected":""}>${esc(pp)}</option>`).join("")}</select></label>
         <label class="fld"><span>Fecha de compra</span><input type="date" id="e_fecha" value="${esc(ent.fecha)}"></label>
+        <label class="fld"><span>Costo de envío (total factura)</span><input class="n" id="e_envio" value="${esc(ent.envio)}" placeholder="0.00" title="Se reparte entre los productos de esta entrada según su valor"></label>
       </div>
       <div class="gtitle">Productos recibidos</div>
       <input id="e_search" class="ingsearch" placeholder="🔎 Buscar o escanear código de barras…" value="${esc(ent.q)}" style="margin:4px 0 8px;max-width:340px">
       <div id="e_lines"></div>
       <div class="mrow" style="justify-content:flex-start;margin-top:4px"><button class="btn ghost mini" id="e_add">+ Agregar producto</button></div>
-      <div class="mfield" style="margin-top:8px"><label>Clave de compras (o de encargado)</label><input id="e_clave" type="password" placeholder="••••"></div>
       <div class="merr" id="e_err"></div>
-      <div class="mrow"><button class="btn ghost mini" id="e_cancel">Cancelar</button><button class="btn mini" id="e_ok">✓ Dar entrada</button></div>
+      <div class="mrow"><button class="btn ghost mini" id="e_cancel">Cancelar</button><button class="btn mini" id="e_prev">Ver prorrateo →</button></div>
     </div></div>`;
     const lc=host.querySelector("#e_lines");
     function lineMeta(ln){if(!ln.key)return null;const a=ln.key.split(":"),cat=a[0],i=+a[1],it=state[cat]&&state[cat][i],cfg=buyCfg(cat);
@@ -1163,33 +1224,79 @@ function openEntrada(){
     host.querySelector("#e_pago").addEventListener("change",e=>ent.pago=e.target.value);
     host.querySelector("#e_prov").addEventListener("change",e=>{ent.prov=e.target.value;draw();});
     host.querySelector("#e_fecha").addEventListener("input",e=>ent.fecha=e.target.value);
+    host.querySelector("#e_envio").addEventListener("input",e=>ent.envio=e.target.value);
     host.querySelector("#e_search").addEventListener("input",e=>{const val=e.target.value;const hit=findByBarcode(val);
       if(hit){let idx=ent.lines.findIndex(l=>!l.key);if(idx<0){ent.lines.push({});idx=ent.lines.length-1;}ent.lines[idx].key=hit.key;if(!ent.lines[idx].pres)ent.lines[idx].pres=presDefault(hit.cat,state[hit.cat][hit.i]);ent.q="";draw();const el=host.querySelector("#e_search");if(el)el.focus();return;}
       ent.q=val;draw();const el=host.querySelector("#e_search");if(el){el.focus();el.setSelectionRange(el.value.length,el.value.length);}});
     host.querySelector("#e_add").onclick=()=>{ent.lines.push({});draw();};
     host.querySelector("#e_cancel").onclick=()=>host.innerHTML="";
     host.querySelector(".modal-bg").onclick=ev=>{if(ev.target.classList.contains("modal-bg"))host.innerHTML="";};
-    host.querySelector("#e_ok").onclick=doConfirm;
+    host.querySelector("#e_prev").onclick=verPrevio;
   }
-  function doConfirm(){const err=host.querySelector("#e_err");err.style.display="none";
-    const clave=host.querySelector("#e_clave").value;
-    if(clave!==String(state.params.claveCompras)&&clave!==String(state.params.clave)){err.textContent="Clave incorrecta.";err.style.display="block";return;}
+  async function verPrevio(){
+    showErr("");const err=host.querySelector("#e_err");if(err)err.style.display="none";
     const valid=ent.lines.filter(l=>l.key&&(+l.cant||0)>0);
-    if(!valid.length){err.textContent="Agrega al menos un producto con cantidad.";err.style.display="block";return;}
-    const subio=[];
-    valid.forEach(l=>{const a=l.key.split(":"),cat=a[0],i=+a[1],cfg=buyCfg(cat),it=state[cat][i];
-      const cant=+l.cant||0, precio=(l.precio!==""&&l.precio!=null)?+l.precio:null, prevCost=+it[cfg.cost]||0;
-      it[cfg.stock]=(+it[cfg.stock]||0)+cant;
-      if(cfg.datebuy)it[cfg.datebuy]=ent.fecha;
-      if(cfg.cad&&l.cad)it[cfg.cad]=l.cad;
-      if(ent.prov&&!(it[cfg.prov]||"").trim())it[cfg.prov]=ent.prov;
-      applyPres(cat,it,l.pres);
-      let up=false;
-      if(precio!=null){it[cfg.cost]=precio;if(cat==="bebidas"||cat==="snacks"){const pz=+it.equivPiezas||0;it.costo=pz?precio/pz:0;}if(prevCost>0&&precio>prevCost){up=true;subio.push(cfg.name(it)+" ("+fmt(prevCost)+" → "+fmt(precio)+")");}}
-      kardexPush(cat,i,{f:ent.fecha,tipo:"compra",factura:ent.factura,pago:ent.pago,prov:ent.prov||(it[cfg.prov]||""),ent:cant,sal:0,exist:+it[cfg.stock]||0,precio:precio!=null?precio:"",cad:l.cad||"",pres:l.pres||"",nota:(l.pres?("Pres "+l.pres+" · "):"")+ent.pago,subio:up});
-    });
-    save();host.innerHTML="";render();
-    if(subio.length)setTimeout(()=>alert("⚠️ Estos productos subieron de precio:\n\n• "+subio.join("\n• ")),120);
+    if(!valid.length){showErr("Agrega al menos un producto con cantidad.");return;}
+    const btn=host.querySelector("#e_prev");if(btn){btn.disabled=true;btn.textContent="Calculando…";}
+    try{
+      const resolved=await resolveInsumoIds(valid);
+      const sinResolver=resolved.filter(r=>!r.insumo_id);
+      if(sinResolver.length){showErr("No se pudo ubicar en el catálogo real: "+sinResolver.map(r=>r.nombre).join(", ")+". Guarda el catálogo (espera a que aparezca \"Guardado\") y vuelve a intentar.");return;}
+      const lineas=resolved.map(r=>({insumo_id:r.insumo_id,cantidad:+r.line.cant,costo_unitario:(r.line.precio!==""&&r.line.precio!=null)?+r.line.precio:0}));
+      const {data,error}=await sb.rpc("fn_entrada_previsualizar",{p_lineas:lineas,p_costo_envio:+ent.envio||0});
+      if(error)throw error;
+      ent.preview=data;ent.resolved=resolved;ent.step="preview";draw();
+    }catch(e){showErr("No se pudo calcular el prorrateo: "+(e.message||String(e)));}
+    finally{const b=host.querySelector("#e_prev");if(b){b.disabled=false;b.textContent="Ver prorrateo →";}}
+  }
+  function drawPreview(){
+    const p=ent.preview;
+    host.innerHTML=`<div class="modal-bg"><div class="modal" style="max-width:780px">
+      <h3>📥 Vista previa · prorrateo de envío</h3>
+      <div class="sub">Revisa cómo queda el costo de cada producto con el envío ya repartido antes de confirmar. Esto es lo que se va a guardar — no se puede deshacer con "Cancelar", solo con fn_entrada_cancelar desde Supabase.</div>
+      <div class="scroll"><table><thead><tr><th>Producto</th><th class="num">Cant.</th><th class="num">Costo unit.</th><th class="num">Envío prorrateado</th><th class="num">Costo unit. final</th><th class="num">Importe</th></tr></thead><tbody>
+        ${p.lineas.map(l=>`<tr><td>${esc(l.nombre)}</td><td class="num">${num(l.cantidad)}</td><td class="num">${fmt(l.costo_unitario_capturado)}</td><td class="num">${fmt(l.envio_prorrateado)}</td><td class="num"><b>${fmt(l.costo_unitario_final)}</b></td><td class="num">${fmt(l.importe_final)}</td></tr>`).join("")}
+      </tbody><tfoot><tr><td colspan="2"></td><td class="num muted">Mercancía: ${fmt(p.subtotal_mercancia)}</td><td class="num muted">Envío: ${fmt(p.costo_envio)}</td><td colspan="2" class="num"><b>Total: ${fmt(p.total)}</b></td></tr></tfoot></table></div>
+      <div class="mfield" style="margin-top:10px"><label>Clave de compras (o de encargado)</label><input id="e_clave2" type="password" placeholder="••••"></div>
+      <div class="merr" id="e_err"></div>
+      <div class="mrow"><button class="btn ghost mini" id="e_back">← Editar</button><button class="btn mini" id="e_confirm">✓ Confirmar entrada</button></div>
+    </div></div>`;
+    host.querySelector("#e_back").onclick=()=>{ent.step="captura";draw();};
+    host.querySelector(".modal-bg").onclick=ev=>{if(ev.target.classList.contains("modal-bg"))host.innerHTML="";};
+    host.querySelector("#e_confirm").onclick=confirmarFinal;
+  }
+  async function confirmarFinal(){
+    const err=host.querySelector("#e_err");if(err)err.style.display="none";
+    const clave=host.querySelector("#e_clave2").value;
+    if(clave!==String(state.params.claveCompras)&&clave!==String(state.params.clave)){showErr("Clave incorrecta.");return;}
+    const btn=host.querySelector("#e_confirm");if(btn){btn.disabled=true;btn.textContent="Guardando…";}
+    try{
+      const almacenId=await getBodegaId();
+      const lineas=ent.resolved.map(r=>({insumo_id:r.insumo_id,cantidad:+r.line.cant,costo_unitario:(r.line.precio!==""&&r.line.precio!=null)?+r.line.precio:0,contenido:null,presentacion:r.line.pres||null,caducidad:r.line.cad||null}));
+      const {error}=await sb.rpc("fn_entrada_confirmar",{p_almacen_id:almacenId,p_proveedor:ent.prov||null,p_factura:ent.factura||null,p_forma_pago:ent.pago||null,p_fecha:ent.fecha,p_costo_envio:+ent.envio||0,p_lineas:lineas,p_clave:clave});
+      if(error)throw error;
+      const byInsumo=new Map((ent.preview.lineas||[]).map(l=>[l.insumo_id,l]));
+      const subio=[];
+      ent.resolved.forEach(r=>{
+        const a=r.line.key.split(":"),cat=a[0],i=+a[1],cfg=buyCfg(cat),it=state[cat][i];
+        const cant=+r.line.cant||0,prevCost=+it[cfg.cost]||0;
+        const pv=byInsumo.get(r.insumo_id);
+        const costoFinal=pv?+pv.costo_unitario_final:((r.line.precio!==""&&r.line.precio!=null)?+r.line.precio:0);
+        it[cfg.stock]=(+it[cfg.stock]||0)+cant;
+        if(cfg.datebuy)it[cfg.datebuy]=ent.fecha;
+        if(cfg.cad&&r.line.cad)it[cfg.cad]=r.line.cad;
+        if(ent.prov&&!(it[cfg.prov]||"").trim())it[cfg.prov]=ent.prov;
+        applyPres(cat,it,r.line.pres);
+        const up=prevCost>0&&costoFinal>prevCost;
+        it[cfg.cost]=costoFinal;
+        if(cat==="bebidas"||cat==="snacks"){const pz=+it.equivPiezas||0;it.costo=pz?costoFinal/pz:0;}
+        if(up)subio.push(cfg.name(it)+" ("+fmt(prevCost)+" → "+fmt(costoFinal)+")");
+        kardexPush(cat,i,{f:ent.fecha,tipo:"compra",factura:ent.factura,pago:ent.pago,prov:ent.prov||(it[cfg.prov]||""),ent:cant,sal:0,exist:+it[cfg.stock]||0,precio:costoFinal,cad:r.line.cad||"",pres:r.line.pres||"",nota:((+ent.envio||0)>0?"Envío prorrateado incluido · ":"")+(r.line.pres?("Pres "+r.line.pres+" · "):"")+ent.pago,subio:up});
+      });
+      save();host.innerHTML="";render();
+      if(subio.length)setTimeout(()=>alert("⚠️ Estos productos subieron de precio:\n\n• "+subio.join("\n• ")),120);
+    }catch(e){showErr("No se guardó la entrada: "+(e.message||String(e)));}
+    finally{const b=host.querySelector("#e_confirm");if(b){b.disabled=false;b.textContent="✓ Confirmar entrada";}}
   }
   draw();
 }
@@ -1263,6 +1370,7 @@ function renderCompras(m){
     <div class="printhead">🛒 Lista de compras · Shakeaholic · ${new Date().toLocaleDateString("es-MX")}</div>
     <div class="buyctrls no-print">
       <button class="btn" id="buyEntrada">📥 Dar entrada</button>
+      <button class="btn ghost" id="buyHistorial">📋 Historial de entradas</button>
       <button class="btn ghost${buyOnlyLow?' on':''}" id="buyLow">${buyOnlyLow?'✓ ':''}🔴 Solo bajos</button>
       <button class="btn ghost" id="buyPrint">🖨 Imprimir</button>
       <button class="btn ghost" id="buyFill">Usar sugeridos</button>
@@ -1275,6 +1383,7 @@ function renderCompras(m){
     inp.addEventListener("input",e=>{state[cat][i].comprar=e.target.value;save();});
     inp.addEventListener("change",()=>render());});
   m.querySelector("#buyEntrada").onclick=()=>openEntrada();
+  m.querySelector("#buyHistorial").onclick=()=>openHistorialEntradas();
   m.querySelector("#buyLow").onclick=()=>{buyOnlyLow=!buyOnlyLow;render();};
   m.querySelector("#buyPrint").onclick=()=>window.print();
   m.querySelector("#buyFill").onclick=()=>{BUY.forEach(cfg=>(state[cfg.cat]||[]).forEach(it=>{const s=buySugerido(it,cfg);it.comprar=s?String(s):"";}));save();render();};
