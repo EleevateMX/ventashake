@@ -41,7 +41,7 @@ export function Confirmacion() {
   useEffect(() => {
     const data = JSON.stringify({
       folio: numeroOrden,
-      tienda: 'Shake Aholic',
+      tienda: 'Shakeaholic',
       total: totalOrden,
       fecha: new Date().toISOString().slice(0, 10),
       ...(usuario ? { cliente: usuario.nombre } : {}),
@@ -88,7 +88,7 @@ export function Confirmacion() {
         #ORDEN {numeroOrden}
       </span>
       <span className="absolute top-10 right-10 font-mono text-xs uppercase tracking-[0.3em] text-sa-cream/60">
-        Shake Aholic
+        Shakeaholic
       </span>
 
       <img src="/milo.png" alt="Milo celebrando" className="h-44 w-auto drop-shadow-2xl mb-3" />

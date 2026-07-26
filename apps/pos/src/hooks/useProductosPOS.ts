@@ -7,6 +7,7 @@ import type { ProductoVenta } from '@shake/supabase'
 export interface CategoriaPOS {
   id: string
   nombre: string
+  orden: number
   cocinas: { id: string; nombre: string; slug: string } | null
 }
 
@@ -28,7 +29,7 @@ export function useProductosPOS() {
     for (const p of productos) {
       if (p.categorias) map.set(p.categorias.id, p.categorias)
     }
-    return [...map.values()]
+    return [...map.values()].sort((a, b) => a.orden - b.orden || a.nombre.localeCompare(b.nombre))
   }, [productos])
 
   return { productos, categorias, loading, error }

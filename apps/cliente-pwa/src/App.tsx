@@ -89,7 +89,7 @@ export default function App() {
         <div className="text-center max-w-[340px] w-full">
           <img src={milo} alt="" className="w-[132px] h-auto mx-auto" />
           <h1 className="font-display text-3xl text-sa-cream mt-3 mb-2 leading-tight">
-            Shake Aholic Rewards
+            Shakeaholic Rewards
           </h1>
           <p className="text-sa-mint">
             Acumula <b className="font-semibold">mancuernas</b> con cada compra y gana shakes gratis.

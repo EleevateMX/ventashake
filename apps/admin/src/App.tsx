@@ -80,7 +80,7 @@ export default function App() {
       {/* Sidebar (barra superior en móvil, lateral en escritorio) */}
       <aside className="w-full md:w-60 shrink-0 bg-sa-green-deep text-sa-cream flex flex-col">
         <div className="px-5 md:px-6 pt-5 md:pt-7 pb-4 md:pb-6">
-          <img src={logo} alt="Shake Aholic" className="w-[112px] md:w-[140px] h-auto select-none" draggable={false} />
+          <img src={logo} alt="Shakeaholic" className="w-[112px] md:w-[140px] h-auto select-none" draggable={false} />
         </div>
         <nav className="flex md:flex-col gap-1 px-3 pb-3 md:pb-0 md:flex-1 overflow-x-auto">
           {navItems.map(({ id, label, Icon }) => (
@@ -100,7 +100,7 @@ export default function App() {
         </nav>
         <div className="hidden md:block px-4 py-4 border-t border-sa-cream/10">
           <p className="text-[11px] font-mono uppercase tracking-wider text-sa-cream/40 px-1">
-            Shake Aholic · Admin
+            Shakeaholic · Admin
           </p>
         </div>
       </aside>

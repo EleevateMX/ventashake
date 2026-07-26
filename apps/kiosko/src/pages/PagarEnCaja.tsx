@@ -74,7 +74,7 @@ export function PagarEnCaja() {
         #PEDIDO {orden.folio}
       </span>
       <span className="absolute top-10 right-10 font-mono text-xs uppercase tracking-[0.3em] text-sa-cream/60">
-        Shake Aholic
+        Shakeaholic
       </span>
 
       {yaSePago ? (

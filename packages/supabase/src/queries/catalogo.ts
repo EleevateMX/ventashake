@@ -80,7 +80,7 @@ export async function actualizarProducto(
 }
 
 export async function listarCategorias(sb: ShakeClient): Promise<Categoria[]> {
-  const { data, error } = await sb.from('categorias').select('*').eq('activa', true).order('nombre')
+  const { data, error } = await sb.from('categorias').select('*').eq('activa', true).order('orden').order('nombre')
   if (error) throw error
   return data
 }
@@ -112,6 +112,7 @@ export interface ProductoVenta extends Producto {
   categorias: {
     id: string
     nombre: string
+    orden: number
     cocinas: { id: string; nombre: string; slug: string } | null
   } | null
 }
@@ -120,7 +121,7 @@ export interface ProductoVenta extends Producto {
 export async function listarProductosParaVenta(sb: ShakeClient): Promise<ProductoVenta[]> {
   const { data, error } = await sb
     .from('productos')
-    .select('*, categorias(id, nombre, cocinas(id, nombre, slug))')
+    .select('*, categorias(id, nombre, orden, cocinas(id, nombre, slug))')
     .eq('activo', true)
     .order('nombre')
   if (error) throw error
@@ -134,7 +135,7 @@ export async function listarProductosPorCocina(
 ): Promise<ProductoVenta[]> {
   const { data, error } = await sb
     .from('productos')
-    .select('*, categorias!inner(id, nombre, cocinas!inner(id, nombre, slug))')
+    .select('*, categorias!inner(id, nombre, orden, cocinas!inner(id, nombre, slug))')
     .eq('activo', true)
     .eq('categorias.cocinas.slug', cocinaSlug)
     .order('nombre')

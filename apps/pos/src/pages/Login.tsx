@@ -67,7 +67,7 @@ export function Login() {
 
   return (
     <div className="min-h-screen bg-sa-green-deep flex flex-col items-center justify-center px-4 py-8">
-      <img src="/logo.png" alt="Shake Aholic" className="w-[180px] h-auto mb-6 drop-shadow-2xl" />
+      <img src="/logo.png" alt="Shakeaholic" className="w-[180px] h-auto mb-6 drop-shadow-2xl" />
 
       <div className="bg-sa-cream-soft rounded-sa-lg shadow-sa w-full max-w-2xl p-8">
         <div className="text-center mb-6">
@@ -182,7 +182,7 @@ export function Login() {
         )}
       </div>
 
-      <p className="font-mono text-xs text-sa-cream/40 mt-6 uppercase tracking-widest">Shake Aholic · POS</p>
+      <p className="font-mono text-xs text-sa-cream/40 mt-6 uppercase tracking-widest">Shakeaholic · POS</p>
     </div>
   )
 }

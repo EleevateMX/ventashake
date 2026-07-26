@@ -180,7 +180,7 @@ export default function App() {
           <div className="flex items-center gap-4 shrink-0">
             <img
               src={milo}
-              alt="Shake Aholic"
+              alt="Shakeaholic"
               className="h-14 w-auto drop-shadow-[0_2px_8px_rgba(0,0,0,0.4)]"
             />
           </div>

@@ -188,18 +188,21 @@ export type Database = {
           cocina_id: string
           id: string
           nombre: string
+          orden: number
         }
         Insert: {
           activa?: boolean
           cocina_id: string
           id?: string
           nombre: string
+          orden?: number
         }
         Update: {
           activa?: boolean
           cocina_id?: string
           id?: string
           nombre?: string
+          orden?: number
         }
         Relationships: [
           {

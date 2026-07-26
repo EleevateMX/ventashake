@@ -257,7 +257,7 @@ const DOC_ID="shakeaholic", SESS="shakeaholic_session_v1", CACHE="shakeaholic_ca
 const sb=(window.supabase&&window.supabase.createClient)?window.supabase.createClient(SB_URL,SB_KEY):null;
 let currentUser=null;
 /* ===== Auto-actualización (sin borrar caché a mano) ===== */
-const APP_VERSION="2026-07-19-01";
+const APP_VERSION="2026-07-19-02";
 async function checkForUpdate(){try{
   const r=await fetch(location.pathname+"?_="+Date.now(),{cache:"no-store"});
   if(!r.ok)return;const t=await r.text();
@@ -512,7 +512,7 @@ function openTraspaso(cat,i){
 }
 
 /* ---------------- NAV ---------------- */
-const TABS=[["dash","Resumen"],["shakes","Costeo Shakes"],["alimentos","Costeo Alimentos"],
+const TABS=[["dash","Resumen"],["shakes","Costeo Shakes"],["alimentos","Costeo Alimentos"],["combos","Combos"],
   ["prot","Proteínas"],["ings","Ingred. Shakes"],["ingf","Ingred. Alimentos"],["emp","Empaque"],
   ["bebidas","Bebidas"],["snacks","Snacks/Treats"],["inv","Inventario"],["compras","Compras"],["param","Parámetros"]];
 let tab="dash",invView="todos",invSearch="",invCat="all";
@@ -531,7 +531,41 @@ function render(){const m=document.getElementById("main");
   if(tab==="bebidas")return renderResale(m,"bebidas","Bebidas","Beb");
   if(tab==="snacks")return renderResale(m,"snacks","Snacks / Treats","Pza");
   if(tab==="inv")return renderInventario(m);
-  if(tab==="compras")return renderCompras(m);}
+  if(tab==="compras")return renderCompras(m);
+  if(tab==="combos")return renderCombosView(m);}
+
+/* ---------------- COMBOS (lectura, desde el esquema real) ----------------
+   Los combos se crean y editan en Admin → Combos (tablas reales, ver
+   docs/combos-promociones.md). Aquí solo se consulta su costeo en vivo
+   (vw_combos), porque el costo de un combo depende de las recetas reales
+   de sus componentes — no del documento JSON de esta app. */
+async function renderCombosView(m){
+  m.innerHTML=`<h2>Combos</h2>
+    <p class="hint">Los combos se administran en <b>Admin → Combos</b> (productos que agrupan otros productos con precio propio). Aquí ves su costeo en vivo calculado desde las recetas reales de sus componentes — se actualiza solo cuando cambia el costo de cualquier componente.</p>
+    <div id="combosBody" class="muted" style="padding:12px 0">Cargando…</div>`;
+  const body=m.querySelector("#combosBody");
+  try{
+    const {data,error}=await sb.from("vw_combos").select("*").order("nombre");
+    if(error)throw error;
+    const rows=data||[];
+    if(!rows.length){body.innerHTML=`<div class="empty">Aún no hay combos. Créalos en Admin → Combos.</div>`;return;}
+    body.innerHTML=`<div class="scroll"><table><thead><tr>
+      <th class="sticky">Combo</th><th>Componentes</th><th class="num">Precio</th><th class="num">Costo</th><th class="num">Margen</th><th class="num">FC%</th><th>Estado</th></tr></thead><tbody>
+      ${rows.map(r=>{
+        const comps=Array.isArray(r.componentes)?r.componentes:[];
+        const compTxt=comps.length?comps.map(c=>`${num(c.cantidad)}× ${esc(c.nombre)}${c.activo?"":" ⚠"}`).join("<br>"):"<span class='muted'>Sin componentes</span>";
+        return `<tr>
+        <td class="sticky"><b>${esc(r.nombre)}</b></td>
+        <td style="font-size:12px">${compTxt}</td>
+        <td class="num">${fmt(r.precio||0)}</td>
+        <td class="num">${r.costo_total!=null?fmt(r.costo_total):"—"}</td>
+        <td class="num">${r.margen!=null?fmt(r.margen):"—"}${r.margen_pct!=null?` <span class="muted" style="font-size:11px">(${(r.margen_pct*100).toFixed(0)}%)</span>`:""}</td>
+        <td class="num">${r.food_cost_pct!=null?(r.food_cost_pct*100).toFixed(0)+"%":"—"}</td>
+        <td>${r.activo?'<span class="pill ok">Activo</span>':'<span class="pill bad">Inactivo</span>'}${r.todos_componentes_activos===false?' <span class="pill warn">Componente inactivo</span>':""}</td></tr>`;}).join("")}
+    </tbody></table></div>
+    <p class="legend">El costo incluye receta + empaque de cada componente (con merma y mano de obra según parámetros del esquema real). Un combo se desactiva solo si cualquiera de sus componentes se desactiva.</p>`;
+  }catch(e){body.innerHTML=`<p class="merr" style="display:block">No se pudo cargar: ${esc(e.message||String(e))}</p>`;}
+}
 
 /* generic row field binder */
 function bindRow(tr,cat,i,after){

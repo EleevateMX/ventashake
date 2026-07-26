@@ -9,6 +9,7 @@ import { sb } from '@/lib/sb'
 interface Categoria {
   id: string
   nombre: string
+  orden: number
   cocinas: { id: string; nombre: string; slug: string } | null
 }
 
@@ -33,11 +34,12 @@ export function Catalogo() {
         map.set(p.categoria_id, {
           id: p.categoria_id,
           nombre: p.categorias.nombre,
+          orden: p.categorias.orden,
           cocinas: p.categorias.cocinas,
         })
       }
     })
-    return [...map.values()]
+    return [...map.values()].sort((a, b) => a.orden - b.orden || a.nombre.localeCompare(b.nombre))
   }, [productos])
 
   const productosFiltrados = categoriaActiva
@@ -59,15 +61,15 @@ export function Catalogo() {
           <div className="flex items-center gap-5">
             <img
               src="/logo.png"
-              alt="Shake Aholic"
-              className="h-20 w-20 rounded-sa bg-sa-cream object-contain p-2 shadow-sa-sm"
+              alt="Shakeaholic"
+              className="h-20 w-auto drop-shadow-lg"
             />
             <div>
               <p className="font-mono text-xs uppercase tracking-[0.25em] text-sa-banana">
                 #MENU · KIOSKO 01
               </p>
               <h1 className="font-display text-5xl leading-none mt-2 text-sa-cream">
-                Shake Aholic
+                Shakeaholic
               </h1>
               <p className="font-body text-lg mt-3 max-w-md text-sa-cream/90">
                 ¿Listo para mover esa proteína? Agitamos fruta, comida real y sabor sin pose fitness.

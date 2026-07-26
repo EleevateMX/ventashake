@@ -91,7 +91,7 @@ export default function App() {
         <div className="flex items-center gap-5">
           <img src={milo} alt="Milo" className="h-16 w-auto drop-shadow-[0_10px_24px_rgba(0,0,0,0.35)]" />
           <h1 className="font-display text-[clamp(28px,3.4vw,54px)] leading-none text-sa-cream">
-            Shake Aholic
+            Shakeaholic
             <span className="block font-body font-medium text-sa-mint text-[clamp(13px,1vw,18px)] tracking-[0.25em] uppercase mt-2">
               Estado de tu pedido
             </span>
