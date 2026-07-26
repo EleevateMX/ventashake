@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { mxn } from '@shake/utils'
 import type { DescuentoManual } from '@/store/posStore'
+import { ModalAutorizacion } from './ModalAutorizacion'
 
 interface Props {
   open: boolean
@@ -14,6 +15,9 @@ interface Props {
 export function ModalDescuento({ open, onClose, descuentoActual, onAplicar, onQuitar, subtotal }: Props) {
   const [tipo, setTipo] = useState<'porcentaje' | 'monto'>('porcentaje')
   const [valor, setValor] = useState('')
+  // El descuento no se aplica directo: primero un gerente/administrador
+  // autoriza con su PIN (candado pedido por el negocio).
+  const [pendiente, setPendiente] = useState<DescuentoManual | null>(null)
 
   if (!open) return null
 
@@ -108,7 +112,7 @@ export function ModalDescuento({ open, onClose, descuentoActual, onAplicar, onQu
             Cancelar
           </button>
           <button
-            onClick={() => valorNum > 0 && onAplicar({ tipo, valor: valorNum })}
+            onClick={() => valorNum > 0 && setPendiente({ tipo, valor: valorNum })}
             disabled={valorNum <= 0}
             className="flex-1 bg-sa-green disabled:opacity-40 text-sa-cream py-2.5 rounded-full font-mono text-xs uppercase tracking-wide hover:bg-sa-green-deep"
           >
@@ -116,6 +120,16 @@ export function ModalDescuento({ open, onClose, descuentoActual, onAplicar, onQu
           </button>
         </div>
       </div>
+
+      <ModalAutorizacion
+        open={pendiente !== null}
+        accion="aplicar este descuento"
+        onClose={() => setPendiente(null)}
+        onAutorizado={() => {
+          if (pendiente) onAplicar(pendiente)
+          setPendiente(null)
+        }}
+      />
     </div>
   )
 }

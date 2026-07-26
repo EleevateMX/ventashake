@@ -6,6 +6,7 @@ import { mxn } from '@shake/utils'
 import type { Cupon } from '@shake/types'
 import { ModalDescuento } from './ModalDescuento'
 import { ModalCliente } from './ModalCliente'
+import { ModalAutorizacion } from './ModalAutorizacion'
 
 interface Props {
   onCobrar: () => void
@@ -25,6 +26,8 @@ export function OrdenPanel({ onCobrar }: Props) {
   const [modalCliente, setModalCliente] = useState(false)
   const [codigoCupon, setCodigoCupon] = useState('')
   const [cuponMsg, setCuponMsg] = useState<string | null>(null)
+  // Cupón escaneado a mano: válido, pero esperando el PIN de gerente/admin.
+  const [cuponPendiente, setCuponPendiente] = useState<Cupon | null>(null)
 
   function aplicarCupon(cup: Cupon) {
     setCuponMsg(null)
@@ -45,8 +48,10 @@ export function OrdenPanel({ onCobrar }: Props) {
     if (!c) return setCuponMsg('Cupón no encontrado.')
     if (c.estado !== 'activo') return setCuponMsg('El cupón no está activo.')
     if (new Date(c.vence_en).getTime() < Date.now()) return setCuponMsg('El cupón está vencido.')
-    setCodigoCupon('')
-    aplicarCupon(c)
+    // Un cupón tecleado/escaneado a mano requiere autorización de gerente
+    // (los cupones del cliente identificado se aplican directo porque ya
+    // están ligados a su cuenta).
+    setCuponPendiente(c)
   }
 
   const dCupon = descuentoCupon()
@@ -303,6 +308,18 @@ export function OrdenPanel({ onCobrar }: Props) {
         onClose={() => setModalCliente(false)}
         onCliente={(c, promos) => { setCliente(c); setPromosDisp(promos); setCupon(null); setPromo(null) }}
         onQuitar={() => { setCliente(null); setPromosDisp([]); setCupon(null); setPromo(null) }}
+      />
+      <ModalAutorizacion
+        open={cuponPendiente !== null}
+        accion="canjear este cupón"
+        onClose={() => setCuponPendiente(null)}
+        onAutorizado={() => {
+          if (cuponPendiente) {
+            setCodigoCupon('')
+            aplicarCupon(cuponPendiente)
+          }
+          setCuponPendiente(null)
+        }}
       />
     </div>
   )

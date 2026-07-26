@@ -65,6 +65,19 @@ insert into productos (nombre,precio,iva_incluido,es_reventa,activo,categoria_id
 select d.nombre,d.precio,d.iva,d.es_rev,d.precio>0,(select id from categorias where nombre=d.cat),d.codigo,d.codigo_barras,d.merma
 from _prod d where not exists (select 1 from productos p where lower(p.nombre)=lower(d.nombre));
 
+-- Desactivar productos que ya no existen en costosshake (renombrados allá:
+-- el nombre nuevo se insertó arriba, el viejo se da de baja lógica aquí para
+-- que no quede duplicado en POS/Kiosko — nunca se borra, conserva historial).
+-- Solo las 4 categorías que este sync alimenta; combos y categorías manuales
+-- (Extras, etc.) jamás se tocan. Mismo bloque que fn_sync_app_data().
+update productos p set activo=false
+from categorias c
+where c.id=p.categoria_id
+  and c.nombre in ('Shakes','Alimentos','Bebidas','Snacks')
+  and p.es_combo=false
+  and p.activo=true
+  and not exists (select 1 from _prod d where lower(d.nombre)=lower(p.nombre));
+
 delete from recetas where producto_id in (
   select p.id from productos p where lower(p.nombre) in (
     select lower(trim(x->>'nombre')) from app_data, jsonb_array_elements(data->'bebidas'||data->'snacks'||data->'shakeRecipes'||data->'foodRecipes') x
