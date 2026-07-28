@@ -25,6 +25,25 @@ imprimirse y seguirse en orden.
 - **Kiosko**: solo navegador. No necesita agente ni impresora.
 - Todos en la misma red, con internet.
 
+### 0.1 Escaneo previo (para revisarlo juntos)
+
+En cada equipo, antes de instalar nada, corre el escaneo y pégame el
+resultado. Es de solo lectura — no instala ni cambia nada — y me dice qué
+hardware hay, si falta Node.js, si la impresora está conectada por USB o en
+la red, y si el equipo alcanza Supabase:
+
+| Sistema | Cómo |
+|---|---|
+| Windows | Clic derecho en `scripts/escanear-equipo.ps1` → *Ejecutar con PowerShell*. Deja `shakeaholic-escaneo.txt` en el Escritorio. |
+| Linux / macOS | `bash scripts/escanear-equipo.sh \| tee ~/shakeaholic-escaneo.txt` |
+
+Si Windows bloquea el script, abre PowerShell en esa carpeta y pega:
+`Set-ExecutionPolicy -Scope Process Bypass -Force; .\escanear-equipo.ps1`
+
+> Esto hace falta porque el hardware **solo lo ve la máquina que lo tiene
+> enchufado**. Desde fuera no hay forma de detectar una impresora USB ni de
+> entrar a tu red local: el escaneo es el puente.
+
 ## 1. Estado que ya está listo (no hay que tocarlo)
 
 Verificado en la base de producción:
