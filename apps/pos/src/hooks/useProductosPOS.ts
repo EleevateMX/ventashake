@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { sb } from '../lib/sb'
-import { listarProductosParaVenta } from '@shake/supabase'
-import type { ProductoVenta } from '@shake/supabase'
+import { listarProductosParaVenta, listarProductosExtra, listarExtras } from '@shake/supabase'
+import type { ProductoVenta, ExtraDeProducto } from '@shake/supabase'
 
 /** Categoría derivada del catálogo (con su cocina/estación) para los filtros. */
 export interface CategoriaPOS {
@@ -13,12 +13,18 @@ export interface CategoriaPOS {
 
 export function useProductosPOS() {
   const [productos, setProductos] = useState<ProductoVenta[]>([])
+  const [productosExtra, setProductosExtra] = useState<ProductoVenta[]>([])
+  const [extras, setExtras] = useState<ExtraDeProducto[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    listarProductosParaVenta(sb)
-      .then(setProductos)
+    Promise.all([listarProductosParaVenta(sb), listarProductosExtra(sb), listarExtras(sb)])
+      .then(([prods, prodsExtra, exs]) => {
+        setProductos(prods)
+        setProductosExtra(prodsExtra)
+        setExtras(exs)
+      })
       .catch((e) => setError(e instanceof Error ? e.message : String(e)))
       .finally(() => setLoading(false))
   }, [])
@@ -32,5 +38,5 @@ export function useProductosPOS() {
     return [...map.values()].sort((a, b) => a.orden - b.orden || a.nombre.localeCompare(b.nombre))
   }, [productos])
 
-  return { productos, categorias, loading, error }
+  return { productos, productosExtra, extras, categorias, loading, error }
 }

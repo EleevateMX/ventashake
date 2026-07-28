@@ -4,10 +4,21 @@ import type { ProductoVenta, ClienteConLealtad } from '@shake/supabase'
 import type { Empleado } from '@shake/supabase'
 import type { Almacen, Caja, CajaCorte, Cupon, Promocion } from '@shake/types'
 
-/** Línea del ticket: producto real del catálogo + cantidad. */
+/**
+ * Línea del ticket: producto real del catálogo + cantidad.
+ * `lineaId` da identidad propia a la línea porque el mismo producto puede
+ * ir dos veces en la orden con personalización distinta (un wrap "sin
+ * lechuga" y otro normal son líneas separadas, no una de cantidad 2).
+ */
 export interface LineaCarrito {
+  lineaId: string
   producto: ProductoVenta
   cantidad: number
+  personalizacion: string | null
+}
+
+function nuevaLineaId(): string {
+  return globalThis.crypto?.randomUUID?.() ?? `l-${Date.now()}-${Math.random().toString(36).slice(2)}`
 }
 
 /** Descuento manual (autorización de caja) — se suma al `descuento` de la orden. */
@@ -37,10 +48,10 @@ interface PosStore {
   promosDisp: Promocion[]
   descuentoManual: DescuentoManual | null
 
-  agregarItem: (p: ProductoVenta) => void
-  incrementar: (productoId: string) => void
-  decrementar: (productoId: string) => void
-  quitarItem: (productoId: string) => void
+  agregarItem: (p: ProductoVenta, personalizacion?: string | null) => void
+  incrementar: (lineaId: string) => void
+  decrementar: (lineaId: string) => void
+  quitarItem: (lineaId: string) => void
   setCliente: (cliente: ClienteConLealtad | null) => void
   setCupon: (cupon: Cupon | null) => void
   setPromo: (promo: Promocion | null) => void
@@ -92,33 +103,43 @@ export const usePosStore = create<PosStore>((set, get) => ({
   promosDisp: [],
   descuentoManual: null,
 
-  agregarItem: (p) =>
+  agregarItem: (p, personalizacion = null) =>
     set((state) => {
-      const i = state.items.findIndex((l) => l.producto.id === p.id)
+      const nota = personalizacion?.trim() || null
+      // Solo se agrupa con una línea existente del mismo producto si ambas
+      // van sin personalización; con nota distinta va como línea aparte.
+      const i = state.items.findIndex(
+        (l) => l.producto.id === p.id && !l.personalizacion && !nota,
+      )
       if (i >= 0) {
         const items = [...state.items]
         items[i] = { ...items[i], cantidad: items[i].cantidad + 1 }
         return { items }
       }
-      return { items: [...state.items, { producto: p, cantidad: 1 }] }
+      return {
+        items: [
+          ...state.items,
+          { lineaId: nuevaLineaId(), producto: p, cantidad: 1, personalizacion: nota },
+        ],
+      }
     }),
 
-  incrementar: (productoId) =>
+  incrementar: (lineaId) =>
     set((state) => ({
       items: state.items.map((l) =>
-        l.producto.id === productoId ? { ...l, cantidad: l.cantidad + 1 } : l,
+        l.lineaId === lineaId ? { ...l, cantidad: l.cantidad + 1 } : l,
       ),
     })),
 
-  decrementar: (productoId) =>
+  decrementar: (lineaId) =>
     set((state) => ({
       items: state.items
-        .map((l) => (l.producto.id === productoId ? { ...l, cantidad: l.cantidad - 1 } : l))
+        .map((l) => (l.lineaId === lineaId ? { ...l, cantidad: l.cantidad - 1 } : l))
         .filter((l) => l.cantidad > 0),
     })),
 
-  quitarItem: (productoId) =>
-    set((state) => ({ items: state.items.filter((l) => l.producto.id !== productoId) })),
+  quitarItem: (lineaId) =>
+    set((state) => ({ items: state.items.filter((l) => l.lineaId !== lineaId) })),
 
   setCliente: (cliente) => set({ cliente }),
   setCupon: (cupon) => set({ cupon }),

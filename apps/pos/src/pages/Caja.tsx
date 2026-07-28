@@ -11,7 +11,7 @@ export function Caja() {
   const navigate = useNavigate()
   const { empleado, almacen, caja, corte, setContexto, setCorte, cerrarSesion, limpiarOrden } =
     usePosStore()
-  const { productos, categorias, loading } = useProductosPOS()
+  const { productos, productosExtra, extras, categorias, loading } = useProductosPOS()
 
   const [horaActual, setHoraActual] = useState(new Date())
   const [cargandoCtx, setCargandoCtx] = useState(!corte)
@@ -168,7 +168,7 @@ export function Caja() {
               <p className="font-mono text-sm text-sa-green-ink/50 animate-pulse">Cargando menú…</p>
             </div>
           ) : (
-            <CatalogoBusqueda productos={productos} categorias={categorias} />
+            <CatalogoBusqueda productos={productos} categorias={categorias} extras={extras} productosExtra={productosExtra} />
           )}
         </div>
 

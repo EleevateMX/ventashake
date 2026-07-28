@@ -1,18 +1,46 @@
 import React, { useState, useMemo } from 'react'
 import { usePosStore } from '@/store/posStore'
 import { mxn } from '@shake/utils'
-import type { ProductoVenta } from '@shake/supabase'
+import type { ProductoVenta, ExtraDeProducto } from '@shake/supabase'
 import type { CategoriaPOS } from '@/hooks/useProductosPOS'
+import { ModalPersonalizar } from './ModalPersonalizar'
 
 interface Props {
   productos: ProductoVenta[]
   categorias: CategoriaPOS[]
+  extras: ExtraDeProducto[]
+  /** Los productos extra en sí (el catálogo normal los excluye). */
+  productosExtra: ProductoVenta[]
 }
 
-export function CatalogoBusqueda({ productos, categorias }: Props) {
+export function CatalogoBusqueda({ productos, categorias, extras, productosExtra }: Props) {
   const agregarItem = usePosStore((s) => s.agregarItem)
   const [busqueda, setBusqueda] = useState('')
   const [categoriaActiva, setCategoriaActiva] = useState<string | null>(null)
+  const [personalizando, setPersonalizando] = useState<ProductoVenta | null>(null)
+
+  const extrasPorProducto = useMemo(() => {
+    const m = new Map<string, ExtraDeProducto[]>()
+    for (const e of extras) {
+      const lista = m.get(e.producto_id) ?? []
+      lista.push(e)
+      m.set(e.producto_id, lista)
+    }
+    return m
+  }, [extras])
+
+  // Los alimentos se personalizan (extras + restricciones); el resto entra
+  // directo al ticket con un toque, que es lo que espera la caja rápida.
+  function esPersonalizable(p: ProductoVenta): boolean {
+    return (
+      p.categorias?.cocinas?.slug === 'alimentos' || (extrasPorProducto.get(p.id)?.length ?? 0) > 0
+    )
+  }
+
+  function tocar(p: ProductoVenta) {
+    if (esPersonalizable(p)) setPersonalizando(p)
+    else agregarItem(p)
+  }
 
   const productosFiltrados = useMemo(() => {
     return productos.filter((p) => {
@@ -85,7 +113,7 @@ export function CatalogoBusqueda({ productos, categorias }: Props) {
             {productosFiltrados.map((p) => (
               <button
                 key={p.id}
-                onClick={() => agregarItem(p)}
+                onClick={() => tocar(p)}
                 className="flex flex-col items-center p-3 bg-white rounded-sa shadow-sa-sm border border-sa-green-ink/5 hover:border-sa-green/30 hover:-translate-y-0.5 active:scale-95 transition-all text-left group"
               >
                 {p.imagen_url ? (
@@ -104,6 +132,24 @@ export function CatalogoBusqueda({ productos, categorias }: Props) {
           </div>
         )}
       </div>
+
+      <ModalPersonalizar
+        producto={personalizando}
+        extras={personalizando ? (extrasPorProducto.get(personalizando.id) ?? []) : []}
+        onCerrar={() => setPersonalizando(null)}
+        onAgregar={(nota, extrasElegidos) => {
+          if (personalizando) {
+            agregarItem(personalizando, nota)
+            // Cada extra entra como su propia línea: cuesta, cobra y
+            // descuenta inventario como cualquier producto.
+            for (const e of extrasElegidos) {
+              const prodExtra = productosExtra.find((p) => p.id === e.extra_id)
+              if (prodExtra) agregarItem(prodExtra)
+            }
+          }
+          setPersonalizando(null)
+        }}
+      />
     </div>
   )
 }

@@ -1352,6 +1352,36 @@ export type Database = {
           },
         ]
       }
+      producto_extras: {
+        Row: {
+          extra_id: string
+          producto_id: string
+        }
+        Insert: {
+          extra_id: string
+          producto_id: string
+        }
+        Update: {
+          extra_id?: string
+          producto_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "producto_extras_extra_id_fkey"
+            columns: ["extra_id"]
+            isOneToOne: false
+            referencedRelation: "productos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "producto_extras_producto_id_fkey"
+            columns: ["producto_id"]
+            isOneToOne: false
+            referencedRelation: "productos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       productos: {
         Row: {
           activo: boolean
@@ -1361,6 +1391,7 @@ export type Database = {
           created_at: string
           descripcion: string | null
           es_combo: boolean
+          es_extra: boolean
           es_reventa: boolean
           id: string
           imagen_url: string | null
@@ -1378,6 +1409,7 @@ export type Database = {
           created_at?: string
           descripcion?: string | null
           es_combo?: boolean
+          es_extra?: boolean
           es_reventa?: boolean
           id?: string
           imagen_url?: string | null
@@ -1395,6 +1427,7 @@ export type Database = {
           created_at?: string
           descripcion?: string | null
           es_combo?: boolean
+          es_extra?: boolean
           es_reventa?: boolean
           id?: string
           imagen_url?: string | null
@@ -1949,6 +1982,16 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      vw_producto_extras: {
+        Row: {
+          activo: boolean | null
+          extra_id: string | null
+          nombre: string | null
+          precio: number | null
+          producto_id: string | null
+        }
+        Relationships: []
       }
       vw_productos_mas_vendidos: {
         Row: {

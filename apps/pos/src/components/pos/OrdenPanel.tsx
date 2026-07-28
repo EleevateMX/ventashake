@@ -95,14 +95,19 @@ export function OrdenPanel({ onCobrar }: Props) {
         ) : (
           <div className="px-3 py-3 space-y-2">
             {items.map((l) => (
-              <div key={l.producto.id} className="flex items-center gap-2 bg-sa-cream-soft rounded-sa px-3 py-2.5">
+              <div key={l.lineaId} className="flex items-center gap-2 bg-sa-cream-soft rounded-sa px-3 py-2.5">
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-sa-green-ink truncate">{l.producto.nombre}</p>
                   <p className="font-mono text-xs text-sa-green-ink/50">{mxn(l.producto.precio)} c/u</p>
+                  {l.personalizacion && (
+                    <p className="font-mono text-xs text-sa-strawberry mt-0.5 leading-snug">
+                      📝 {l.personalizacion}
+                    </p>
+                  )}
                 </div>
                 <div className="flex items-center gap-1.5 flex-shrink-0">
                   <button
-                    onClick={() => decrementar(l.producto.id)}
+                    onClick={() => decrementar(l.lineaId)}
                     className="w-7 h-7 rounded-full bg-white hover:bg-sa-strawberry/10 text-sa-green-ink hover:text-sa-strawberry text-sm flex items-center justify-center font-bold transition-colors border border-sa-green-ink/10"
                   >
                     −
@@ -111,7 +116,7 @@ export function OrdenPanel({ onCobrar }: Props) {
                     {l.cantidad}
                   </span>
                   <button
-                    onClick={() => incrementar(l.producto.id)}
+                    onClick={() => incrementar(l.lineaId)}
                     className="w-7 h-7 rounded-full bg-sa-green hover:bg-sa-green-deep text-sa-cream text-sm flex items-center justify-center font-bold transition-colors"
                   >
                     +
@@ -123,7 +128,7 @@ export function OrdenPanel({ onCobrar }: Props) {
                   </p>
                 </div>
                 <button
-                  onClick={() => quitarItem(l.producto.id)}
+                  onClick={() => quitarItem(l.lineaId)}
                   className="text-sa-green-ink/30 hover:text-sa-strawberry transition-colors ml-1 flex-shrink-0"
                 >
                   ✕

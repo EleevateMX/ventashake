@@ -3,6 +3,7 @@ import { useState, type ReactElement } from 'react'
 import Dashboard from './pages/Dashboard'
 import Menu from './pages/Menu'
 import Combos from './pages/Combos'
+import Extras from './pages/Extras'
 import Ventas from './pages/Ventas'
 import Inventario from './pages/Inventario'
 import Promos from './pages/Promos'
@@ -10,7 +11,7 @@ import Empleados from './pages/Empleados'
 import Impresoras from './pages/Impresoras'
 import Sistema from './pages/Sistema'
 
-type Tab = 'dashboard' | 'menu' | 'combos' | 'inventario' | 'promos' | 'ventas' | 'empleados' | 'impresoras' | 'sistema'
+type Tab = 'dashboard' | 'menu' | 'combos' | 'extras' | 'inventario' | 'promos' | 'ventas' | 'empleados' | 'impresoras' | 'sistema'
 
 const w = 18
 
@@ -27,6 +28,11 @@ const IconMenu = () => (
 const IconCombos = () => (
   <svg width={w} height={w} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" />
+  </svg>
+)
+const IconExtras = () => (
+  <svg width={w} height={w} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
   </svg>
 )
 const IconInventario = () => (
@@ -64,6 +70,7 @@ const navItems: { id: Tab; label: string; Icon: () => ReactElement }[] = [
   { id: 'dashboard', label: 'Dashboard', Icon: IconDashboard },
   { id: 'menu', label: 'Menú', Icon: IconMenu },
   { id: 'combos', label: 'Combos', Icon: IconCombos },
+  { id: 'extras', label: 'Extras', Icon: IconExtras },
   { id: 'inventario', label: 'Inventario', Icon: IconInventario },
   { id: 'promos', label: 'Promos', Icon: IconPromos },
   { id: 'ventas', label: 'Ventas', Icon: IconVentas },
@@ -110,6 +117,7 @@ export default function App() {
         {tab === 'dashboard' && <Dashboard />}
         {tab === 'menu' && <Menu />}
         {tab === 'combos' && <Combos />}
+        {tab === 'extras' && <Extras />}
         {tab === 'ventas' && <Ventas />}
         {tab === 'inventario' && <Inventario />}
         {tab === 'promos' && <Promos />}

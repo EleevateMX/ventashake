@@ -8,6 +8,8 @@ import {
   actualizarProducto,
   desactivarProducto,
   crearCategoria,
+  subirFotoProducto,
+  quitarFotoProducto,
 } from '@shake/supabase'
 import type { Producto, Categoria, Cocina } from '@shake/types'
 import { mxn } from '@shake/utils'
@@ -39,6 +41,9 @@ export default function Menu() {
   const [catNombre, setCatNombre] = useState('')
   const [catCocinaId, setCatCocinaId] = useState('')
   const [guardandoCat, setGuardandoCat] = useState(false)
+
+  // Foto que se está subiendo (id del producto) para bloquear ese botón
+  const [subiendoFoto, setSubiendoFoto] = useState<string | null>(null)
 
   const catPorId = useMemo(() => {
     const m = new Map<string, Categoria>()
@@ -109,6 +114,33 @@ export default function Menu() {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
       setGuardando(false)
+    }
+  }
+
+  async function handleFoto(p: Producto, archivo: File | undefined) {
+    if (!archivo) return
+    setSubiendoFoto(p.id)
+    setError(null)
+    try {
+      await subirFotoProducto(sb, p.id, archivo)
+      setOk(`Foto de "${p.nombre}" actualizada.`)
+      await cargar()
+      setTimeout(() => setOk(null), 3000)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setSubiendoFoto(null)
+    }
+  }
+
+  async function handleQuitarFoto(p: Producto) {
+    if (!confirm(`¿Quitar la foto de "${p.nombre}"?`)) return
+    setError(null)
+    try {
+      await quitarFotoProducto(sb, p.id)
+      await cargar()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
     }
   }
 
@@ -200,6 +232,7 @@ export default function Menu() {
               <table className={cx.table}>
                 <thead>
                   <tr className={cx.thead}>
+                    <th className={cx.th}>Foto</th>
                     <th className={cx.th}>Nombre</th>
                     <th className={cx.th}>Categoría</th>
                     <th className={cx.thNum}>Precio</th>
@@ -210,6 +243,44 @@ export default function Menu() {
                 <tbody className={cx.tbody}>
                   {productos.map((p) => (
                     <tr key={p.id} className={cx.tr}>
+                      <td className={cx.td}>
+                        <div className="flex items-center gap-2">
+                          {p.imagen_url ? (
+                            <img
+                              src={p.imagen_url}
+                              alt={p.nombre}
+                              className="w-12 h-12 rounded-sa object-cover border border-sa-green-ink/10"
+                            />
+                          ) : (
+                            <div className="w-12 h-12 rounded-sa bg-sa-cream-soft border border-dashed border-sa-green-ink/15 flex items-center justify-center text-lg text-sa-green-ink/30">
+                              📷
+                            </div>
+                          )}
+                          <div className="flex flex-col gap-1">
+                            <label className="px-2 py-1 text-[11px] font-medium border border-sa-green-ink/15 rounded-lg hover:bg-sa-cream-soft text-sa-green-ink cursor-pointer whitespace-nowrap">
+                              {subiendoFoto === p.id ? 'Subiendo…' : p.imagen_url ? 'Cambiar' : 'Subir'}
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                disabled={subiendoFoto === p.id}
+                                onChange={(e) => {
+                                  void handleFoto(p, e.target.files?.[0])
+                                  e.target.value = ''
+                                }}
+                              />
+                            </label>
+                            {p.imagen_url && (
+                              <button
+                                onClick={() => void handleQuitarFoto(p)}
+                                className="px-2 py-1 text-[11px] font-medium text-sa-strawberry hover:underline whitespace-nowrap"
+                              >
+                                Quitar
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </td>
                       <td className={`${cx.td} font-medium`}>{p.nombre}</td>
                       <td className={cx.td}>{p.categoria_id ? catPorId.get(p.categoria_id)?.nombre ?? '—' : '—'}</td>
                       <td className={cx.tdNum}>{mxn(p.precio)}</td>

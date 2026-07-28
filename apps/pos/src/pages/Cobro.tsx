@@ -64,6 +64,7 @@ export function Cobro() {
           producto_id: l.producto.id,
           cantidad: l.cantidad,
           precio_unitario: l.producto.precio,
+          personalizacion: l.personalizacion,
         })),
       )
       // Cupón: canjear (marca usado + liga a la orden) antes de cobrar.
@@ -242,9 +243,14 @@ export function Cobro() {
           <h3 className="font-display text-lg text-sa-green-ink mb-3">Ticket</h3>
           <div className="flex-1 overflow-y-auto space-y-1.5 mb-4 font-mono text-sm">
             {items.map((l) => (
-              <div key={l.producto.id} className="flex justify-between py-1 border-b border-dashed border-sa-green-ink/10">
-                <span className="text-sa-green-ink/70 truncate flex-1 mr-2">×{l.cantidad} {l.producto.nombre}</span>
-                <span className="font-medium text-sa-green-ink flex-shrink-0">{mxn(l.producto.precio * l.cantidad)}</span>
+              <div key={l.lineaId} className="py-1 border-b border-dashed border-sa-green-ink/10">
+                <div className="flex justify-between">
+                  <span className="text-sa-green-ink/70 truncate flex-1 mr-2">×{l.cantidad} {l.producto.nombre}</span>
+                  <span className="font-medium text-sa-green-ink flex-shrink-0">{mxn(l.producto.precio * l.cantidad)}</span>
+                </div>
+                {l.personalizacion && (
+                  <p className="text-xs text-sa-strawberry leading-snug">📝 {l.personalizacion}</p>
+                )}
               </div>
             ))}
           </div>
