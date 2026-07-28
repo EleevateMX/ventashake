@@ -28,6 +28,21 @@ param(
 
 $ErrorActionPreference = 'Continue'
 
+# Get-PnpDevice y Get-CimInstance solo existen en Windows: son la puerta al
+# hardware y al registro. Corrido en otro sistema, el script no fallaba — solo
+# vomitaba errores rojos y decía "(ninguno)", que se lee como "no tienes
+# tactiles" en vez de "esto no se puede correr aqui". Se corta antes.
+if (-not $IsWindows -and $PSVersionTable.PSVersion.Major -ge 6) {
+  Write-Host "Este script solo funciona en Windows." -ForegroundColor Yellow
+  Write-Host "Los tactiles y los monitores solo los ve la maquina que los tiene conectados:"
+  Write-Host "correlo en la PC de la sucursal, no en otro equipo."
+  exit 1
+}
+if (-not (Get-Command Get-PnpDevice -EA SilentlyContinue)) {
+  Write-Host "Falta Get-PnpDevice: se necesita Windows 8 o superior." -ForegroundColor Yellow
+  exit 1
+}
+
 function EsAdmin {
   $id = [Security.Principal.WindowsIdentity]::GetCurrent()
   (New-Object Security.Principal.WindowsPrincipal $id).IsInRole(
