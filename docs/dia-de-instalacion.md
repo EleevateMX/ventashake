@@ -88,6 +88,39 @@ Verificado en la base de producción:
 - Empleados: **Cajero 1** y **Gerente** (este último hace falta para
   autorizar descuentos y canjes de cupón).
 
+## 1.5 Asociar cada táctil con su monitor (5 min)
+
+Con varias pantallas táctiles, Windows manda **todo** el toque al monitor
+principal hasta que se le dice cuál es cuál. El síntoma es inconfundible: una
+pantalla responde y las demás se ven bien pero no reaccionan al dedo.
+
+Primero confirma que Windows ve los digitalizadores:
+
+```powershell
+Get-CimInstance Win32_PnPEntity |
+  Where-Object { $_.Name -match 'tácti|touch|digitizer' } |
+  Select-Object Name,Status | Format-Table -Auto
+```
+
+Deben aparecer tantas *"Pantalla táctil compatible con HID"* en `OK` como
+pantallas táctiles tengas. Si falta alguna, el problema es el **cable USB del
+táctil**: una pantalla táctil necesita dos cables, el de video y uno USB
+aparte para el toque. Conectar solo el HDMI da imagen pero no toque.
+
+Si están todas, es solo mapeo:
+
+1. `control /name Microsoft.TabletPCSettings` (o `tabletpc.cpl`).
+2. Pestaña **Pantalla** → botón **Configurar…** → **Entrada táctil**.
+3. Windows muestra en un monitor: *"Toque esta pantalla con un dedo…"*.
+   - Si el mensaje está en la pantalla que quieres asociar, **tócala**.
+   - Si está en otra, **Enter** para saltar al siguiente monitor.
+4. Repetir hasta cubrir todas.
+
+Con monitores rotados a vertical, al terminar verifica que el dedo caiga donde
+debe. Si tocas arriba-izquierda y el clic sale abajo-derecha, la rotación del
+táctil no siguió a la del video: usa **Restablecer** en esa misma ventana y
+repite el paso 3 con las pantallas ya rotadas.
+
 ## 2. Abrir las apps (5 min)
 
 Cada pantalla abre su URL y se deja en pantalla completa (F11):
