@@ -49,10 +49,20 @@ export function PagarEnCaja() {
 
   useEffect(() => {
     if (!orden) return
-    QRCode.toDataURL(
-      JSON.stringify({ folio: orden.folio, codigo: orden.codigo_corto, total: orden.total }),
-      { width: 220, margin: 2, color: { dark: '#14241D', light: '#F8F4EC' } },
-    )
+    // El QR lleva SOLO el código corto, en texto plano.
+    //
+    // Un lector USB se comporta como un teclado: teclea lo que lee. Si aquí
+    // va un JSON, el cajero escanea y en el buscador del POS aparece
+    // `{"folio":39,...}`, que no coincide con ningún folio ni código — el
+    // escaneo no sirve de nada y hay que teclear el código a mano.
+    // Con el código pelón, escanear llena el buscador y encuentra el pedido
+    // de inmediato.
+    if (!orden.codigo_corto) return
+    QRCode.toDataURL(orden.codigo_corto, {
+      width: 320,
+      margin: 2,
+      color: { dark: '#14241D', light: '#F8F4EC' },
+    })
       .then(setQrUrl)
       .catch(console.error)
   }, [orden])
@@ -114,7 +124,10 @@ export function PagarEnCaja() {
             <p className="font-display text-6xl text-sa-cream mt-2 leading-none tracking-widest">{codigo}</p>
           </div>
 
-          {qrUrl && <img src={qrUrl} alt="QR del pedido" className="w-40 h-40 rounded-sa shadow-lg mt-5" />}
+          {/* Más grande que antes: es lo que el cajero apunta con el lector. */}
+          {qrUrl && (
+            <img src={qrUrl} alt="QR del pedido" className="w-52 h-52 rounded-sa shadow-lg mt-5 bg-white p-2" />
+          )}
 
           <div className="mt-5 flex items-center gap-4">
             <div className="bg-sa-green-ink rounded-sa-lg px-6 py-4 text-center">

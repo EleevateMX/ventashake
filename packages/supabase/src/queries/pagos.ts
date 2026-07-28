@@ -13,29 +13,42 @@ export interface OrdenConItems extends Orden {
   orden_items: OrdenItemConProducto[]
 }
 
+/**
+ * Aplica el criterio de búsqueda de caja (folio o código corto).
+ *
+ * El código corto son 6 caracteres hexadecimales, así que **no** se puede
+ * decidir con `Number(c)` si lo tecleado es un folio: `Number('4E6821')` da
+ * `Infinity` y `Number('000123')` da `123`, y en ambos casos se acababa
+ * buscando por folio un código perfectamente válido. Le pasa a ~8% de los
+ * códigos posibles — uno de cada doce pedidos no aparecía al escanearlo.
+ *
+ * Ahora solo cuenta como folio lo que es *únicamente* dígitos, y aun así se
+ * busca también por código: "000123" puede ser cualquiera de los dos.
+ * El tope de 9 dígitos mantiene el valor dentro del rango de un `int4`.
+ */
+function aplicarCriterioCaja<T>(query: T, criterio?: string): T {
+  if (!criterio || !criterio.trim()) return query
+  const c = criterio.trim().toUpperCase()
+  const q = query as unknown as {
+    or: (f: string) => T
+    eq: (col: string, val: string) => T
+  }
+  return /^\d{1,9}$/.test(c) ? q.or(`folio.eq.${c},codigo_corto.eq.${c}`) : q.eq('codigo_corto', c)
+}
+
 /** Órdenes de kiosko esperando cobro en caja, con sus items (para la lista de POS). */
 export async function listarOrdenesPendientesCajaConItems(
   sb: ShakeClient,
   criterio?: string,
 ): Promise<OrdenConItems[]> {
-  let query = sb
+  const base = sb
     .from('ordenes')
     .select('*, orden_items(id, cantidad, precio_unitario, personalizacion, productos(nombre))')
     .eq('estado_pago_orden', 'awaiting_counter_payment')
     .order('created_at', { ascending: true })
     .limit(50)
 
-  if (criterio && criterio.trim()) {
-    const c = criterio.trim().toUpperCase()
-    const folio = Number(c)
-    if (!Number.isNaN(folio)) {
-      query = query.or(`folio.eq.${folio},codigo_corto.eq.${c}`)
-    } else {
-      query = query.eq('codigo_corto', c)
-    }
-  }
-
-  const { data, error } = await query
+  const { data, error } = await aplicarCriterioCaja(base, criterio)
   if (error) throw error
   return data as OrdenConItems[]
 }
@@ -83,24 +96,14 @@ export async function buscarOrdenesPendientesCaja(
   sb: ShakeClient,
   criterio?: string,
 ): Promise<Orden[]> {
-  let query = sb
+  const base = sb
     .from('ordenes')
     .select('*')
     .eq('estado_pago_orden', 'awaiting_counter_payment')
     .order('created_at', { ascending: true })
     .limit(50)
 
-  if (criterio && criterio.trim()) {
-    const c = criterio.trim().toUpperCase()
-    const folio = Number(c)
-    if (!Number.isNaN(folio)) {
-      query = query.or(`folio.eq.${folio},codigo_corto.eq.${c}`)
-    } else {
-      query = query.eq('codigo_corto', c)
-    }
-  }
-
-  const { data, error } = await query
+  const { data, error } = await aplicarCriterioCaja(base, criterio)
   if (error) throw error
   return data
 }
