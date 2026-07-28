@@ -1397,8 +1397,10 @@ export type Database = {
           imagen_url: string | null
           iva_incluido: boolean
           mano_obra: number
+          marca: string | null
           merma_pct: number | null
           nombre: string
+          orden: number
           precio: number
         }
         Insert: {
@@ -1415,8 +1417,10 @@ export type Database = {
           imagen_url?: string | null
           iva_incluido?: boolean
           mano_obra?: number
+          marca?: string | null
           merma_pct?: number | null
           nombre: string
+          orden?: number
           precio?: number
         }
         Update: {
@@ -1433,8 +1437,10 @@ export type Database = {
           imagen_url?: string | null
           iva_incluido?: boolean
           mano_obra?: number
+          marca?: string | null
           merma_pct?: number | null
           nombre?: string
+          orden?: number
           precio?: number
         }
         Relationships: [

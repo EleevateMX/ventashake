@@ -173,7 +173,7 @@ export function Caja() {
         </div>
 
         <div className="w-96 flex-shrink-0 flex flex-col bg-white rounded-sa shadow-sa-sm overflow-hidden">
-          <OrdenPanel onCobrar={() => navigate('/cobro')} />
+          <OrdenPanel onCobrar={() => navigate('/cobro')} productos={productos} />
         </div>
       </div>
     </div>

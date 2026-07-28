@@ -17,6 +17,7 @@ export function CatalogoBusqueda({ productos, categorias, extras, productosExtra
   const agregarItem = usePosStore((s) => s.agregarItem)
   const [busqueda, setBusqueda] = useState('')
   const [categoriaActiva, setCategoriaActiva] = useState<string | null>(null)
+  const [marcaActiva, setMarcaActiva] = useState<string | null>(null)
   const [personalizando, setPersonalizando] = useState<ProductoVenta | null>(null)
 
   const extrasPorProducto = useMemo(() => {
@@ -42,13 +43,26 @@ export function CatalogoBusqueda({ productos, categorias, extras, productosExtra
     else agregarItem(p)
   }
 
+  // Marcas de la categoría abierta (snacks/bebidas/suplementos vienen con
+  // marca desde costosshake). Con varias marcas se muestra un segundo nivel
+  // de filtro para no tener que buscar entre decenas de sabores sueltos.
+  const marcasDeCategoria = useMemo(() => {
+    if (!categoriaActiva) return []
+    const set = new Set<string>()
+    for (const p of productos) {
+      if (p.categoria_id === categoriaActiva && p.marca) set.add(p.marca)
+    }
+    return [...set].sort((a, b) => a.localeCompare(b))
+  }, [productos, categoriaActiva])
+
   const productosFiltrados = useMemo(() => {
     return productos.filter((p) => {
       const coincideBusqueda = !busqueda || p.nombre.toLowerCase().includes(busqueda.toLowerCase())
       const coincideCategoria = !categoriaActiva || p.categoria_id === categoriaActiva
-      return coincideBusqueda && coincideCategoria
+      const coincideMarca = !marcaActiva || p.marca === marcaActiva
+      return coincideBusqueda && coincideCategoria && coincideMarca
     })
-  }, [productos, busqueda, categoriaActiva])
+  }, [productos, busqueda, categoriaActiva, marcaActiva])
 
   return (
     <div className="flex flex-col h-full">
@@ -59,7 +73,7 @@ export function CatalogoBusqueda({ productos, categorias, extras, productosExtra
           <input
             type="text"
             value={busqueda}
-            onChange={(e) => { setBusqueda(e.target.value); setCategoriaActiva(null) }}
+            onChange={(e) => { setBusqueda(e.target.value); setCategoriaActiva(null); setMarcaActiva(null) }}
             placeholder="Buscar shake, café, lo que sea…"
             className="w-full pl-11 pr-10 py-3 bg-white rounded-sa-lg text-sa-green-ink placeholder:font-mono placeholder:text-sa-green-ink/40 placeholder:text-sm focus:outline-none focus:ring-2 focus:ring-sa-green/30 border border-sa-green-ink/10 transition-all"
           />
@@ -77,7 +91,7 @@ export function CatalogoBusqueda({ productos, categorias, extras, productosExtra
       {/* Filtros por categoría */}
       <div className="flex gap-2 px-4 py-3 overflow-x-auto flex-shrink-0">
         <button
-          onClick={() => setCategoriaActiva(null)}
+          onClick={() => { setCategoriaActiva(null); setMarcaActiva(null) }}
           className={`flex-shrink-0 px-4 py-2 rounded-full font-mono text-xs uppercase tracking-wide transition-colors ${
             !categoriaActiva
               ? 'bg-sa-green text-sa-cream'
@@ -89,7 +103,7 @@ export function CatalogoBusqueda({ productos, categorias, extras, productosExtra
         {categorias.map((cat) => (
           <button
             key={cat.id}
-            onClick={() => setCategoriaActiva(cat.id)}
+            onClick={() => { setCategoriaActiva(cat.id); setMarcaActiva(null) }}
             className={`flex-shrink-0 px-4 py-2 rounded-full font-mono text-xs uppercase tracking-wide transition-colors flex items-center gap-1.5 ${
               categoriaActiva === cat.id
                 ? 'bg-sa-green text-sa-cream'
@@ -101,6 +115,35 @@ export function CatalogoBusqueda({ productos, categorias, extras, productosExtra
           </button>
         ))}
       </div>
+
+      {/* Segundo nivel: marcas de la categoría abierta (Lenny & Larrys, Raw…) */}
+      {marcasDeCategoria.length > 1 && (
+        <div className="flex gap-2 px-4 pb-3 overflow-x-auto flex-shrink-0">
+          <button
+            onClick={() => setMarcaActiva(null)}
+            className={`flex-shrink-0 px-3 py-1.5 rounded-full font-mono text-[11px] uppercase tracking-wide transition-colors ${
+              !marcaActiva
+                ? 'bg-sa-green-ink text-sa-cream'
+                : 'bg-white border border-sa-green-ink/10 text-sa-green-ink/60 hover:bg-sa-cream-warm'
+            }`}
+          >
+            Todas las marcas
+          </button>
+          {marcasDeCategoria.map((m) => (
+            <button
+              key={m}
+              onClick={() => setMarcaActiva(m === marcaActiva ? null : m)}
+              className={`flex-shrink-0 px-3 py-1.5 rounded-full font-mono text-[11px] uppercase tracking-wide transition-colors ${
+                marcaActiva === m
+                  ? 'bg-sa-green-ink text-sa-cream'
+                  : 'bg-white border border-sa-green-ink/10 text-sa-green-ink/60 hover:bg-sa-cream-warm'
+              }`}
+            >
+              {m}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Grid de productos */}
       <div className="flex-1 overflow-y-auto px-4 pb-4">

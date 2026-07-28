@@ -159,6 +159,7 @@ export async function listarProductosParaVenta(sb: ShakeClient): Promise<Product
     .select('*, categorias(id, nombre, orden, cocinas(id, nombre, slug))')
     .eq('activo', true)
     .eq('es_extra', false)
+    .order('orden')
     .order('nombre')
   if (error) throw error
   return data as unknown as ProductoVenta[]

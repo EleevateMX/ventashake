@@ -7,12 +7,16 @@ import type { Cupon } from '@shake/types'
 import { ModalDescuento } from './ModalDescuento'
 import { ModalCliente } from './ModalCliente'
 import { ModalAutorizacion } from './ModalAutorizacion'
+import { SugerenciaVenta } from './SugerenciaVenta'
+import type { ProductoVenta } from '@shake/supabase'
 
 interface Props {
   onCobrar: () => void
+  /** Catálogo activo, para sugerir venta cruzada al cajero. */
+  productos: ProductoVenta[]
 }
 
-export function OrdenPanel({ onCobrar }: Props) {
+export function OrdenPanel({ onCobrar, productos }: Props) {
   const {
     items, incrementar, decrementar, quitarItem, limpiarOrden,
     cliente, cupon, promo, promosDisp,
@@ -250,6 +254,8 @@ export function OrdenPanel({ onCobrar }: Props) {
               </div>
             </div>
           )}
+
+          <SugerenciaVenta productos={productos} />
 
           {/* Totales */}
           <div className="px-5 py-3 space-y-1.5">
