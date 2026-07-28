@@ -8,8 +8,13 @@ REM  ajustar las coordenadas de abajo.
 REM
 REM    Monitor              Posicion    Tamano      App
 REM    ViewSonic TD2223     0,0         1080x1920   kiosko      (cliente)
-REM    Touch 1024x768 izq   1080,150    768x1024    alimentos   (cocina)
-REM    Touch 1024x768 der   1848,139    768x1024    bebidas     (barra)
+REM    Touch 1024x768 izq   1080,150    768x1024    bebidas     (barra)
+REM    Touch 1024x768 der   1848,139    768x1024    alimentos   (cocina)
+REM
+REM  Ojo: alimentos va en el monitor DERECHO y bebidas en el IZQUIERDO. No es
+REM  un descuido — es como estan fisicamente puestas las estaciones en el
+REM  local. Se comprobo en sitio: con el orden inverso, a cocina le llegaban
+REM  las bebidas y a la barra los alimentos.
 REM
 REM  Cada ventana usa su PROPIO perfil (--user-data-dir). Sin eso Chrome
 REM  reutiliza la instancia que ya esta abierta, ignora --window-position y
@@ -39,12 +44,12 @@ echo Abriendo KIOSKO (monitor vertical grande)...
 start "" "%NAV%" %FLAGS% --user-data-dir="%LOCALAPPDATA%\shake-kiosko" --window-position=0,0 https://shake-kiosko.pages.dev
 timeout /t 4 /nobreak >nul
 
-echo Abriendo COCINA - ALIMENTOS (monitor chico izquierdo)...
-start "" "%NAV%" %FLAGS% --user-data-dir="%LOCALAPPDATA%\shake-alimentos" --window-position=1080,150 https://shake-cocina-alimentos.pages.dev
+echo Abriendo BARRA - BEBIDAS (monitor chico izquierdo)...
+start "" "%NAV%" %FLAGS% --user-data-dir="%LOCALAPPDATA%\shake-bebidas" --window-position=1080,150 https://shake-cocina-bebidas.pages.dev
 timeout /t 4 /nobreak >nul
 
-echo Abriendo BARRA - BEBIDAS (monitor chico derecho)...
-start "" "%NAV%" %FLAGS% --user-data-dir="%LOCALAPPDATA%\shake-bebidas" --window-position=1848,139 https://shake-cocina-bebidas.pages.dev
+echo Abriendo COCINA - ALIMENTOS (monitor chico derecho)...
+start "" "%NAV%" %FLAGS% --user-data-dir="%LOCALAPPDATA%\shake-alimentos" --window-position=1848,139 https://shake-cocina-alimentos.pages.dev
 
 echo.
 echo Listo. Si alguna app quedo en el monitor equivocado, intercambia las
