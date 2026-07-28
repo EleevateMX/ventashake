@@ -24,6 +24,26 @@ El lado del sistema ya quedó listo y probado para este momento:
   usado — y eso se vuelve alcanzable desde la calle justo cuando Rewards se
   abre al público. Detalle y pruebas en `docs/flujo-lealtad.md`.
 
+## Si vas a conectar tu dominio, hazlo ANTES
+
+Google valida los orígenes carácter por carácter, así que las URLs que
+registres aquí tienen que ser las definitivas. Si configuras Google con los
+`*.pages.dev` y después conectas `shakeaholic.mx`, hay que volver a entrar a
+Google Cloud y a Supabase a agregar las nuevas.
+
+Orden que se hace una sola vez:
+
+1. Conectar el dominio (`docs/despliegue-godaddy.md`).
+2. Esperar a que el hosting marque el dominio como **Active** y sirva por
+   HTTPS.
+3. Recién entonces seguir esta guía, usando el dominio propio.
+
+> **Dato importante:** la app de Rewards **solo** tiene entrada por Google.
+> No hay acceso por correo, teléfono ni contraseña. Mientras Google no esté
+> encendido, el cliente puede abrir `shakeaholic.mx` pero no puede entrar a
+> ver sus mancuernas. (En caja sí funciona todo: se identifica por teléfono
+> o QR.)
+
 ## Datos que vas a necesitar a la mano
 
 | Dato | Valor |
