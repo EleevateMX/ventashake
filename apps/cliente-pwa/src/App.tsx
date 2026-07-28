@@ -48,11 +48,8 @@ export default function App() {
         (user.user_metadata?.name as string) ||
         user.email ||
         'Cliente'
-      const cli = await vincularClienteAuth(sb, {
-        authUserId: user.id,
-        nombre,
-        email: user.email ?? null,
-      })
+      // El id y el correo los toma el servidor de la sesión, no de aquí.
+      const cli = await vincularClienteAuth(sb, { nombre })
       setCliente(cli)
       setError(null)
     } catch (e) {

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { usuarioActual } from '@shake/supabase'
+import { usuarioActual, vincularClienteAuth } from '@shake/supabase'
 import { useCarrito } from '@/store/carritoStore'
 import { sb } from '@/lib/sb'
 
@@ -23,11 +23,27 @@ export function AuthCallback() {
 
       setEstado('Buscando tu cuenta…')
 
+      const nombre = (user.user_metadata?.full_name as string | undefined) ?? user.email
+
+      // Sin este paso el cliente queda autenticado pero SIN ficha de lealtad,
+      // la orden se crea con cliente_id nulo y no acumula nada: entrar con
+      // Google no le serviría de nada. La ficha la resuelve el servidor a
+      // partir de la sesión (crea la suya o reclama la que ya tenía en caja).
+      let clienteId: string | null = null
+      try {
+        const cliente = await vincularClienteAuth(sb, { nombre })
+        clienteId = cliente.id
+      } catch (e) {
+        // Si falla la vinculación no se le corta la compra: sigue al pago sin
+        // acumular, que es mejor que dejarlo atorado en esta pantalla.
+        console.error('[AuthCallback] no se pudo vincular la ficha de lealtad', e)
+      }
+
       setUsuario({
         authId: user.id,
-        nombre: user.user_metadata?.full_name ?? user.email,
+        nombre,
         email: user.email,
-        clienteId: null,
+        clienteId,
       })
 
       navigate('/pago', { replace: true })

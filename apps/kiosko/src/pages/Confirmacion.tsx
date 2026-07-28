@@ -35,7 +35,10 @@ export function Confirmacion() {
     [],
   )
   const numeroOrden   = folioReal ?? fallbackNumero
-  const puntosGanados = usuario?.clienteId ? Math.floor(totalOrden / 10) : 0
+  // Mismo cálculo que hace el servidor al cobrar (fn_acumular_mancuernas):
+  // 1 mancuerna por cada $10, con tope de 100 por orden. Si aquí no se pone el
+  // tope, el ticket promete más mancuernas de las que realmente se abonan.
+  const puntosGanados = usuario?.clienteId ? Math.min(100, Math.floor(totalOrden / 10)) : 0
   const esDemo        = state.demo ?? false
 
   useEffect(() => {
@@ -72,7 +75,7 @@ export function Confirmacion() {
       })),
       metodoPago: metodo === 'terminal' ? 'Clip · Terminal' : 'Efectivo',
       clienteNombre: usuario?.nombre,
-      mancuernasGanadas: usuario?.clienteId ? Math.floor(totalOrden / 10) : undefined,
+      mancuernasGanadas: puntosGanados > 0 ? puntosGanados : undefined,
     }
     imprimirTicket(ticket)
   }

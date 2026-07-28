@@ -88,21 +88,22 @@ export function LoginLealtad() {
 
             <div className="text-center">
               <h2 className="font-display text-4xl text-sa-green-ink leading-tight">
-                Gana puntos con tu compra
+                Gana mancuernas con tu compra
               </h2>
               <p className="font-body text-sa-green-ink/60 mt-3 text-lg">
-                1 punto por cada $10. Acumula para descuentos, bebidas gratis y más.
+                1 mancuerna por cada $10 de compra. Al juntar 100 se te genera
+                un cupón de recompensa solo.
               </p>
             </div>
 
-            {/* Benefit pills */}
+            {/* Cómo funciona — el programa real, sin niveles inventados. */}
             <div className="grid grid-cols-3 gap-3 w-full">
               {[
-                { label: '500 pts', sub: 'Nivel Plata' },
-                { label: '2,000 pts', sub: 'Nivel Oro' },
-                { label: '5,000 pts', sub: 'Platino' },
+                { label: '$10', sub: '1 mancuerna' },
+                { label: '100', sub: 'Cupón' },
+                { label: '1 año', sub: 'Vigencia' },
               ].map((b) => (
-                <div key={b.label} className="bg-white rounded-sa p-3 text-center shadow-sa-sm">
+                <div key={b.sub} className="bg-white rounded-sa p-3 text-center shadow-sa-sm">
                   <p className="font-display text-lg text-sa-green-ink">{b.label}</p>
                   <p className="font-mono text-[10px] uppercase tracking-wide text-sa-green-ink/50">{b.sub}</p>
                 </div>

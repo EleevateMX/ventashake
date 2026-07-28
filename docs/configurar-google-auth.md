@@ -14,6 +14,16 @@ por ti. Toma unos 15 minutos y se hace **una sola vez**.
 > y se canjean cupones. Google solo agrega la comodidad de que el cliente
 > entre solo desde su celular.
 
+El lado del sistema ya quedó listo y probado para este momento:
+
+- Al entrar con Google, el cliente **queda ligado a su ficha de lealtad** y
+  desde ahí sus compras acumulan. Si ya lo habían dado de alta en caja con
+  ese mismo correo, se reclama esa ficha: conserva sus mancuernas y cupones.
+- Las tablas de lealtad quedaron **cerradas a escritura directa**. Antes,
+  cualquiera con la anon key podía regalarse mancuernas o reactivar un cupón
+  usado — y eso se vuelve alcanzable desde la calle justo cuando Rewards se
+  abre al público. Detalle y pruebas en `docs/flujo-lealtad.md`.
+
 ## Datos que vas a necesitar a la mano
 
 | Dato | Valor |

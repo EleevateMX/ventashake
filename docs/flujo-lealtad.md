@@ -103,3 +103,61 @@ no afecta el consumo de insumos). Verificado e2e.
 Regla de valor del cupón: hoy = "un ítem gratis" (el más caro elegible). Si
 el negocio prefiere un monto fijo o % por el cupón de 100 mancuernas, se
 ajusta agregando `cupones.valor` (aditivo) — decisión pendiente del negocio.
+
+## Cierre de escrituras — ✅ antes de abrir Google
+
+Migración `supabase/migrations/lealtad_cierre_escrituras.sql`.
+
+Hasta ahora las tres tablas de lealtad estaban abiertas a cualquiera que
+tuviera la anon key (que es **pública por diseño**: viaja en el JavaScript de
+las apps). Mientras nadie usaba lealtad no se explotaba, pero en cuanto se
+enciende el login de Google y Rewards queda al alcance del celular de cada
+cliente, esto era alcanzable desde la calle:
+
+| Agujero | Qué permitía |
+|---|---|
+| `upd_clientes` era `USING (true)` sin `WITH CHECK` | `update clientes set mancuernas = 999999` → cupones infinitos |
+| `upd_cupones` era `USING (true)` | volver a `activo` un cupón ya usado y canjearlo otra vez |
+| `SELECT` abierto en las tres tablas | leer el padrón completo: nombre, teléfono, correo, cumpleaños |
+| `fn_reactivacion()` y `fn_generar_cupones_cumpleanos()` ejecutables por `anon` | forzar el reparto de puntos y cupones cuando quisieras |
+
+Se cerró con el mismo patrón que ya usa el resto del sistema — `SECURITY
+DEFINER` como única vía de escritura y la tabla sin GRANT — no con validación
+en el frontend, que el atacante se salta llamando al REST directo.
+
+**Escrituras, ahora solo por RPC:**
+
+| Función | Qué garantiza el servidor |
+|---|---|
+| `fn_cliente_registrar` | `mancuernas = 0`, `activo`, rechaza teléfono repetido |
+| `fn_cliente_actualizar` | toca **solo** contacto; no saldo, código, `auth_user_id` ni `activo` |
+| `fn_cliente_desactivar` | baja lógica, nunca borra |
+| `fn_vincular_cliente_auth` | la identidad sale de `auth.uid()` y del correo del token, **no** de un parámetro |
+| `fn_canjear_cupon` | un solo `UPDATE` condicional → dos cajas no pueden canjear el mismo cupón |
+
+**Lecturas:** caja (anon + PIN) sigue viendo el padrón para poder identificar
+por teléfono. Un cliente logueado desde su celular ve **solo lo suyo**.
+
+### Vincular la cuenta de Google
+
+`fn_vincular_cliente_auth` es idempotente y, si el cliente ya estaba dado de
+alta en caja con ese mismo correo, **reclama esa ficha** en vez de crear una
+segunda: conserva sus mancuernas y sus cupones. El correo lo toma del token
+verificado de Google, así que nadie puede reclamar la ficha de otro. Un índice
+único parcial sobre `auth_user_id` garantiza una cuenta = una ficha.
+
+### Verificación
+
+Probado en vivo contra producción con `begin; … rollback;`, poniéndose el rol
+`anon` y el rol `authenticated` con un JWT simulado:
+
+- 4/4 escrituras directas de `anon` → `permission denied`.
+- 3/3 trabajos de reparto (`fn_reactivacion`, cumpleaños, expirar) → bloqueados
+  para `anon`, siguen corriendo desde `cron` (que va como dueño).
+- Doble canje del mismo cupón → *"El cupón ya fue usado"*.
+- Alta con teléfono repetido → rechazada.
+- Cliente que ya existía en caja entra con Google → **misma ficha, sus 80
+  mancuernas intactas**; segundo login no duplica.
+- Cliente B no ve ni puede editar la ficha de A.
+- Orden de $480 cobrada con cliente identificado → **48 mancuernas y 1
+  movimiento**, con el trigger ya revocado (revocar `EXECUTE` no lo apaga).
