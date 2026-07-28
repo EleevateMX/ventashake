@@ -9,20 +9,51 @@ imprimirse y seguirse en orden.
 | Tarea | Quién / dónde |
 |---|---|
 | Abrir las apps en cada pantalla | En sitio, en cada equipo |
-| Instalar el agente de impresión | En sitio, en cada equipo de cocina |
+| Instalar el agente de impresión | En sitio, en la PC que tiene las impresoras |
 | Conectar y detectar la impresora | En sitio (USB o red local) |
 | Registrar impresoras, empleados, precios | Admin (desde cualquier navegador) |
 | Diagnóstico en vivo, tokens, cola de impresión | Se puede hacer en remoto contra la base |
 
-> El agente de impresión **tiene que correr en la máquina que tiene la
-> impresora**: es quien habla con el hardware por USB o por la red local.
+> El agente de impresión **tiene que correr en la máquina que tiene las
+> impresoras**: es quien habla con el hardware por USB o por la red local.
 > Nada externo puede imprimir por él.
 
-## 0. Requisitos por equipo
+## 0. Dos montajes posibles
 
-- **Las 2 de cocina**: navegador + Node.js 20 o superior (para el agente
-  de impresión) + la impresora conectada (USB o en la misma red Wi-Fi).
+El sistema no impone cuántas PCs uses. Lo que **siempre** son dos son las
+*estaciones* (Alimentos y Bebidas): el ruteo de cada producto a su comanda va
+por estación, no por máquina.
+
+### Opción A — una sola PC para toda la cocina (más simple y más barata)
+
+Una PC con **dos monitores** y **las dos impresoras** colgando de ella:
+
+- Monitor 1 → `cocina-alimentos`, Monitor 2 → `cocina-bebidas` (dos ventanas
+  del navegador, cada una en pantalla completa en su monitor).
+- **Un solo agente** de impresión atiende las dos impresoras. Ya está hecho
+  así: el agente levanta **un worker por impresora**, cada uno con su propio
+  token y su propia conexión, de modo que si una impresora falla o le revocan
+  el token, la otra sigue imprimiendo.
+- En Admin se siguen registrando **dos impresoras** (una por estación) y los
+  dos tokens se pegan en el mismo `printers.config.json`.
+
+*Contrapartida honesta:* es un único punto de falla. Si esa PC se apaga, se
+caen las dos pantallas **y** las dos impresoras. Los pedidos no se pierden
+(quedan en la cola de la base y se reimprimen al volver), pero la cocina se
+queda a ciegas mientras tanto. Con esta opción el **no-break es más necesario,
+no menos**.
+
+### Opción B — una PC por estación
+
+Cada equipo con su pantalla, su impresora y su propio agente. Más caro, pero
+una avería solo tumba una estación.
+
+## 0.0 Requisitos por equipo
+
+- **PC de cocina** (una o dos, según la opción): navegador + Node.js 20 o
+  superior (para el agente) + las impresoras conectadas (USB o en la red).
 - **Kiosko**: solo navegador. No necesita agente ni impresora.
+- **Caja**: solo navegador. La impresora de comandas **no** va aquí.
 - Todos en la misma red, con internet.
 
 ### 0.1 Escaneo previo (para revisarlo juntos)
@@ -74,22 +105,33 @@ En el POS se entra con PIN. Los PIN temporales se cambian en
 
 ## 3. Impresoras (15 min, lo único con hardware)
 
-Por cada equipo de cocina, en orden:
-
-1. **Conectar la impresora** y encenderla. Si es de red, anotar su IP.
-2. **Registrarla** en Admin → Impresoras: nombre, estación (Alimentos o
-   Bebidas), tipo de conexión (USB o red) y la IP si aplica. Al guardar,
-   la pantalla muestra **el token del agente una sola vez** — cópialo.
-3. **Instalar el agente** en ese equipo (detalle completo en
-   `docs/instalacion-agente-impresion.md`):
+1. **Conectar las dos impresoras** y encenderlas.
+   - Si son **USB en Windows**: instálalas primero en Windows como impresoras
+     normales y anota el **nombre exacto** con que quedan en *Dispositivos e
+     impresoras*. Ese nombre es el que usa el agente.
+   - Si son **de red**: anota la IP de cada una.
+2. **Registrar las dos** en Admin → Impresoras — una por estación, aunque
+   cuelguen de la misma PC: nombre, estación (Alimentos o Bebidas), tipo de
+   conexión y la IP si aplica. Al guardar, la pantalla muestra **el token del
+   agente una sola vez** — cópialo. Son **dos tokens distintos**.
+3. **Instalar el agente** en la PC que tiene las impresoras (detalle completo
+   en `docs/instalacion-agente-impresion.md`):
    ```bash
    cd agente-impresion
    npm install
    cp .env.example .env                    # ya trae URL y anon key
    cp printers.config.example.json printers.config.json
    ```
-4. Pegar en `printers.config.json` el **id** y el **token** de la
-   impresora que acabas de registrar.
+4. Pegar los **dos tokens** en `printers.config.json` — es una lista, van las
+   dos impresoras en el mismo archivo y las atiende el mismo agente. En
+   `interface` va, según cómo esté conectada cada una:
+
+   | Conexión | Valor de `interface` |
+   |---|---|
+   | Red | `tcp://192.168.1.50:9100` |
+   | USB en Windows | `printer:NOMBRE EXACTO EN WINDOWS` |
+   | USB en Linux | `/dev/usb/lp0` |
+
 5. **Probar antes de seguir**:
    ```bash
    npm run diagnose -- --imprimir
@@ -97,14 +139,16 @@ Por cada equipo de cocina, en orden:
    Revisa conexión, autenticación, estación, cola e imprime una prueba
    física. No sigas si algo sale con ✘.
 6. Dejarlo corriendo: `npm run start` (o como servicio para que arranque
-   solo). Verifica `http://localhost:7777/status`.
+   solo). Verifica `http://localhost:7777/status`: deben aparecer **las dos**
+   impresoras.
 
-Repetir para la segunda cocina. **Cada equipo lleva su propio token** — no
-se comparte entre máquinas.
+Si elegiste la **opción B** (una PC por estación), repite los pasos 3-6 en el
+segundo equipo con **su** token. **Cada impresora lleva su propio token** —
+nunca se reutiliza el de la otra.
 
 ## 4. Prueba de punta a punta (10 min)
 
-Con las 3 pantallas abiertas y los 2 agentes corriendo:
+Con las 3 pantallas abiertas y el agente corriendo:
 
 1. **Kiosko**: armar una orden con **un alimento y una bebida** y enviarla.
    Anota el folio que muestra.
