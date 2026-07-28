@@ -169,6 +169,13 @@ export function CatalogoBusqueda({ productos, categorias, extras, productosExtra
                 <p className="font-display text-sm text-sa-green-ink text-center leading-tight line-clamp-2 w-full">
                   {p.nombre}
                 </p>
+                {/* Los ingredientes del shake, para que el cajero conteste
+                    "¿qué trae?" sin salirse de la pantalla ni preguntar. */}
+                {p.descripcion && (
+                  <p className="font-body text-[11px] text-sa-green-ink/50 text-center leading-snug line-clamp-2 w-full mt-1">
+                    {p.descripcion}
+                  </p>
+                )}
                 <p className="font-mono text-sm font-medium text-sa-strawberry mt-2">{mxn(p.precio)}</p>
               </button>
             ))}
