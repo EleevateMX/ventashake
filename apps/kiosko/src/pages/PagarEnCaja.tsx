@@ -49,16 +49,19 @@ export function PagarEnCaja() {
 
   useEffect(() => {
     if (!orden) return
-    // El QR lleva SOLO el código corto, en texto plano.
+    // El QR lleva la LIGA al resumen del pedido, y sirve para dos usos
+    // distintos con un solo código impreso:
     //
-    // Un lector USB se comporta como un teclado: teclea lo que lee. Si aquí
-    // va un JSON, el cajero escanea y en el buscador del POS aparece
-    // `{"folio":39,...}`, que no coincide con ningún folio ni código — el
-    // escaneo no sirve de nada y hay que teclear el código a mano.
-    // Con el código pelón, escanear llena el buscador y encuentra el pedido
-    // de inmediato.
+    //   · El cliente lo escanea con la cámara de su celular y se le abre el
+    //     resumen: qué pidió, cuánto es y su código para caja.
+    //   · El cajero lo escanea con el lector USB, que se comporta como un
+    //     teclado y escribe la URL completa en el buscador del POS. Ahí
+    //     `normalizarCriterioCaja()` se queda solo con el código, así que
+    //     encuentra el pedido igual.
+    //
+    // Antes iba un JSON aquí y no servía para ninguno de los dos.
     if (!orden.codigo_corto) return
-    QRCode.toDataURL(orden.codigo_corto, {
+    QRCode.toDataURL(`${window.location.origin}/pedido/${orden.codigo_corto}`, {
       width: 320,
       margin: 2,
       color: { dark: '#14241D', light: '#F8F4EC' },

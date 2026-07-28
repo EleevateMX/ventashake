@@ -14,6 +14,31 @@ export interface OrdenConItems extends Orden {
 }
 
 /**
+ * Deja el criterio de búsqueda en su forma canónica.
+ *
+ * El QR del kiosko lleva la **liga** al resumen del pedido, para que el
+ * cliente pueda abrirlo con la cámara de su celular. Pero un lector USB de
+ * caja no abre nada: teclea lo que lee, así que en el buscador del POS
+ * aparecería la URL completa. Aquí se le quita todo y se queda el código, de
+ * modo que el mismo QR sirve para los dos sin obligar a imprimir dos.
+ *
+ *   https://kiosko.shakeaholic.mx/pedido/4E68C1  ->  4E68C1
+ *   4E68C1                                       ->  4E68C1
+ *   39                                           ->  39
+ */
+export function normalizarCriterioCaja(criterio: string): string {
+  let c = criterio.trim()
+  if (/^https?:\/\//i.test(c)) {
+    try {
+      c = new URL(c).pathname.split('/').filter(Boolean).pop() ?? c
+    } catch {
+      // URL malformada: se sigue con el texto tal cual.
+    }
+  }
+  return c.trim().toUpperCase()
+}
+
+/**
  * Aplica el criterio de búsqueda de caja (folio o código corto).
  *
  * El código corto son 6 caracteres hexadecimales, así que **no** se puede
@@ -28,7 +53,7 @@ export interface OrdenConItems extends Orden {
  */
 function aplicarCriterioCaja<T>(query: T, criterio?: string): T {
   if (!criterio || !criterio.trim()) return query
-  const c = criterio.trim().toUpperCase()
+  const c = normalizarCriterioCaja(criterio)
   const q = query as unknown as {
     or: (f: string) => T
     eq: (col: string, val: string) => T
@@ -89,6 +114,32 @@ export async function crearOrdenKioskoCaja(
     p_cliente_id: datos.clienteId ?? null,
     p_descuento: datos.descuento ?? 0,
   })
+}
+
+/**
+ * Consulta pública de un pedido por su código corto — la que abre el cliente
+ * al escanear el QR del kiosko con su celular.
+ *
+ * Solo pedidos recientes (2 horas): el código son 6 hexadecimales y no es un
+ * secreto, así que se acota la ventana en la que sirve de algo. Pasado ese
+ * rato el pedido ya se cobró o expiró, y no hay razón para seguir
+ * exponiéndolo.
+ */
+export async function obtenerOrdenPorCodigo(
+  sb: ShakeClient,
+  codigo: string,
+): Promise<OrdenConItems | null> {
+  const c = codigo.trim().toUpperCase()
+  if (!/^[0-9A-F]{4,12}$/.test(c)) return null
+  const desde = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
+  const { data, error } = await sb
+    .from('ordenes')
+    .select('*, orden_items(id, cantidad, precio_unitario, personalizacion, productos(nombre))')
+    .eq('codigo_corto', c)
+    .gte('created_at', desde)
+    .maybeSingle()
+  if (error) throw error
+  return (data as OrdenConItems | null) ?? null
 }
 
 /** POS: busca órdenes de kiosko esperando cobro en caja (folio o código corto). */
