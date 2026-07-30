@@ -1,0 +1,17 @@
+-- Un extra debe prepararse donde se prepara el producto que acompaña.
+--
+-- El servidor rutea las comandas por `categorias.cocina_id` del producto
+-- (fn_crear_pedidos_cocina). Como TODOS los extras vivían en una sola
+-- categoría "Extras" atada a Alimentos, la leche de almendras de un shake se
+-- imprimía en la cocina de comida y el de la barra nunca se enteraba de que
+-- ese shake llevaba otra leche.
+--
+-- La solución no es tocar el trigger —rutear por categoría está bien— sino
+-- tener una categoría de extras POR ESTACIÓN, y que `fn_guardar_extra`
+-- coloque cada extra en la que corresponde al producto al que se engancha.
+--
+-- Como efecto secundario deseable, un mismo insumo puede ser extra en las dos
+-- estaciones (chía en un shake y en una ensalada) y cada uno rutea a su lado:
+-- son dos productos extra distintos, uno por categoría.
+--
+-- Ver el cuerpo aplicado en la migración del mismo nombre en el proyecto.
