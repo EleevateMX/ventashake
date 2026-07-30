@@ -14,6 +14,7 @@ import { Pago } from './pages/Pago'
 import { PagarEnCaja } from './pages/PagarEnCaja'
 import { Confirmacion } from './pages/Confirmacion'
 import { EstadoPedido } from './pages/EstadoPedido'
+import { Rewards } from './pages/Rewards'
 
 export default function App() {
   // El kiosko es una pantalla fija: no debe hacer scroll nunca. Pero
@@ -69,6 +70,8 @@ export default function App() {
         <Route path="/confirmacion" element={<Confirmacion />} />
         {/* Vista pública para el celular del cliente (destino del QR). */}
         <Route path="/pedido/:codigo" element={<EstadoPedido />} />
+        {/* Invitación a lealtad: QR grande para escanear con el celular. */}
+        <Route path="/rewards" element={<Rewards />} />
       </Routes>
     </div>
   )

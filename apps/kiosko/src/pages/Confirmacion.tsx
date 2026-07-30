@@ -4,6 +4,7 @@ import QRCode from 'qrcode'
 import { imprimirTicket, type TicketData } from '@shake/ui'
 import { cerrarSesion } from '@shake/supabase'
 import { sb } from '@/lib/sb'
+import { QrRewards } from '@/components/QrRewards'
 import type { ItemCarrito, UsuarioKiosko } from '@/store/carritoStore'
 
 interface EstadoConfirmacion {
@@ -112,6 +113,24 @@ export function Confirmacion() {
           <p className="font-display text-lg text-sa-banana">
             +{puntosGanados} puntos para {usuario?.nombre?.split(' ')[0]}
           </p>
+        </div>
+      )}
+
+      {/* Invitación a Rewards: solo si el cliente NO está identificado.
+          Es el mejor momento para engancharlo — acaba de comprar, está
+          esperando, y le acaba de quedar claro que se perdió las mancuernas
+          de esta compra. A quien ya es cliente no se le estorba con esto. */}
+      {!usuario?.clienteId && (
+        <div className="mt-4 flex items-center gap-4 bg-sa-green-ink/70 rounded-sa-lg pl-5 pr-3 py-3">
+          <div className="text-left">
+            <p className="font-display text-xl leading-tight text-sa-cream">
+              La próxima, que te cuente
+            </p>
+            <p className="font-body text-sm text-sa-cream/60 mt-1 max-w-[15rem]">
+              Escanea y acumula mancuernas con cada compra.
+            </p>
+          </div>
+          <QrRewards tamano={104} />
         </div>
       )}
 

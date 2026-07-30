@@ -1,0 +1,16 @@
+-- Un extra en $0 debe verse igual.
+--
+-- La regla anterior era `activo = (p_precio > 0)`, heredada de los productos
+-- de reventa: un producto sin precio no se puede vender, así que se apaga.
+-- Para un extra la lógica es otra: el tipo de leche o "sin aderezo" son
+-- MODIFICADORES, no productos. Valen $0 y aun así la cocina tiene que verlos
+-- impresos en la comanda para preparar bien el pedido.
+--
+-- Con la regla vieja, poner un extra en $0 lo desaparecía de la pantalla del
+-- cajero, que es justo cuando más se necesita verlo.
+--
+-- Para dejar de ofrecer un extra en un producto está `fn_quitar_extra`, que
+-- es explícito; el precio ya no decide la visibilidad.
+--
+-- Ver el cuerpo aplicado en la migración `extras_permitir_precio_cero` del
+-- proyecto: idéntico a fn_guardar_extra salvo `activo = true`.
