@@ -142,8 +142,12 @@ export function Catalogo() {
                       className="w-full h-40 object-cover"
                     />
                   ) : (
-                    <div className="w-full h-40 bg-sa-cream-warm flex items-center justify-center">
-                      <img src="/milo-transparent.png" alt="" className="h-28 opacity-70" />
+                    /* Sin foto: en vez de un hueco gris, Milo se la comió. */
+                    <div className="w-full h-40 bg-sa-cream-warm flex flex-col items-center justify-center gap-1">
+                      <img src="/milo-transparent.png" alt="" className="h-24 opacity-80" />
+                      <p className="font-mono text-[10px] uppercase tracking-wide text-sa-green-ink/45 text-center px-2">
+                        Ups, se lo ha comido Milo
+                      </p>
                     </div>
                   )}
                   <span className="absolute top-3 left-3 font-mono text-[10px] uppercase tracking-widest bg-sa-green-deep text-sa-cream px-2 py-1 rounded-full">

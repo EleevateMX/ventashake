@@ -162,9 +162,17 @@ export function CatalogoBusqueda({ productos, categorias, extras, productosExtra
                 {p.imagen_url ? (
                   <img src={p.imagen_url} alt={p.nombre} className="w-16 h-16 rounded-sa object-cover mb-2" />
                 ) : (
-                  <div className="w-16 h-16 rounded-sa bg-sa-cream-soft border border-sa-green-ink/5 flex items-center justify-center text-3xl mb-2">
-                    {p.categorias?.cocinas?.slug === 'alimentos' ? '🍽️' : '🥤'}
+                  /* Sin foto: Milo, igual que en el kiosko — mismo lenguaje en
+                     las dos pantallas, y de paso se ve de un vistazo a qué
+                     productos les falta subir la imagen. */
+                  <div className="w-16 h-16 rounded-sa bg-sa-cream-soft border border-sa-green-ink/5 flex items-center justify-center mb-2">
+                    <img src="/milo-transparent.png" alt="" className="h-12 opacity-80" />
                   </div>
+                )}
+                {!p.imagen_url && (
+                  <p className="font-mono text-[9px] uppercase tracking-wide text-sa-green-ink/35 -mt-1 mb-1">
+                    Se lo comió Milo
+                  </p>
                 )}
                 <p className="font-display text-sm text-sa-green-ink text-center leading-tight line-clamp-2 w-full">
                   {p.nombre}
