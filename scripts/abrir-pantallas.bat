@@ -50,6 +50,13 @@ timeout /t 4 /nobreak >nul
 
 echo Abriendo COCINA - ALIMENTOS (monitor chico derecho)...
 start "" "%NAV%" %FLAGS% --user-data-dir="%LOCALAPPDATA%\shake-alimentos" --window-position=1848,139 https://shake-cocina-alimentos.pages.dev
+timeout /t 4 /nobreak >nul
+
+REM Admin va en ventana normal, no a pantalla completa: es la herramienta del
+REM gerente (fotos, precios, empleados, impresoras) y se usa a ratos, encima de
+REM lo demas. Alt+Tab para alternar.
+echo Abriendo ADMIN (ventana normal)...
+start "" "%NAV%" --noerrdialogs --disable-infobars --no-first-run --disable-session-crashed-bubble --user-data-dir="%LOCALAPPDATA%\shake-admin" --window-position=100,100 --window-size=980,1500 https://shake-admin.pages.dev
 
 echo.
 echo Listo. Si alguna app quedo en el monitor equivocado, intercambia las
