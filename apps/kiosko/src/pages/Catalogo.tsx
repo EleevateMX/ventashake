@@ -207,14 +207,20 @@ export function Catalogo() {
               >
                 <div className="relative">
                   {producto.imagen_url ? (
-                    <img
-                      src={producto.imagen_url}
-                      alt={producto.nombre}
-                      className="w-full h-40 object-cover"
-                    />
+                    /* object-contain, no cover: las fotos son vasos verticales
+                       sobre fondo blanco y `cover` les cortaba la tapa y el
+                       popote. Se sube la altura porque al no recortar, la
+                       imagen ocupa menos ancho. */
+                    <div className="w-full h-56 bg-white flex items-center justify-center">
+                      <img
+                        src={producto.imagen_url}
+                        alt={producto.nombre}
+                        className="max-h-full max-w-full object-contain"
+                      />
+                    </div>
                   ) : (
                     /* Sin foto: en vez de un hueco gris, Milo se la comió. */
-                    <div className="w-full h-40 bg-sa-cream-warm flex flex-col items-center justify-center gap-1">
+                    <div className="w-full h-56 bg-sa-cream-warm flex flex-col items-center justify-center gap-1">
                       <img src="/milo-transparent.png" alt="" className="h-24 opacity-80" />
                       <p className="font-mono text-[10px] uppercase tracking-wide text-sa-green-ink/45 text-center px-2">
                         Ups, se lo ha comido Milo

@@ -13,6 +13,14 @@ interface Props {
 const esLeche = (nombre: string) => /^leche/i.test(nombre.trim())
 
 /**
+ * Las galletas son una promoción: +$5 por 2 piezas, una vez por shake. Se
+ * eligen como grupo de opción única (ninguna / chocolate / vainilla) en vez
+ * de con cantidad, porque no se puede pedir la promo dos veces ni combinar
+ * los dos sabores en el mismo shake.
+ */
+const esGalleta = (nombre: string) => /galleta/i.test(nombre.trim())
+
+/**
  * Al tocar "+" en un shake: elegir tipo de leche, adicionales (creatina,
  * matcha, otro scoop…) y escribir alguna indicación.
  *
@@ -27,16 +35,20 @@ const esLeche = (nombre: string) => /^leche/i.test(nombre.trim())
 export function ModalExtras({ producto, extras, onCerrar, onAgregar }: Props) {
   const [nota, setNota] = useState('')
   const [leche, setLeche] = useState<string | null>(null)
+  const [galleta, setGalleta] = useState<string | null>(null)
   const [cantidades, setCantidades] = useState<Record<string, number>>({})
 
   if (!producto) return null
 
   const leches = extras.filter((e) => esLeche(e.nombre))
-  const adicionales = extras.filter((e) => !esLeche(e.nombre))
+  const galletas = extras.filter((e) => esGalleta(e.nombre))
+  const adicionales = extras.filter((e) => !esLeche(e.nombre) && !esGalleta(e.nombre))
 
   const lecheElegida = leches.find((l) => l.extra_id === leche) ?? null
+  const galletaElegida = galletas.find((g) => g.extra_id === galleta) ?? null
   const totalExtras =
     (lecheElegida?.precio ?? 0) +
+    (galletaElegida?.precio ?? 0) +
     adicionales.reduce((s, e) => s + e.precio * (cantidades[e.extra_id] ?? 0), 0)
 
   function cambiar(id: string, delta: number) {
@@ -50,12 +62,13 @@ export function ModalExtras({ producto, extras, onCerrar, onAgregar }: Props) {
   }
 
   function limpiar() {
-    setNota(''); setLeche(null); setCantidades({})
+    setNota(''); setLeche(null); setGalleta(null); setCantidades({})
   }
 
   function confirmar() {
     const elegidos = [
       ...(lecheElegida ? [lecheElegida] : []),
+      ...(galletaElegida ? [galletaElegida] : []),
       ...adicionales.flatMap((e) =>
         Array.from({ length: cantidades[e.extra_id] ?? 0 }, () => e),
       ),
@@ -103,6 +116,34 @@ export function ModalExtras({ producto, extras, onCerrar, onAgregar }: Props) {
                       {l.precio > 0 && (
                         <span className="font-mono text-xs opacity-70">+{mxn(l.precio)}</span>
                       )}
+                    </button>
+                  )
+                })}
+              </div>
+            </section>
+          )}
+
+          {galletas.length > 0 && (
+            <section>
+              <h3 className="font-display text-xl text-sa-green-ink">Galletas</h3>
+              <p className="font-mono text-[10px] uppercase tracking-wide text-sa-green-ink/40 mb-3">
+                Opcional · 2 piezas · una sola vez por shake
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {galletas.map((g) => {
+                  const activa = galleta === g.extra_id
+                  return (
+                    <button
+                      key={g.extra_id}
+                      onClick={() => setGalleta(activa ? null : g.extra_id)}
+                      className={`px-4 py-3 rounded-sa text-left transition-all border-2 ${
+                        activa
+                          ? 'bg-sa-strawberry text-white border-sa-strawberry'
+                          : 'bg-white border-sa-green-ink/10 text-sa-green-ink hover:border-sa-strawberry/40'
+                      }`}
+                    >
+                      <span className="font-display text-base leading-tight block">{g.nombre}</span>
+                      <span className="font-mono text-xs opacity-80">+{mxn(g.precio)}</span>
                     </button>
                   )
                 })}
