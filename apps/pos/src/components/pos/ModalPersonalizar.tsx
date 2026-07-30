@@ -6,20 +6,18 @@ interface Props {
   producto: ProductoVenta | null
   extras: ExtraDeProducto[]
   onCerrar: () => void
-  /** Agrega el producto (con su nota) y, aparte, cada extra elegido. */
+  /** Agrega el producto y, aparte, cada extra elegido. */
   onAgregar: (nota: string | null, extrasElegidos: ExtraDeProducto[]) => void
 }
 
 /**
  * Al tocar un alimento en el catálogo: elegir extras de su receta
- * (guacamole, aderezos…) y escribir restricciones ("sin lechuga").
- * Los extras se agregan como líneas propias del ticket — así cuestan,
- * cobran y descuentan inventario igual que cualquier producto — y la
- * nota viaja en `orden_items.personalizacion`, que es lo que ya lee la
- * comanda de cocina.
+ * (guacamole, aderezos…) para agregarlos al ticket.
+ * Los extras se agregan como líneas propias del ticket: así cuestan,
+ * cobran y descuentan inventario igual que cualquier producto, y la cocina
+ * los ve listados en la comanda.
  */
 export function ModalPersonalizar({ producto, extras, onCerrar, onAgregar }: Props) {
-  const [nota, setNota] = useState('')
   const [elegidos, setElegidos] = useState<Record<string, number>>({})
 
   if (!producto) return null
@@ -41,13 +39,11 @@ export function ModalPersonalizar({ producto, extras, onCerrar, onAgregar }: Pro
     const elegidosExpandidos = extras.flatMap((e) =>
       Array.from({ length: elegidos[e.extra_id] ?? 0 }, () => e),
     )
-    onAgregar(nota.trim() || null, elegidosExpandidos)
-    setNota('')
+    onAgregar(null, elegidosExpandidos)
     setElegidos({})
   }
 
   function cerrar() {
-    setNota('')
     setElegidos({})
     onCerrar()
   }
@@ -106,29 +102,6 @@ export function ModalPersonalizar({ producto, extras, onCerrar, onAgregar }: Pro
             </div>
           )}
 
-          <div>
-            <p className="font-mono text-xs uppercase tracking-wide text-sa-green-ink/60 mb-2">
-              Comentarios o restricciones
-            </p>
-            <textarea
-              value={nota}
-              onChange={(e) => setNota(e.target.value.slice(0, 200))}
-              rows={2}
-              placeholder="Sin lechuga, sin aderezo, aparte…"
-              className="w-full px-4 py-3 bg-white border border-sa-green-ink/10 rounded-sa font-body text-sm text-sa-green-ink placeholder:font-mono placeholder:text-sa-green-ink/40 focus:outline-none focus:ring-2 focus:ring-sa-green/30 resize-none"
-            />
-            <div className="flex flex-wrap gap-1.5 mt-2">
-              {['Sin lechuga', 'Sin aderezo', 'Sin cebolla', 'Aderezo aparte', 'Para llevar'].map((s) => (
-                <button
-                  key={s}
-                  onClick={() => setNota((prev) => (prev ? `${prev}, ${s}` : s).slice(0, 200))}
-                  className="px-2.5 py-1 rounded-full bg-sa-cream-warm text-sa-green-ink/70 font-mono text-[11px] hover:bg-sa-banana/60"
-                >
-                  + {s}
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
 
         <div className="px-5 py-4 border-t border-sa-green-ink/10 flex gap-2 items-center">

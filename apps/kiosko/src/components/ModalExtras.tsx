@@ -33,7 +33,6 @@ const esGalleta = (nombre: string) => /galleta/i.test(nombre.trim())
  * precio en Admin → Extras, empiezan a cobrar solos sin tocar nada aquí.
  */
 export function ModalExtras({ producto, extras, onCerrar, onAgregar }: Props) {
-  const [nota, setNota] = useState('')
   const [leche, setLeche] = useState<string | null>(null)
   const [galleta, setGalleta] = useState<string | null>(null)
   const [cantidades, setCantidades] = useState<Record<string, number>>({})
@@ -62,7 +61,7 @@ export function ModalExtras({ producto, extras, onCerrar, onAgregar }: Props) {
   }
 
   function limpiar() {
-    setNota(''); setLeche(null); setGalleta(null); setCantidades({})
+    setLeche(null); setGalleta(null); setCantidades({})
   }
 
   function confirmar() {
@@ -73,7 +72,7 @@ export function ModalExtras({ producto, extras, onCerrar, onAgregar }: Props) {
         Array.from({ length: cantidades[e.extra_id] ?? 0 }, () => e),
       ),
     ]
-    onAgregar(nota.trim() || null, elegidos)
+    onAgregar(null, elegidos)
     limpiar()
   }
 
@@ -195,17 +194,6 @@ export function ModalExtras({ producto, extras, onCerrar, onAgregar }: Props) {
               </div>
             </section>
           )}
-
-          <section>
-            <h3 className="font-display text-xl text-sa-green-ink mb-2">Indicaciones</h3>
-            <textarea
-              value={nota}
-              onChange={(ev) => setNota(ev.target.value.slice(0, 140))}
-              placeholder="Sin azúcar, poco hielo…"
-              rows={2}
-              className="w-full rounded-sa border border-sa-green-ink/15 px-4 py-3 font-body text-base text-sa-green-ink placeholder:text-sa-green-ink/30 focus:outline-none focus:ring-2 focus:ring-sa-green/30 resize-none"
-            />
-          </section>
         </div>
 
         <footer className="px-6 py-4 border-t border-sa-green-ink/10 flex items-center gap-3">
