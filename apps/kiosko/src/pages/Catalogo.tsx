@@ -2,9 +2,10 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Spinner } from '@shake/ui'
 import { useCarrito } from '@/store/carritoStore'
-import { listarProductosParaVenta } from '@shake/supabase'
-import type { ProductoVenta } from '@shake/supabase'
+import { listarProductosParaVenta, listarExtras, listarProductosExtra } from '@shake/supabase'
+import type { ProductoVenta, ExtraDeProducto } from '@shake/supabase'
 import { sb } from '@/lib/sb'
+import { ModalExtras } from '@/components/ModalExtras'
 
 interface Categoria {
   id: string
@@ -19,13 +20,72 @@ export function Catalogo() {
   const [productos, setProductos] = useState<ProductoVenta[]>([])
   const [categoriaActiva, setCategoriaActiva] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [extras, setExtras] = useState<ExtraDeProducto[]>([])
+  const [productosExtra, setProductosExtra] = useState<ProductoVenta[]>([])
+  const [personalizando, setPersonalizando] = useState<ProductoVenta | null>(null)
 
   useEffect(() => {
-    listarProductosParaVenta(sb)
-      .then((prods) => setProductos(prods))
+    Promise.all([listarProductosParaVenta(sb), listarExtras(sb), listarProductosExtra(sb)])
+      .then(([prods, exs, prodExtra]) => {
+        setProductos(prods)
+        setExtras(exs)
+        setProductosExtra(prodExtra)
+      })
       .catch(() => setProductos([]))
       .finally(() => setLoading(false))
   }, [])
+
+  const extrasDe = (productoId: string) => extras.filter((e) => e.producto_id === productoId)
+
+  /**
+   * Si el producto ofrece extras (tipo de leche, adicionales), se abre el
+   * modal para elegirlos; si no, se agrega directo. Así el "+" no obliga a
+   * pasar por una pantalla extra en los productos que no la necesitan, como
+   * un agua o un snack.
+   */
+  function tocarAgregar(p: ProductoVenta) {
+    if (extrasDe(p.id).length > 0) {
+      setPersonalizando(p)
+      return
+    }
+    agregar({
+      producto_id: p.id,
+      nombre: p.nombre,
+      precio: p.precio,
+      cocina_id: p.categorias?.cocinas?.id ?? '',
+      imagen_url: p.imagen_url,
+    })
+  }
+
+  /**
+   * Cada extra entra como su PROPIA línea del carrito, igual que en el POS:
+   * así cuesta, cobra y descuenta inventario como cualquier producto, y la
+   * cocina lo ve listado en la comanda. La nota viaja en el shake.
+   */
+  function agregarPersonalizado(nota: string | null, elegidos: ExtraDeProducto[]) {
+    const p = personalizando
+    if (!p) return
+    agregar({
+      producto_id: p.id,
+      nombre: p.nombre,
+      precio: p.precio,
+      cocina_id: p.categorias?.cocinas?.id ?? '',
+      imagen_url: p.imagen_url,
+      ...(nota ? { personalizacion: nota } : {}),
+    })
+    elegidos.forEach((e) => {
+      const prod = productosExtra.find((x) => x.id === e.extra_id)
+      agregar({
+        producto_id: e.extra_id,
+        nombre: e.nombre,
+        precio: e.precio,
+        cocina_id: prod?.categorias?.cocinas?.id ?? p.categorias?.cocinas?.id ?? '',
+        imagen_url: null,
+        personalizacion: `para ${p.nombre}`,
+      })
+    })
+    setPersonalizando(null)
+  }
 
   const categorias = useMemo<Categoria[]>(() => {
     const map = new Map<string, Categoria>()
@@ -179,15 +239,7 @@ export function Catalogo() {
                       ${producto.precio.toFixed(2)}
                     </p>
                     <button
-                      onClick={() =>
-                        agregar({
-                          producto_id: producto.id,
-                          nombre: producto.nombre,
-                          precio: producto.precio,
-                          cocina_id: producto.categorias?.cocinas?.id ?? '',
-                          imagen_url: producto.imagen_url,
-                        })
-                      }
+                      onClick={() => tocarAgregar(producto)}
                       className="w-14 h-14 rounded-full bg-sa-green text-sa-cream font-display text-3xl flex items-center justify-center shadow-sa-sm active:scale-95 transition-transform"
                       aria-label={`Agregar ${producto.nombre}`}
                     >
@@ -200,6 +252,13 @@ export function Catalogo() {
           </div>
         )}
       </main>
+
+      <ModalExtras
+        producto={personalizando}
+        extras={personalizando ? extrasDe(personalizando.id) : []}
+        onCerrar={() => setPersonalizando(null)}
+        onAgregar={agregarPersonalizado}
+      />
 
       {/* Floating cart */}
       {totalItems() > 0 && (
