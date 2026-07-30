@@ -1,8 +1,11 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { crearOrden, crearOrdenKioskoCaja, cobrarOrden, listarAlmacenes } from '@shake/supabase'
+import {
+  crearOrden, crearOrdenKioskoCaja, cobrarOrden, listarAlmacenes,
+  listarCajas, corteAbierto,
+} from '@shake/supabase'
 import { obtenerPaymentProvider } from '@shake/payments'
-import type { Almacen } from '@shake/types'
+import type { Almacen, CajaCorte, MetodoPago } from '@shake/types'
 import type { ModoPagoKiosko } from '@shake/types'
 import { useCarrito } from '@/store/carritoStore'
 import { sb } from '@/lib/sb'
@@ -38,10 +41,11 @@ function ProcesandoOverlay({ monto }: { monto: number }) {
 
 export function Pago() {
   const navigate = useNavigate()
-  const { items, total, usuario, limpiar } = useCarrito()
+  const { items, total, usuario, cajero, limpiar } = useCarrito()
   const [estado, setEstado] = useState<EstadoPago>('cargando')
   const [modo, setModo] = useState<ModoPagoKiosko | null>(null)
   const [almacen, setAlmacen] = useState<Almacen | null>(null)
+  const [corte, setCorte] = useState<CajaCorte | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [errorProveedor, setErrorProveedor] = useState<string | null>(null)
 
@@ -54,6 +58,16 @@ export function Pago() {
         setAlmacen(kiosko)
         const modoResuelto = await resolverModoKiosko(sb, kiosko.sucursal_id)
         setModo(modoResuelto)
+
+        // En modo cajero la venta tiene que caer en el corte abierto; si no,
+        // no aparece en el arqueo del día. Se resuelve aquí y no al cobrar
+        // para que un problema de configuración salte antes, no a media venta.
+        if (modoResuelto === 'cajero') {
+          const cajas = await listarCajas(sb)
+          const caja = cajas.find((c) => c.sucursal_id === kiosko.sucursal_id) ?? cajas[0] ?? null
+          setCorte(caja ? await corteAbierto(sb, caja.id) : null)
+        }
+
         setEstado('eligiendo')
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e))
@@ -84,6 +98,64 @@ export function Pago() {
       )
       limpiar()
       navigate('/pagar-en-caja', { state: { orden } })
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+      setEstado('eligiendo')
+    }
+  }
+
+  /**
+   * Modo "cajero": la misma pantalla del kiosko, pero operada por un
+   * empleado que levanta el pedido frente al cliente. Cobra en el mismo
+   * acto, así que la comanda sale a cocina de inmediato.
+   *
+   * Esto NO es saltarse el cobro. Se registra el método de pago, el
+   * empleado que cobró y el corte abierto — sin eso, el corte de caja no
+   * cuadraría al cierre y no habría a quién atribuir la venta. La
+   * diferencia con 'pagar_en_caja' es sólo que no hay un segundo paso en
+   * otra pantalla: quien opera ya es el cajero.
+   */
+  async function confirmarCajero(metodo: MetodoPago) {
+    if (!almacen || !cajero) return
+    setEstado('procesando')
+    setError(null)
+    try {
+      const orden = await crearOrden(
+        sb,
+        {
+          sucursal_id: almacen.sucursal_id,
+          almacen_id: almacen.id,
+          canal: 'pos',
+          empleado_id: cajero.id,
+          corte_id: corte?.id ?? null,
+          cliente_id: usuario?.clienteId ?? null,
+        },
+        items.map((i) => ({
+          producto_id: i.producto_id,
+          cantidad: i.cantidad,
+          personalizacion: i.personalizacion ?? null,
+        })),
+      )
+      // El monto sale de la orden que devolvió el servidor, no del carrito:
+      // el total autoritativo es el que recalculó la base.
+      await cobrarOrden(sb, orden.id, metodo, orden.total, {
+        autorizadoPor: cajero.id,
+        idempotencyKey: crypto.randomUUID(),
+      })
+
+      const itemsSnapshot = [...items]
+      const usuarioSnapshot = usuario ? { ...usuario } : null
+      limpiar()
+      navigate('/confirmacion', {
+        state: {
+          folio: String(orden.folio),
+          total: orden.total,
+          metodo: metodo === 'efectivo' ? 'efectivo' : 'terminal',
+          items: itemsSnapshot,
+          usuario: usuarioSnapshot,
+          demo: false,
+        },
+      })
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
       setEstado('eligiendo')
@@ -308,6 +380,39 @@ export function Pago() {
                 </p>
               </div>
             </button>
+          )}
+
+          {modo === 'cajero' && (
+            <>
+              {!corte && (
+                <p className="font-mono text-sm text-sa-strawberry text-center">
+                  No hay caja abierta. Ábrela en el POS antes de cobrar, o la
+                  venta no entrará al corte del día.
+                </p>
+              )}
+              {([
+                { metodo: 'efectivo', titulo: 'Efectivo', sub: 'Cobro en el cajón' },
+                { metodo: 'tarjeta',  titulo: 'Tarjeta',  sub: 'Terminal bancaria' },
+                { metodo: 'clip',     titulo: 'Clip',     sub: 'Cobra en el Stand y confirma' },
+              ] as const).map((m) => (
+                <button
+                  key={m.metodo}
+                  onClick={() => void confirmarCajero(m.metodo)}
+                  className="flex items-center gap-5 p-6 rounded-sa-lg bg-sa-cream-soft hover:bg-sa-cream shadow-sa-sm transition-all text-left active:scale-[0.98]"
+                >
+                  <span className="text-sa-green-ink/70"><IconCard /></span>
+                  <div>
+                    <p className="font-display text-2xl text-sa-green-ink leading-tight">{m.titulo}</p>
+                    <p className="font-mono text-xs uppercase tracking-wider text-sa-green-ink/60 mt-1">
+                      {m.sub}
+                    </p>
+                  </div>
+                </button>
+              ))}
+              <p className="font-mono text-[11px] uppercase tracking-wide text-sa-green-ink/40 text-center">
+                Al cobrar, la comanda sale a cocina de inmediato
+              </p>
+            </>
           )}
 
           {modo === 'demo' && (

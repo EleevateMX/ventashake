@@ -1,0 +1,15 @@
+-- Modo "cajero" del kiosko: la misma pantalla del kiosko, pero operada por un
+-- empleado que levanta el pedido frente al cliente.
+--
+-- A diferencia de 'pagar_en_caja' (que deja la orden esperando a que alguien
+-- la cobre en el POS), aquí el cajero cobra en el mismo acto y la comanda sale
+-- de inmediato a cocina y barra.
+--
+-- NO se salta el cobro: se registra el método de pago, el empleado que cobró y
+-- el corte abierto. Sin eso el corte de caja no cuadra al cierre del día y no
+-- hay a quién atribuir la venta. Lo único que se ahorra es el segundo paso en
+-- otra pantalla, porque quien opera ya es el cajero.
+--
+-- Pensado como escalón hacia el kiosko autónomo: el cliente ve la misma
+-- interfaz que usará solo después, y el cajero lo va guiando mientras tanto.
+alter type modo_pago_kiosko add value if not exists 'cajero';

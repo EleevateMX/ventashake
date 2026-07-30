@@ -63,6 +63,7 @@ function construirIndicadores(salud: SaludSistema): Indicador[] {
 const MODO_LABEL: Record<ModoPagoKiosko, string> = {
   clip: 'Clip (terminal)',
   pagar_en_caja: 'Pagar en caja',
+  cajero: 'Cajero (levanta el pedido y cobra ahí mismo)',
   demo: 'Demostración (solo no-producción)',
 }
 

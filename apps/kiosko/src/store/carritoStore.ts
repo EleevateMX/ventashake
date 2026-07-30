@@ -22,15 +22,29 @@ export interface UsuarioKiosko {
   clienteId: string | null
 }
 
+/** Empleado con el turno abierto en esta pantalla (solo en modo cajero). */
+export interface CajeroTurno {
+  id: string
+  nombre: string
+  rol: string
+}
+
 interface CarritoStore {
   items: ItemCarrito[]
   usuario: UsuarioKiosko | null
+  /**
+   * Se mantiene entre pedidos a propósito: el cajero abre turno una vez y
+   * levanta pedidos toda su jornada. `limpiar()` vacía el carrito y al
+   * cliente, pero NO cierra el turno.
+   */
+  cajero: CajeroTurno | null
   agregar: (item: Omit<ItemCarrito, 'cantidad'>) => void
   quitar: (producto_id: string) => void
   incrementar: (producto_id: string) => void
   decrementar: (producto_id: string) => void
   limpiar: () => void
   setUsuario: (u: UsuarioKiosko | null) => void
+  setCajero: (c: CajeroTurno | null) => void
   total: () => number
   totalItems: () => number
 }
@@ -38,6 +52,7 @@ interface CarritoStore {
 export const useCarrito = create<CarritoStore>((set, get) => ({
   items: [],
   usuario: null,
+  cajero: null,
 
   agregar: (item) => {
     let nuevaCantidad = 1
@@ -116,6 +131,8 @@ export const useCarrito = create<CarritoStore>((set, get) => ({
   },
 
   setUsuario: (usuario) => set({ usuario }),
+
+  setCajero: (cajero) => set({ cajero }),
 
   total: () => get().items.reduce((sum, i) => sum + i.precio * i.cantidad, 0),
 

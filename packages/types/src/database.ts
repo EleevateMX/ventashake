@@ -2621,7 +2621,7 @@ export type Database = {
         | "refunded_partial"
         | "refunded_full"
       metodo_pago: "clip" | "efectivo" | "tarjeta" | "cortesia" | "otro"
-      modo_pago_kiosko: "clip" | "pagar_en_caja" | "demo"
+      modo_pago_kiosko: "clip" | "pagar_en_caja" | "demo" | "cajero"
       tipo_almacen: "bodega" | "kiosko"
       tipo_conexion_impresora: "usb" | "red"
       tipo_cupon: "mancuernas" | "cumpleanos"
@@ -2810,7 +2810,7 @@ export const Constants = {
         "refunded_full",
       ],
       metodo_pago: ["clip", "efectivo", "tarjeta", "cortesia", "otro"],
-      modo_pago_kiosko: ["clip", "pagar_en_caja", "demo"],
+      modo_pago_kiosko: ["clip", "pagar_en_caja", "demo", "cajero"],
       tipo_almacen: ["bodega", "kiosko"],
       tipo_conexion_impresora: ["usb", "red"],
       tipo_cupon: ["mancuernas", "cumpleanos"],
