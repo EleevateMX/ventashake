@@ -55,6 +55,13 @@ timeout /t 4 /nobreak >nul
 REM Admin va en ventana normal, no a pantalla completa: es la herramienta del
 REM gerente (fotos, precios, empleados, impresoras) y se usa a ratos, encima de
 REM lo demas. Alt+Tab para alternar.
+REM POS: hace falta abierto aunque se cobre desde el kiosko, porque es donde
+REM se ABRE LA CAJA al inicio del turno. Sin corte abierto, el modo cajero
+REM avisa y la venta no entraria al arqueo del dia.
+echo Abriendo POS - CAJA (ventana normal)...
+start "" "%NAV%" --noerrdialogs --disable-infobars --no-first-run --disable-session-crashed-bubble --user-data-dir="%LOCALAPPDATA%\shake-pos" --window-position=160,160 --window-size=980,1500 https://shake-pos.pages.dev
+timeout /t 3 /nobreak >nul
+
 echo Abriendo ADMIN (ventana normal)...
 start "" "%NAV%" --noerrdialogs --disable-infobars --no-first-run --disable-session-crashed-bubble --user-data-dir="%LOCALAPPDATA%\shake-admin" --window-position=100,100 --window-size=980,1500 https://shake-admin.pages.dev
 
