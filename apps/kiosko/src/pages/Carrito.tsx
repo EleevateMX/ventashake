@@ -1,10 +1,41 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { listarAlmacenes } from '@shake/supabase'
+import type { ModoPagoKiosko } from '@shake/types'
 import { useCarrito } from '@/store/carritoStore'
+import { resolverModoKiosko } from '@/lib/modoKiosko'
+import { sb } from '@/lib/sb'
 
 export function Carrito() {
   const navigate = useNavigate()
   const { items, incrementar, decrementar, total, totalItems } = useCarrito()
+  const [modo, setModo] = useState<ModoPagoKiosko | null>(null)
+
+  useEffect(() => {
+    let vivo = true
+    ;(async () => {
+      try {
+        const almacenes = await listarAlmacenes(sb)
+        const kiosko = almacenes.find((a) => a.tipo === 'kiosko') ?? almacenes[0]
+        if (!kiosko || !vivo) return
+        setModo(await resolverModoKiosko(sb, kiosko.sucursal_id))
+      } catch {
+        // Sin modo resuelto se sigue con el flujo normal, que incluye lealtad.
+      }
+    })()
+    return () => { vivo = false }
+  }, [])
+
+  /**
+   * En modo cajero se salta la pantalla de lealtad y se va directo a cobrar.
+   *
+   * Esa pantalla está pensada para el cliente frente al kiosko: le ofrece
+   * entrar con Google para acumular mancuernas. Con el cajero operando es un
+   * paso de más en cada venta, y encima uno que el cliente no puede completar
+   * porque no es su celular el que está enfrente. Para identificarlo se usa
+   * el POS (por teléfono o QR), que es donde tiene sentido.
+   */
+  const irAPagar = () => navigate(modo === 'cajero' ? '/pago' : '/lealtad')
 
   if (totalItems() === 0) {
     return (
@@ -107,7 +138,7 @@ export function Carrito() {
           </span>
         </div>
         <button
-          onClick={() => navigate('/lealtad')}
+          onClick={irAPagar}
           className="w-full bg-sa-strawberry text-white py-5 rounded-full font-display text-3xl shadow-sa-sm active:scale-[0.98] transition-transform"
         >
           A pagar
