@@ -35,9 +35,22 @@ const esGalleta = (nombre: string) => /galleta/i.test(nombre.trim())
 /** La que lleva el shake si nadie pide otra cosa. */
 const LECHE_DEFAULT = /deslactosada/i
 
+/**
+ * Proteína a elegir: solo la traen los shakes que se arman a gusto (El
+ * Clásico), cuya receta no incluye proteína — la pone el cliente.
+ *
+ * A diferencia de la leche, esta SÍ entra como línea del ticket aunque cueste
+ * $0: es el ingrediente principal y su scoop tiene que salir del inventario.
+ * Si viajara pegada al shake como la leche, el bote nunca se descontaría.
+ */
+const esProteina = (nombre: string) => /^prote[ií]na/i.test(nombre.trim())
+const PROTEINA_DEFAULT = /optimum.*chocolate/i
+
 export function ModalExtras({ producto, extras, onCerrar, onAgregar }: Props) {
   const [leche, setLeche] = useState<string | null>(null)
   const [verLeches, setVerLeches] = useState(false)
+  const [proteina, setProteina] = useState<string | null>(null)
+  const [verProteinas, setVerProteinas] = useState(false)
   const [galleta, setGalleta] = useState<string | null>(null)
   const [cantidades, setCantidades] = useState<Record<string, number>>({})
 
@@ -45,14 +58,21 @@ export function ModalExtras({ producto, extras, onCerrar, onAgregar }: Props) {
 
   const leches = extras.filter((e) => esLeche(e.nombre))
   const galletas = extras.filter((e) => esGalleta(e.nombre))
-  const adicionales = extras.filter((e) => !esLeche(e.nombre) && !esGalleta(e.nombre))
+  const proteinas = extras.filter((e) => esProteina(e.nombre))
+  const adicionales = extras.filter(
+    (e) => !esLeche(e.nombre) && !esGalleta(e.nombre) && !esProteina(e.nombre),
+  )
 
   // Deslactosada es la de casa: viene marcada y es la única visible hasta que
   // el cliente pide otra. Así el caso común es cero toques.
   const lecheDefault = leches.find((l) => LECHE_DEFAULT.test(l.nombre)) ?? leches[0] ?? null
   const lecheElegida = leches.find((l) => l.extra_id === leche) ?? lecheDefault
   const galletaElegida = galletas.find((g) => g.extra_id === galleta) ?? null
+  const proteinaDefault =
+    proteinas.find((p) => PROTEINA_DEFAULT.test(p.nombre)) ?? proteinas[0] ?? null
+  const proteinaElegida = proteinas.find((p) => p.extra_id === proteina) ?? proteinaDefault
   const totalExtras =
+    (proteinaElegida?.precio ?? 0) +
     (galletaElegida?.precio ?? 0) +
     adicionales.reduce((s, e) => s + e.precio * (cantidades[e.extra_id] ?? 0), 0)
 
@@ -67,7 +87,8 @@ export function ModalExtras({ producto, extras, onCerrar, onAgregar }: Props) {
   }
 
   function limpiar() {
-    setLeche(null); setVerLeches(false); setGalleta(null); setCantidades({})
+    setLeche(null); setVerLeches(false); setProteina(null); setVerProteinas(false)
+    setGalleta(null); setCantidades({})
   }
 
   function confirmar() {
@@ -77,6 +98,7 @@ export function ModalExtras({ producto, extras, onCerrar, onAgregar }: Props) {
     // shakes de leches distintas en el mismo pedido.
     const nota = lecheElegida ? lecheElegida.nombre : null
     const elegidos = [
+      ...(proteinaElegida ? [proteinaElegida] : []),
       ...(galletaElegida ? [galletaElegida] : []),
       ...adicionales.flatMap((e) =>
         Array.from({ length: cantidades[e.extra_id] ?? 0 }, () => e),
@@ -141,6 +163,50 @@ export function ModalExtras({ producto, extras, onCerrar, onAgregar }: Props) {
                         <span className="font-display text-base leading-tight block">{l.nombre}</span>
                         {l.precio > 0 && (
                           <span className="font-mono text-xs opacity-70">+{mxn(l.precio)}</span>
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </section>
+          )}
+
+          {proteinas.length > 0 && (
+            <section>
+              <h3 className="font-display text-xl text-sa-green-ink">Proteína</h3>
+              <p className="font-mono text-[10px] uppercase tracking-wide text-sa-green-ink/40 mb-3">
+                {verProteinas ? 'Elige una' : 'Toca para cambiarla'}
+              </p>
+              {!verProteinas ? (
+                <button
+                  onClick={() => setVerProteinas(true)}
+                  className="w-full flex items-center justify-between gap-3 px-4 py-4 rounded-sa border-2 border-sa-green bg-sa-green text-sa-cream text-left"
+                >
+                  <span className="font-display text-lg leading-tight">
+                    {proteinaElegida?.nombre ?? 'Sin proteína'}
+                  </span>
+                  <span className="font-mono text-[10px] uppercase tracking-wide opacity-80 flex-shrink-0">
+                    Cambiar ▾
+                  </span>
+                </button>
+              ) : (
+                <div className="grid grid-cols-2 gap-2">
+                  {proteinas.map((p) => {
+                    const activa = proteinaElegida?.extra_id === p.extra_id
+                    return (
+                      <button
+                        key={p.extra_id}
+                        onClick={() => { setProteina(p.extra_id); setVerProteinas(false) }}
+                        className={`px-4 py-3 rounded-sa text-left transition-all border-2 ${
+                          activa
+                            ? 'bg-sa-green text-sa-cream border-sa-green'
+                            : 'bg-white border-sa-green-ink/10 text-sa-green-ink hover:border-sa-green/40'
+                        }`}
+                      >
+                        <span className="font-display text-sm leading-tight block">{p.nombre}</span>
+                        {p.precio > 0 && (
+                          <span className="font-mono text-xs opacity-70">+{mxn(p.precio)}</span>
                         )}
                       </button>
                     )
