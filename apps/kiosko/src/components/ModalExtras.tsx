@@ -32,8 +32,12 @@ const esGalleta = (nombre: string) => /galleta/i.test(nombre.trim())
  * cocina necesita en la comanda aunque no cueste. Cuando el negocio les ponga
  * precio en Admin → Extras, empiezan a cobrar solos sin tocar nada aquí.
  */
+/** La que lleva el shake si nadie pide otra cosa. */
+const LECHE_DEFAULT = /deslactosada/i
+
 export function ModalExtras({ producto, extras, onCerrar, onAgregar }: Props) {
   const [leche, setLeche] = useState<string | null>(null)
+  const [verLeches, setVerLeches] = useState(false)
   const [galleta, setGalleta] = useState<string | null>(null)
   const [cantidades, setCantidades] = useState<Record<string, number>>({})
 
@@ -43,10 +47,12 @@ export function ModalExtras({ producto, extras, onCerrar, onAgregar }: Props) {
   const galletas = extras.filter((e) => esGalleta(e.nombre))
   const adicionales = extras.filter((e) => !esLeche(e.nombre) && !esGalleta(e.nombre))
 
-  const lecheElegida = leches.find((l) => l.extra_id === leche) ?? null
+  // Deslactosada es la de casa: viene marcada y es la única visible hasta que
+  // el cliente pide otra. Así el caso común es cero toques.
+  const lecheDefault = leches.find((l) => LECHE_DEFAULT.test(l.nombre)) ?? leches[0] ?? null
+  const lecheElegida = leches.find((l) => l.extra_id === leche) ?? lecheDefault
   const galletaElegida = galletas.find((g) => g.extra_id === galleta) ?? null
   const totalExtras =
-    (lecheElegida?.precio ?? 0) +
     (galletaElegida?.precio ?? 0) +
     adicionales.reduce((s, e) => s + e.precio * (cantidades[e.extra_id] ?? 0), 0)
 
@@ -61,18 +67,22 @@ export function ModalExtras({ producto, extras, onCerrar, onAgregar }: Props) {
   }
 
   function limpiar() {
-    setLeche(null); setGalleta(null); setCantidades({})
+    setLeche(null); setVerLeches(false); setGalleta(null); setCantidades({})
   }
 
   function confirmar() {
+    // La leche NO va como línea aparte del ticket: viaja pegada al shake, en
+    // su misma línea. Es una sustitución sin costo, y verla suelta en la
+    // comanda confundía —"¿esa leche es de cuál shake?"— sobre todo con dos
+    // shakes de leches distintas en el mismo pedido.
+    const nota = lecheElegida ? lecheElegida.nombre : null
     const elegidos = [
-      ...(lecheElegida ? [lecheElegida] : []),
       ...(galletaElegida ? [galletaElegida] : []),
       ...adicionales.flatMap((e) =>
         Array.from({ length: cantidades[e.extra_id] ?? 0 }, () => e),
       ),
     ]
-    onAgregar(null, elegidos)
+    onAgregar(nota, elegidos)
     limpiar()
   }
 
@@ -96,29 +106,47 @@ export function ModalExtras({ producto, extras, onCerrar, onAgregar }: Props) {
             <section>
               <h3 className="font-display text-xl text-sa-green-ink">Tipo de leche</h3>
               <p className="font-mono text-[10px] uppercase tracking-wide text-sa-green-ink/40 mb-3">
-                Elige una · sustituye la de la receta
+                {verLeches ? 'Elige una · sustituye la de la receta' : 'Toca para cambiarla'}
               </p>
-              <div className="grid grid-cols-2 gap-2">
-                {leches.map((l) => {
-                  const activa = leche === l.extra_id
-                  return (
-                    <button
-                      key={l.extra_id}
-                      onClick={() => setLeche(activa ? null : l.extra_id)}
-                      className={`px-4 py-3 rounded-sa text-left transition-all border-2 ${
-                        activa
-                          ? 'bg-sa-green text-sa-cream border-sa-green'
-                          : 'bg-white border-sa-green-ink/10 text-sa-green-ink hover:border-sa-green/40'
-                      }`}
-                    >
-                      <span className="font-display text-base leading-tight block">{l.nombre}</span>
-                      {l.precio > 0 && (
-                        <span className="font-mono text-xs opacity-70">+{mxn(l.precio)}</span>
-                      )}
-                    </button>
-                  )
-                })}
-              </div>
+
+              {/* Plegado: solo la elegida. La mayoría de los pedidos se va con
+                  la de casa, así que no tiene sentido mostrar cuatro botones
+                  cada vez. Al tocarla se abren todas. */}
+              {!verLeches ? (
+                <button
+                  onClick={() => setVerLeches(true)}
+                  className="w-full flex items-center justify-between gap-3 px-4 py-4 rounded-sa border-2 border-sa-green bg-sa-green text-sa-cream text-left"
+                >
+                  <span className="font-display text-lg leading-tight">
+                    {lecheElegida?.nombre ?? 'Sin leche'}
+                  </span>
+                  <span className="font-mono text-[10px] uppercase tracking-wide opacity-80 flex-shrink-0">
+                    Cambiar ▾
+                  </span>
+                </button>
+              ) : (
+                <div className="grid grid-cols-2 gap-2">
+                  {leches.map((l) => {
+                    const activa = lecheElegida?.extra_id === l.extra_id
+                    return (
+                      <button
+                        key={l.extra_id}
+                        onClick={() => { setLeche(l.extra_id); setVerLeches(false) }}
+                        className={`px-4 py-3 rounded-sa text-left transition-all border-2 ${
+                          activa
+                            ? 'bg-sa-green text-sa-cream border-sa-green'
+                            : 'bg-white border-sa-green-ink/10 text-sa-green-ink hover:border-sa-green/40'
+                        }`}
+                      >
+                        <span className="font-display text-base leading-tight block">{l.nombre}</span>
+                        {l.precio > 0 && (
+                          <span className="font-mono text-xs opacity-70">+{mxn(l.precio)}</span>
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
             </section>
           )}
 
