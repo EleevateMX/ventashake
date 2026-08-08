@@ -16,10 +16,18 @@ export interface ItemCarrito {
 }
 
 export interface UsuarioKiosko {
-  authId: string
+  /**
+   * Solo existe cuando el cliente entró con Google desde el propio kiosko.
+   * Cuando lo identifica el cajero (por QR o teléfono) no hay sesión de Auth
+   * de por medio, y aun así la compra le suma mancuernas: lo que necesita la
+   * orden es `clienteId`, no la sesión.
+   */
+  authId?: string | null
   nombre: string
-  email: string
+  email?: string | null
   clienteId: string | null
+  /** Saldo en el momento de identificarlo, para mostrarlo sin volver a leer. */
+  mancuernas?: number
 }
 
 /** Empleado con el turno abierto en esta pantalla (solo en modo cajero). */

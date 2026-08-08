@@ -47,10 +47,12 @@ Con 8 subdominios por conectar, la B ahorra bastante trabajo.
 | `admin` | `shake-admin` | Gerencia |
 | `rewards` | `shake-cliente-pwa` | Celular del cliente (lealtad) |
 | `costos` | `shake-costos` | Costeo e inventario, uso interno |
+| **raíz** `shakeaholic.mx` y `www` | `shake-web` | Cualquiera que teclee el dominio |
 
-> **La raíz `shakeaholic.mx` no está cubierta.** Hoy no existe una página web
-> del negocio en el repositorio: las ocho apps son herramientas de operación,
-> no un sitio público. Ver §5.
+> La raíz ya tiene a dónde apuntar: `apps/web` es la página pública del
+> negocio (menú en vivo, QR de Rewards). Se conecta igual que las demás,
+> pero con **dos** dominios personalizados: `shakeaholic.mx` y
+> `www.shakeaholic.mx`. Ver §5.
 
 ---
 
@@ -134,18 +136,39 @@ Borra el icono de la pantalla de inicio y vuelve a agregarlo desde
 
 ---
 
-## 5. La raíz del dominio
+## 5. La raíz del dominio — la página web
 
-`shakeaholic.mx` a secas no lleva a ningún lado todavía. Tres caminos:
+`apps/web` es el sitio público: portada, sección de lealtad con el QR de
+Rewards, y el menú **leído en vivo de la misma base que usa la caja**. Nadie
+tiene que publicar el menú a mano: lo que se captura en costeo aparece ahí
+solo, con su foto, su descripción y su precio.
 
-| Opción | Qué implica |
+**Crear el proyecto en Cloudflare Pages** (una sola vez):
+
+| Campo | Valor |
 |---|---|
-| **Reenvío a Rewards** | GoDaddy → *Reenvío de dominio* → `rewards.shakeaholic.mx`. Gratis e inmediato, pero la barra del navegador cambia de dirección |
-| **Página del negocio** | Una landing estática con menú, horario, ubicación y botón a Rewards. No existe hoy; hay que construirla |
-| **Dejarla vacía** | Nadie teclea la raíz si todo se reparte por QR y accesos directos |
+| Nombre del proyecto | `shake-web` |
+| Repositorio | `EleevateMX/ventashake`, rama `main` |
+| Build command | `pnpm install --frozen-lockfile && pnpm --filter @shake/web build` |
+| Build output directory | `apps/web/dist` |
+| Root directory | *(la raíz del repo, se deja vacío)* |
 
-Si vas a imprimir el dominio en vasos, letreros o redes, conviene la segunda:
-que alguien teclee `shakeaholic.mx` y le salga un error es peor que no ponerlo.
+**Variables de entorno** (Settings → Environment variables, en *Production*):
+
+| Nombre | Valor |
+|---|---|
+| `VITE_SUPABASE_URL` | `https://zyjtnaystsporbuzcmqk.supabase.co` |
+| `VITE_SUPABASE_ANON_KEY` | la llave `anon` del proyecto |
+| `VITE_URL_REWARDS` | `https://rewards.shakeaholic.mx` (o el `.pages.dev` mientras no exista el dominio) |
+
+> `VITE_URL_REWARDS` es a dónde manda el QR de la portada. Si se deja el
+> `.pages.dev` y luego se conecta el dominio, hay que cambiarla y volver a
+> desplegar — el QR se genera con esa URL adentro.
+
+**Dominios personalizados**: en *Custom domains* agrega los dos,
+`shakeaholic.mx` y `www.shakeaholic.mx`. Con los nameservers ya en
+Cloudflare (opción B), Cloudflare crea los registros solo — la raíz funciona
+por *CNAME flattening*, que es justo lo que GoDaddy no permitía.
 
 ---
 
