@@ -8,6 +8,44 @@ El dominio está en **GoDaddy** y las apps en **Cloudflare Pages**.
 
 ---
 
+## 0. Antes de tocar nada: el DNS que YA existe
+
+⚠️ **En este dominio vive el correo del negocio (Microsoft 365).** Mover los
+nameservers a Cloudflare (opción B) **borra de hecho todos los registros** que
+hoy sirve GoDaddy: los que no recrees en Cloudflare dejan de existir. Si se
+pierden los de correo, dejas de recibir mails — y eso se nota tarde, cuando ya
+rebotó algo importante.
+
+Inventario leído en vivo (2026-08-08). Recréalos **todos** en Cloudflare antes
+de completar el cambio, y compáralo contra lo que veas en el panel de GoDaddy
+por si hay algo que no se alcanza a ver desde fuera:
+
+| Tipo | Nombre | Valor | Para qué |
+|---|---|---|---|
+| MX | `@` | `shakeaholic-mx.mail.protection.outlook.com` (prio 0) | **Correo entrante M365** |
+| TXT | `@` | `NETORGFT20557962.onmicrosoft.com` | Verificación del dominio en M365 |
+| TXT | `@` | `v=spf1 include:spf.em.secureserver.net include:secureserver.net -all` | SPF — sin esto tu correo saliente cae en spam |
+| TXT | `_dmarc` | `v=DMARC1; p=quarantine; adkim=r; aspf=r; rua=mailto:dmarc_rua@onsecureserver.net;` | DMARC |
+| CNAME | `autodiscover` | `autodiscover.outlook.com` | Outlook configura solo las cuentas |
+| CNAME | `lyncdiscover` | `webdir.online.lync.com` | Teams / Skype Empresarial |
+| CNAME | `sip` | `sipdir.online.lync.com` | Teams / Skype Empresarial |
+| SRV | `_sipfederationtls._tcp` | `100 1 5061 sipfed.online.lync.com` | Teams / Skype Empresarial |
+| SRV | `_sip._tls` | `100 1 443 sipdir.online.lync.com` | Teams / Skype Empresarial |
+| CNAME | `email` | `email.secureserver.net` | Webmail de GoDaddy |
+
+Los registros que **no** hay que recrear son los `A` de la raíz y de `www`
+(`13.248.243.5`, `76.223.105.230`): son el reenvío/parking de GoDaddy y los
+reemplaza la página web (§5).
+
+> Cloudflare ofrece importar los registros al agregar el dominio. Acepta, pero
+> **revisa la lista contra esta tabla** antes de dar el último paso: el
+> importador se salta registros con cierta frecuencia, sobre todo los `SRV`.
+
+Después del cambio, manda un correo de prueba a una dirección del dominio y
+otro desde ella. Si los dos llegan, el correo sobrevivió.
+
+---
+
 ## 1. Decisión previa: ¿nameservers en GoDaddy o en Cloudflare?
 
 Hay dos caminos y conviene elegir antes de empezar, porque cambiar después
