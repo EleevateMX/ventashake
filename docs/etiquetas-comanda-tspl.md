@@ -188,7 +188,45 @@ catálogo tenga tallas, se llena solo.
 
 ---
 
-## 4. Probarlo
+## 4. Instalarlo en la PC de la sucursal
+
+Un solo comando. Baja el agente, instala Node si falta, saca los tokens de
+las impresoras que ya están en Admin, arma `printers.config.json`, imprime
+una etiqueta de prueba en cada una y lo deja arrancando solo con Windows.
+
+**PowerShell como administrador, en la PC de la sucursal:**
+
+```powershell
+irm https://raw.githubusercontent.com/EleevateMX/ventashake/main/scripts/instalar-agente-impresion.ps1 | Out-File -Encoding utf8 "$env:TEMP\instalar.ps1"
+& "$env:TEMP\instalar.ps1" -AnonKey "PEGA_AQUI_LA_ANON_KEY"
+```
+
+La anon key sale de **Supabase → Project Settings → API Keys → `anon public`**.
+
+Antes de instalar nada comprueba que las impresoras respondan; si no
+responden, se detiene y lo dice, en vez de dejar un agente instalado que no
+sirve. Para revisar solo eso sin tocar nada:
+
+```powershell
+& "$env:TEMP\instalar.ps1" -AnonKey "..." -SoloProbar
+```
+
+> **Cada corrida genera tokens nuevos.** El token no se puede volver a leer
+> —es lo único que prueba la identidad de una impresora ante la cola— así que
+> "obtenerlo" es en realidad crear uno. Si ya había un agente andando con el
+> anterior, deja de imprimir hasta que se reinstale. No pasa nada por correr
+> el instalador dos veces; sí pasa por dejar dos agentes con tokens distintos.
+
+### A mano, si prefieres
+
+**Admin → Impresoras → "Conectar agente"** en la impresora que sea. Muestra el
+bloque completo de `printers.config.json` —con la IP y el `lenguaje` ya
+puestos— listo para copiar. Ese botón queda pegado al borde derecho de la
+tabla, así que se ve aunque la ventana esté angosta.
+
+---
+
+## 5. Probarlo
 
 Todo esto corre en la NUC, dentro de `agente-impresion`.
 
@@ -211,7 +249,7 @@ npm run test-print -- bebidas
 npm run test-print -- alimentos
 ```
 
-**Las pruebas automáticas del generador** (28 casos: la geometría exacta del
+**Las pruebas automáticas del generador** (43 casos: la geometría exacta del
 diseño validado, los cortes de línea, las abreviaturas, el reparto de la
 personalización):
 
@@ -230,7 +268,7 @@ nada.
 
 ---
 
-## 5. Si algo no imprime
+## 6. Si algo no imprime
 
 | Síntoma | Causa | Solución |
 |---|---|---|
@@ -250,7 +288,7 @@ nada.
 
 ---
 
-## 6. El TSPL, para quien lo necesite generar desde otro lado
+## 7. El TSPL, para quien lo necesite generar desde otro lado
 
 Si algún día otro sistema tiene que hablar con estas impresoras directo, esta
 es la referencia. El agente ya hace todo esto — esto es para no tener que

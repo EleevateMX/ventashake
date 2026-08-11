@@ -35,7 +35,11 @@ export function cargarPrinters(): PrinterConfig[] {
 
   let printers: PrinterConfig[]
   try {
-    const raw = readFileSync(printersPath, 'utf8')
+    // El BOM se quita a mano: el Bloc de notas de Windows lo antepone al
+    // guardar, y `JSON.parse` revienta en el primer byte con un mensaje que
+    // no dice nada útil ("Unexpected token"). Quien edita el archivo en la
+    // sucursal no tiene por qué saber qué es un BOM.
+    const raw = readFileSync(printersPath, 'utf8').replace(/^\uFEFF/, '')
     printers = JSON.parse(raw) as PrinterConfig[]
   } catch (e) {
     throw new Error(

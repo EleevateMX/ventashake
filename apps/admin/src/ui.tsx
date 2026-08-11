@@ -18,6 +18,18 @@ export const cx = {
   tr: 'hover:bg-sa-cream-soft/50 transition-colors',
   td: 'px-5 py-3 text-sa-green-ink',
   tdNum: 'px-5 py-3 text-right font-mono tabular-nums text-sa-green-ink',
+  /**
+   * Columna de acciones que se queda pegada al borde derecho.
+   *
+   * Sin esto, en una ventana angosta los botones se van detrás del scroll
+   * horizontal y quedan invisibles: la fila se ve completa —nombre, estado,
+   * conexión— y da la impresión de que no hay nada que hacer con ella. Pasó
+   * de verdad con "Rotar token" en Impresoras.
+   */
+  thAcciones:
+    'px-5 py-3 font-medium text-right whitespace-nowrap sticky right-0 z-10 bg-sa-cream-soft',
+  tdAcciones:
+    'px-5 py-3 text-right sticky right-0 z-10 bg-white shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.15)]',
   btnPrimary:
     'bg-sa-green hover:bg-sa-green-deep text-sa-cream px-5 py-2.5 rounded-sa font-medium text-sm transition-colors disabled:opacity-50 disabled:cursor-default',
   btnSec:

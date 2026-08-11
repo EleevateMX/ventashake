@@ -35,6 +35,33 @@ const ESTADO_TONO: Record<EstadoTrabajoImpresion, 'si' | 'no' | 'neutral'> = {
   retry: 'no', failed: 'no', cancelled: 'neutral',
 }
 
+/**
+ * El bloque exacto que va en `printers.config.json` del agente.
+ *
+ * Se entrega armado y no solo el token porque armarlo a mano es donde esto
+ * se rompe: el campo que más se olvida es `lenguaje`, y una etiquetadora
+ * configurada como ESC/POS no imprime **ni da error** — el trabajo queda
+ * marcado como impreso y la comanda desaparece.
+ */
+function bloqueConfig(t: { nombre: string; token: string; ip: string | null; puerto: number | null }): string {
+  const esEtiquetadora = t.ip != null
+  return JSON.stringify(
+    {
+      id: t.nombre.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''),
+      descripcion: t.nombre,
+      token: t.token,
+      interface: esEtiquetadora ? `tcp://${t.ip}:${t.puerto ?? 9100}` : 'printer:NOMBRE_EN_WINDOWS',
+      lenguaje: esEtiquetadora ? 'tspl' : 'escpos',
+      anchoPapel: '80mm',
+      copias: 1,
+      corteAutomatico: false,
+      buzzer: false,
+    },
+    null,
+    2,
+  )
+}
+
 export default function Impresoras() {
   const [impresoras, setImpresoras] = useState<ImpresoraAdmin[]>([])
   const [cocinas, setCocinas] = useState<Cocina[]>([])
@@ -44,7 +71,10 @@ export default function Impresoras() {
   const [ok, setOk] = useState<string | null>(null)
   const [form, setForm] = useState<FormState>(VACIO)
   const [guardando, setGuardando] = useState(false)
-  const [tokenVisible, setTokenVisible] = useState<string | null>(null)
+  // Se guarda junto con la impresora: el token solo sirve acompañado de la
+  // IP y del lenguaje, y pedirle a alguien que arme el JSON a mano es la
+  // parte donde esto se rompe.
+  const [tokenVisible, setTokenVisible] = useState<{ nombre: string; token: string; ip: string | null; puerto: number | null } | null>(null)
   const [filtroEstado, setFiltroEstado] = useState<EstadoTrabajoImpresion | 'todos'>('todos')
   const [sucursalId, setSucursalId] = useState<string | null>(null)
 
@@ -100,8 +130,13 @@ export default function Impresoras() {
       } else {
         if (!sucursalId) { setError('No hay sucursal configurada todavía.'); setGuardando(false); return }
         const nueva = await crearImpresora(sb, { ...datosComunes, sucursal_id: sucursalId })
-        setOk('Impresora agregada. Copia su token abajo para configurarla en el agente local.')
-        setTokenVisible(nueva.agente_token)
+        setOk('Impresora agregada. Abajo está su configuración para el agente local.')
+        setTokenVisible({
+          nombre: datosComunes.nombre,
+          token: nueva.agente_token,
+          ip: datosComunes.ip,
+          puerto: datosComunes.puerto,
+        })
       }
       setForm(VACIO)
       await cargar()
@@ -112,13 +147,25 @@ export default function Impresoras() {
     }
   }
 
+  /**
+   * Muestra la configuración que necesita el agente de esa estación.
+   *
+   * El token no se puede volver a leer —no sale nunca en la lista, es lo
+   * único que prueba la identidad de una impresora ante la cola— así que
+   * "verlo" es en realidad generar uno nuevo. Por eso avisa: si ya había un
+   * agente andando con el anterior, deja de imprimir hasta que se actualice.
+   */
   async function rotarToken(imp: ImpresoraAdmin) {
     setError(null); setOk(null)
-    if (!window.confirm(`¿Rotar el token de "${imp.nombre}"? El agente local dejará de poder reclamar trabajos hasta que actualices printers.config.json con el nuevo token.`)) return
+    if (!window.confirm(
+      `Se va a generar un token nuevo para "${imp.nombre}".\n\n` +
+      `Si ya hay un agente andando con el token anterior, dejará de imprimir ` +
+      `hasta que lo actualices. ¿Continuar?`,
+    )) return
     try {
       const nuevoToken = await rotarTokenImpresora(sb, imp.id)
-      setTokenVisible(nuevoToken)
-      setOk(`Token de "${imp.nombre}" rotado. Actualiza printers.config.json del agente local.`)
+      setTokenVisible({ nombre: imp.nombre, token: nuevoToken, ip: imp.ip, puerto: imp.puerto })
+      setOk(`Configuración de "${imp.nombre}" lista abajo.`)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     }
@@ -260,9 +307,26 @@ export default function Impresoras() {
 
       {tokenVisible && (
         <Panel className="mb-6 border-sa-mint">
-          <p className="text-sm text-sa-green-ink mb-2">Token del agente (cópialo ahora, no se vuelve a mostrar completo aquí):</p>
-          <code className="block bg-sa-green-ink text-sa-cream px-4 py-3 rounded-sa text-sm font-mono break-all">{tokenVisible}</code>
-          <button className={`${cx.btnSec} mt-3`} onClick={() => setTokenVisible(null)}>Ya lo copié</button>
+          <p className="text-sm text-sa-green-ink mb-1">
+            Configuración de <b>{tokenVisible.nombre}</b> para el agente local.
+          </p>
+          <p className={`text-xs mb-3 ${cx.muted}`}>
+            Cópiala ahora: el token no se vuelve a mostrar. Va en{' '}
+            <code className="px-1 bg-sa-cream-soft rounded">printers.config.json</code>, dentro de
+            los corchetes, separada de las demás por una coma.
+          </p>
+          <pre className="bg-sa-green-ink text-sa-cream px-4 py-3 rounded-sa text-xs font-mono overflow-x-auto whitespace-pre">
+{bloqueConfig(tokenVisible)}
+          </pre>
+          <div className="flex gap-2 mt-3">
+            <button
+              className={cx.btnPrimary}
+              onClick={() => void navigator.clipboard.writeText(bloqueConfig(tokenVisible))}
+            >
+              Copiar
+            </button>
+            <button className={cx.btnSec} onClick={() => setTokenVisible(null)}>Cerrar</button>
+          </div>
         </Panel>
       )}
 
@@ -279,7 +343,7 @@ export default function Impresoras() {
                 <th className={cx.th}>Conexión</th>
                 <th className={cx.th}>Conectada</th>
                 <th className={cx.th}>Última impresión</th>
-                <th className={cx.thNum}>Acciones</th>
+                <th className={cx.thAcciones}>Acciones</th>
               </tr>
             </thead>
             <tbody className={cx.tbody}>
@@ -299,11 +363,13 @@ export default function Impresoras() {
                   <td className={cx.td}>
                     {imp.ultima_impresion ? new Date(imp.ultima_impresion).toLocaleString('es-MX') : <span className={cx.muted}>—</span>}
                   </td>
-                  <td className={cx.tdNum}>
+                  <td className={cx.tdAcciones}>
                     <div className="inline-flex gap-2">
+                      <button className={cx.btnPrimary} onClick={() => void rotarToken(imp)}>
+                        Conectar agente
+                      </button>
                       <button className={cx.btnSec} onClick={() => editar(imp)}>Editar</button>
                       <button className={cx.btnSec} onClick={() => void toggleActiva(imp)}>{imp.activa ? 'Desactivar' : 'Activar'}</button>
-                      <button className={cx.btnSec} onClick={() => void rotarToken(imp)}>Rotar token</button>
                     </div>
                   </td>
                 </tr>
