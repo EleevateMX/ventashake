@@ -10,7 +10,9 @@ import {
   vistaPrevia,
   type EtiquetaComanda,
 } from './tspl.js'
-import { etiquetasDeTrabajo, formatearFecha, repartirPersonalizacion } from './etiquetas.js'
+import {
+  etiquetasDeTrabajo, formatearFecha, porEtiqueta, repartirPersonalizacion,
+} from './etiquetas.js'
 import type { TrabajoImpresion } from './types.js'
 
 /**
@@ -255,6 +257,39 @@ describe('etiquetas de un trabajo', () => {
     expect(e.extras).toEqual(['2 Galletas L&L Cremes (Chocolate)'])
   })
 
+  it('reparte la cantidad del extra entre las etiquetas del producto', () => {
+    // Dos shakes con UNA promo de galletas cada uno: la línea trae el total
+    // (2). Si ese 2 se copiara a cada etiqueta, en barra saldrían cuatro.
+    const dos: TrabajoImpresion = {
+      ...trabajo,
+      payload: {
+        ...trabajo.payload,
+        items: [{
+          cantidad: 2,
+          nombre: '#1 Choco Killer',
+          extras: [{ nombre: '2 Galletas L&L Cremes (Chocolate)', cantidad: 2 }],
+        }],
+      },
+    }
+    const e = etiquetasDeTrabajo(dos)
+    expect(e).toHaveLength(2)
+    for (const et of e) expect(et.extras).toEqual(['2 Galletas L&L Cremes (Chocolate)'])
+  })
+
+  it('sí marca el múltiplo cuando de verdad van dos por vaso', () => {
+    const dobles: TrabajoImpresion = {
+      ...trabajo,
+      payload: {
+        ...trabajo.payload,
+        items: [{
+          cantidad: 2, nombre: '#1 Choco Killer',
+          extras: [{ nombre: 'Proteína OPTIMUM - Chocolate', cantidad: 4 }],
+        }],
+      },
+    }
+    expect(etiquetasDeTrabajo(dobles)[0].proteina).toBe('2x Proteína OPTIMUM - Chocolate')
+  })
+
   it('saca el tamaño del nombre del producto y no lo repite', () => {
     const conTamano: TrabajoImpresion = {
       ...trabajo,
@@ -263,6 +298,21 @@ describe('etiquetas de un trabajo', () => {
     const e = etiquetasDeTrabajo(conTamano)[0]
     expect(e.producto).toBe('Shake Oreo')
     expect(e.tamano).toBe('20 OZ')
+  })
+})
+
+describe('cuánto de un extra lleva cada etiqueta', () => {
+  it.each([
+    [{ nombre: 'Galletas', cantidad: 2 }, 2, 'Galletas'],
+    [{ nombre: 'Galletas', cantidad: 4 }, 2, '2x Galletas'],
+    [{ nombre: 'Galletas', cantidad: 1 }, 1, 'Galletas'],
+    [{ nombre: 'Galletas' }, 3, 'Galletas'],
+  ])('%o entre %i → %s', (extra, unidades, esperado) => {
+    expect(porEtiqueta(extra, unidades)).toBe(esperado)
+  })
+
+  it('no redondea un reparto desigual: lo deja visible', () => {
+    expect(porEtiqueta({ nombre: 'Galletas', cantidad: 3 }, 2)).toBe('3 p/2 Galletas')
   })
 })
 

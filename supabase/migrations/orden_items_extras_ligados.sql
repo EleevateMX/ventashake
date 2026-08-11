@@ -180,10 +180,6 @@ $$;
 -- en ese caso se dobla como `extras` de ese padre. Un extra cuyo padre se fue
 -- a otra estación sigue saliendo por su cuenta: es preferible una etiqueta de
 -- más a que la información desaparezca.
---
--- La cantidad se conserva en el texto ("2x Galletas") en vez de repetir el
--- extra: la etiqueta tiene 21 caracteres por línea y perder el número sería
--- peor que gastar tres de ellos.
 -- ---------------------------------------------------------------------------
 
 create or replace function fn_items_comanda(p_pedido_id uuid)
@@ -199,9 +195,13 @@ as $$
       'cantidad',        ci.cantidad,
       'nombre',          pr.nombre,
       'personalizacion', ci.personalizacion,
+      -- La cantidad va como numero, no formateada dentro del texto: es el
+      -- TOTAL de la linea, y quien arma las etiquetas es quien sabe entre
+      -- cuantas repartirlo. Dos shakes con una promo cada uno llegan como 2;
+      -- copiar ese 2 a cada etiqueta se lee como cuatro galletas por vaso.
       'extras', coalesce((
         select jsonb_agg(
-          case when h.cantidad > 1 then h.cantidad || 'x ' || ph.nombre else ph.nombre end
+          jsonb_build_object('nombre', ph.nombre, 'cantidad', h.cantidad)
           order by ph.nombre
         )
         from cocina_items h

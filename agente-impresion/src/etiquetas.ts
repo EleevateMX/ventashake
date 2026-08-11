@@ -1,5 +1,5 @@
 import type { EtiquetaComanda } from './tspl.js'
-import type { ItemComanda, PayloadComanda, TrabajoImpresion } from './types.js'
+import type { ExtraComanda, ItemComanda, PayloadComanda, TrabajoImpresion } from './types.js'
 
 /**
  * Convierte UN trabajo de la cola en las etiquetas que hay que imprimir.
@@ -99,8 +99,12 @@ export function separarTamano(nombre: string): { nombre: string; tamano: string 
  */
 function camposDe(item: ItemComanda): Pick<EtiquetaComanda, 'tamano' | 'proteina' | 'leche' | 'extras' | 'notas'> {
   const texto = repartirPersonalizacion(item.personalizacion)
+  const unidades = Math.max(1, item.cantidad || 1)
 
-  const todos = [...(item.extras ?? []), ...texto.extras]
+  const todos = [
+    ...(item.extras ?? []).map((e) => porEtiqueta(e, unidades)),
+    ...texto.extras,
+  ]
   const proteinaSuelta = todos.find(esProteina) ?? null
 
   return {
@@ -110,6 +114,28 @@ function camposDe(item: ItemComanda): Pick<EtiquetaComanda, 'tamano' | 'proteina
     extras: todos.filter((e) => e !== proteinaSuelta),
     notas: item.notas ?? texto.notas,
   }
+}
+
+/**
+ * Cuánto de este extra lleva UNA etiqueta.
+ *
+ * La línea trae el total: dos shakes con una promo de galletas cada uno
+ * llegan como cantidad 2. Si ese 2 se copiara tal cual a cada etiqueta, las
+ * dos dirían "2x galletas" y en barra saldrían cuatro.
+ *
+ * Cuando el total no se reparte parejo entre las unidades (solo puede pasar
+ * si alguien editó la orden a mano), se deja el número tal cual: es preferible
+ * un dato raro que alguien va a preguntar, a uno redondeado que se ve normal
+ * y está mal.
+ */
+export function porEtiqueta(extra: string | ExtraComanda, unidades: number): string {
+  if (typeof extra === 'string') return extra
+
+  const total = extra.cantidad ?? unidades
+  const cada = total / unidades
+
+  if (!Number.isInteger(cada)) return `${total} p/${unidades} ${extra.nombre}`
+  return cada > 1 ? `${cada}x ${extra.nombre}` : extra.nombre
 }
 
 /**

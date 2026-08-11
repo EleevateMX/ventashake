@@ -57,8 +57,20 @@ export interface ItemComanda {
   tamano?: string | null
   proteina?: string | null
   leche?: string | null
-  extras?: string[] | null
+  /**
+   * Los extras de este producto. La forma con `cantidad` trae el TOTAL de la
+   * línea (para las `cantidad` unidades del producto), no lo que lleva cada
+   * una: quien arma las etiquetas lo divide, porque es quien sabe cuántas va
+   * a sacar. La forma de texto suelto se acepta por compatibilidad.
+   */
+  extras?: Array<string | ExtraComanda> | null
   notas?: string | null
+}
+
+export interface ExtraComanda {
+  nombre: string
+  /** Total de la línea. Si falta, se asume uno por unidad del producto. */
+  cantidad?: number
 }
 
 export interface PayloadComanda {
