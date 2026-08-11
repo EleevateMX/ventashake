@@ -40,8 +40,13 @@ async function imprimirEtiquetas(cfg: PrinterConfig, trabajo: TrabajoImpresion):
   for (let copia = 1; copia <= copias; copia++) {
     const etiquetas = etiquetasDeTrabajo(trabajo, copia)
     if (etiquetas.length === 0) {
-      log.error(`Trabajo ${trabajo.id} no tiene productos: no hay nada que etiquetar.`, cfg.id)
-      return
+      // Se LANZA, no se registra y sigue. Un trabajo que no produce ninguna
+      // etiqueta y aun así se confirma queda "impreso" en la cola con nada
+      // en la mano: en Admin todo verde y la comanda perdida. Que falle y
+      // se reintente es incómodo; que mienta es peor.
+      throw new Error(
+        `El trabajo ${trabajo.id} no produjo ninguna etiqueta (payload sin productos).`,
+      )
     }
     // Una etiqueta por envío: si falla la tercera de cinco, las dos primeras
     // ya salieron y el error dice exactamente dónde se quedó.

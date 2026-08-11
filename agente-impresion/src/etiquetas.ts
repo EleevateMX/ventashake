@@ -146,6 +146,26 @@ export function porEtiqueta(extra: string | ExtraComanda, unidades: number): str
  */
 export function etiquetasDeTrabajo(trabajo: TrabajoImpresion, numeroDeCopia = 1): EtiquetaComanda[] {
   const p: PayloadComanda = trabajo.payload
+
+  // `fn_imprimir_prueba` encola un trabajo SIN productos: solo quiere
+  // comprobar que la impresora responde. Sin este caso saldrían cero
+  // etiquetas y el trabajo se daría por impreso — el botón de "probar" diría
+  // que sí y no saldría nada, que es justo la avería que este agente existe
+  // para no tener.
+  if (p.prueba) {
+    return [{
+      destino: 'PRUEBA',
+      ticket: 'TEST',
+      item: 1,
+      deTotal: 1,
+      nombre: 'PRUEBA',
+      producto: p.impresora ?? 'Impresora',
+      notas: 'Si lees esto, imprime bien',
+      fecha: formatearFecha(p.hora ?? p.creado_en),
+      frase: 'Hecho para ti',
+    }]
+  }
+
   const items = p.items ?? []
   const fecha = formatearFecha(p.creado_en)
   const ticket = String(p.folio ?? p.ticket ?? '—')

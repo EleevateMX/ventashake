@@ -316,6 +316,35 @@ describe('cuánto de un extra lleva cada etiqueta', () => {
   })
 })
 
+describe('impresion de prueba', () => {
+  // fn_imprimir_prueba encola un payload sin productos. Antes salian cero
+  // etiquetas y el trabajo se confirmaba igual: el boton de "probar" decia
+  // que si y no salia nada.
+  const prueba: TrabajoImpresion = {
+    id: 'p1', orden_id: null, pedido_id: null, estacion_id: null, printer_id: null,
+    tipo_documento: 'comanda',
+    payload: { prueba: true, impresora: 'Barra — Bebidas', hora: '2026-08-10T18:58:00' },
+    estado: 'claimed', intentos: 0, max_intentos: 5, numero_copia: 1,
+    created_at: '2026-08-10T18:58:00',
+  }
+
+  it('saca una etiqueta, no cero', () => {
+    expect(etiquetasDeTrabajo(prueba)).toHaveLength(1)
+  })
+
+  it('dice de que impresora salio, para saber cual es cual', () => {
+    const dibujo = vistaPrevia(etiquetasDeTrabajo(prueba)[0])
+    expect(dibujo).toContain('PRUEBA')
+    expect(dibujo).toContain('BARRA')
+  })
+
+  it('genera TSPL valido', () => {
+    const tspl = generarTSPL(etiquetasDeTrabajo(prueba)[0])
+    expect(tspl.startsWith('SIZE 80 mm,25 mm')).toBe(true)
+    expect(tspl).toContain('PRINT 1,1')
+  })
+})
+
 describe('formato de fecha', () => {
   it('es dd/MM HH:mm', () => {
     expect(formatearFecha('2026-08-10T18:58:00')).toBe('10/08 18:58')
