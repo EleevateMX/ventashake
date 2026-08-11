@@ -8,7 +8,15 @@
 #
 #  USO (PowerShell COMO ADMINISTRADOR, en la PC de la sucursal):
 #
-#      .\instalar-agente-impresion.ps1 -AnonKey "eyJhbGci..."
+#      powershell -NoProfile -ExecutionPolicy Bypass `
+#        -File .\instalar-agente-impresion.ps1 -AnonKey "sb_publishable_..."
+#
+#  El `-ExecutionPolicy Bypass` no es adorno: Windows bloquea por defecto los
+#  .ps1 bajados de internet y contesta "la ejecucion de scripts esta
+#  deshabilitada en este sistema". Se salta solo para ese proceso; la
+#  configuracion del equipo no se toca. Mas facil todavia:
+#  `instalar-agente-impresion.bat`, clic derecho -> ejecutar como
+#  administrador (los .bat no tienen esa restriccion).
 #
 #  La llave sale de Supabase → Project Settings → API Keys. Sirven las dos:
 #  la nueva (`sb_publishable_...`) y la vieja (`eyJ...`).

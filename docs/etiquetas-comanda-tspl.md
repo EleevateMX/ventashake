@@ -190,26 +190,56 @@ catálogo tenga tallas, se llena solo.
 
 ## 4. Instalarlo en la PC de la sucursal
 
-Un solo comando. Baja el agente, instala Node si falta, saca los tokens de
-las impresoras que ya están en Admin, arma `printers.config.json`, imprime
-una etiqueta de prueba en cada una y lo deja arrancando solo con Windows.
+Baja el agente, instala Node si falta, saca los tokens de las impresoras que
+ya están en Admin, arma `printers.config.json`, imprime una etiqueta de
+prueba en cada una y lo deja arrancando solo con Windows.
 
-**PowerShell como administrador, en la PC de la sucursal:**
+### La forma fácil: el `.bat`
+
+Windows **bloquea por defecto los archivos `.ps1` descargados** — sale
+*"la ejecución de scripts está deshabilitada en este sistema"*. Los `.bat` no
+tienen esa restricción, así que hay uno que hace de puerta:
+
+1. Bajar
+   [`scripts/instalar-agente-impresion.bat`](https://raw.githubusercontent.com/EleevateMX/ventashake/main/scripts/instalar-agente-impresion.bat)
+   (clic derecho → *Guardar como*).
+2. Clic derecho sobre él → **Ejecutar como administrador**.
+3. Pega la llave pública de Supabase cuando la pida.
+
+No cambia la configuración del equipo: se salta la política solo para ese
+proceso. Al terminar, Windows sigue bloqueando los `.ps1` igual que antes.
+
+### Desde PowerShell, si prefieres
+
+Como administrador. La clave es `-ExecutionPolicy Bypass`, y `Unblock-File`
+para quitarle al archivo la marca de "bajado de internet":
 
 ```powershell
-irm https://raw.githubusercontent.com/EleevateMX/ventashake/main/scripts/instalar-agente-impresion.ps1 | Out-File -Encoding utf8 "$env:TEMP\instalar.ps1"
-& "$env:TEMP\instalar.ps1" -AnonKey "PEGA_AQUI_LA_ANON_KEY"
+$f = "$env:TEMP\instalar.ps1"
+irm https://raw.githubusercontent.com/EleevateMX/ventashake/main/scripts/instalar-agente-impresion.ps1 -OutFile $f
+Unblock-File $f
+powershell -NoProfile -ExecutionPolicy Bypass -File $f -AnonKey "PEGA_AQUI_LA_LLAVE"
 ```
 
-La anon key sale de **Supabase → Project Settings → API Keys → `anon public`**.
+> Ojo con `powershell -File` en vez de `& $f`: el instalador termina con
+> `exit` cuando algo sale mal, y en la misma ventana eso la cerraría con el
+> error dentro. En un proceso aparte, el mensaje se queda a la vista.
 
-Antes de instalar nada comprueba que las impresoras respondan; si no
-responden, se detiene y lo dice, en vez de dejar un agente instalado que no
-sirve. Para revisar solo eso sin tocar nada:
+La llave sale de **Supabase → Project Settings → API Keys**. Sirven los dos
+formatos, el nuevo (`sb_publishable_...`) y el viejo (`eyJ...`).
 
-```powershell
-& "$env:TEMP\instalar.ps1" -AnonKey "..." -SoloProbar
+### Solo probar la red, sin instalar nada
+
+Antes de bajar nada conviene saber si las impresoras contestan. Agrega
+`-SoloProbar` al final del comando de PowerShell, o pásaselo al `.bat`:
+
 ```
+instalar-agente-impresion.bat "LA_LLAVE" -SoloProbar
+```
+
+El instalador comprueba la red **antes** de instalar de todas formas: si las
+impresoras no responden, se detiene y lo dice, en vez de dejar un agente
+instalado que no sirve.
 
 > **Cada corrida genera tokens nuevos.** El token no se puede volver a leer
 > —es lo único que prueba la identidad de una impresora ante la cola— así que
