@@ -20,9 +20,21 @@ interface FormProducto {
   precio: string
   categoria_id: string
   iva_incluido: boolean
+  descripcion: string
 }
 
-const FORM_VACIO: FormProducto = { nombre: '', precio: '', categoria_id: '', iva_incluido: true }
+const FORM_VACIO: FormProducto = {
+  nombre: '', precio: '', categoria_id: '', iva_incluido: true, descripcion: '',
+}
+
+/**
+ * Lo que cabe en la tarjeta del kiosko sin que se corte.
+ *
+ * No es un limite de la base —la columna es texto libre— sino del espacio:
+ * la tarjeta recorta a dos lineas y lo que pase de ahi no lo lee nadie. Se
+ * avisa mientras escriben, no despues.
+ */
+const DESCRIPCION_COMODA = 120
 
 export default function Menu() {
   const [productos, setProductos] = useState<Producto[]>([])
@@ -80,6 +92,7 @@ export default function Menu() {
       precio: String(p.precio),
       categoria_id: p.categoria_id ?? '',
       iva_incluido: p.iva_incluido,
+      descripcion: p.descripcion ?? '',
     })
     setOk(null)
   }
@@ -99,6 +112,10 @@ export default function Menu() {
         precio: Number(form.precio) || 0,
         categoria_id: form.categoria_id || null,
         iva_incluido: form.iva_incluido,
+        // Vacia se guarda como NULL, no como cadena vacia: el kiosko y la web
+        // preguntan `if (descripcion)` para decidir si pintan el parrafo, y
+        // una cadena vacia les dejaria un hueco.
+        descripcion: form.descripcion.trim() || null,
       }
       if (editId) {
         await actualizarProducto(sb, editId, datos)
@@ -214,6 +231,29 @@ export default function Menu() {
               </label>
             </div>
           </div>
+
+          {/* La descripción va a lo ancho: es lo único de este formulario que
+              se escribe en prosa, y en una columna estrecha no se ve lo que
+              se lleva escrito. */}
+          <div className="mt-4">
+            <Field label="Descripción (la que lee el cliente en el kiosko y en la web)">
+              <textarea
+                className={`${cx.input} resize-y min-h-[72px]`}
+                rows={2}
+                value={form.descripcion}
+                placeholder="Proteína de vainilla, leche de coco, mango, piña…"
+                onChange={(e) => setForm({ ...form, descripcion: e.target.value })}
+              />
+            </Field>
+            <p className={`text-xs mt-1 ${form.descripcion.length > DESCRIPCION_COMODA ? 'text-sa-strawberry' : cx.muted}`}>
+              {form.descripcion.length === 0
+                ? 'Opcional. Sin descripción, la tarjeta solo muestra el nombre y el precio.'
+                : form.descripcion.length > DESCRIPCION_COMODA
+                  ? `${form.descripcion.length} caracteres — la tarjeta del kiosko corta a dos líneas, así que lo de más no se va a leer.`
+                  : `${form.descripcion.length} de ~${DESCRIPCION_COMODA} caracteres cómodos.`}
+            </p>
+          </div>
+
           <div className="flex gap-2 mt-4">
             <button className={cx.btnPrimary} disabled={guardando || !form.nombre.trim()} onClick={() => void guardarProducto()}>
               {guardando ? 'Guardando…' : editId ? 'Guardar cambios' : 'Crear producto'}
@@ -281,7 +321,22 @@ export default function Menu() {
                           </div>
                         </div>
                       </td>
-                      <td className={`${cx.td} font-medium`}>{p.nombre}</td>
+                      <td className={cx.td}>
+                        <span className="font-medium">{p.nombre}</span>
+                        {/* Se pinta debajo del nombre y no en su propia
+                            columna: sin descripción, la fila tiene que
+                            saltar a la vista, no obligar a buscar en una
+                            columna que se fue detrás del scroll. */}
+                        {p.descripcion ? (
+                          <div className="text-xs text-sa-green-ink/50 mt-0.5 max-w-[28rem]">
+                            {p.descripcion}
+                          </div>
+                        ) : (
+                          <div className="text-xs text-sa-green-ink/30 mt-0.5 italic">
+                            sin descripción
+                          </div>
+                        )}
+                      </td>
                       <td className={cx.td}>{p.categoria_id ? catPorId.get(p.categoria_id)?.nombre ?? '—' : '—'}</td>
                       <td className={cx.tdNum}>{mxn(p.precio)}</td>
                       <td className={cx.td}><Chip tone={p.activo ? 'si' : 'no'}>{p.activo ? 'Sí' : 'No'}</Chip></td>
