@@ -1,5 +1,8 @@
 import type { printer as ThermalPrinter } from 'node-thermal-printer'
 import { crearImpresora, escribirComanda } from './comanda.js'
+import { etiquetasDeTrabajo } from './etiquetas.js'
+import { generarTSPL } from './tspl.js'
+import { enviarTSPL, estaViva, parsearDestino } from './tsplSocket.js'
 import type { PrinterConfig, TrabajoImpresion } from './types.js'
 import { log } from './log.js'
 
@@ -7,8 +10,53 @@ import { log } from './log.js'
  * Imprime un trabajo en la impresora física, respetando `copias` y
  * `corteAutomatico`/`buzzer` de la config. Lanza si la impresora no
  * responde — el llamante (worker.ts) decide qué hacer con eso (reintento).
+ *
+ * El lenguaje decide el camino entero, no solo el formato: ESC/POS pasa por
+ * node-thermal-printer, TSPL escribe al socket directo. Ver `LenguajeImpresora`
+ * en types.ts para por qué esto no puede quedar en manos de una heurística.
  */
 export async function imprimirTrabajo(cfg: PrinterConfig, trabajo: TrabajoImpresion): Promise<void> {
+  if ((cfg.lenguaje ?? 'escpos') === 'tspl') {
+    await imprimirEtiquetas(cfg, trabajo)
+    return
+  }
+  await imprimirRecibo(cfg, trabajo)
+}
+
+/** Etiquetadoras TSC / 3nstar: una etiqueta por unidad pedida. */
+async function imprimirEtiquetas(cfg: PrinterConfig, trabajo: TrabajoImpresion): Promise<void> {
+  const destino = parsearDestino(cfg.interface)
+
+  // Se pregunta ANTES de generar nada. Una etiquetadora apagada acepta el
+  // trabajo en silencio si uno se limita a escribir al vacío, y entonces la
+  // comanda se da por impresa y nunca llega a barra.
+  if (!(await estaViva(destino))) {
+    throw new Error(
+      `Etiquetadora "${cfg.id}" (${destino.ip}:${destino.puerto}) no responde — revisa red/encendido/tapa.`,
+    )
+  }
+
+  const copias = Math.max(1, cfg.copias || 1)
+  for (let copia = 1; copia <= copias; copia++) {
+    const etiquetas = etiquetasDeTrabajo(trabajo, copia)
+    if (etiquetas.length === 0) {
+      log.error(`Trabajo ${trabajo.id} no tiene productos: no hay nada que etiquetar.`, cfg.id)
+      return
+    }
+    // Una etiqueta por envío: si falla la tercera de cinco, las dos primeras
+    // ya salieron y el error dice exactamente dónde se quedó.
+    for (const etiqueta of etiquetas) {
+      await enviarTSPL(generarTSPL(etiqueta), destino)
+    }
+    log.info(
+      `Impresas ${etiquetas.length} etiquetas del trabajo ${trabajo.id} (copia ${copia}/${copias})`,
+      cfg.id,
+    )
+  }
+}
+
+/** Impresoras de recibos ESC/POS: una comanda larga con todos los productos. */
+async function imprimirRecibo(cfg: PrinterConfig, trabajo: TrabajoImpresion): Promise<void> {
   const printer: ThermalPrinter = crearImpresora(cfg)
 
   const conectada = await printer.isPrinterConnected().catch(() => false)

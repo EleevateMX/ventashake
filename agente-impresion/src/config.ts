@@ -22,13 +22,15 @@ function requerido(nombre: string): string {
   return valor
 }
 
-export function cargarConfig(): AgenteConfig {
-  const supabaseUrl = requerido('SUPABASE_URL')
-  const supabaseAnonKey = requerido('SUPABASE_ANON_KEY')
-  const agenteId = process.env.AGENTE_ID ?? `agente-${process.pid}`
-  const pollIntervaloMs = Number(process.env.POLL_INTERVALO_SEGUNDOS ?? '10') * 1000
-  const latidoIntervaloMs = Number(process.env.LATIDO_INTERVALO_SEGUNDOS ?? '30') * 1000
-  const statusHttpPuerto = Number(process.env.STATUS_HTTP_PUERTO ?? '7777')
+/**
+ * Solo las impresoras, sin exigir credenciales de Supabase.
+ *
+ * Se separa de `cargarConfig()` porque revisar el diseño de una etiqueta
+ * (`--vista-previa`) o mandarla a la impresora de prueba no habla con la base
+ * para nada — y pedir SUPABASE_URL para dibujar un recuadro deja a quien está
+ * instalando atascado por un motivo que no tiene que ver con lo que hace.
+ */
+export function cargarPrinters(): PrinterConfig[] {
   const printersPath = process.env.PRINTERS_CONFIG_PATH ?? './printers.config.json'
 
   let printers: PrinterConfig[]
@@ -49,7 +51,34 @@ export function cargarConfig(): AgenteConfig {
     if (!p.id || !p.token || !p.interface) {
       throw new Error(`Impresora inválida en ${printersPath}: faltan id/token/interface — ${JSON.stringify(p)}`)
     }
+    // Una etiquetadora solo se alcanza por socket: si aquí hubiera un
+    // "printer:NombreDeWindows" el agente fallaría al primer trabajo real,
+    // en plena venta. Mejor que no arranque.
+    if (p.lenguaje === 'tspl' && !/^(tcp:\/\/)?\d{1,3}(\.\d{1,3}){3}(:\d+)?$/.test(p.interface)) {
+      throw new Error(
+        `La impresora "${p.id}" es TSPL, así que su interface tiene que ser tcp://IP:PUERTO — ` +
+          `y dice "${p.interface}".`,
+      )
+    }
   }
+  return printers
+}
 
-  return { supabaseUrl, supabaseAnonKey, agenteId, pollIntervaloMs, latidoIntervaloMs, statusHttpPuerto, printers }
+export function cargarConfig(): AgenteConfig {
+  const supabaseUrl = requerido('SUPABASE_URL')
+  const supabaseAnonKey = requerido('SUPABASE_ANON_KEY')
+  const agenteId = process.env.AGENTE_ID ?? `agente-${process.pid}`
+  const pollIntervaloMs = Number(process.env.POLL_INTERVALO_SEGUNDOS ?? '10') * 1000
+  const latidoIntervaloMs = Number(process.env.LATIDO_INTERVALO_SEGUNDOS ?? '30') * 1000
+  const statusHttpPuerto = Number(process.env.STATUS_HTTP_PUERTO ?? '7777')
+
+  return {
+    supabaseUrl,
+    supabaseAnonKey,
+    agenteId,
+    pollIntervaloMs,
+    latidoIntervaloMs,
+    statusHttpPuerto,
+    printers: cargarPrinters(),
+  }
 }

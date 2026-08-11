@@ -1,0 +1,233 @@
+import { describe, expect, it } from 'vitest'
+import {
+  abreviarExtra,
+  caracteresPorLinea,
+  frasePara,
+  generarTSPL,
+  limpiar,
+  partir,
+  vistaPrevia,
+  type EtiquetaComanda,
+} from './tspl.js'
+import { etiquetasDeTrabajo, formatearFecha, repartirPersonalizacion } from './etiquetas.js'
+import type { TrabajoImpresion } from './types.js'
+
+/**
+ * La etiqueta del ejemplo validado contra la impresora física
+ * (CONFIGURACION-POS.md §6). Cada coordenada de ese ejemplo es una medida
+ * real, no una preferencia: si el generador se desvía, el texto sale
+ * encimado o cortado y solo se descubre gastando etiquetas.
+ */
+const EJEMPLO: EtiquetaComanda = {
+  destino: 'Bebidas',
+  ticket: '156490945',
+  item: 2,
+  deTotal: 5,
+  nombre: 'Javier',
+  producto: 'Shake Oreo',
+  tamano: '20 OZ',
+  proteina: 'Whey chocolate',
+  leche: 'Deslactosada',
+  extras: ['extra galleta', 'sin crema'],
+  fecha: '10/08 18:58',
+  frase: 'Eres un shakeaholic',
+}
+
+describe('geometría TSPL', () => {
+  it('reproduce exactamente el diseño validado en la impresora', () => {
+    const lineas = generarTSPL(EJEMPLO).split('\r\n')
+    expect(lineas).toEqual([
+      'SIZE 80 mm,25 mm',
+      'GAP 4 mm,0 mm',
+      'DIRECTION 0',
+      'REFERENCE 0,0',
+      'DENSITY 8',
+      'SPEED 4',
+      'CLS',
+      'TEXT 576,16,"1",90,1,1,"BEBIDAS #156490945"',
+      'TEXT 562,16,"1",90,1,1,"2 de 5"',
+      'TEXT 528,16,"3",90,1,1,"JAVIER"',
+      'TEXT 490,16,"2",90,1,1,"SHAKE OREO"',
+      'TEXT 460,16,"2",90,1,1," 20 OZ "',
+      'REVERSE 438,14,24,88',
+      'TEXT 410,16,"1",90,1,1,"SPEC"',
+      'TEXT 384,16,"1",90,1,1,"+WHEY CHOCOLATE"',
+      'TEXT 367,16,"1",90,1,1,"+DESLACTOSADA"',
+      'TEXT 350,16,"1",90,1,1,"+GALLETA"',
+      'TEXT 333,16,"1",90,1,1,"+S/CREMA"',
+      'TEXT 292,16,"1",90,1,1,"10/08 18:58"',
+      'TEXT 254,16,"2",90,1,1,"Eres un"',
+      'TEXT 231,16,"2",90,1,1,"shakeaholic"',
+      'PRINT 1,1',
+      '',
+    ])
+  })
+
+  it('rota todo el texto 90 grados: sin eso sale de lado', () => {
+    for (const linea of generarTSPL(EJEMPLO).split('\r\n')) {
+      if (linea.startsWith('TEXT ')) expect(linea).toContain(',90,1,1,')
+    }
+  })
+
+  it('nunca pasa de los caracteres que caben en la línea', () => {
+    const largo: EtiquetaComanda = {
+      ...EJEMPLO,
+      nombre: 'Maria Guadalupe de la Concepcion',
+      producto: 'Shake de fresa con platano y crema de cacahuate',
+      notas: 'Alergica a la nuez y a todo lo que tenga trazas de cacahuate',
+    }
+    for (const linea of generarTSPL(largo).split('\r\n')) {
+      const m = linea.match(/^TEXT \d+,\d+,"(\d)",90,1,1,"(.*)"$/)
+      if (!m) continue
+      expect(m[2].length).toBeLessThanOrEqual(caracteresPorLinea(m[1] as '1' | '2' | '3'))
+    }
+  })
+
+  it('las líneas nunca se encensan: cada X va por debajo de la anterior', () => {
+    const xs = generarTSPL(EJEMPLO)
+      .split('\r\n')
+      .filter((l) => l.startsWith('TEXT '))
+      .map((l) => Number(l.split(' ')[1].split(',')[0]))
+    for (let i = 1; i < xs.length; i++) expect(xs[i]).toBeLessThan(xs[i - 1])
+  })
+
+  it('no deja escapar comillas dobles, que romperían el comando', () => {
+    const tspl = generarTSPL({ ...EJEMPLO, producto: 'Shake "wow"' })
+    const linea = tspl.split('\r\n').find((l) => l.includes('WOW'))
+    expect(linea).toBe('TEXT 490,16,"2",90,1,1,"SHAKE \'WOW\'"')
+  })
+
+  it('omite las secciones vacías y acorta la etiqueta', () => {
+    const minima: EtiquetaComanda = {
+      destino: 'Alimentos', ticket: 'T1', item: 1, deTotal: 1,
+      nombre: 'Ana', producto: 'Waffle', fecha: '10/08 18:58', frase: 'Buen dia!',
+    }
+    const tspl = generarTSPL(minima)
+    expect(tspl).not.toContain('SPEC')
+    expect(tspl).not.toContain('REVERSE')
+  })
+})
+
+describe('limpieza de texto', () => {
+  it('quita acentos y respeta la eñe como N (code page 850)', () => {
+    expect(limpiar('Plátano piña')).toBe('Platano pina')
+  })
+
+  it('parte palabras más largas que la línea en vez de dejar que se corten', () => {
+    expect(partir('SUPERCALIFRAGILISTICOESPIALIDOSO', 10)).toEqual([
+      'SUPERCALIF', 'RAGILISTIC', 'OESPIALIDO', 'SO',
+    ])
+  })
+})
+
+describe('abreviaturas de extras', () => {
+  it.each([
+    ['sin azucar', '+S/AZUCAR'],
+    ['sin crema', '+S/CREMA'],
+    ['extra galleta', '+GALLETA'],
+    ['con extra galleta', '+GALLETA'],
+    ['mas galleta', '+GALLETA'],
+    ['poco hielo', '+-HIELO'],
+    ['menos hielo', '+-HIELO'],
+    ['con canela', '+C/CANELA'],
+    ['galleta', '+GALLETA'],
+  ])('%s → %s', (entrada, esperado) => {
+    expect(abreviarExtra(entrada)).toBe(esperado)
+  })
+})
+
+describe('frase del pie', () => {
+  it('es la misma para el mismo ticket: una reimpresión no puede verse distinta', () => {
+    expect(frasePara('156490945', 2)).toBe(frasePara('156490945', 2))
+  })
+
+  it('cambia entre etiquetas del mismo pedido', () => {
+    expect(frasePara('156490945', 1)).not.toBe(frasePara('156490945', 2))
+  })
+})
+
+describe('repartir la personalización de texto libre', () => {
+  it('reconoce leche, proteína, tamaño y peticiones', () => {
+    expect(repartirPersonalizacion('20 OZ, Leche deslactosada, Proteina whey chocolate, sin crema')).toEqual({
+      tamano: '20 OZ',
+      leche: 'deslactosada',
+      proteina: 'whey chocolate',
+      extras: ['sin crema'],
+      notas: null,
+    })
+  })
+
+  it('no pierde lo que no reconoce: cae en notas', () => {
+    expect(repartirPersonalizacion('Alergica a la nuez').notas).toBe('Alergica a la nuez')
+  })
+
+  it('aguanta vacío', () => {
+    expect(repartirPersonalizacion(null).extras).toEqual([])
+  })
+})
+
+describe('etiquetas de un trabajo', () => {
+  const trabajo: TrabajoImpresion = {
+    id: 't1', orden_id: null, pedido_id: null, estacion_id: null, printer_id: null,
+    tipo_documento: 'comanda',
+    payload: {
+      folio: 1042,
+      estacion: 'Bebidas',
+      cliente: 'Ana',
+      creado_en: '2026-08-10T18:58:00',
+      items: [
+        { cantidad: 2, nombre: 'Shake Oreo', personalizacion: 'Leche deslactosada' },
+        { cantidad: 1, nombre: 'Smoothie mango' },
+      ],
+    },
+    estado: 'claimed', intentos: 0, max_intentos: 5, numero_copia: 1,
+    created_at: '2026-08-10T18:58:00',
+  }
+
+  it('saca una etiqueta por unidad, no por línea de pedido', () => {
+    const e = etiquetasDeTrabajo(trabajo)
+    expect(e).toHaveLength(3)
+    expect(e.map((x) => `${x.item} de ${x.deTotal}`)).toEqual(['1 de 3', '2 de 3', '3 de 3'])
+  })
+
+  it('lleva la leche a su campo, no a las notas', () => {
+    expect(etiquetasDeTrabajo(trabajo)[0].leche).toBe('deslactosada')
+  })
+
+  it('usa el folio como nombre cuando nadie se identificó', () => {
+    const anonimo = { ...trabajo, payload: { ...trabajo.payload, cliente: null } }
+    expect(etiquetasDeTrabajo(anonimo)[0].nombre).toBe('#1042')
+  })
+
+  it('prefiere los campos ya separados si la base los manda', () => {
+    const estructurado: TrabajoImpresion = {
+      ...trabajo,
+      payload: {
+        ...trabajo.payload,
+        items: [{
+          cantidad: 1, nombre: 'Shake Oreo', personalizacion: 'esto se ignora',
+          tamano: '16 OZ', leche: 'Almendra', extras: ['sin azucar'],
+        }],
+      },
+    }
+    const e = etiquetasDeTrabajo(estructurado)[0]
+    expect(e.tamano).toBe('16 OZ')
+    expect(e.leche).toBe('Almendra')
+    expect(e.notas).toBeNull()
+  })
+})
+
+describe('formato de fecha', () => {
+  it('es dd/MM HH:mm', () => {
+    expect(formatearFecha('2026-08-10T18:58:00')).toBe('10/08 18:58')
+  })
+})
+
+describe('vista previa', () => {
+  it('dibuja la etiqueta sin gastar consumible', () => {
+    const dibujo = vistaPrevia(EJEMPLO)
+    expect(dibujo).toContain('JAVIER')
+    expect(dibujo).toContain('[20 OZ]')
+    expect(dibujo).toContain('+S/CREMA')
+  })
+})

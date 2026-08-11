@@ -5,6 +5,11 @@ Referencia de los campos de Admin → Impresoras y de
 completa ver `docs/instalacion-agente-impresion.md`; para cómo funciona
 la cola por dentro, `docs/impresion-comandas.md`.
 
+> ⚠️ **Las dos impresoras de la sucursal de Mérida son etiquetadoras TSPL,
+> no impresoras de recibos.** Necesitan `"lenguaje": "tspl"` en
+> `printers.config.json`; sin eso no imprimen y **no dan error**. Ver
+> `docs/etiquetas-comanda-tspl.md`.
+
 ## Campos por impresora
 
 | Campo (Admin) | Campo (`printers.config.json`) | Notas |
@@ -14,7 +19,8 @@ la cola por dentro, `docs/impresion-comandas.md`.
 | Tipo de conexión | `interface` | Red (`tcp://IP:PUERTO`) o USB |
 | IP / Puerto | parte de `interface` | Puerto casi siempre `9100` en impresoras ESC/POS de red |
 | Dispositivo (USB) | parte de `interface` | Ruta en Linux, nombre compartido en Windows |
-| Ancho de papel | `anchoPapel` | `58mm` o `80mm` — afecta cuántos caracteres caben por línea |
+| — (no está en Admin) | `lenguaje` | `escpos` (recibos, por omisión) o `tspl` (etiquetadoras 3nstar/TSC). **No se adivina**: el lenguaje equivocado no imprime y no da error |
+| Ancho de papel | `anchoPapel` | `58mm` o `80mm` — afecta cuántos caracteres caben por línea. Las TSPL lo ignoran: su medida está en el generador |
 | Copias | `copias` | 1–5, cuántas veces se imprime cada comanda |
 | Corte automático | `corteAutomatico` | Requiere que la impresora tenga cuchilla motorizada |
 | Buzzer | `buzzer` | Solo si la impresora tiene buzzer y lo soporta por ESC/POS |

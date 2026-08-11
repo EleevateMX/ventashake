@@ -1,22 +1,24 @@
 [
   {
-    "id": "cocina-01",
-    "descripcion": "Impresora térmica de Cocina (alimentos)",
+    "id": "bebidas",
+    "descripcion": "Etiquetadora de Barra (bebidas) — 3nstar / TSC",
     "token": "PEGA-AQUI-EL-agente_token-DE-LA-IMPRESORA-EN-ADMIN",
-    "interface": "tcp://192.168.1.50:9100",
+    "interface": "tcp://192.168.1.95:9100",
+    "lenguaje": "tspl",
     "anchoPapel": "80mm",
     "copias": 1,
-    "corteAutomatico": true,
+    "corteAutomatico": false,
     "buzzer": false
   },
   {
-    "id": "barra-01",
-    "descripcion": "Impresora térmica de Barra (bebidas)",
+    "id": "alimentos",
+    "descripcion": "Etiquetadora de Cocina (alimentos) — 3nstar / TSC",
     "token": "PEGA-AQUI-EL-agente_token-DE-LA-IMPRESORA-EN-ADMIN",
-    "interface": "tcp://192.168.1.51:9100",
+    "interface": "tcp://192.168.1.96:9100",
+    "lenguaje": "tspl",
     "anchoPapel": "80mm",
     "copias": 1,
-    "corteAutomatico": true,
-    "buzzer": true
+    "corteAutomatico": false,
+    "buzzer": false
   }
 ]
