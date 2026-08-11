@@ -7,11 +7,27 @@ import {
 import { obtenerPaymentProvider } from '@shake/payments'
 import type { Almacen, CajaCorte, MetodoPago } from '@shake/types'
 import type { ModoPagoKiosko } from '@shake/types'
-import { useCarrito } from '@/store/carritoStore'
+import { useCarrito, type ItemCarrito } from '@/store/carritoStore'
 import { sb } from '@/lib/sb'
 import { resolverModoKiosko } from '@/lib/modoKiosko'
 
 type EstadoPago = 'cargando' | 'eligiendo' | 'procesando' | 'no_disponible'
+
+/**
+ * Traduce una línea del carrito a una línea de la orden.
+ *
+ * `linea`/`padre_linea` son etiquetas del navegador: el servidor genera los
+ * uuid reales y solo las usa para resolver quién acompaña a quién dentro de
+ * este mismo envío. Es lo que hace que las galletas queden pegadas a SU
+ * shake y no al otro que iba en el mismo pedido.
+ */
+const lineaParaOrden = (i: ItemCarrito) => ({
+  producto_id: i.producto_id,
+  cantidad: i.cantidad,
+  personalizacion: i.personalizacion ?? null,
+  linea: i.linea,
+  padre_linea: i.padreLinea ?? null,
+})
 
 const IconCard = () => (
   <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -90,11 +106,7 @@ export function Pago() {
       const orden = await crearOrdenKioskoCaja(
         sb,
         { sucursalId: almacen.sucursal_id, almacenId: almacen.id, clienteId: usuario?.clienteId ?? null },
-        items.map((i) => ({
-          producto_id: i.producto_id,
-          cantidad: i.cantidad,
-          personalizacion: i.personalizacion ?? null,
-        })),
+        items.map(lineaParaOrden),
       )
       limpiar()
       navigate('/pagar-en-caja', { state: { orden } })
@@ -130,11 +142,7 @@ export function Pago() {
           corte_id: corte?.id ?? null,
           cliente_id: usuario?.clienteId ?? null,
         },
-        items.map((i) => ({
-          producto_id: i.producto_id,
-          cantidad: i.cantidad,
-          personalizacion: i.personalizacion ?? null,
-        })),
+        items.map(lineaParaOrden),
       )
       // El monto sale de la orden que devolvió el servidor, no del carrito:
       // el total autoritativo es el que recalculó la base.
@@ -183,11 +191,7 @@ export function Pago() {
           cliente_id: usuario?.clienteId ?? null,
           descuento: 0,
         },
-        items.map((i) => ({
-          producto_id: i.producto_id,
-          cantidad: i.cantidad,
-          personalizacion: i.personalizacion ?? null,
-        })),
+        items.map(lineaParaOrden),
       )
 
       const proveedor = obtenerPaymentProvider('clip', sb)
@@ -245,11 +249,7 @@ export function Pago() {
           descuento: 0,
           es_demo: true,
         },
-        items.map((i) => ({
-          producto_id: i.producto_id,
-          cantidad: i.cantidad,
-          personalizacion: i.personalizacion ?? null,
-        })),
+        items.map(lineaParaOrden),
       )
 
       const proveedor = obtenerPaymentProvider('demo', sb)

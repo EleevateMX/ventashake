@@ -18,6 +18,18 @@ export interface NuevaOrdenItem {
    */
   precio_unitario?: number
   personalizacion?: string | null
+  /**
+   * Etiqueta que pone el cliente para poder referirse a esta línea antes de
+   * que exista en la base. El servidor genera el uuid real; esto solo sirve
+   * para resolver `padre_linea` dentro del mismo envío.
+   */
+  linea?: string
+  /**
+   * Si esta línea es un extra, la `linea` del producto al que acompaña.
+   * Sin esto, la base no sabe de cuál shake son las galletas — y con dos
+   * shakes en el pedido, la comanda se las pega al equivocado.
+   */
+  padre_linea?: string | null
 }
 
 // rpc no está en los tipos generados; se castea el nombre (mismo patrón que empleados.ts).
@@ -48,6 +60,8 @@ export async function crearOrden(
       producto_id: i.producto_id,
       cantidad: i.cantidad,
       personalizacion: i.personalizacion ?? null,
+      ...(i.linea ? { linea: i.linea } : {}),
+      ...(i.padre_linea ? { padre_linea: i.padre_linea } : {}),
     })),
     p_corte_id: orden.corte_id ?? null,
     p_empleado_id: orden.empleado_id ?? null,

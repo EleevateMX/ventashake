@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   abreviarExtra,
   caracteresPorLinea,
+  compactarSpec,
   frasePara,
   generarTSPL,
   limpiar,
@@ -136,6 +137,23 @@ describe('abreviaturas de extras', () => {
   })
 })
 
+describe('compactar la línea de SPEC', () => {
+  it.each([
+    ['Proteína OPTIMUM - Chocolate', 'OPTIMUM CHOCOLATE'],
+    ['2x Proteína OPTIMUM - Chocolate', '2X OPTIMUM CHOCOLATE'],
+    ['Leche de almendras', 'ALMENDRAS'],
+    ['Leche deslactosada', 'DESLACTOSADA'],
+    ['2 Galletas L&L Cremes (Chocolate)', '2 GALLETAS L&L CREMES CHOCOLATE'],
+  ])('%s → %s', (entrada, esperado) => {
+    expect(compactarSpec(entrada).toUpperCase()).toBe(esperado)
+  })
+
+  it('no toca la marca ni el sabor, que es lo que distingue', () => {
+    expect(compactarSpec('Proteína CBUM - Choco Cacahuate').toUpperCase())
+      .toBe('CBUM CHOCO CACAHUATE')
+  })
+})
+
 describe('frase del pie', () => {
   it('es la misma para el mismo ticket: una reimpresión no puede verse distinta', () => {
     expect(frasePara('156490945', 2)).toBe(frasePara('156490945', 2))
@@ -150,8 +168,8 @@ describe('repartir la personalización de texto libre', () => {
   it('reconoce leche, proteína, tamaño y peticiones', () => {
     expect(repartirPersonalizacion('20 OZ, Leche deslactosada, Proteina whey chocolate, sin crema')).toEqual({
       tamano: '20 OZ',
-      leche: 'deslactosada',
-      proteina: 'whey chocolate',
+      leche: 'Leche deslactosada',
+      proteina: 'Proteina whey chocolate',
       extras: ['sin crema'],
       notas: null,
     })
@@ -191,7 +209,7 @@ describe('etiquetas de un trabajo', () => {
   })
 
   it('lleva la leche a su campo, no a las notas', () => {
-    expect(etiquetasDeTrabajo(trabajo)[0].leche).toBe('deslactosada')
+    expect(etiquetasDeTrabajo(trabajo)[0].leche).toBe('Leche deslactosada')
   })
 
   it('usa el folio como nombre cuando nadie se identificó', () => {
@@ -205,7 +223,7 @@ describe('etiquetas de un trabajo', () => {
       payload: {
         ...trabajo.payload,
         items: [{
-          cantidad: 1, nombre: 'Shake Oreo', personalizacion: 'esto se ignora',
+          cantidad: 1, nombre: 'Shake Oreo', personalizacion: 'Leche de coco',
           tamano: '16 OZ', leche: 'Almendra', extras: ['sin azucar'],
         }],
       },
@@ -213,7 +231,38 @@ describe('etiquetas de un trabajo', () => {
     const e = etiquetasDeTrabajo(estructurado)[0]
     expect(e.tamano).toBe('16 OZ')
     expect(e.leche).toBe('Almendra')
-    expect(e.notas).toBeNull()
+  })
+
+  it('combina los extras de la base con la leche del texto libre', () => {
+    // El caso real: la base ya manda los extras como líneas hijas, pero la
+    // leche sigue dentro de `personalizacion`. Si lo estructurado ganara del
+    // todo, la leche se perdería.
+    const mezclado: TrabajoImpresion = {
+      ...trabajo,
+      payload: {
+        ...trabajo.payload,
+        items: [{
+          cantidad: 1,
+          nombre: '#1 Choco Killer',
+          personalizacion: 'Leche de almendras',
+          extras: ['2 Galletas L&L Cremes (Chocolate)', '2x Proteína OPTIMUM - Chocolate'],
+        }],
+      },
+    }
+    const e = etiquetasDeTrabajo(mezclado)[0]
+    expect(e.leche).toBe('Leche de almendras')
+    expect(e.proteina).toBe('2x Proteína OPTIMUM - Chocolate')
+    expect(e.extras).toEqual(['2 Galletas L&L Cremes (Chocolate)'])
+  })
+
+  it('saca el tamaño del nombre del producto y no lo repite', () => {
+    const conTamano: TrabajoImpresion = {
+      ...trabajo,
+      payload: { ...trabajo.payload, items: [{ cantidad: 1, nombre: 'Shake Oreo 20 OZ' }] },
+    }
+    const e = etiquetasDeTrabajo(conTamano)[0]
+    expect(e.producto).toBe('Shake Oreo')
+    expect(e.tamano).toBe('20 OZ')
   })
 })
 

@@ -6,6 +6,15 @@ import {
 } from '../sync'
 
 export interface ItemCarrito {
+  /**
+   * Identidad de ESTA línea del carrito, no del producto.
+   *
+   * Antes el carrito se indexaba por `producto_id`, y dos shakes iguales con
+   * leches distintas se fundían en una sola línea de cantidad 2 con la nota
+   * del primero: en barra salían dos vasos con la misma leche. Con una línea
+   * propia, cada configuración vive aparte.
+   */
+  linea: string
   producto_id: string
   nombre: string
   precio: number
@@ -13,6 +22,10 @@ export interface ItemCarrito {
   cocina_id: string
   imagen_url: string | null
   personalizacion?: string
+  /** Si es un extra, la `linea` del producto al que acompaña. */
+  padreLinea?: string | null
+  /** Solo en extras: cuántos van por cada unidad del producto padre. */
+  porUnidad?: number
 }
 
 export interface UsuarioKiosko {
@@ -46,15 +59,60 @@ interface CarritoStore {
    * cliente, pero NO cierra el turno.
    */
   cajero: CajeroTurno | null
-  agregar: (item: Omit<ItemCarrito, 'cantidad'>) => void
-  quitar: (producto_id: string) => void
-  incrementar: (producto_id: string) => void
-  decrementar: (producto_id: string) => void
+  /**
+   * Agrega un producto suelto. Se funde con una línea existente solo si es el
+   * MISMO producto con la MISMA nota y ninguno de los dos lleva extras: dos
+   * configuraciones distintas nunca comparten línea.
+   */
+  agregar: (item: Omit<ItemCarrito, 'cantidad' | 'linea'>) => void
+  /** Agrega un producto con sus extras como una sola configuración. */
+  agregarConExtras: (
+    producto: Omit<ItemCarrito, 'cantidad' | 'linea'>,
+    extras: Array<Omit<ItemCarrito, 'cantidad' | 'linea' | 'padreLinea'> & { porUnidad: number }>,
+  ) => void
+  /** Quita la línea y, si es un producto con extras, también los suyos. */
+  quitar: (linea: string) => void
+  incrementar: (linea: string) => void
+  decrementar: (linea: string) => void
+  /** Los extras de una línea, para pintarlos debajo de ella. */
+  extrasDe: (linea: string) => ItemCarrito[]
   limpiar: () => void
   setUsuario: (u: UsuarioKiosko | null) => void
   setCajero: (c: CajeroTurno | null) => void
   total: () => number
   totalItems: () => number
+}
+
+/** Identificador de línea. Solo vive en el navegador: la base genera el suyo. */
+const nuevaLinea = () =>
+  typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : `l${Date.now()}${Math.random().toString(16).slice(2)}`
+
+/**
+ * Sube o baja una línea en `delta`, arrastrando sus extras.
+ *
+ * Los extras se recalculan como `porUnidad × cantidad del padre`, no se suman
+ * uno a uno: pedir "otro igual" tiene que traer también sus galletas, y con
+ * dos por shake la cuenta solo sale multiplicando. Si el padre llega a cero,
+ * se van los dos — un extra huérfano se seguiría cobrando sin producto.
+ */
+function ajustar(items: ItemCarrito[], linea: string, delta: number): { items: ItemCarrito[] } {
+  const padre = items.find((i) => i.linea === linea)
+  if (!padre) return { items }
+
+  const cantidad = padre.cantidad + delta
+  if (cantidad <= 0) {
+    return { items: items.filter((i) => i.linea !== linea && i.padreLinea !== linea) }
+  }
+
+  return {
+    items: items.map((i) => {
+      if (i.linea === linea) return { ...i, cantidad }
+      if (i.padreLinea === linea) return { ...i, cantidad: (i.porUnidad ?? i.cantidad) * cantidad }
+      return i
+    }),
+  }
 }
 
 export const useCarrito = create<CarritoStore>((set, get) => ({
@@ -65,14 +123,20 @@ export const useCarrito = create<CarritoStore>((set, get) => ({
   agregar: (item) => {
     let nuevaCantidad = 1
     set((state) => {
-      const existe = state.items.find((i) => i.producto_id === item.producto_id)
+      // Solo se funden líneas realmente idénticas. Un shake con extras nunca
+      // se funde con nada: sus extras cuelgan de ESTA línea.
+      const existe = state.items.find(
+        (i) =>
+          i.producto_id === item.producto_id &&
+          (i.personalizacion ?? null) === (item.personalizacion ?? null) &&
+          !i.padreLinea &&
+          !state.items.some((h) => h.padreLinea === i.linea),
+      )
       nuevaCantidad = existe ? existe.cantidad + 1 : 1
       return {
         items: existe
-          ? state.items.map((i) =>
-              i.producto_id === item.producto_id ? { ...i, cantidad: i.cantidad + 1 } : i,
-            )
-          : [...state.items, { ...item, cantidad: 1 }],
+          ? state.items.map((i) => (i.linea === existe.linea ? { ...i, cantidad: i.cantidad + 1 } : i))
+          : [...state.items, { ...item, linea: nuevaLinea(), cantidad: 1 }],
       }
     })
     const { total, totalItems } = get()
@@ -83,24 +147,41 @@ export const useCarrito = create<CarritoStore>((set, get) => ({
     )
   },
 
-  quitar: (producto_id) => {
-    set((state) => ({ items: state.items.filter((i) => i.producto_id !== producto_id) }))
+  agregarConExtras: (producto, extras) => {
+    const linea = nuevaLinea()
+    set((state) => ({
+      items: [
+        ...state.items,
+        { ...producto, linea, cantidad: 1 },
+        ...extras.map((e) => ({
+          ...e,
+          linea: nuevaLinea(),
+          padreLinea: linea,
+          cantidad: e.porUnidad,
+        })),
+      ],
+    }))
     const { total, totalItems } = get()
-    if (totalItems() === 0) {
-      displayCartCleared()
-    } else {
-      displayItemRemoved(producto_id, total(), totalItems())
-    }
+    displayItemAdded(
+      { id: producto.producto_id, nombre: producto.nombre, cantidad: 1, precio: producto.precio },
+      total(),
+      totalItems(),
+    )
   },
 
-  incrementar: (producto_id) => {
+  quitar: (linea) => {
     set((state) => ({
-      items: state.items.map((i) =>
-        i.producto_id === producto_id ? { ...i, cantidad: i.cantidad + 1 } : i,
-      ),
+      items: state.items.filter((i) => i.linea !== linea && i.padreLinea !== linea),
     }))
+    const { total, totalItems } = get()
+    if (totalItems() === 0) displayCartCleared()
+    else displayItemRemoved(linea, total(), totalItems())
+  },
+
+  incrementar: (linea) => {
+    set((state) => ajustar(state.items, linea, +1))
     const { items, total, totalItems } = get()
-    const item = items.find((i) => i.producto_id === producto_id)
+    const item = items.find((i) => i.linea === linea)
     if (item) {
       displayItemAdded(
         { id: item.producto_id, nombre: item.nombre, cantidad: item.cantidad, precio: item.precio },
@@ -110,20 +191,13 @@ export const useCarrito = create<CarritoStore>((set, get) => ({
     }
   },
 
-  decrementar: (producto_id) => {
-    set((state) => ({
-      items: state.items
-        .map((i) => (i.producto_id === producto_id ? { ...i, cantidad: i.cantidad - 1 } : i))
-        .filter((i) => i.cantidad > 0),
-    }))
+  decrementar: (linea) => {
+    set((state) => ajustar(state.items, linea, -1))
     const { items, total, totalItems } = get()
-    const item = items.find((i) => i.producto_id === producto_id)
+    const item = items.find((i) => i.linea === linea)
     if (!item) {
-      if (totalItems() === 0) {
-        displayCartCleared()
-      } else {
-        displayItemRemoved(producto_id, total(), totalItems())
-      }
+      if (totalItems() === 0) displayCartCleared()
+      else displayItemRemoved(linea, total(), totalItems())
     } else {
       displayItemAdded(
         { id: item.producto_id, nombre: item.nombre, cantidad: item.cantidad, precio: item.precio },
@@ -132,6 +206,8 @@ export const useCarrito = create<CarritoStore>((set, get) => ({
       )
     }
   },
+
+  extrasDe: (linea) => get().items.filter((i) => i.padreLinea === linea),
 
   limpiar: () => {
     set({ items: [], usuario: null })

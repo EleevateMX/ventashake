@@ -126,6 +126,39 @@ export function abreviarExtra(texto: string): string {
   return t.startsWith('+') ? t : `+${t}`
 }
 
+/**
+ * Quita de una línea de SPEC las palabras que no aportan nada dentro de una
+ * etiqueta de 21 caracteres.
+ *
+ * En el catálogo los nombres son largos porque tienen que distinguirse entre
+ * sí en el menú: "Proteína OPTIMUM - Chocolate", "Leche de almendras". Pegados
+ * bajo un shake, la mitad de esas palabras ya se saben —es una proteína, es
+ * una leche— y sí importa que quepa lo que distingue: la marca y el sabor.
+ *
+ *   Proteína OPTIMUM - Chocolate  →  OPTIMUM CHOCOLATE
+ *   Leche de almendras            →  ALMENDRAS
+ *   2 Galletas L&L Cremes (Choc.) →  2 GALLETAS L&L CREMES CHOC.
+ *
+ * Nunca quita marca ni sabor: solo la categoría (que ya es evidente), el
+ * guión separador y los paréntesis. La cantidad del principio se respeta.
+ */
+export function compactarSpec(texto: string): string {
+  const t = limpiar(texto)
+  const conCantidad = t.match(/^(\d+\s*x)\s+(.*)$/i)
+  const cantidad = conCantidad ? `${conCantidad[1].replace(/\s+/g, '')} ` : ''
+  const resto = conCantidad ? conCantidad[2] : t
+
+  const compacto = resto
+    .replace(/^prote[ií]nas?\s+/i, '')
+    .replace(/^leche\s+(de\s+)?/i, '')
+    .replace(/\s+-\s+/g, ' ')
+    .replace(/\s*\(([^)]*)\)\s*/g, ' $1 ')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+
+  return `${cantidad}${compacto}`.trim()
+}
+
 /** Las frases del pie. Rotan, pero de forma estable (ver `frasePara`). */
 export const FRASES = [
   'Buen dia!',
@@ -177,12 +210,14 @@ export interface EtiquetaComanda {
 /** Las líneas de SPEC, en el orden en que se imprimen. */
 export function lineasSpec(e: EtiquetaComanda): string[] {
   const spec: string[] = []
-  if (e.proteina?.trim()) spec.push(`+${mayus(e.proteina)}`)
-  if (e.leche?.trim()) spec.push(`+${mayus(e.leche)}`)
+  if (e.proteina?.trim()) spec.push(`+${mayus(compactarSpec(e.proteina))}`)
+  if (e.leche?.trim()) spec.push(`+${mayus(compactarSpec(e.leche))}`)
   for (const extra of e.extras ?? []) {
-    const abreviado = abreviarExtra(extra)
+    const abreviado = abreviarExtra(compactarSpec(extra))
     if (abreviado) spec.push(abreviado)
   }
+  // Las notas van tal cual: las escribió una persona pensando en quien
+  // prepara, y ahí sí cada palabra la puso alguien a propósito.
   if (e.notas?.trim()) spec.push(mayus(e.notas))
   return spec.flatMap((l) => partir(l, caracteresPorLinea('1')))
 }

@@ -90,6 +90,9 @@ export interface NuevaOrdenItemCaja {
   producto_id: string
   cantidad: number
   personalizacion?: string | null
+  /** Ver `NuevaOrdenItem` en ordenes.ts: liga los extras a su producto. */
+  linea?: string
+  padre_linea?: string | null
 }
 
 /**
@@ -110,6 +113,8 @@ export async function crearOrdenKioskoCaja(
       producto_id: i.producto_id,
       cantidad: i.cantidad,
       personalizacion: i.personalizacion ?? null,
+      ...(i.linea ? { linea: i.linea } : {}),
+      ...(i.padre_linea ? { padre_linea: i.padre_linea } : {}),
     })),
     p_cliente_id: datos.clienteId ?? null,
     p_descuento: datos.descuento ?? 0,

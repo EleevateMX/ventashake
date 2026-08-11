@@ -9,7 +9,12 @@ import { sb } from '@/lib/sb'
 
 export function Carrito() {
   const navigate = useNavigate()
-  const { items, incrementar, decrementar, total, totalItems, usuario, setUsuario } = useCarrito()
+  const { items, incrementar, decrementar, extrasDe, total, totalItems, usuario, setUsuario } =
+    useCarrito()
+  // Los extras se pintan DEBAJO de su producto, no como líneas sueltas: es la
+  // misma agrupación que sale en la comanda, así que lo que ve el cajero es
+  // lo que va a ver quien prepara.
+  const lineasPrincipales = items.filter((i) => !i.padreLinea)
   const [modo, setModo] = useState<ModoPagoKiosko | null>(null)
   const [pidiendoCliente, setPidiendoCliente] = useState(false)
 
@@ -77,51 +82,82 @@ export function Carrito() {
       </header>
 
       <main className="flex-1 overflow-y-auto px-8 py-6 space-y-4">
-        {items.map((item) => (
-          <div
-            key={item.producto_id}
-            className="flex items-center gap-4 bg-sa-cream-soft rounded-sa-lg p-4 shadow-sa-sm"
-          >
-            {item.imagen_url ? (
-              <img
-                src={item.imagen_url}
-                alt={item.nombre}
-                className="w-20 h-20 rounded-sa object-cover"
-              />
-            ) : (
-              <div className="w-20 h-20 rounded-sa bg-sa-cream-warm flex items-center justify-center">
-                <img src="/milo-transparent.png" alt="" className="h-16 opacity-80" />
+        {lineasPrincipales.map((item) => {
+          const extras = extrasDe(item.linea)
+          const totalLinea =
+            item.precio * item.cantidad + extras.reduce((s, e) => s + e.precio * e.cantidad, 0)
+          return (
+            <div key={item.linea} className="bg-sa-cream-soft rounded-sa-lg p-4 shadow-sa-sm">
+              <div className="flex items-center gap-4">
+                {item.imagen_url ? (
+                  <img
+                    src={item.imagen_url}
+                    alt={item.nombre}
+                    className="w-20 h-20 rounded-sa object-cover"
+                  />
+                ) : (
+                  <div className="w-20 h-20 rounded-sa bg-sa-cream-warm flex items-center justify-center">
+                    <img src="/milo-transparent.png" alt="" className="h-16 opacity-80" />
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="font-display text-2xl text-sa-green-ink leading-tight truncate">
+                    {item.nombre}
+                  </p>
+                  {item.personalizacion && (
+                    <p className="font-mono text-xs uppercase tracking-wide text-sa-green-ink/50 mt-0.5 truncate">
+                      {item.personalizacion}
+                    </p>
+                  )}
+                  <p className="font-mono text-base text-sa-green mt-1">
+                    ${totalLinea.toFixed(2)}
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => decrementar(item.linea)}
+                    className="w-14 h-14 rounded-full bg-sa-cream-warm text-sa-green-ink font-display text-2xl flex items-center justify-center active:scale-95 transition-transform"
+                    aria-label="Quitar uno"
+                  >
+                    −
+                  </button>
+                  <span className="w-10 text-center font-mono text-xl text-sa-green-ink">
+                    {item.cantidad}
+                  </span>
+                  <button
+                    onClick={() => incrementar(item.linea)}
+                    className="w-14 h-14 rounded-full bg-sa-green text-sa-cream font-display text-2xl flex items-center justify-center active:scale-95 transition-transform"
+                    aria-label="Agregar uno"
+                  >
+                    +
+                  </button>
+                </div>
               </div>
-            )}
-            <div className="flex-1 min-w-0">
-              <p className="font-display text-2xl text-sa-green-ink leading-tight truncate">
-                {item.nombre}
-              </p>
-              <p className="font-mono text-base text-sa-green mt-1">
-                ${(item.precio * item.cantidad).toFixed(2)}
-              </p>
+
+              {/* Los extras no tienen sus propios botones: suben y bajan con
+                  su shake. Tenerlos sueltos permitía quedarse con galletas
+                  sin shake, cobrándose solas. */}
+              {extras.length > 0 && (
+                <ul className="mt-3 pl-24 space-y-1">
+                  {extras.map((e) => (
+                    <li
+                      key={e.linea}
+                      className="flex items-baseline justify-between gap-3 font-mono text-xs uppercase tracking-wide text-sa-green-ink/60"
+                    >
+                      <span className="truncate">
+                        + {e.cantidad > 1 ? `${e.cantidad}× ` : ''}
+                        {e.nombre}
+                      </span>
+                      {e.precio > 0 && (
+                        <span className="flex-shrink-0">${(e.precio * e.cantidad).toFixed(2)}</span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => decrementar(item.producto_id)}
-                className="w-14 h-14 rounded-full bg-sa-cream-warm text-sa-green-ink font-display text-2xl flex items-center justify-center active:scale-95 transition-transform"
-                aria-label="Quitar uno"
-              >
-                −
-              </button>
-              <span className="w-10 text-center font-mono text-xl text-sa-green-ink">
-                {item.cantidad}
-              </span>
-              <button
-                onClick={() => incrementar(item.producto_id)}
-                className="w-14 h-14 rounded-full bg-sa-green text-sa-cream font-display text-2xl flex items-center justify-center active:scale-95 transition-transform"
-                aria-label="Agregar uno"
-              >
-                +
-              </button>
-            </div>
-          </div>
-        ))}
+          )
+        })}
       </main>
 
       <footer className="bg-sa-green text-sa-cream px-8 py-6 rounded-t-sa-lg shadow-sa">

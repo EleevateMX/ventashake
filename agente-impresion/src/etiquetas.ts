@@ -53,8 +53,11 @@ export function repartirPersonalizacion(texto: string | null | undefined): {
     if (!f) continue
 
     if (/^\d+\s*oz\b/i.test(f)) { salida.tamano ??= f; continue }
-    if (/^leche\b/i.test(f)) { salida.leche ??= f.replace(/^leche\s*/i, '').trim() || f; continue }
-    if (/^prote[ií]na\b/i.test(f)) { salida.proteina ??= f.replace(/^prote[ií]na\s*/i, '').trim() || f; continue }
+    // Se guarda el fragmento COMPLETO: quien lo compacta para la etiqueta es
+    // `compactarSpec`, y así el dato queda entero por si otro consumidor
+    // (pantallas de producción, ticket) lo quiere sin recortar.
+    if (/^leche\b/i.test(f)) { salida.leche ??= f; continue }
+    if (/^prote[ií]na\b/i.test(f)) { salida.proteina ??= f; continue }
     // Una petición se reconoce por cómo empieza: quitar, agregar o moderar.
     if (/^(sin|con|extra|mas|más|poco|poca|menos)\b/i.test(f)) { salida.extras.push(f); continue }
     sueltos.push(f)
@@ -64,22 +67,49 @@ export function repartirPersonalizacion(texto: string | null | undefined): {
   return salida
 }
 
-/** Campos estructurados si vienen; si no, lo que se pueda deducir del texto. */
-function camposDe(item: ItemComanda): Pick<EtiquetaComanda, 'tamano' | 'proteina' | 'leche' | 'extras' | 'notas'> {
-  const yaVieneSeparado =
-    item.tamano != null || item.proteina != null || item.leche != null ||
-    item.extras != null || item.notas != null
+/**
+ * Un extra es "la proteína" si su nombre empieza por ahí. Va a su propio
+ * renglón del SPEC y no revuelto entre los adicionales, porque es el
+ * ingrediente principal: quien prepara lo busca primero.
+ */
+const esProteina = (nombre: string) => /^\s*(\d+x\s*)?prote[ií]na\b/i.test(nombre)
 
-  if (yaVieneSeparado) {
-    return {
-      tamano: item.tamano ?? null,
-      proteina: item.proteina ?? null,
-      leche: item.leche ?? null,
-      extras: item.extras ?? [],
-      notas: item.notas ?? null,
-    }
+/**
+ * El tamaño no existe todavía como campo propio, pero sí suele venir dentro
+ * del nombre del producto ("Shake Oreo 20 OZ"). Se saca de ahí y se quita del
+ * nombre, para no imprimirlo dos veces.
+ */
+export function separarTamano(nombre: string): { nombre: string; tamano: string | null } {
+  const m = nombre.match(/\b(\d{1,2})\s*(oz|onz)\b\.?/i)
+  if (!m) return { nombre: nombre.trim(), tamano: null }
+  return {
+    nombre: nombre.replace(m[0], '').replace(/\s{2,}/g, ' ').replace(/[-–(,]\s*$/, '').trim(),
+    tamano: `${m[1]} OZ`,
   }
-  return repartirPersonalizacion(item.personalizacion)
+}
+
+/**
+ * Combina lo estructurado con lo que se deduce del texto libre.
+ *
+ * No es "uno u otro": hoy la base manda los extras ya separados (las líneas
+ * hijas de la orden) pero la leche sigue viviendo dentro de
+ * `personalizacion`. Si lo estructurado ganara por completo, la leche
+ * desaparecería de la etiqueta — y es justo el dato por el que se pidió que
+ * viajara pegada al shake.
+ */
+function camposDe(item: ItemComanda): Pick<EtiquetaComanda, 'tamano' | 'proteina' | 'leche' | 'extras' | 'notas'> {
+  const texto = repartirPersonalizacion(item.personalizacion)
+
+  const todos = [...(item.extras ?? []), ...texto.extras]
+  const proteinaSuelta = todos.find(esProteina) ?? null
+
+  return {
+    tamano: item.tamano ?? texto.tamano,
+    proteina: item.proteina ?? texto.proteina ?? proteinaSuelta,
+    leche: item.leche ?? texto.leche,
+    extras: todos.filter((e) => e !== proteinaSuelta),
+    notas: item.notas ?? texto.notas,
+  }
 }
 
 /**
@@ -105,6 +135,7 @@ export function etiquetasDeTrabajo(trabajo: TrabajoImpresion, numeroDeCopia = 1)
   let n = 0
   for (const item of items) {
     const campos = camposDe(item)
+    const producto = separarTamano(item.nombre ?? '(producto sin nombre)')
     for (let u = 0; u < Math.max(1, item.cantidad || 1); u++) {
       n++
       etiquetas.push({
@@ -113,10 +144,11 @@ export function etiquetasDeTrabajo(trabajo: TrabajoImpresion, numeroDeCopia = 1)
         item: n,
         deTotal: total,
         nombre,
-        producto: item.nombre ?? '(producto sin nombre)',
+        producto: producto.nombre,
         fecha,
         copia: Math.max(numeroDeCopia, trabajo.numero_copia ?? 1),
         ...campos,
+        tamano: campos.tamano ?? producto.tamano,
       })
     }
   }

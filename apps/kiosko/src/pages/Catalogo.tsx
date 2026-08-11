@@ -16,7 +16,7 @@ interface Categoria {
 
 export function Catalogo() {
   const navigate = useNavigate()
-  const { agregar, totalItems } = useCarrito()
+  const { agregar, agregarConExtras, totalItems } = useCarrito()
   const [productos, setProductos] = useState<ProductoVenta[]>([])
   const [categoriaActiva, setCategoriaActiva] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -59,31 +59,49 @@ export function Catalogo() {
 
   /**
    * Cada extra entra como su PROPIA línea del carrito, igual que en el POS:
-   * así cuesta, cobra y descuenta inventario como cualquier producto, y la
-   * cocina lo ve listado en la comanda. La nota viaja en el shake.
+   * así cuesta, cobra y descuenta inventario como cualquier producto. Pero
+   * ahora queda COLGADO del shake que lo lleva, no suelto en la lista.
+   *
+   * Ese vínculo es el que hace que la comanda imprima "+GALLETA" bajo el
+   * shake correcto. Sin él, con dos shakes en el mismo pedido —uno con
+   * galletas y otro sin— no hay forma de saber cuál las lleva, y en barra se
+   * las ponen al vaso equivocado.
+   *
+   * La nota (el tipo de leche) sigue viajando pegada al shake.
    */
   function agregarPersonalizado(nota: string | null, elegidos: ExtraDeProducto[]) {
     const p = personalizando
     if (!p) return
-    agregar({
-      producto_id: p.id,
-      nombre: p.nombre,
-      precio: p.precio,
-      cocina_id: p.categorias?.cocinas?.id ?? '',
-      imagen_url: p.imagen_url,
-      ...(nota ? { personalizacion: nota } : {}),
-    })
-    elegidos.forEach((e) => {
-      const prod = productosExtra.find((x) => x.id === e.extra_id)
-      agregar({
-        producto_id: e.extra_id,
-        nombre: e.nombre,
-        precio: e.precio,
-        cocina_id: prod?.categorias?.cocinas?.id ?? p.categorias?.cocinas?.id ?? '',
-        imagen_url: null,
-        personalizacion: `para ${p.nombre}`,
-      })
-    })
+
+    // Los repetidos se agrupan con su cantidad en vez de repetir la línea:
+    // dos scoops son una línea de cantidad 2, no dos líneas de uno.
+    const porExtra = new Map<string, { extra: ExtraDeProducto; cantidad: number }>()
+    for (const e of elegidos) {
+      const previo = porExtra.get(e.extra_id)
+      porExtra.set(e.extra_id, { extra: e, cantidad: (previo?.cantidad ?? 0) + 1 })
+    }
+
+    agregarConExtras(
+      {
+        producto_id: p.id,
+        nombre: p.nombre,
+        precio: p.precio,
+        cocina_id: p.categorias?.cocinas?.id ?? '',
+        imagen_url: p.imagen_url,
+        ...(nota ? { personalizacion: nota } : {}),
+      },
+      [...porExtra.values()].map(({ extra, cantidad }) => {
+        const prod = productosExtra.find((x) => x.id === extra.extra_id)
+        return {
+          producto_id: extra.extra_id,
+          nombre: extra.nombre,
+          precio: extra.precio,
+          cocina_id: prod?.categorias?.cocinas?.id ?? p.categorias?.cocinas?.id ?? '',
+          imagen_url: null,
+          porUnidad: cantidad,
+        }
+      }),
+    )
     setPersonalizando(null)
   }
 

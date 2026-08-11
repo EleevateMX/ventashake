@@ -131,7 +131,7 @@ La base encola un trabajo por pedido de cocina con este payload:
 }
 ```
 
-Hoy la personalización viaja como **un solo texto**. El agente lo reparte
+La personalización de texto libre (hoy: el tipo de leche) el agente la reparte
 entre los campos de la etiqueta por lo que dice cada fragmento (separando por
 `,` `;` `·` `|` y saltos de línea):
 
@@ -151,16 +151,40 @@ también se imprime.
 la base los emita así, el agente los usa y deja de repartir texto — sin tocar
 una línea del agente.
 
-### Lo que todavía no se puede
+### Los extras van dentro de su producto
 
-Los extras que caja cobra como producto aparte (la proteína suelta, las
-galletas) llegan a cocina como **líneas propias del pedido**, así que salen
-en **su propia etiqueta** en vez de agruparse bajo el `SPEC` del shake al que
-pertenecen. No es un error de impresión: en la base no existe hoy el vínculo
-"este extra es de aquel shake" (`orden_items` es una lista plana, sin
-padre). Agruparlos requiere ese vínculo — mientras no exista, cualquier
-agrupación sería una suposición, y con dos shakes en el mismo pedido se
-equivocaría de vaso.
+Cuando caja cobra un extra como producto aparte (la proteína suelta, las
+galletas de $5), la orden guarda **de cuál shake es** — `orden_items.padre_item_id`,
+que el kiosko manda como `padre_linea`. La comanda los agrupa bajo el `SPEC`
+de ese shake en vez de sacarlos en su propia etiqueta.
+
+Importa con dos shakes en el mismo pedido: uno con galletas y otro sin. Sin
+ese vínculo no había forma de saber cuál las lleva.
+
+Un extra cuyo padre acabó en **otra estación** sigue saliendo por su cuenta:
+una etiqueta de más es preferible a que el dato desaparezca.
+
+### Los nombres se compactan
+
+El catálogo usa nombres largos porque tienen que distinguirse en el menú.
+En una línea de 21 caracteres, la categoría ya se sabe:
+
+| En el catálogo | En la etiqueta |
+|---|---|
+| `Proteína OPTIMUM - Chocolate` | `+OPTIMUM CHOCOLATE` |
+| `2x Proteína OPTIMUM - Chocolate` | `+2X OPTIMUM CHOCOLATE` |
+| `Leche de almendras` | `+ALMENDRAS` |
+
+Se quita la categoría, el guión y los paréntesis. **Nunca la marca ni el
+sabor**, que es lo que distingue un bote de otro. Las notas que escribe una
+persona van tal cual: ahí cada palabra la puso alguien a propósito.
+
+### El tamaño
+
+No existe como campo propio todavía. Si el nombre del producto lo trae
+(`Shake Oreo 20 OZ`), se saca de ahí y se pinta en el recuadro invertido, sin
+repetirlo en el nombre. El campo ya viaja de punta a punta: el día que el
+catálogo tenga tallas, se llena solo.
 
 ---
 
