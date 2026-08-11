@@ -10,7 +10,8 @@
 #
 #      .\instalar-agente-impresion.ps1 -AnonKey "eyJhbGci..."
 #
-#  La anon key sale de Supabase → Project Settings → API Keys → `anon public`.
+#  La llave sale de Supabase → Project Settings → API Keys. Sirven las dos:
+#  la nueva (`sb_publishable_...`) y la vieja (`eyJ...`).
 #  Es la misma que ya usan las apps y es pública por diseño; aun así, no la
 #  dejes escrita en un chat ni la subas al repositorio.
 #
@@ -95,10 +96,24 @@ function Probar-Impresora($ip, $puerto) {
 # ---------------------------------------------------------------------------
 # 2. Las impresoras que ya están dadas de alta en Admin
 # ---------------------------------------------------------------------------
+# Supabase tiene dos formatos de llave pública y NO se mandan igual:
+#
+#   · La vieja (`eyJ...`) es un JWT y viaja en `apikey` y en `Authorization`.
+#   · La nueva (`sb_publishable_...`) es un token opaco. Metida en
+#     `Authorization: Bearer`, el servidor intenta leerla como JWT y responde
+#     401 "invalid JWT" — un error que apunta a la llave estando la llave
+#     bien, que es de los peores ratos que se pueden hacer pasar a alguien.
+#
+# Se manda siempre `apikey`, y `Authorization` solo cuando de verdad es JWT.
+function Cabeceras($anonKey) {
+  $h = @{ apikey = $anonKey }
+  if ($anonKey.StartsWith('eyJ')) { $h['Authorization'] = "Bearer $anonKey" }
+  return $h
+}
+
 function Obtener-Impresoras($anonKey) {
   $r = Invoke-RestMethod -Method Post -Uri "$SupabaseUrl/rest/v1/rpc/fn_admin_impresoras" `
-    -Headers @{ apikey = $anonKey; Authorization = "Bearer $anonKey" } `
-    -ContentType 'application/json' -Body '{}'
+    -Headers (Cabeceras $anonKey) -ContentType 'application/json' -Body '{}'
   return @($r)
 }
 
@@ -107,8 +122,8 @@ function Obtener-Impresoras($anonKey) {
 # reescribe siempre la configuración completa en vez de conservar la vieja.
 function Obtener-Token($anonKey, $id) {
   return Invoke-RestMethod -Method Post -Uri "$SupabaseUrl/rest/v1/rpc/fn_rotar_token_impresora" `
-    -Headers @{ apikey = $anonKey; Authorization = "Bearer $anonKey" } `
-    -ContentType 'application/json' -Body (@{ p_id = $id } | ConvertTo-Json)
+    -Headers (Cabeceras $anonKey) -ContentType 'application/json' `
+    -Body (@{ p_id = $id } | ConvertTo-Json)
 }
 
 Write-Host ''
@@ -117,7 +132,7 @@ Write-Host '  ---------------------------------'
 
 if (-not $AnonKey) {
   Malo 'Falta -AnonKey.'
-  Write-Host '    Supabase -> Project Settings -> API Keys -> "anon public".'
+  Write-Host '    Supabase -> Project Settings -> API Keys (sb_publishable_... o eyJ...).'
   Write-Host '    Ejemplo:  .\instalar-agente-impresion.ps1 -AnonKey "eyJhbGci..."'
   exit 1
 }
