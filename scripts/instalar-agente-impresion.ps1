@@ -1,10 +1,10 @@
 # ============================================================================
-#  Shakeaholic — instalar el agente de impresión en la PC de la sucursal
+#  Shakeaholic - instalar el agente de impresion en la PC de la sucursal
 # ============================================================================
 #  Deja las etiquetadoras imprimiendo solas. Baja el agente, lo instala,
-#  saca los tokens de las impresoras que ya están dadas de alta en Admin,
-#  arma printers.config.json, prueba que las impresoras respondan y —si
-#  todo salió— lo deja corriendo.
+#  saca los tokens de las impresoras que ya estan dadas de alta en Admin,
+#  arma printers.config.json, prueba que las impresoras respondan y -si
+#  todo salio- lo deja corriendo.
 #
 #  USO (PowerShell COMO ADMINISTRADOR, en la PC de la sucursal):
 #
@@ -18,20 +18,20 @@
 #  `instalar-agente-impresion.bat`, clic derecho -> ejecutar como
 #  administrador (los .bat no tienen esa restriccion).
 #
-#  La llave sale de Supabase → Project Settings → API Keys. Sirven las dos:
+#  La llave sale de Supabase -> Project Settings -> API Keys. Sirven las dos:
 #  la nueva (`sb_publishable_...`) y la vieja (`eyJ...`).
-#  Es la misma que ya usan las apps y es pública por diseño; aun así, no la
+#  Es la misma que ya usan las apps y es publica por diseno; aun asi, no la
 #  dejes escrita en un chat ni la subas al repositorio.
 #
-#  Otros parámetros (casi nunca hacen falta):
-#      -Destino  C:\Shakeaholic\agente-impresion   dónde instalar
+#  Otros parametros (casi nunca hacen falta):
+#      -Destino  C:\Shakeaholic\agente-impresion   donde instalar
 #      -Rama     main                              rama del repo a bajar
 #      -SoloProbar                                 no instala nada: solo
 #                                                  revisa si las impresoras
 #                                                  responden
 #
 #  Se puede correr las veces que haga falta: reinstala encima sin romper
-#  nada. Cada corrida genera tokens nuevos y reescribe la configuración.
+#  nada. Cada corrida genera tokens nuevos y reescribe la configuracion.
 # ============================================================================
 
 param(
@@ -48,10 +48,10 @@ $RepoZip     = "https://codeload.github.com/EleevateMX/ventashake/zip/refs/heads
 
 # Escribir archivos SIN BOM.
 #
-# `Set-Content -Encoding UTF8` en Windows PowerShell 5.1 —el que trae la PC de
-# la sucursal— antepone un BOM. Node lo lee como un carácter más: `JSON.parse`
-# revienta en el primer byte, y en el .env la primera variable se llamaría
-# "﻿SUPABASE_URL" y saldría un "falta SUPABASE_URL" imposible de
+# `Set-Content -Encoding UTF8` en Windows PowerShell 5.1 -el que trae la PC de
+# la sucursal- antepone un BOM. Node lo lee como un caracter mas: `JSON.parse`
+# revienta en el primer byte, y en el .env la primera variable se llamaria
+# "<BOM>SUPABASE_URL" y saldria un "falta SUPABASE_URL" imposible de
 # entender. Esto se comporta igual en 5.1 y en 7.
 function Escribir($ruta, $texto) {
   [System.IO.File]::WriteAllText($ruta, $texto, (New-Object System.Text.UTF8Encoding $false))
@@ -60,9 +60,9 @@ function Escribir($ruta, $texto) {
 # JSON de un arreglo que sigue siendo arreglo aunque traiga un solo elemento.
 #
 # `ConvertTo-Json` de 5.1 desenvuelve los arreglos de un elemento y escribe un
-# objeto suelto; el parámetro que lo evita (-AsArray) solo existe en 7. Con una
-# sola impresora configurada, el agente recibiría un objeto donde espera una
-# lista y se negaría a arrancar. Se arma a mano y funciona en las dos.
+# objeto suelto; el parametro que lo evita (-AsArray) solo existe en 7. Con una
+# sola impresora configurada, el agente recibiria un objeto donde espera una
+# lista y se negaria a arrancar. Se arma a mano y funciona en las dos.
 function JsonArreglo($items) {
   $partes = $items | ForEach-Object { ConvertTo-Json -InputObject $_ -Depth 5 }
   return "[" + [Environment]::NewLine + ($partes -join ("," + [Environment]::NewLine)) +
@@ -84,9 +84,9 @@ if ($PSVersionTable.PSVersion.Major -ge 6 -and -not $IsWindows) {
 }
 
 # ---------------------------------------------------------------------------
-# 1. ¿Responden las impresoras?
+# 1. Responden las impresoras?
 # ---------------------------------------------------------------------------
-# Se pregunta ANTES de instalar nada. Si la red no está, instalar el agente
+# Se pregunta ANTES de instalar nada. Si la red no esta, instalar el agente
 # no arregla nada y encima deja la duda de si el problema es el software.
 function Probar-Impresora($ip, $puerto) {
   $cliente = New-Object System.Net.Sockets.TcpClient
@@ -102,14 +102,14 @@ function Probar-Impresora($ip, $puerto) {
 }
 
 # ---------------------------------------------------------------------------
-# 2. Las impresoras que ya están dadas de alta en Admin
+# 2. Las impresoras que ya estan dadas de alta en Admin
 # ---------------------------------------------------------------------------
-# Supabase tiene dos formatos de llave pública y NO se mandan igual:
+# Supabase tiene dos formatos de llave publica y NO se mandan igual:
 #
-#   · La vieja (`eyJ...`) es un JWT y viaja en `apikey` y en `Authorization`.
-#   · La nueva (`sb_publishable_...`) es un token opaco. Metida en
+#   - La vieja (`eyJ...`) es un JWT y viaja en `apikey` y en `Authorization`.
+#   - La nueva (`sb_publishable_...`) es un token opaco. Metida en
 #     `Authorization: Bearer`, el servidor intenta leerla como JWT y responde
-#     401 "invalid JWT" — un error que apunta a la llave estando la llave
+#     401 "invalid JWT" - un error que apunta a la llave estando la llave
 #     bien, que es de los peores ratos que se pueden hacer pasar a alguien.
 #
 # Se manda siempre `apikey`, y `Authorization` solo cuando de verdad es JWT.
@@ -126,8 +126,8 @@ function Obtener-Impresoras($anonKey) {
 }
 
 # El token no se puede leer: no viaja nunca en la lista. "Obtenerlo" es
-# generar uno nuevo, y el anterior deja de servir — por eso este instalador
-# reescribe siempre la configuración completa en vez de conservar la vieja.
+# generar uno nuevo, y el anterior deja de servir - por eso este instalador
+# reescribe siempre la configuracion completa en vez de conservar la vieja.
 function Obtener-Token($anonKey, $id) {
   return Invoke-RestMethod -Method Post -Uri "$SupabaseUrl/rest/v1/rpc/fn_rotar_token_impresora" `
     -Headers (Cabeceras $anonKey) -ContentType 'application/json' `
@@ -135,7 +135,7 @@ function Obtener-Token($anonKey, $id) {
 }
 
 Write-Host ''
-Write-Host '  SHAKEAHOLIC — agente de impresion' -ForegroundColor White
+Write-Host '  SHAKEAHOLIC - agente de impresion' -ForegroundColor White
 Write-Host '  ---------------------------------'
 
 if (-not $AnonKey) {
@@ -170,10 +170,10 @@ foreach ($imp in $impresoras) {
   }
   $puerto = if ($imp.puerto) { [int]$imp.puerto } else { 9100 }
   if (Probar-Impresora $imp.ip $puerto) {
-    Bien "$($imp.nombre) — $($imp.ip):$puerto responde"
+    Bien "$($imp.nombre) - $($imp.ip):$puerto responde"
     $vivas += $imp
   } else {
-    Malo "$($imp.nombre) — $($imp.ip):$puerto NO responde"
+    Malo "$($imp.nombre) - $($imp.ip):$puerto NO responde"
     Write-Host '        Revisa: encendida, cable de red, la IP correcta, y la tapa bien cerrada.'
   }
 }
@@ -242,9 +242,9 @@ if (-not $origen) {
   exit 1
 }
 
-# El código se reemplaza entero, pero la configuración NO se toca aquí: se
-# reescribe más abajo con tokens frescos. Si esto se llevara la carpeta
-# completa, una reinstalación borraría los logs sin avisar.
+# El codigo se reemplaza entero, pero la configuracion NO se toca aqui: se
+# reescribe mas abajo con tokens frescos. Si esto se llevara la carpeta
+# completa, una reinstalacion borraria los logs sin avisar.
 New-Item -ItemType Directory -Path $Destino -Force | Out-Null
 Copy-Item -Path (Join-Path $origen '*') -Destination $Destino -Recurse -Force `
   -Exclude 'node_modules', 'logs', 'printers.config.json', '.env'
@@ -267,7 +267,7 @@ try {
 }
 
 # ---------------------------------------------------------------------------
-# 6. Configuración
+# 6. Configuracion
 # ---------------------------------------------------------------------------
 Paso 'Generando la configuracion'
 
@@ -344,7 +344,7 @@ Write-Host '  LISTO' -ForegroundColor Green
 Write-Host "  Instalado en: $Destino"
 Write-Host ''
 Write-Host '  Para arrancarlo ahora: doble clic en "Agente de impresion" del escritorio.'
-Write-Host '  Dejalo abierto todo el horario del local — si se cierra, no salen comandas.'
+Write-Host '  Dejalo abierto todo el horario del local - si se cierra, no salen comandas.'
 Write-Host ''
 Write-Host '  En Admin -> Impresoras las dos deben verse "En linea" en menos de un minuto.'
 Write-Host ''

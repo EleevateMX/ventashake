@@ -1,15 +1,15 @@
 # ============================================================================
-#  Shakeaholic — diagnóstico e intervención del táctil multi-pantalla
+#  Shakeaholic - diagnostico e intervencion del tactil multi-pantalla
 # ============================================================================
-#  El problema que resuelve: con dos paneles táctiles IDÉNTICOS (mismo EDID y
-#  mismo VID/PID de digitalizador), Windows no puede guardar a cuál pantalla
-#  corresponde cada táctil, y la calibración de "Configuración de Tablet PC"
+#  El problema que resuelve: con dos paneles tactiles IDENTICOS (mismo EDID y
+#  mismo VID/PID de digitalizador), Windows no puede guardar a cual pantalla
+#  corresponde cada tactil, y la calibracion de "Configuracion de Tablet PC"
 #  se colapsa en un solo monitor.
 #
-#  La técnica es calibrar de uno en uno: si solo hay un digitalizador
-#  ambiguo activo, Windows no tiene con qué confundirse. En vez de
-#  desconectar el cable USB detrás del monitor, aquí se desactiva por
-#  software — es equivalente y se revierte con un comando.
+#  La tecnica es calibrar de uno en uno: si solo hay un digitalizador
+#  ambiguo activo, Windows no tiene con que confundirse. En vez de
+#  desconectar el cable USB detras del monitor, aqui se desactiva por
+#  software - es equivalente y se revierte con un comando.
 #
 #  USO (PowerShell COMO ADMINISTRADOR):
 #     .\tactil.ps1                 Analiza y no cambia nada
@@ -29,8 +29,8 @@ param(
 $ErrorActionPreference = 'Continue'
 
 # Get-PnpDevice y Get-CimInstance solo existen en Windows: son la puerta al
-# hardware y al registro. Corrido en otro sistema, el script no fallaba — solo
-# vomitaba errores rojos y decía "(ninguno)", que se lee como "no tienes
+# hardware y al registro. Corrido en otro sistema, el script no fallaba - solo
+# vomitaba errores rojos y decia "(ninguno)", que se lee como "no tienes
 # tactiles" en vez de "esto no se puede correr aqui". Se corta antes.
 if (-not $IsWindows -and $PSVersionTable.PSVersion.Major -ge 6) {
   Write-Host "Este script solo funciona en Windows." -ForegroundColor Yellow
@@ -49,11 +49,11 @@ function EsAdmin {
     [Security.Principal.WindowsBuiltinRole]::Administrator)
 }
 
-# Los digitalizadores, siempre en el mismo orden, para que los números que
-# imprime el análisis sigan siendo válidos al pasar -Apagar / -Encender.
+# Los digitalizadores, siempre en el mismo orden, para que los numeros que
+# imprime el analisis sigan siendo validos al pasar -Apagar / -Encender.
 function Digitalizadores {
   Get-PnpDevice -Class HIDClass -EA SilentlyContinue |
-    Where-Object { $_.FriendlyName -match 'tácti|touch|digitizer' } |
+    Where-Object { $_.FriendlyName -match 'tacti|touch|digitizer' } |
     Sort-Object InstanceId
 }
 
@@ -100,7 +100,7 @@ if ($Restaurar -or $PSBoundParameters.ContainsKey('Apagar') -or $PSBoundParamete
 }
 
 # --------------------------------------------------------------------------
-# Análisis (solo lectura)
+# Analisis (solo lectura)
 # --------------------------------------------------------------------------
 "=== DIGITALIZADORES TACTILES ==="
 $i = 0

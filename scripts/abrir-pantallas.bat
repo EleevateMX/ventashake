@@ -1,6 +1,6 @@
 @echo off
 REM ============================================================================
-REM  Shakeaholic — abre las 3 pantallas en sus monitores  (Windows)
+REM  Shakeaholic - abre las 3 pantallas en sus monitores  (Windows)
 REM ============================================================================
 REM  Mapa de esta sucursal (DESKTOP-O5BVMOC), tomado de la posicion real de los
 REM  monitores. Si mueves un monitor en Configuracion de Windows, hay que
@@ -12,7 +12,7 @@ REM    Touch 1024x768 izq   1080,150    768x1024    bebidas     (barra)
 REM    Touch 1024x768 der   1848,139    768x1024    alimentos   (cocina)
 REM
 REM  Ojo: alimentos va en el monitor DERECHO y bebidas en el IZQUIERDO. No es
-REM  un descuido — es como estan fisicamente puestas las estaciones en el
+REM  un descuido - es como estan fisicamente puestas las estaciones en el
 REM  local. Se comprobo en sitio: con el orden inverso, a cocina le llegaban
 REM  las bebidas y a la barra los alimentos.
 REM

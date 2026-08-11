@@ -1,13 +1,13 @@
 # ============================================================================
-#  Escaneo del equipo — Shakeaholic POS  (Windows)
+#  Escaneo del equipo - Shakeaholic POS  (Windows)
 # ============================================================================
-#  Recolecta lo necesario para saber qué hardware tiene esta máquina y qué le
+#  Recolecta lo necesario para saber que hardware tiene esta maquina y que le
 #  falta para operar: impresoras, lectores USB, red y Node.js.
 #
 #  Es de SOLO LECTURA: no instala, no configura y no cambia nada. Al terminar
 #  deja un archivo de texto en el Escritorio para copiar y pegar.
 #
-#  Cómo correrlo: clic derecho en el archivo → "Ejecutar con PowerShell".
+#  Como correrlo: clic derecho en el archivo -> "Ejecutar con PowerShell".
 #  Si Windows bloquea el script, abre PowerShell y pega:
 #      Set-ExecutionPolicy -Scope Process Bypass -Force; .\escanear-equipo.ps1
 # ============================================================================
@@ -34,7 +34,7 @@ Get-NetRoute -DestinationPrefix '0.0.0.0/0' |
 
 # Sin salida a internet no hay sistema: todo habla con Supabase.
 $sb = Test-NetConnection -ComputerName 'zyjtnaystsporbuzcmqk.supabase.co' -Port 443 -WarningAction SilentlyContinue
-Linea "Supabase    : $(if ($sb.TcpTestSucceeded) { 'ALCANZABLE' } else { 'NO ALCANZABLE — revisar internet/firewall' })"
+Linea "Supabase    : $(if ($sb.TcpTestSucceeded) { 'ALCANZABLE' } else { 'NO ALCANZABLE - revisar internet/firewall' })"
 
 Seccion "IMPRESORAS INSTALADAS EN WINDOWS"
 $imp = Get-Printer
@@ -52,7 +52,7 @@ Get-PrinterPort | ForEach-Object {
 }
 
 Seccion "DISPOSITIVOS USB CONECTADOS"
-# Aquí aparecen la impresora térmica, el lector de QR y el cajón de dinero.
+# Aqui aparecen la impresora termica, el lector de QR y el cajon de dinero.
 Get-PnpDevice -PresentOnly |
   Where-Object { $_.InstanceId -like 'USB*' -and $_.Status -eq 'OK' } |
   Sort-Object Class, FriendlyName |
@@ -63,11 +63,11 @@ $serie = Get-CimInstance Win32_SerialPort
 if ($serie) { $serie | ForEach-Object { Linea "- $($_.DeviceID)  $($_.Name)" } }
 else        { Linea "(ninguno)" }
 
-Seccion "NODE.JS (lo necesita el agente de impresión)"
-# Se pregunta por el comando antes de invocarlo: si no está instalado, llamarlo
+Seccion "NODE.JS (lo necesita el agente de impresion)"
+# Se pregunta por el comando antes de invocarlo: si no esta instalado, llamarlo
 # a secas ensucia la salida con un error rojo que no aporta nada.
 $node = if (Get-Command node -ErrorAction SilentlyContinue) { & node --version } else { $null }
-Linea "node        : $(if ($node) { $node } else { 'NO INSTALADO — descargar Node.js 20+ de nodejs.org' })"
+Linea "node        : $(if ($node) { $node } else { 'NO INSTALADO - descargar Node.js 20+ de nodejs.org' })"
 $npm  = if (Get-Command npm  -ErrorAction SilentlyContinue) { & npm --version }  else { $null }
 Linea "npm         : $(if ($npm) { $npm } else { 'NO INSTALADO' })"
 
@@ -79,7 +79,7 @@ foreach ($ruta in @(
 )) { if (Test-Path $ruta) { Linea "- $ruta" } }
 
 Seccion "IMPRESORAS DE RED EN LA LAN (puerto 9100)"
-# Las térmicas de red escuchan en el 9100. Se barre solo TU subred local.
+# Las termicas de red escuchan en el 9100. Se barre solo TU subred local.
 $mi = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.IPAddress -ne '127.0.0.1' } | Select-Object -First 1).IPAddress
 if ($mi) {
   $base = $mi -replace '\.\d+$', ''
@@ -88,14 +88,14 @@ if ($mi) {
   1..254 | ForEach-Object {
     $ip = "$base.$_"
     $t = New-Object System.Net.Sockets.TcpClient
-    # Wait() devuelve true en cuanto la tarea TERMINA — incluso si terminó
-    # rechazada. Hay que confirmar además que la conexión quedó abierta, si no
+    # Wait() devuelve true en cuanto la tarea TERMINA - incluso si termino
+    # rechazada. Hay que confirmar ademas que la conexion quedo abierta, si no
     # se reportan como impresoras todos los equipos que rechazan el puerto.
     if ($t.ConnectAsync($ip, 9100).Wait(200) -and $t.Connected) { $encontradas += $ip }
     $t.Close()
   }
   if ($encontradas) { $encontradas | ForEach-Object { Linea "- $_ :9100" } }
-  else { Linea "(ninguna — si tu impresora es USB esto es normal)" }
+  else { Linea "(ninguna - si tu impresora es USB esto es normal)" }
 }
 
 $texto = $salida -join "`r`n"
@@ -105,5 +105,5 @@ Write-Host $texto
 Write-Host ""
 Write-Host "-----------------------------------------------------------"
 Write-Host "Guardado en: $destino"
-Write-Host "Copia TODO ese archivo y pégamelo en el chat."
+Write-Host "Copia TODO ese archivo y pegamelo en el chat."
 Write-Host "-----------------------------------------------------------"
