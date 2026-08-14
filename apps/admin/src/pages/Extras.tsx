@@ -6,8 +6,13 @@ import {
   extrasDisponibles,
   guardarExtra,
   quitarExtra,
+  listarExtrasBebidaAdmin,
+  guardarExtraBebida,
+  activarExtraBebida,
 } from '@shake/supabase'
-import type { ProductoVenta, ExtraDeProducto, IngredienteExtraible } from '@shake/supabase'
+import type {
+  ProductoVenta, ExtraDeProducto, IngredienteExtraible, ExtraBebidaAdmin,
+} from '@shake/supabase'
 import { mxn } from '@shake/utils'
 import { Panel, PageHeader, Loading, ErrorMsg, OkMsg, Chip, cx } from '../ui'
 
@@ -23,6 +28,13 @@ export default function Extras() {
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [ok, setOk] = useState<string | null>(null)
+
+  // --- extras de shakes (leches, proteínas, agua) ---
+  const [bebida, setBebida] = useState<ExtraBebidaAdmin[]>([])
+  const [nuevoNombre, setNuevoNombre] = useState('')
+  const [nuevoPrecio, setNuevoPrecio] = useState('0')
+  const [nuevoAplicar, setNuevoAplicar] = useState<'shakes' | 'clasico'>('shakes')
+  const [guardandoBebida, setGuardandoBebida] = useState(false)
 
   const [abierto, setAbierto] = useState<string | null>(null)
   const [ingredientes, setIngredientes] = useState<IngredienteExtraible[]>([])
@@ -48,9 +60,12 @@ export default function Extras() {
 
   async function cargar() {
     try {
-      const [ps, exs] = await Promise.all([listarProductosParaVenta(sb), listarExtras(sb)])
+      const [ps, exs, bs] = await Promise.all([
+        listarProductosParaVenta(sb), listarExtras(sb), listarExtrasBebidaAdmin(sb),
+      ])
       setProductos(ps)
       setExtras(exs)
+      setBebida(bs)
       setError(null)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
@@ -62,6 +77,38 @@ export default function Extras() {
   useEffect(() => {
     void cargar()
   }, [])
+
+  async function guardarBebida() {
+    if (!nuevoNombre.trim()) return
+    setGuardandoBebida(true)
+    setError(null)
+    try {
+      await guardarExtraBebida(sb, {
+        nombre: nuevoNombre.trim(),
+        precio: Number(nuevoPrecio) || 0,
+        aplicar: nuevoAplicar,
+      })
+      setOk(`"${nuevoNombre.trim()}" ya se ofrece en el kiosko.`)
+      setNuevoNombre('')
+      setNuevoPrecio('0')
+      await cargar()
+      setTimeout(() => setOk(null), 4000)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setGuardandoBebida(false)
+    }
+  }
+
+  async function toggleBebida(e: ExtraBebidaAdmin) {
+    setError(null)
+    try {
+      await activarExtraBebida(sb, e.id, !e.activo)
+      await cargar()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    }
+  }
 
   async function abrir(productoId: string) {
     if (abierto === productoId) {
@@ -129,6 +176,103 @@ export default function Extras() {
 
       {error && <ErrorMsg>{error}</ErrorMsg>}
       {ok && <OkMsg>{ok}</OkMsg>}
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Extras de shakes: leches, proteínas, agua. Aquí la sucursal da de  */}
+      {/* alta una leche o un sabor nuevo y aparece en el kiosko solo; y     */}
+      {/* cuando un sabor se acaba, lo apaga al momento sin borrar nada.     */}
+      {/* ------------------------------------------------------------------ */}
+      <Panel className="mb-6">
+        <h3 className={cx.h3}>Leches, proteínas y agua de los shakes</h3>
+        <p className={`${cx.muted} text-sm mt-1 mb-4`}>
+          El nombre decide dónde sale en el kiosko: <b>Leche …</b> entra al grupo de
+          leches, <b>Proteína MARCA - Sabor</b> al de proteínas (agrupadas por marca),
+          y <b>Agua</b> a la base. Todo lo demás sale como adicional.
+        </p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+          <div className="lg:col-span-2">
+            <span className={cx.label}>Nombre</span>
+            <input
+              className={cx.input}
+              placeholder="Proteína GHOST - Chocolate  ·  Leche light"
+              value={nuevoNombre}
+              onChange={(e) => setNuevoNombre(e.target.value)}
+            />
+          </div>
+          <div>
+            <span className={cx.label}>Precio extra ($)</span>
+            <input
+              className={cx.input}
+              type="number"
+              min="0"
+              value={nuevoPrecio}
+              onChange={(e) => setNuevoPrecio(e.target.value)}
+            />
+          </div>
+          <div>
+            <span className={cx.label}>Ofrecer en</span>
+            <select
+              className={cx.input}
+              value={nuevoAplicar}
+              onChange={(e) => setNuevoAplicar(e.target.value as 'shakes' | 'clasico')}
+            >
+              <option value="shakes">Todos los shakes</option>
+              <option value="clasico">Solo El Clásico</option>
+            </select>
+          </div>
+        </div>
+        <button
+          className={`${cx.btnPrimary} mt-4`}
+          disabled={guardandoBebida || !nuevoNombre.trim()}
+          onClick={() => void guardarBebida()}
+        >
+          {guardandoBebida ? 'Guardando…' : 'Agregar al kiosko'}
+        </button>
+
+        {bebida.length > 0 && (
+          <div className={`${cx.tableWrap} mt-5`}>
+            <table className={cx.table}>
+              <thead>
+                <tr className={cx.thead}>
+                  <th className={cx.th}>Extra</th>
+                  <th className={cx.thNum}>Precio</th>
+                  <th className={cx.th}>En cuántos productos</th>
+                  <th className={cx.th}>Disponible</th>
+                  <th className={cx.thNum}></th>
+                </tr>
+              </thead>
+              <tbody className={cx.tbody}>
+                {bebida.map((e) => (
+                  <tr key={e.id} className={cx.tr} style={{ opacity: e.activo ? 1 : 0.55 }}>
+                    <td className={`${cx.td} font-medium`}>{e.nombre}</td>
+                    <td className={cx.tdNum}>{e.precio > 0 ? mxn(e.precio) : 'Gratis'}</td>
+                    <td className={cx.td}>
+                      {e.ligado_a > 0 ? (
+                        e.ligado_a
+                      ) : (
+                        <span className="text-sa-strawberry text-xs">
+                          en ninguno — guárdalo de nuevo con &quot;Ofrecer en&quot; para ligarlo
+                        </span>
+                      )}
+                    </td>
+                    <td className={cx.td}>
+                      <Chip tone={e.activo ? 'si' : 'no'}>{e.activo ? 'Sí' : 'Apagado'}</Chip>
+                    </td>
+                    <td className={cx.tdNum}>
+                      <button className={cx.btnSec} onClick={() => void toggleBebida(e)}>
+                        {e.activo ? 'Apagar' : 'Prender'}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Panel>
+
+      <h3 className={`${cx.h3} mb-3`}>Extras de alimentos (de la receta)</h3>
 
       {alimentos.length === 0 ? (
         <Panel><p className={cx.muted}>No hay alimentos activos en el catálogo.</p></Panel>

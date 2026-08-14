@@ -9,8 +9,12 @@ interface Props {
   onAgregar: (nota: string | null, extrasElegidos: ExtraDeProducto[]) => void
 }
 
-/** Las leches SUSTITUYEN la del shake, así que se elige una sola. */
-const esLeche = (nombre: string) => /^leche/i.test(nombre.trim())
+/**
+ * La base SUSTITUYE la líquida de la receta, así que se elige una sola.
+ * Incluye el agua: en El Clásico "¿con qué lo preparamos?" admite agua, y
+ * viaja igual que una leche — pegada al shake, no como línea aparte.
+ */
+const esBase = (nombre: string) => /^(leche|agua)\b/i.test(nombre.trim())
 
 /**
  * Las galletas son una promoción: +$5 por 2 piezas, una vez por shake. Se
@@ -32,8 +36,13 @@ const esGalleta = (nombre: string) => /galleta/i.test(nombre.trim())
  * cocina necesita en la comanda aunque no cueste. Cuando el negocio les ponga
  * precio en Admin → Extras, empiezan a cobrar solos sin tocar nada aquí.
  */
-/** La que lleva el shake si nadie pide otra cosa. */
-const LECHE_DEFAULT = /deslactosada/i
+/**
+ * La de casa cambió: ahora es leche entera (pedido de la sucursal,
+ * 12/08/26). "Deslactosada" ya no sirve de respaldo por regex simple:
+ * también le pega a "deslactosada light", así que el respaldo la excluye.
+ */
+const LECHE_DEFAULT = /entera/i
+const LECHE_RESPALDO = (n: string) => /deslactosada/i.test(n) && !/light/i.test(n)
 
 /**
  * Proteína a elegir: solo la traen los shakes que se arman a gusto (El
@@ -46,26 +55,45 @@ const LECHE_DEFAULT = /deslactosada/i
 const esProteina = (nombre: string) => /^prote[ií]na/i.test(nombre.trim())
 const PROTEINA_DEFAULT = /optimum.*chocolate/i
 
+/**
+ * "Proteína BIRDMAN - Fitmingo Blueberry" → marca BIRDMAN, sabor "Fitmingo
+ * Blueberry". La marca sale del NOMBRE, no de una lista fija: cuando Admin dé
+ * de alta una marca nueva (GHOST, ISO 100…), su botón aparece solo.
+ */
+function marcaYSabor(nombre: string): { marca: string; sabor: string } {
+  const m = nombre.trim().match(/^prote[ií]na\s+(.+?)\s*[-–]\s*(.+)$/i)
+  if (m) return { marca: m[1].toUpperCase(), sabor: m[2] }
+  return { marca: 'OTRAS', sabor: nombre.replace(/^prote[ií]na\s*/i, '') }
+}
+
 export function ModalExtras({ producto, extras, onCerrar, onAgregar }: Props) {
   const [leche, setLeche] = useState<string | null>(null)
   const [verLeches, setVerLeches] = useState(false)
   const [proteina, setProteina] = useState<string | null>(null)
   const [verProteinas, setVerProteinas] = useState(false)
+  const [marcaAbierta, setMarcaAbierta] = useState<string | null>(null)
   const [galleta, setGalleta] = useState<string | null>(null)
   const [cantidades, setCantidades] = useState<Record<string, number>>({})
 
   if (!producto) return null
 
-  const leches = extras.filter((e) => esLeche(e.nombre))
+  const leches = extras.filter((e) => esBase(e.nombre))
   const galletas = extras.filter((e) => esGalleta(e.nombre))
   const proteinas = extras.filter((e) => esProteina(e.nombre))
   const adicionales = extras.filter(
-    (e) => !esLeche(e.nombre) && !esGalleta(e.nombre) && !esProteina(e.nombre),
+    (e) => !esBase(e.nombre) && !esGalleta(e.nombre) && !esProteina(e.nombre),
   )
+  const hayAgua = leches.some((l) => /^agua\b/i.test(l.nombre))
 
-  // Deslactosada es la de casa: viene marcada y es la única visible hasta que
-  // el cliente pide otra. Así el caso común es cero toques.
-  const lecheDefault = leches.find((l) => LECHE_DEFAULT.test(l.nombre)) ?? leches[0] ?? null
+  // Marcas en orden alfabético; los sabores conservan el orden del catálogo.
+  const marcas = [...new Set(proteinas.map((p) => marcaYSabor(p.nombre).marca))].sort()
+
+  // La de casa viene marcada y es la única visible hasta que el cliente pide
+  // otra. Así el caso común es cero toques.
+  const lecheDefault =
+    leches.find((l) => LECHE_DEFAULT.test(l.nombre)) ??
+    leches.find((l) => LECHE_RESPALDO(l.nombre)) ??
+    leches[0] ?? null
   const lecheElegida = leches.find((l) => l.extra_id === leche) ?? lecheDefault
   const galletaElegida = galletas.find((g) => g.extra_id === galleta) ?? null
   const proteinaDefault =
@@ -88,7 +116,7 @@ export function ModalExtras({ producto, extras, onCerrar, onAgregar }: Props) {
 
   function limpiar() {
     setLeche(null); setVerLeches(false); setProteina(null); setVerProteinas(false)
-    setGalleta(null); setCantidades({})
+    setMarcaAbierta(null); setGalleta(null); setCantidades({})
   }
 
   function confirmar() {
@@ -126,9 +154,11 @@ export function ModalExtras({ producto, extras, onCerrar, onAgregar }: Props) {
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
           {leches.length > 0 && (
             <section>
-              <h3 className="font-display text-xl text-sa-green-ink">Tipo de leche</h3>
+              <h3 className="font-display text-xl text-sa-green-ink">
+                {hayAgua ? '¿Con qué lo preparamos?' : 'Tipo de leche'}
+              </h3>
               <p className="font-mono text-[10px] uppercase tracking-wide text-sa-green-ink/40 mb-3">
-                {verLeches ? 'Elige una · sustituye la de la receta' : 'Toca para cambiarla'}
+                {verLeches ? 'Elige una · sustituye la de la receta' : 'Toca para cambiar'}
               </p>
 
               {/* Plegado: solo la elegida. La mayoría de los pedidos se va con
@@ -178,9 +208,18 @@ export function ModalExtras({ producto, extras, onCerrar, onAgregar }: Props) {
               <p className="font-mono text-[10px] uppercase tracking-wide text-sa-green-ink/40 mb-3">
                 {verProteinas ? 'Elige una' : 'Toca para cambiarla'}
               </p>
+              {/* Dos pasos: marca y luego sabor. Con diez sabores la lista
+                  plana ya no se podía leer, y va a crecer — las marcas salen
+                  del nombre del extra, así que una marca nueva dada de alta
+                  en Admin trae su botón sola. */}
               {!verProteinas ? (
                 <button
-                  onClick={() => setVerProteinas(true)}
+                  onClick={() => {
+                    setVerProteinas(true)
+                    setMarcaAbierta(
+                      proteinaElegida ? marcaYSabor(proteinaElegida.nombre).marca : marcas[0] ?? null,
+                    )
+                  }}
                   className="w-full flex items-center justify-between gap-3 px-4 py-4 rounded-sa border-2 border-sa-green bg-sa-green text-sa-cream text-left"
                 >
                   <span className="font-display text-lg leading-tight">
@@ -191,27 +230,48 @@ export function ModalExtras({ producto, extras, onCerrar, onAgregar }: Props) {
                   </span>
                 </button>
               ) : (
-                <div className="grid grid-cols-2 gap-2">
-                  {proteinas.map((p) => {
-                    const activa = proteinaElegida?.extra_id === p.extra_id
-                    return (
+                <>
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {marcas.map((m) => (
                       <button
-                        key={p.extra_id}
-                        onClick={() => { setProteina(p.extra_id); setVerProteinas(false) }}
-                        className={`px-4 py-3 rounded-sa text-left transition-all border-2 ${
-                          activa
-                            ? 'bg-sa-green text-sa-cream border-sa-green'
-                            : 'bg-white border-sa-green-ink/10 text-sa-green-ink hover:border-sa-green/40'
+                        key={m}
+                        onClick={() => setMarcaAbierta(m)}
+                        className={`px-4 py-2.5 rounded-full font-mono text-xs uppercase tracking-wider transition-all ${
+                          marcaAbierta === m
+                            ? 'bg-sa-green-ink text-sa-cream'
+                            : 'bg-white border border-sa-green-ink/15 text-sa-green-ink'
                         }`}
                       >
-                        <span className="font-display text-sm leading-tight block">{p.nombre}</span>
-                        {p.precio > 0 && (
-                          <span className="font-mono text-xs opacity-70">+{mxn(p.precio)}</span>
-                        )}
+                        {m}
                       </button>
-                    )
-                  })}
-                </div>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {proteinas
+                      .filter((p) => marcaYSabor(p.nombre).marca === marcaAbierta)
+                      .map((p) => {
+                        const activa = proteinaElegida?.extra_id === p.extra_id
+                        return (
+                          <button
+                            key={p.extra_id}
+                            onClick={() => { setProteina(p.extra_id); setVerProteinas(false) }}
+                            className={`px-4 py-3 rounded-sa text-left transition-all border-2 ${
+                              activa
+                                ? 'bg-sa-green text-sa-cream border-sa-green'
+                                : 'bg-white border-sa-green-ink/10 text-sa-green-ink hover:border-sa-green/40'
+                            }`}
+                          >
+                            <span className="font-display text-base leading-tight block">
+                              {marcaYSabor(p.nombre).sabor}
+                            </span>
+                            {p.precio > 0 && (
+                              <span className="font-mono text-xs opacity-70">+{mxn(p.precio)}</span>
+                            )}
+                          </button>
+                        )
+                      })}
+                  </div>
+                </>
               )}
             </section>
           )}

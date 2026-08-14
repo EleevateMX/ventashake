@@ -346,6 +346,62 @@ export async function guardarExtra(
   if (error) throw error
 }
 
+// ---------------------------------------------------------------------------
+// Extras de shakes (leches, proteínas, agua) — autoservicio del Admin
+// ---------------------------------------------------------------------------
+// Distintos de los extras de alimentos: no llevan insumo de receta (no
+// descuentan inventario) y se ofrecen en bloque — una leche va en todos los
+// shakes, una proteína solo en El Clásico. El kiosko los agrupa por cómo
+// empieza el nombre: "Leche …", "Proteína MARCA - Sabor", "Agua".
+
+export interface ExtraBebidaAdmin {
+  id: string
+  nombre: string
+  precio: number
+  activo: boolean
+  /** En cuántos productos se ofrece. 0 = existe pero no aparece en ningún lado. */
+  ligado_a: number
+}
+
+type RpcCatalogo = (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>
+
+/** Todos los extras de bebida, incluidos los apagados (para poder volver a prenderlos). */
+export async function listarExtrasBebidaAdmin(sb: ShakeClient): Promise<ExtraBebidaAdmin[]> {
+  const { data, error } = await (sb.rpc as unknown as RpcCatalogo)('fn_extras_bebida_admin', {})
+  if (error) throw error
+  return (data ?? []) as ExtraBebidaAdmin[]
+}
+
+/**
+ * Crea (o repara) un extra de bebida y lo liga a sus productos. Idempotente:
+ * guardar dos veces el mismo nombre no duplica — reutiliza y re-liga.
+ * `aplicar`: 'shakes' = todos los shakes activos · 'clasico' = solo El Clásico.
+ */
+export async function guardarExtraBebida(
+  sb: ShakeClient,
+  input: { nombre: string; precio: number; aplicar: 'shakes' | 'clasico' },
+): Promise<void> {
+  const { error } = await (sb.rpc as unknown as RpcCatalogo)('fn_extra_bebida_guardar', {
+    p_nombre: input.nombre,
+    p_precio: input.precio,
+    p_aplicar: input.aplicar,
+  })
+  if (error) throw error
+}
+
+/**
+ * Prende o apaga un extra al momento ("ya no tenemos ese sabor"). Apagado
+ * desaparece del kiosko en la siguiente carga; sus vínculos se conservan,
+ * así que volver a prenderlo lo deja exactamente como estaba.
+ */
+export async function activarExtraBebida(sb: ShakeClient, id: string, activo: boolean): Promise<void> {
+  const { error } = await (sb.rpc as unknown as RpcCatalogo)('fn_extra_bebida_activar', {
+    p_id: id,
+    p_activo: activo,
+  })
+  if (error) throw error
+}
+
 export async function quitarExtra(
   sb: ShakeClient,
   productoId: string,
