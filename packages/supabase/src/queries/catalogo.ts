@@ -402,6 +402,42 @@ export async function activarExtraBebida(sb: ShakeClient, id: string, activo: bo
   if (error) throw error
 }
 
+/** Un renglón del panel "dónde se ofrece": cada bebida activa, con su palomita. */
+export interface ProductoDeExtra {
+  producto_id: string
+  nombre: string
+  categoria: string
+  ofrecido: boolean
+}
+
+/**
+ * Todas las bebidas activas y si ofrecen o no el extra dado. La lista es
+ * "todo lo activo de la estación de bebidas", no una fija: un producto nuevo
+ * capturado en costeo aparece aquí solo, listo para ligarle sus bases.
+ */
+export async function productosDeExtra(sb: ShakeClient, extraId: string): Promise<ProductoDeExtra[]> {
+  const { data, error } = await (sb.rpc as unknown as RpcCatalogo)('fn_extra_bebida_productos', {
+    p_extra_id: extraId,
+  })
+  if (error) throw error
+  return (data ?? []) as ProductoDeExtra[]
+}
+
+/** Prende o apaga el extra en UN producto. */
+export async function vincularExtraBebida(
+  sb: ShakeClient,
+  extraId: string,
+  productoId: string,
+  ofrecer: boolean,
+): Promise<void> {
+  const { error } = await (sb.rpc as unknown as RpcCatalogo)('fn_extra_bebida_vincular', {
+    p_extra_id: extraId,
+    p_producto_id: productoId,
+    p_ofrecer: ofrecer,
+  })
+  if (error) throw error
+}
+
 export async function quitarExtra(
   sb: ShakeClient,
   productoId: string,

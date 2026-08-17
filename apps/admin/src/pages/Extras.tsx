@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import { sb } from '../lib/sb'
 import {
   listarProductosParaVenta,
@@ -9,9 +9,11 @@ import {
   listarExtrasBebidaAdmin,
   guardarExtraBebida,
   activarExtraBebida,
+  productosDeExtra,
+  vincularExtraBebida,
 } from '@shake/supabase'
 import type {
-  ProductoVenta, ExtraDeProducto, IngredienteExtraible, ExtraBebidaAdmin,
+  ProductoVenta, ExtraDeProducto, IngredienteExtraible, ExtraBebidaAdmin, ProductoDeExtra,
 } from '@shake/supabase'
 import { mxn } from '@shake/utils'
 import { Panel, PageHeader, Loading, ErrorMsg, OkMsg, Chip, cx } from '../ui'
@@ -35,6 +37,12 @@ export default function Extras() {
   const [nuevoPrecio, setNuevoPrecio] = useState('0')
   const [nuevoAplicar, setNuevoAplicar] = useState<'shakes' | 'clasico'>('shakes')
   const [guardandoBebida, setGuardandoBebida] = useState(false)
+  // Panel "dónde se ofrece": un extra abierto a la vez, con su checklist.
+  const [extraAbierto, setExtraAbierto] = useState<string | null>(null)
+  const [productosDelExtra, setProductosDelExtra] = useState<ProductoDeExtra[]>([])
+  const [cargandoVinculos, setCargandoVinculos] = useState(false)
+  const [filtroVinculos, setFiltroVinculos] = useState('')
+  const [cambiandoVinculo, setCambiandoVinculo] = useState<string | null>(null)
 
   const [abierto, setAbierto] = useState<string | null>(null)
   const [ingredientes, setIngredientes] = useState<IngredienteExtraible[]>([])
@@ -97,6 +105,44 @@ export default function Extras() {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
       setGuardandoBebida(false)
+    }
+  }
+
+  async function abrirVinculos(extraId: string) {
+    if (extraAbierto === extraId) {
+      setExtraAbierto(null)
+      return
+    }
+    setExtraAbierto(extraId)
+    setFiltroVinculos('')
+    setProductosDelExtra([])
+    setCargandoVinculos(true)
+    try {
+      setProductosDelExtra(await productosDeExtra(sb, extraId))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setCargandoVinculos(false)
+    }
+  }
+
+  async function toggleVinculo(extraId: string, prod: ProductoDeExtra) {
+    setCambiandoVinculo(prod.producto_id)
+    setError(null)
+    try {
+      await vincularExtraBebida(sb, extraId, prod.producto_id, !prod.ofrecido)
+      // Se actualiza en memoria para que la palomita responda al instante;
+      // el conteo de la tabla de arriba se refresca completo.
+      setProductosDelExtra((prev) =>
+        prev.map((p) =>
+          p.producto_id === prod.producto_id ? { ...p, ofrecido: !p.ofrecido } : p,
+        ),
+      )
+      setBebida(await listarExtrasBebidaAdmin(sb))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setCambiandoVinculo(null)
     }
   }
 
@@ -244,27 +290,84 @@ export default function Extras() {
               </thead>
               <tbody className={cx.tbody}>
                 {bebida.map((e) => (
-                  <tr key={e.id} className={cx.tr} style={{ opacity: e.activo ? 1 : 0.55 }}>
-                    <td className={`${cx.td} font-medium`}>{e.nombre}</td>
-                    <td className={cx.tdNum}>{e.precio > 0 ? mxn(e.precio) : 'Gratis'}</td>
-                    <td className={cx.td}>
-                      {e.ligado_a > 0 ? (
-                        e.ligado_a
-                      ) : (
-                        <span className="text-sa-strawberry text-xs">
-                          en ninguno — guárdalo de nuevo con &quot;Ofrecer en&quot; para ligarlo
-                        </span>
-                      )}
-                    </td>
-                    <td className={cx.td}>
-                      <Chip tone={e.activo ? 'si' : 'no'}>{e.activo ? 'Sí' : 'Apagado'}</Chip>
-                    </td>
-                    <td className={cx.tdNum}>
-                      <button className={cx.btnSec} onClick={() => void toggleBebida(e)}>
-                        {e.activo ? 'Apagar' : 'Prender'}
-                      </button>
-                    </td>
-                  </tr>
+                  <Fragment key={e.id}>
+                    <tr className={cx.tr} style={{ opacity: e.activo ? 1 : 0.55 }}>
+                      <td className={`${cx.td} font-medium`}>{e.nombre}</td>
+                      <td className={cx.tdNum}>{e.precio > 0 ? mxn(e.precio) : 'Gratis'}</td>
+                      <td className={cx.td}>
+                        {e.ligado_a > 0 ? (
+                          e.ligado_a
+                        ) : (
+                          <span className="text-sa-strawberry text-xs">
+                            en ninguno — ábrelo con &quot;Dónde se ofrece&quot;
+                          </span>
+                        )}
+                      </td>
+                      <td className={cx.td}>
+                        <Chip tone={e.activo ? 'si' : 'no'}>{e.activo ? 'Sí' : 'Apagado'}</Chip>
+                      </td>
+                      <td className={cx.tdNum}>
+                        <div className="inline-flex gap-2">
+                          <button className={cx.btnSec} onClick={() => void abrirVinculos(e.id)}>
+                            {extraAbierto === e.id ? 'Cerrar' : 'Dónde se ofrece'}
+                          </button>
+                          <button className={cx.btnSec} onClick={() => void toggleBebida(e)}>
+                            {e.activo ? 'Apagar' : 'Prender'}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                    {extraAbierto === e.id && (
+                      <tr>
+                        <td colSpan={5} className="px-5 py-4 bg-sa-cream-soft/60">
+                          {cargandoVinculos ? (
+                            <p className={cx.muted}>Cargando bebidas…</p>
+                          ) : (
+                            <>
+                              <div className="flex items-center gap-3 mb-3 flex-wrap">
+                                <input
+                                  className={cx.input}
+                                  style={{ maxWidth: 280 }}
+                                  placeholder="Filtrar… (hydration, jamaica, latte)"
+                                  value={filtroVinculos}
+                                  onChange={(ev) => setFiltroVinculos(ev.target.value)}
+                                />
+                                <span className={`${cx.muted} text-xs`}>
+                                  Palomita = se ofrece en ese producto. Una bebida nueva de
+                                  costeo aparece aquí sola.
+                                </span>
+                              </div>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5">
+                                {productosDelExtra
+                                  .filter((pr) =>
+                                    pr.nombre.toLowerCase().includes(filtroVinculos.toLowerCase()),
+                                  )
+                                  .map((pr) => (
+                                    <label
+                                      key={pr.producto_id}
+                                      className={`flex items-center gap-2.5 px-3 py-2 rounded-sa bg-white border text-sm cursor-pointer ${
+                                        pr.ofrecido
+                                          ? 'border-sa-green/40'
+                                          : 'border-sa-green-ink/10'
+                                      } ${cambiandoVinculo === pr.producto_id ? 'opacity-50' : ''}`}
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        className="w-4 h-4 accent-sa-green"
+                                        checked={pr.ofrecido}
+                                        disabled={cambiandoVinculo === pr.producto_id}
+                                        onChange={() => void toggleVinculo(e.id, pr)}
+                                      />
+                                      <span className="truncate text-sa-green-ink">{pr.nombre}</span>
+                                    </label>
+                                  ))}
+                              </div>
+                            </>
+                          )}
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
                 ))}
               </tbody>
             </table>
