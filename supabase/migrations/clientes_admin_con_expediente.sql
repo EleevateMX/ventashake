@@ -1,0 +1,8 @@
+-- Admin → Clientes: la base del programa vista desde gerencia.
+-- (Copia de referencia; la versión autoritativa corre en Supabase.)
+-- fn_clientes_admin(p_busqueda, p_limite): lista con búsqueda por nombre,
+--   teléfono (solo si la búsqueda trae dígitos), código y correo; agrega
+--   compras, última compra, mancuernas y cupones vigentes. Demos fuera.
+-- fn_expediente_cliente(p_cliente_id): favoritos (top 5, sin extras) y
+--   últimas 10 compras con items — el mismo expediente de Rewards, por id.
+-- Grants: anon/authenticated/service_role (Admin usa la llave pública).

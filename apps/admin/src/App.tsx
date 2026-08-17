@@ -8,11 +8,12 @@ import Extras from './pages/Extras'
 import Ventas from './pages/Ventas'
 import Inventario from './pages/Inventario'
 import Promos from './pages/Promos'
+import Clientes from './pages/Clientes'
 import Empleados from './pages/Empleados'
 import Impresoras from './pages/Impresoras'
 import Sistema from './pages/Sistema'
 
-type Tab = 'dashboard' | 'menu' | 'categorias' | 'combos' | 'extras' | 'inventario' | 'promos' | 'ventas' | 'empleados' | 'impresoras' | 'sistema'
+type Tab = 'dashboard' | 'menu' | 'categorias' | 'combos' | 'extras' | 'inventario' | 'promos' | 'ventas' | 'clientes' | 'empleados' | 'impresoras' | 'sistema'
 
 const w = 18
 
@@ -57,6 +58,11 @@ const IconVentas = () => (
     <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" /><polyline points="16 7 22 7 22 13" />
   </svg>
 )
+const IconClientes = () => (
+  <svg width={w} height={w} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="2" y="4" width="20" height="16" rx="2" /><circle cx="8.5" cy="10.5" r="2" /><path d="M5.5 16c.6-1.6 1.7-2.5 3-2.5s2.4.9 3 2.5" /><path d="M14.5 9.5H19M14.5 13h4.5M14.5 16.5H17" />
+  </svg>
+)
 const IconEmpleados = () => (
   <svg width={w} height={w} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
@@ -82,6 +88,7 @@ const navItems: { id: Tab; label: string; Icon: () => ReactElement }[] = [
   { id: 'inventario', label: 'Inventario', Icon: IconInventario },
   { id: 'promos', label: 'Promos', Icon: IconPromos },
   { id: 'ventas', label: 'Ventas', Icon: IconVentas },
+  { id: 'clientes', label: 'Clientes', Icon: IconClientes },
   { id: 'empleados', label: 'Empleados', Icon: IconEmpleados },
   { id: 'impresoras', label: 'Impresoras', Icon: IconImpresoras },
   { id: 'sistema', label: 'Sistema', Icon: IconSistema },
@@ -130,6 +137,7 @@ export default function App() {
         {tab === 'ventas' && <Ventas />}
         {tab === 'inventario' && <Inventario />}
         {tab === 'promos' && <Promos />}
+        {tab === 'clientes' && <Clientes />}
         {tab === 'empleados' && <Empleados />}
         {tab === 'impresoras' && <Impresoras />}
         {tab === 'sistema' && <Sistema />}

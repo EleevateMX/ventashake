@@ -74,3 +74,59 @@ export async function actualizarCliente(
 export async function desactivarCliente(sb: ShakeClient, id: string): Promise<void> {
   await rpc<null>(sb, 'fn_cliente_desactivar', { p_id: id })
 }
+
+// ── Admin → Clientes ───────────────────────────────────────────────────────
+
+export interface ClienteAdmin {
+  id: string
+  nombre: string
+  telefono: string | null
+  email: string | null
+  codigo: string | null
+  mancuernas: number
+  alta: string
+  con_google: boolean
+  compras: number
+  ultima_compra: string | null
+  cupones_activos: number
+}
+
+export interface ExpedienteFavorito {
+  producto: string
+  veces: number
+  ultima_vez: string
+}
+
+export interface ExpedienteCompra {
+  folio: number
+  fecha: string
+  total: number
+  items: Array<{ producto: string; cantidad: number; personalizacion: string | null }> | null
+}
+
+export interface ExpedienteCliente {
+  favoritos: ExpedienteFavorito[]
+  compras: ExpedienteCompra[]
+}
+
+/** Lista de clientes para Admin, con búsqueda y números de un vistazo. */
+export async function clientesAdmin(
+  sb: ShakeClient,
+  busqueda?: string | null,
+  limite = 100,
+): Promise<ClienteAdmin[]> {
+  return (
+    (await rpc<ClienteAdmin[]>(sb, 'fn_clientes_admin', {
+      p_busqueda: busqueda ?? null,
+      p_limite: limite,
+    })) ?? []
+  )
+}
+
+/** Lo que siempre pide + últimas compras de UN cliente (para recomendar). */
+export async function expedienteCliente(sb: ShakeClient, clienteId: string): Promise<ExpedienteCliente> {
+  const e = await rpc<ExpedienteCliente | null>(sb, 'fn_expediente_cliente', {
+    p_cliente_id: clienteId,
+  })
+  return { favoritos: e?.favoritos ?? [], compras: e?.compras ?? [] }
+}
