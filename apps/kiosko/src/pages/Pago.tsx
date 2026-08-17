@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   crearOrden, crearOrdenKioskoCaja, cobrarOrden, listarAlmacenes,
-  listarCajas, corteAbierto,
+  listarCajas, corteAbierto, nombresPedidoFrecuentes,
 } from '@shake/supabase'
 import { obtenerPaymentProvider } from '@shake/payments'
 import type { Almacen, CajaCorte, MetodoPago } from '@shake/types'
@@ -28,6 +28,20 @@ const lineaParaOrden = (i: ItemCarrito) => ({
   linea: i.linea,
   padre_linea: i.padreLinea ?? null,
 })
+
+/**
+ * Nombres semilla para los chips del cajero. Solo rellenan mientras la
+ * tienda junta historia: los nombres reales de pedidos anteriores siempre
+ * van primero y con el tiempo desplazan a estos.
+ */
+const NOMBRES_BASE = [
+  'Pedro', 'Adrián', 'Manuel', 'Carlos', 'Luis', 'José',
+  'Juan', 'Miguel', 'Jorge', 'Ana', 'María', 'Sofía',
+]
+
+/** Para comparar nombres sin pelearse con acentos ni mayúsculas. */
+const clave = (s: string) =>
+  s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
 
 const IconCard = () => (
   <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -64,6 +78,26 @@ export function Pago() {
   const [corte, setCorte] = useState<CajaCorte | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [errorProveedor, setErrorProveedor] = useState<string | null>(null)
+  /** Nombres aprendidos de pedidos anteriores, para los chips del cajero. */
+  const [nombresGuardados, setNombresGuardados] = useState<string[]>([])
+
+  /**
+   * Chips de nombre para el cajero: los aprendidos primero (por frecuencia),
+   * la semilla rellena mientras hay poca historia. Al teclear se vuelven
+   * predictivos: solo quedan los que empiezan como lo escrito, sin
+   * distinguir acentos ("adri" también encuentra "Adrián").
+   */
+  const sugerenciasNombre = useMemo(() => {
+    const lista = [...nombresGuardados]
+    for (const n of NOMBRES_BASE) {
+      if (!lista.some((g) => clave(g) === clave(n))) lista.push(n)
+    }
+    const escrito = clave(nombrePedido)
+    const visibles = escrito
+      ? lista.filter((n) => clave(n).startsWith(escrito) && clave(n) !== escrito)
+      : lista
+    return visibles.slice(0, 12)
+  }, [nombresGuardados, nombrePedido])
 
   useEffect(() => {
     ;(async () => {
@@ -82,6 +116,9 @@ export function Pago() {
           const cajas = await listarCajas(sb)
           const caja = cajas.find((c) => c.sucursal_id === kiosko.sucursal_id) ?? cajas[0] ?? null
           setCorte(caja ? await corteAbierto(sb, caja.id) : null)
+          // Sin await ni catch ruidoso: si esto falla, el cajero escribe el
+          // nombre a mano como siempre y la venta no se entera.
+          nombresPedidoFrecuentes(sb).then(setNombresGuardados).catch(() => {})
         }
 
         setEstado('eligiendo')
@@ -365,6 +402,23 @@ export function Pago() {
             maxLength={20}
             autoComplete="off"
           />
+          {/* Chips solo en la vista de cajero: el cajero teclea decenas de
+              nombres al día y un toque gana. Cuando entre el cobro con Clip
+              en el propio kiosko, el cliente escribirá el suyo como hoy. */}
+          {modo === 'cajero' && sugerenciasNombre.length > 0 && (
+            <div className="flex flex-wrap gap-2 mt-3">
+              {sugerenciasNombre.map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => setNombrePedido(n)}
+                  className="px-4 py-2.5 rounded-full font-mono text-xs uppercase tracking-wider transition-all bg-white border-2 border-sa-green-ink/15 text-sa-green-ink hover:border-sa-green active:scale-95"
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="text-center">

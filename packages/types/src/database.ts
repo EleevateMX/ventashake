@@ -1,10 +1,3 @@
-// =====================================================================
-// GENERADO desde el proyecto Supabase "Shakeaholic" (zyjtnaystsporbuzcmqk)
-// Regenerar tras cada migración:
-//   npx supabase gen types typescript --project-id zyjtnaystsporbuzcmqk --schema public
-// No editar a mano.
-// =====================================================================
-
 export type Json =
   | string
   | number
@@ -3231,6 +3224,13 @@ export type Database = {
           nombre: string
           rol: string
           sucursal_id: string
+        }[]
+      }
+      fn_nombres_pedido_frecuentes: {
+        Args: { p_limite?: number }
+        Returns: {
+          nombre: string
+          veces: number
         }[]
       }
       fn_producto_mover_categoria: {

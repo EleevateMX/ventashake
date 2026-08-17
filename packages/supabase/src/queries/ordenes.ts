@@ -117,3 +117,17 @@ export async function cancelarOrden(sb: ShakeClient, ordenId: string): Promise<v
   const { error } = await sb.from('ordenes').update({ estado: 'cancelada' }).eq('id', ordenId)
   if (error) throw error
 }
+
+/**
+ * Nombres de pedido más usados, para los chips de la pantalla de pago.
+ *
+ * No hay tabla de nombres: se aprenden solos de `ordenes.nombre_cliente`,
+ * así que cada venta con nombre hace más lista la siguiente. Vienen los más
+ * frecuentes primero y sin demos ni textos que no parecen nombre.
+ */
+export async function nombresPedidoFrecuentes(sb: ShakeClient, limite = 30): Promise<string[]> {
+  const filas = await rpc<Array<{ nombre: string; veces: number }>>(
+    sb, 'fn_nombres_pedido_frecuentes', { p_limite: limite },
+  )
+  return (filas ?? []).map((f) => f.nombre)
+}

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { sb } from '../lib/sb'
 import {
   listarProductos,
@@ -57,12 +57,6 @@ export default function Menu() {
 
   // Foto que se está subiendo (id del producto) para bloquear ese botón
   const [subiendoFoto, setSubiendoFoto] = useState<string | null>(null)
-
-  const catPorId = useMemo(() => {
-    const m = new Map<string, Categoria>()
-    categorias.forEach((c) => m.set(c.id, c))
-    return m
-  }, [categorias])
 
   async function cargar() {
     try {
