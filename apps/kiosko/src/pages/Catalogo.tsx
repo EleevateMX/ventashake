@@ -44,7 +44,10 @@ export function Catalogo() {
    * un agua o un snack.
    */
   function tocarAgregar(p: ProductoVenta) {
-    if (extrasDe(p.id).length > 0) {
+    // El modal se abre si hay algo que decidir: extras, o las observaciones
+    // de alimentos ("sin tomate"…). Las bebidas embotelladas (Coca, Gatorade)
+    // no tienen ni lo uno ni lo otro y siguen entrando en un toque.
+    if (extrasDe(p.id).length > 0 || p.categorias?.cocinas?.slug === 'alimentos') {
       setPersonalizando(p)
       return
     }

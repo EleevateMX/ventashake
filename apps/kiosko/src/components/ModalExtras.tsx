@@ -64,6 +64,18 @@ const esProteina = (nombre: string) => /^prote[ií]na/i.test(nombre.trim())
 const PROTEINA_DEFAULT = /optimum.*chocolate/i
 
 /**
+ * Observaciones rápidas, por estación. Chips y no texto libre a propósito:
+ * el campo de indicaciones se quitó porque frenaba la caja y llegaba a
+ * cocina con cualquier cosa; esto captura lo que de verdad se pide, en un
+ * toque, y la etiqueta ya sabe abreviarlas ("menos hielo" → +-HIELO,
+ * "sin tomate" → +S/TOMATE).
+ */
+const OBSERVACIONES: Record<string, string[]> = {
+  bebidas: ['Menos hielo', 'Sin hielo', 'Extra frío', 'Sin azúcar', 'Sin crema'],
+  alimentos: ['Sin tomate', 'Sin cebolla', 'Sin queso', 'Sin aderezo', 'Aderezo aparte', 'Sin picante'],
+}
+
+/**
  * "Proteína BIRDMAN - Fitmingo Blueberry" → marca BIRDMAN, sabor "Fitmingo
  * Blueberry". La marca sale del NOMBRE, no de una lista fija: cuando Admin dé
  * de alta una marca nueva (GHOST, ISO 100…), su botón aparece solo.
@@ -82,6 +94,7 @@ export function ModalExtras({ producto, extras, onCerrar, onAgregar }: Props) {
   const [marcaAbierta, setMarcaAbierta] = useState<string | null>(null)
   const [galleta, setGalleta] = useState<string | null>(null)
   const [cantidades, setCantidades] = useState<Record<string, number>>({})
+  const [observaciones, setObservaciones] = useState<string[]>([])
 
   if (!producto) return null
 
@@ -92,6 +105,7 @@ export function ModalExtras({ producto, extras, onCerrar, onAgregar }: Props) {
     (e) => !esBase(e.nombre) && !esGalleta(e.nombre) && !esProteina(e.nombre),
   )
   const hayAgua = leches.some((l) => /^agua\b/i.test(l.nombre))
+  const obsDisponibles = OBSERVACIONES[producto.categorias?.cocinas?.slug ?? ''] ?? []
 
   // Marcas en orden alfabético; los sabores conservan el orden del catálogo.
   const marcas = [...new Set(proteinas.map((p) => marcaYSabor(p.nombre).marca))].sort()
@@ -126,7 +140,7 @@ export function ModalExtras({ producto, extras, onCerrar, onAgregar }: Props) {
 
   function limpiar() {
     setLeche(null); setVerLeches(false); setProteina(null); setVerProteinas(false)
-    setMarcaAbierta(null); setGalleta(null); setCantidades({})
+    setMarcaAbierta(null); setGalleta(null); setCantidades({}); setObservaciones([])
   }
 
   function confirmar() {
@@ -138,10 +152,13 @@ export function ModalExtras({ producto, extras, onCerrar, onAgregar }: Props) {
     //     cobrada: la nota no cobra, y regalar los $10 en silencio es el
     //     tipo de fuga que nadie detecta hasta el corte.
     const baseCobrada = lecheElegida && lecheElegida.precio > 0 ? lecheElegida : null
-    const nota =
+    const notaBase =
       lecheElegida && !baseCobrada && !SIN_LECHE.test(lecheElegida.nombre)
         ? lecheElegida.nombre
         : null
+    // Base y observaciones viajan juntas, separadas por coma: la etiqueta ya
+    // parte por coma y abrevia cada fragmento por su cuenta.
+    const nota = [notaBase, ...observaciones].filter(Boolean).join(', ') || null
     const elegidos = [
       ...(baseCobrada ? [baseCobrada] : []),
       ...(proteinaElegida ? [proteinaElegida] : []),
@@ -361,6 +378,36 @@ export function ModalExtras({ producto, extras, onCerrar, onAgregar }: Props) {
                         </button>
                       </div>
                     </div>
+                  )
+                })}
+              </div>
+            </section>
+          )}
+          {obsDisponibles.length > 0 && (
+            <section>
+              <h3 className="font-display text-xl text-sa-green-ink">Observaciones</h3>
+              <p className="font-mono text-[10px] uppercase tracking-wide text-sa-green-ink/40 mb-3">
+                Solo si el cliente lo pide
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {obsDisponibles.map((o) => {
+                  const activa = observaciones.includes(o)
+                  return (
+                    <button
+                      key={o}
+                      onClick={() =>
+                        setObservaciones((prev) =>
+                          activa ? prev.filter((x) => x !== o) : [...prev, o],
+                        )
+                      }
+                      className={`px-4 py-2.5 rounded-full font-mono text-xs uppercase tracking-wider transition-all border-2 ${
+                        activa
+                          ? 'bg-sa-strawberry text-white border-sa-strawberry'
+                          : 'bg-white border-sa-green-ink/10 text-sa-green-ink hover:border-sa-strawberry/40'
+                      }`}
+                    >
+                      {o}
+                    </button>
                   )
                 })}
               </div>

@@ -57,7 +57,7 @@ function ProcesandoOverlay({ monto }: { monto: number }) {
 
 export function Pago() {
   const navigate = useNavigate()
-  const { items, total, usuario, cajero, limpiar } = useCarrito()
+  const { items, total, usuario, cajero, nombrePedido, setNombrePedido, limpiar } = useCarrito()
   const [estado, setEstado] = useState<EstadoPago>('cargando')
   const [modo, setModo] = useState<ModoPagoKiosko | null>(null)
   const [almacen, setAlmacen] = useState<Almacen | null>(null)
@@ -105,7 +105,12 @@ export function Pago() {
     try {
       const orden = await crearOrdenKioskoCaja(
         sb,
-        { sucursalId: almacen.sucursal_id, almacenId: almacen.id, clienteId: usuario?.clienteId ?? null },
+        {
+          sucursalId: almacen.sucursal_id,
+          almacenId: almacen.id,
+          clienteId: usuario?.clienteId ?? null,
+          nombreCliente: nombrePedido.trim() || usuario?.nombre?.split(' ')[0] || null,
+        },
         items.map(lineaParaOrden),
       )
       limpiar()
@@ -141,6 +146,7 @@ export function Pago() {
           empleado_id: cajero.id,
           corte_id: corte?.id ?? null,
           cliente_id: usuario?.clienteId ?? null,
+          nombre_cliente: nombrePedido.trim() || usuario?.nombre?.split(' ')[0] || null,
         },
         items.map(lineaParaOrden),
       )
@@ -190,6 +196,7 @@ export function Pago() {
           canal: 'kiosko',
           cliente_id: usuario?.clienteId ?? null,
           descuento: 0,
+          nombre_cliente: nombrePedido.trim() || usuario?.nombre?.split(' ')[0] || null,
         },
         items.map(lineaParaOrden),
       )
@@ -248,6 +255,7 @@ export function Pago() {
           cliente_id: usuario?.clienteId ?? null,
           descuento: 0,
           es_demo: true,
+          nombre_cliente: nombrePedido.trim() || usuario?.nombre?.split(' ')[0] || null,
         },
         items.map(lineaParaOrden),
       )
@@ -341,6 +349,24 @@ export function Pago() {
       </header>
 
       <main className="flex-1 flex flex-col items-center justify-center gap-8 px-8 py-10">
+        {/* A nombre de quién: es lo más grande de la etiqueta y lo que barra
+            grita al entregar. Opcional a propósito — sin nombre, la etiqueta
+            sale con el folio y nada se detiene. Si el cliente se identificó
+            en lealtad, su nombre de pila ya viaja solo. */}
+        <div className="w-full max-w-md">
+          <label className="font-mono text-xs uppercase tracking-[0.25em] text-sa-green/70 block mb-2">
+            ¿A nombre de quién va?
+          </label>
+          <input
+            className="w-full rounded-sa-lg border-2 border-sa-green-ink/15 bg-white px-5 py-4 font-display text-2xl text-sa-green-ink focus:border-sa-green outline-none"
+            placeholder={usuario?.nombre ? usuario.nombre.split(' ')[0] : 'Nombre para el pedido'}
+            value={nombrePedido}
+            onChange={(e) => setNombrePedido(e.target.value)}
+            maxLength={20}
+            autoComplete="off"
+          />
+        </div>
+
         <div className="text-center">
           <p className="font-mono text-xs uppercase tracking-[0.25em] text-sa-green/70">
             Total a soltar

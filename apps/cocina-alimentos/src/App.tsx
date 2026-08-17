@@ -245,6 +245,13 @@ export default function App() {
                       <span className="font-display text-sa-green-ink text-3xl leading-none mt-0.5">
                         #{pedido.ordenes?.folio ?? '—'}
                       </span>
+                      {/* El nombre es con lo que se entrega: mas grande que
+                          el canal, debajo del folio. */}
+                      {pedido.ordenes?.nombre_cliente && (
+                        <span className="font-display text-sa-strawberry text-xl leading-tight mt-1 max-w-[11rem] truncate">
+                          {pedido.ordenes.nombre_cliente}
+                        </span>
+                      )}
                     </div>
                     {pedido.ordenes?.canal && (
                       <span className="inline-flex items-center px-3 py-1 rounded-sa font-mono text-[11px] uppercase tracking-wider bg-sa-green text-sa-cream">

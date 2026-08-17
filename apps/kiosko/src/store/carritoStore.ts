@@ -53,6 +53,9 @@ export interface CajeroTurno {
 interface CarritoStore {
   items: ItemCarrito[]
   usuario: UsuarioKiosko | null
+  /** A nombre de quién va el pedido — lo que grita barra y lo que imprime la etiqueta. */
+  nombrePedido: string
+  setNombrePedido: (n: string) => void
   /**
    * Se mantiene entre pedidos a propósito: el cajero abre turno una vez y
    * levanta pedidos toda su jornada. `limpiar()` vacía el carrito y al
@@ -118,6 +121,8 @@ function ajustar(items: ItemCarrito[], linea: string, delta: number): { items: I
 export const useCarrito = create<CarritoStore>((set, get) => ({
   items: [],
   usuario: null,
+  nombrePedido: '',
+  setNombrePedido: (nombrePedido) => set({ nombrePedido }),
   cajero: null,
 
   agregar: (item) => {
@@ -210,7 +215,7 @@ export const useCarrito = create<CarritoStore>((set, get) => ({
   extrasDe: (linea) => get().items.filter((i) => i.padreLinea === linea),
 
   limpiar: () => {
-    set({ items: [], usuario: null })
+    set({ items: [], usuario: null, nombrePedido: '' })
     displayCartCleared()
   },
 

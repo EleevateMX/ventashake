@@ -103,7 +103,14 @@ export interface NuevaOrdenItemCaja {
  */
 export async function crearOrdenKioskoCaja(
   sb: ShakeClient,
-  datos: { sucursalId: string; almacenId: string; clienteId?: string | null; descuento?: number },
+  datos: {
+    sucursalId: string
+    almacenId: string
+    clienteId?: string | null
+    descuento?: number
+    /** A nombre de quién va el pedido (para la etiqueta y para gritar). */
+    nombreCliente?: string | null
+  },
   items: NuevaOrdenItemCaja[],
 ): Promise<Orden> {
   return rpc<Orden>(sb, 'fn_crear_orden_kiosko_caja', {
@@ -118,6 +125,7 @@ export async function crearOrdenKioskoCaja(
     })),
     p_cliente_id: datos.clienteId ?? null,
     p_descuento: datos.descuento ?? 0,
+    p_nombre_cliente: datos.nombreCliente ?? null,
   })
 }
 

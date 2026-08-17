@@ -49,7 +49,9 @@ async function rpc<T>(sb: ShakeClient, fn: string, args: Record<string, unknown>
  */
 export async function crearOrden(
   sb: ShakeClient,
-  orden: OrdenInsert,
+  // `nombre_cliente` va aparte del tipo generado: es "a nombre de quién va
+  // el pedido" (para gritar/etiquetar), independiente de la ficha de lealtad.
+  orden: OrdenInsert & { nombre_cliente?: string | null },
   items: NuevaOrdenItem[],
 ): Promise<Orden> {
   return rpc<Orden>(sb, 'fn_crear_orden', {
@@ -68,6 +70,7 @@ export async function crearOrden(
     p_cliente_id: orden.cliente_id ?? null,
     p_descuento: orden.descuento ?? 0,
     p_es_demo: orden.es_demo ?? false,
+    p_nombre_cliente: orden.nombre_cliente ?? null,
   })
 }
 
