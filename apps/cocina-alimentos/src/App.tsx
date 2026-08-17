@@ -296,6 +296,14 @@ export default function App() {
                         <div className="min-w-0 flex-1">
                           <p className="font-body font-medium text-sa-green-ink leading-tight">
                             {item.productos?.nombre ?? '—'}
+                            {/* Que vaso agarrar, antes de leer la receta. Solo
+                                aqui: la etiqueta impresa no lo lleva (pedido
+                                explicito de la sucursal). */}
+                            {item.productos?.onzas != null && (
+                              <span className="ml-2 align-middle inline-flex px-1.5 py-0.5 rounded font-mono text-[10px] font-semibold tracking-wide bg-sa-banana/30 text-sa-coffee">
+                                {item.productos.onzas} OZ
+                              </span>
+                            )}
                           </p>
                           {item.personalizacion && (
                             <p className="font-mono text-[11px] mt-1 text-sa-strawberry uppercase tracking-wide">

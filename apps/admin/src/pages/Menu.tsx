@@ -108,6 +108,21 @@ export default function Menu() {
     }
   }
 
+  /** Onzas del vaso: solo informa al visor de comandas, no toca precio ni ticket. */
+  const [cambiandoOnzas, setCambiandoOnzas] = useState<string | null>(null)
+  async function cambiarOnzas(p: Producto, valor: string) {
+    setCambiandoOnzas(p.id)
+    setError(null)
+    try {
+      await actualizarProducto(sb, p.id, { onzas: valor ? Number(valor) : null })
+      await cargar()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setCambiandoOnzas(null)
+    }
+  }
+
   function editar(p: Producto) {
     setEditId(p.id)
     setForm({
@@ -302,6 +317,7 @@ export default function Menu() {
                     <th className={cx.th}>Foto</th>
                     <th className={cx.th}>Nombre</th>
                     <th className={cx.th}>Categoría</th>
+                    <th className={cx.th}>Onzas</th>
                     <th className={cx.thNum}>Precio</th>
                     <th className={cx.th}>Activo</th>
                     <th className={cx.thNum}>Acciones</th>
@@ -376,6 +392,19 @@ export default function Menu() {
                           {categorias.map((c) => (
                             <option key={c.id} value={c.id}>{c.nombre}</option>
                           ))}
+                        </select>
+                      </td>
+                      <td className={cx.td}>
+                        <select
+                          className={`${cx.input} !py-1.5 text-xs`}
+                          style={{ minWidth: 84 }}
+                          value={p.onzas ?? ''}
+                          disabled={cambiandoOnzas === p.id}
+                          onChange={(e) => void cambiarOnzas(p, e.target.value)}
+                        >
+                          <option value="">—</option>
+                          <option value="16">16 oz</option>
+                          <option value="20">20 oz</option>
                         </select>
                       </td>
                       <td className={cx.tdNum}>{mxn(p.precio)}</td>

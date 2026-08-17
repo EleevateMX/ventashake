@@ -1718,6 +1718,7 @@ export type Database = {
           marca: string | null
           merma_pct: number | null
           nombre: string
+          onzas: number | null
           orden: number
           precio: number
         }
@@ -1738,6 +1739,7 @@ export type Database = {
           marca?: string | null
           merma_pct?: number | null
           nombre: string
+          onzas?: number | null
           orden?: number
           precio?: number
         }
@@ -1758,6 +1760,7 @@ export type Database = {
           marca?: string | null
           merma_pct?: number | null
           nombre?: string
+          onzas?: number | null
           orden?: number
           precio?: number
         }
@@ -3033,6 +3036,7 @@ export type Database = {
           marca: string | null
           merma_pct: number | null
           nombre: string
+          onzas: number | null
           orden: number
           precio: number
         }
@@ -3094,6 +3098,7 @@ export type Database = {
           marca: string | null
           merma_pct: number | null
           nombre: string
+          onzas: number | null
           orden: number
           precio: number
         }
