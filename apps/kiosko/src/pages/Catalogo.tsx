@@ -168,9 +168,12 @@ export function Catalogo() {
         </div>
       </header>
 
-      {/* Categorías */}
+      {/* Categorías: TODAS visibles a la vez, envueltas en renglones.
+          Antes era una fila con desplazamiento horizontal, y en una pantalla
+          táctil eso esconde la mitad del menú: nadie arrastra una barra que
+          no sabe que existe. Con ~10 categorías caben en dos renglones. */}
       <div className="bg-sa-cream-paper border-b border-sa-cream-warm">
-        <div className="flex gap-3 px-8 py-5 overflow-x-auto">
+        <div className="flex flex-wrap gap-2.5 px-8 py-4">
           <button
             onClick={() => setCategoriaActiva(null)}
             className={`flex-shrink-0 px-5 h-12 rounded-full font-mono text-sm uppercase tracking-wider transition-all ${
