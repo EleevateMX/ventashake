@@ -85,6 +85,28 @@ export default function Menu() {
     void cargar()
   }, [])
 
+  /**
+   * Cambio de categoría directo desde la tabla, sin abrir el formulario.
+   *
+   * Existe porque reorganizar el menú (Shakes → Café, Tés, Kombuchas…) son
+   * decenas de productos: a formulario por producto nadie lo termina. La
+   * sincronización desde costeo no pisa la categoría al actualizar, así que
+   * el movimiento es permanente.
+   */
+  const [moviendoCategoria, setMoviendoCategoria] = useState<string | null>(null)
+  async function moverCategoria(p: Producto, categoriaId: string) {
+    setMoviendoCategoria(p.id)
+    setError(null)
+    try {
+      await actualizarProducto(sb, p.id, { categoria_id: categoriaId || null })
+      await cargar()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setMoviendoCategoria(null)
+    }
+  }
+
   function editar(p: Producto) {
     setEditId(p.id)
     setForm({
@@ -337,7 +359,20 @@ export default function Menu() {
                           </div>
                         )}
                       </td>
-                      <td className={cx.td}>{p.categoria_id ? catPorId.get(p.categoria_id)?.nombre ?? '—' : '—'}</td>
+                      <td className={cx.td}>
+                        <select
+                          className={`${cx.input} !py-1.5 text-xs`}
+                          style={{ minWidth: 150 }}
+                          value={p.categoria_id ?? ''}
+                          disabled={moviendoCategoria === p.id}
+                          onChange={(e) => void moverCategoria(p, e.target.value)}
+                        >
+                          <option value="">— Sin categoría —</option>
+                          {categorias.map((c) => (
+                            <option key={c.id} value={c.id}>{c.nombre}</option>
+                          ))}
+                        </select>
+                      </td>
                       <td className={cx.tdNum}>{mxn(p.precio)}</td>
                       <td className={cx.td}><Chip tone={p.activo ? 'si' : 'no'}>{p.activo ? 'Sí' : 'No'}</Chip></td>
                       <td className={cx.tdNum}>
