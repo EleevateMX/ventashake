@@ -159,7 +159,13 @@ export function compactarSpec(texto: string): string {
   return `${cantidad}${compacto}`.trim()
 }
 
-/** Las frases del pie. Rotan, pero de forma estable (ver `frasePara`). */
+/**
+ * Las frases del pie. Rotan, pero de forma estable (ver `frasePara`).
+ *
+ * La frase se imprime en fuente "2" y se parte por palabras: ninguna puede
+ * ocupar más de dos renglones de 14 caracteres, o empuja el pie fuera de la
+ * etiqueta. Hay un test que lo vigila.
+ */
 export const FRASES = [
   'Buen dia!',
   'Eres un shakeaholic',
@@ -167,6 +173,21 @@ export const FRASES = [
   'Hecho para ti',
   'Gracias por venir',
   'Hoy toca consentirse',
+  'Shake, train and repeat',
+  'No pain, no gain',
+  'Mas fuerte que ayer',
+  'Tu unico rival: ayer',
+  'La ultima rep cuenta',
+  'Sin excusas hoy',
+  'A darle, campeon!',
+  'Suda, sonrie, repite',
+  'Ganado, no regalado',
+  'Beast mode: ON',
+  'Eat. Sleep. Shake.',
+  'Rompe tu record hoy',
+  'Nacido para entrenar',
+  'La disciplina gana',
+  'Proteina y actitud',
 ] as const
 
 /**

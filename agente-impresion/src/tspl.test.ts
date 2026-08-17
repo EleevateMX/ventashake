@@ -3,6 +3,7 @@ import {
   abreviarExtra,
   caracteresPorLinea,
   compactarSpec,
+  FRASES,
   frasePara,
   generarTSPL,
   limpiar,
@@ -163,6 +164,19 @@ describe('frase del pie', () => {
 
   it('cambia entre etiquetas del mismo pedido', () => {
     expect(frasePara('156490945', 1)).not.toBe(frasePara('156490945', 2))
+  })
+
+  it('toda frase cabe en el pie: dos renglones como máximo', () => {
+    for (const frase of FRASES) {
+      const renglones = partir(limpiar(frase), caracteresPorLinea('2'))
+      expect(renglones.length, `"${frase}" ocupa ${renglones.length} renglones`).toBeLessThanOrEqual(2)
+    }
+  })
+
+  it('toda frase es ASCII puro: la impresora está en cp850 y no queremos sorpresas', () => {
+    for (const frase of FRASES) {
+      expect(frase, `"${frase}" trae caracteres fuera de ASCII`).toMatch(/^[\x20-\x7e]+$/)
+    }
   })
 })
 
