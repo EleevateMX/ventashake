@@ -17,7 +17,7 @@
 /** Faltan las credenciales en los secrets del proyecto. */
 export class ClipSinCredenciales extends Error {
   constructor() {
-    super('CLIP_API_KEY / CLIP_WEBHOOK_SECRET no están configuradas en los secrets del proyecto.')
+    super('CLIP_API_KEY / CLIP_API_SECRET no están configuradas en los secrets del proyecto.')
     this.name = 'ClipSinCredenciales'
   }
 }
@@ -33,10 +33,17 @@ export function tokenAuthClip(apiKey: string, claveSecreta: string): string {
   return `Basic ${btoa(String.fromCharCode(...bytes))}`
 }
 
-/** Lee las credenciales de los secrets. Lanza si falta alguna. */
+/**
+ * Lee las credenciales de los secrets. Lanza si falta alguna.
+ *
+ * La mitad secreta se acepta bajo dos nombres: CLIP_API_SECRET (el
+ * canónico — es la "Secret Key" del panel de Clip) o CLIP_WEBHOOK_SECRET
+ * (el nombre que se usó al principio del proyecto). Así, con cualquiera
+ * de los dos configurado, el cobro funciona.
+ */
 export function credencialesClip(): { apiKey: string; claveSecreta: string } {
   const apiKey = Deno.env.get('CLIP_API_KEY')
-  const claveSecreta = Deno.env.get('CLIP_WEBHOOK_SECRET')
+  const claveSecreta = Deno.env.get('CLIP_API_SECRET') ?? Deno.env.get('CLIP_WEBHOOK_SECRET')
   if (!apiKey || !claveSecreta) throw new ClipSinCredenciales()
   return { apiKey, claveSecreta }
 }

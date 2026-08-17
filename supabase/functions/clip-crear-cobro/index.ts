@@ -1,30 +1,23 @@
 // Edge Function: clip-crear-cobro
 //
 // Recibe { orden_id, monto, idempotency_key, sucursal_id, descripcion? }
-// desde el kiosko (vía ClipPaymentProvider.createPayment, nunca directo).
+// desde el kiosko (vía ClipPaymentProvider.createPayment, nunca directo)
+// y empuja el cobro a la terminal física con la API de PinPad de Clip:
+// el monto aparece solo en la Stand 2 y la cajera únicamente acerca la
+// tarjeta del cliente.
 //
-// Responsabilidad de ESTA función (y solo esta — nunca el frontend):
-//   1. Tener acceso a CLIP_API_KEY / CLIP_WEBHOOK_SECRET (secrets del
-//      proyecto, `supabase secrets set`), que el navegador jamás ve.
-//   2. Recalcular el monto real de la orden desde la base (con
-//      service_role) — el `monto` que manda el cliente es solo
-//      informativo, NUNCA se confía en él para lo que se le cobra a Clip.
-//   3. Si las credenciales no están configuradas: responder
-//      `{ ok:false, error:{codigo:'not_configured', ...} }` — nunca
-//      simular una aprobación ni un checkout falso.
-//   4. (Cuando haya credenciales reales) crear el intento de cobro en
-//      Clip, guardar `pagos.proveedor_payment_id`, dejar el pago en
-//      `pending`/`processing` — la confirmación real llega por
-//      `clip-webhook`, NUNCA se confirma la venta aquí mismo con la
-//      respuesta HTTP del navegador.
-//
-// TODO (cuando existan credenciales + documentación oficial de Clip):
-// reemplazar el bloque "// TODO: llamar a la API real de Clip" con la
-// llamada real. No se inventan aquí endpoints/campos de Clip que no se
-// han confirmado — ver docs/integracion-clip.md.
+// Principios que NO se negocian:
+//   * El monto se recalcula desde la orden real — el del body es decorativo.
+//   * Esta función NUNCA confirma la venta: deja el pago pendiente y la
+//     confirmación llega por clip-webhook o clip-estado-cobro, ambos
+//     verificando contra Clip con GET autenticado.
+//   * Sin credenciales o sin número de serie configurado: not_configured
+//     honesto, jamás una aprobación fingida.
 
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
+import { headersClip, ClipSinCredenciales } from '../_shared/clip.ts'
+import { PINPAD_BASE } from '../_shared/pinpad.ts'
 
 interface Body {
   orden_id: string
@@ -34,79 +27,199 @@ interface Body {
   descripcion?: string
 }
 
+function json(status: number, cuerpo: unknown): Response {
+  return new Response(JSON.stringify(cuerpo), {
+    status,
+    headers: { ...corsHeaders, 'content-type': 'application/json' },
+  })
+}
+
+const noConfigurado = (mensaje: string) =>
+  json(200, { ok: false, error: { codigo: 'not_configured', mensaje } })
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
-  const CLIP_API_KEY = Deno.env.get('CLIP_API_KEY')
-  const CLIP_WEBHOOK_SECRET = Deno.env.get('CLIP_WEBHOOK_SECRET')
-
-  if (!CLIP_API_KEY || !CLIP_WEBHOOK_SECRET) {
-    return new Response(
-      JSON.stringify({
-        ok: false,
-        error: {
-          codigo: 'not_configured',
-          mensaje: 'Pago temporalmente no disponible. Usa "Pagar en caja".',
-        },
-      }),
-      { status: 200, headers: { ...corsHeaders, 'content-type': 'application/json' } },
-    )
+  let cabecerasClip: HeadersInit
+  try {
+    cabecerasClip = headersClip('authorization')
+  } catch (e) {
+    if (e instanceof ClipSinCredenciales) {
+      return noConfigurado('Pago con terminal no disponible todavía. Usa Efectivo o Tarjeta manual.')
+    }
+    throw e
   }
 
   let body: Body
   try {
     body = await req.json()
   } catch {
-    return new Response(JSON.stringify({ ok: false, error: { codigo: 'bad_request', mensaje: 'JSON inválido' } }), {
-      status: 400,
-      headers: { ...corsHeaders, 'content-type': 'application/json' },
-    })
+    return json(400, { ok: false, error: { codigo: 'bad_request', mensaje: 'JSON inválido' } })
+  }
+  if (!body.orden_id || !body.idempotency_key) {
+    return json(400, { ok: false, error: { codigo: 'bad_request', mensaje: 'Faltan orden_id / idempotency_key' } })
   }
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-  const sb = createClient(supabaseUrl, serviceRoleKey)
+  const sb = createClient(supabaseUrl, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
 
   // El monto NUNCA se confía del body — se recalcula desde la orden real.
   const { data: orden, error: errOrden } = await sb
     .from('ordenes')
-    .select('id, total, estado_pago_orden, sucursal_id')
+    .select('id, folio, total, estado_pago_orden, sucursal_id, es_demo')
     .eq('id', body.orden_id)
     .single()
 
   if (errOrden || !orden) {
-    return new Response(JSON.stringify({ ok: false, error: { codigo: 'orden_no_encontrada', mensaje: 'La orden no existe' } }), {
-      status: 404,
-      headers: { ...corsHeaders, 'content-type': 'application/json' },
+    return json(404, { ok: false, error: { codigo: 'orden_no_encontrada', mensaje: 'La orden no existe' } })
+  }
+  if (orden.es_demo) {
+    return json(409, { ok: false, error: { codigo: 'orden_demo', mensaje: 'Una orden demo no se cobra en la terminal' } })
+  }
+  if (!['draft', 'pending_payment', 'payment_processing', 'payment_unknown'].includes(orden.estado_pago_orden)) {
+    return json(409, {
+      ok: false,
+      error: { codigo: 'estado_invalido', mensaje: `La orden no admite cobro (estado=${orden.estado_pago_orden})` },
     })
   }
 
-  if (!['pending_payment', 'payment_processing', 'payment_unknown'].includes(orden.estado_pago_orden)) {
-    return new Response(
-      JSON.stringify({
-        ok: false,
-        error: { codigo: 'estado_invalido', mensaje: `La orden no admite cobro (estado=${orden.estado_pago_orden})` },
-      }),
-      { status: 409, headers: { ...corsHeaders, 'content-type': 'application/json' } },
-    )
+  // Terminal destino: configurada por sucursal (Admin) o, como respaldo,
+  // en el secret CLIP_SERIAL_POS. Es el serial_number_pos de la API.
+  const { data: config } = await sb
+    .from('configuracion_kiosko')
+    .select('clip_serial_pos')
+    .eq('sucursal_id', orden.sucursal_id)
+    .maybeSingle()
+  const serial = config?.clip_serial_pos ?? Deno.env.get('CLIP_SERIAL_POS')
+  if (!serial) {
+    return noConfigurado('Falta registrar el número de serie de la terminal Clip (clip_serial_pos).')
   }
 
-  // TODO: llamar a la API real de Clip aquí, con CLIP_API_KEY, usando
-  // orden.total (NO body.monto) y body.idempotency_key como clave de
-  // idempotencia del lado de Clip también (si su API la soporta).
-  //
-  // const respuestaClip = await fetch('https://api.clip.mx/...', { ... })
-  //
-  // Por ahora, sin documentación oficial confirmada, esta función no
-  // finge una respuesta de Clip — devuelve not_implemented explícito.
-  return new Response(
-    JSON.stringify({
-      ok: false,
-      error: {
-        codigo: 'not_implemented',
-        mensaje: 'Credenciales presentes pero la integración real con la API de Clip aún no está escrita. Ver docs/integracion-clip.md.',
-      },
-    }),
-    { status: 501, headers: { ...corsHeaders, 'content-type': 'application/json' } },
-  )
+  // Idempotencia nuestra: si este mismo intento ya se mandó, se devuelve
+  // tal cual — un doble clic no puede poner dos cobros en la terminal.
+  const { data: previo } = await sb
+    .from('pagos')
+    .select('id, proveedor_payment_id, estado_transaccion')
+    .eq('idempotency_key', body.idempotency_key)
+    .maybeSingle()
+  if (previo?.proveedor_payment_id) {
+    return json(200, { ok: true, proveedor_payment_id: previo.proveedor_payment_id, estado: previo.estado_transaccion })
+  }
+
+  // Si la orden trae un intento vivo anterior (reintento con otra clave),
+  // se cancela en Clip antes de crear el nuevo: dos solicitudes activas en
+  // la misma terminal son una receta para cobrar la que no era.
+  const { data: vivos } = await sb
+    .from('pagos')
+    .select('id, proveedor_payment_id')
+    .eq('orden_id', orden.id)
+    .eq('proveedor', 'clip')
+    .in('estado_transaccion', ['created', 'pending', 'processing'])
+  for (const v of vivos ?? []) {
+    if (v.proveedor_payment_id) {
+      await fetch(`${PINPAD_BASE}/payment/${encodeURIComponent(v.proveedor_payment_id)}`, {
+        method: 'DELETE',
+        headers: cabecerasClip,
+      }).catch(() => {})
+    }
+    await sb.from('pagos').update({ estado_transaccion: 'cancelled', estado: 'cancelado' }).eq('id', v.id)
+  }
+
+  // El registro del intento nace ANTES de llamar a Clip: si el proceso
+  // muriera a media llamada, queda huella para reconciliar.
+  const { data: pago, error: errPago } = await sb
+    .from('pagos')
+    .insert({
+      orden_id: orden.id,
+      metodo: 'clip',
+      monto: orden.total,
+      estado: 'pendiente',
+      estado_transaccion: 'created',
+      proveedor: 'clip',
+      clip_terminal_id: serial,
+      idempotency_key: body.idempotency_key,
+      referencia: `folio-${orden.folio}`,
+    })
+    .select('id')
+    .single()
+  if (errPago || !pago) {
+    return json(500, { ok: false, error: { codigo: 'db_error', mensaje: errPago?.message ?? 'No se pudo registrar el intento' } })
+  }
+
+  // La llamada real a la terminal. La llave en la URL del webhook es el
+  // filtro de entrada de clip-webhook (que corre sin verify_jwt).
+  const llaveWebhook = Deno.env.get('CLIP_WEBHOOK_URL_KEY')
+  const urlWebhook = `${supabaseUrl}/functions/v1/clip-webhook${llaveWebhook ? `?llave=${encodeURIComponent(llaveWebhook)}` : ''}`
+  const payloadClip = {
+    amount: Number(orden.total).toFixed(2),
+    reference: orden.id,
+    serial_number_pos: serial,
+    webhook_url: urlWebhook,
+    preferences: {
+      // Flujo de mostrador: sin propinas ni meses, regresar solo al final.
+      is_auto_return_enabled: true,
+      is_tip_enabled: false,
+      is_msi_enabled: false,
+      is_mci_enabled: false,
+      is_dcc_enabled: false,
+      is_retry_enabled: true,
+      is_share_enabled: false,
+      is_auto_print_receipt_enabled: false,
+      is_split_payment_enabled: false,
+    },
+  }
+
+  let respClip: Response
+  try {
+    respClip = await fetch(`${PINPAD_BASE}/payment`, {
+      method: 'POST',
+      headers: cabecerasClip,
+      body: JSON.stringify(payloadClip),
+    })
+  } catch (e) {
+    // La llamada nunca llegó a Clip: el intento se cancela (created→unknown
+    // no es una transición permitida y aquí no hay ambigüedad real).
+    await sb.from('pagos').update({ estado_transaccion: 'cancelled', estado: 'cancelado', proveedor_error: String(e) }).eq('id', pago.id)
+    return json(502, { ok: false, error: { codigo: 'clip_inalcanzable', mensaje: 'No se pudo contactar a Clip. Intenta de nuevo.' } })
+  }
+
+  const cuerpoClip = await respClip.json().catch(() => null)
+
+  if (!respClip.ok) {
+    const codigoClip = cuerpoClip?.code ?? `http_${respClip.status}`
+    const mensaje =
+      codigoClip === 'PINPAD_TERMINAL_TIMEOUT_EXCEPTION'
+        ? 'La terminal no respondió. Revisa que la Stand 2 esté encendida, con internet y con la app PinPad abierta.'
+        : respClip.status === 401
+          ? 'Clip rechazó las credenciales. Revisa CLIP_API_KEY / CLIP_API_SECRET.'
+          : `Clip respondió un error (${codigoClip}).`
+    await sb
+      .from('pagos')
+      .update({ estado_transaccion: 'declined', estado: 'rechazado', proveedor_error: JSON.stringify(cuerpoClip ?? codigoClip) })
+      .eq('id', pago.id)
+    console.error('clip-crear-cobro: error de Clip', respClip.status, cuerpoClip)
+    return json(502, { ok: false, error: { codigo: codigoClip, mensaje } })
+  }
+
+  const pinpadRequestId = cuerpoClip?.pinpad_request_id as string | undefined
+  if (!pinpadRequestId) {
+    await sb.from('pagos').update({ estado_transaccion: 'cancelled', estado: 'cancelado', proveedor_error: JSON.stringify(cuerpoClip) }).eq('id', pago.id)
+    return json(502, { ok: false, error: { codigo: 'respuesta_inesperada', mensaje: 'Clip no devolvió el id de la solicitud.' } })
+  }
+
+  await sb
+    .from('pagos')
+    .update({ proveedor_payment_id: pinpadRequestId, estado_transaccion: 'pending', clip_payload: cuerpoClip })
+    .eq('id', pago.id)
+  // La máquina de estados de la orden exige pasar por pending_payment
+  // antes de payment_processing cuando viene de draft.
+  if (orden.estado_pago_orden === 'draft') {
+    await sb.from('ordenes').update({ estado_pago_orden: 'pending_payment' }).eq('id', orden.id)
+  }
+  if (orden.estado_pago_orden !== 'payment_processing') {
+    await sb.from('ordenes').update({ estado_pago_orden: 'payment_processing' }).eq('id', orden.id)
+  }
+
+  console.log('clip-crear-cobro: cobro en terminal', { orden: orden.folio, pinpadRequestId, serial })
+  return json(200, { ok: true, proveedor_payment_id: pinpadRequestId, estado: 'pending' })
 })

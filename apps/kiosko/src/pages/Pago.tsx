@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   crearOrden, crearOrdenKioskoCaja, cobrarOrden, listarAlmacenes,
@@ -81,6 +81,9 @@ export function Pago() {
   const [errorProveedor, setErrorProveedor] = useState<string | null>(null)
   /** Nombres aprendidos de pedidos anteriores, para los chips del cajero. */
   const [nombresGuardados, setNombresGuardados] = useState<string[]>([])
+  /** Cobro vivo en la terminal Clip: monto en pantalla + id para sondear. */
+  const [terminal, setTerminal] = useState<{ monto: number; proveedorPaymentId: string } | null>(null)
+  const cobroCancelado = useRef(false)
 
   /**
    * Chips de nombre para el cajero: los aprendidos primero (por frecuencia),
@@ -170,6 +173,79 @@ export function Pago() {
    * diferencia con 'pagar_en_caja' es sólo que no hay un segundo paso en
    * otra pantalla: quien opera ya es el cajero.
    */
+  /**
+   * Cobro en la terminal física (API de PinPad de Clip): el monto aparece
+   * solo en la Stand 2 y aquí solo se espera. La venta se confirma DEL
+   * LADO SERVIDOR (webhook o sondeo verifican contra Clip); esta pantalla
+   * nunca decide que algo se pagó — solo se entera.
+   */
+  async function cobrarEnTerminal(orden: { id: string; folio: number; total: number }) {
+    const proveedor = obtenerPaymentProvider('clip', sb)
+    const resultado = await proveedor.createPayment({
+      ordenId: orden.id,
+      monto: orden.total,
+      idempotencyKey: crypto.randomUUID(),
+      sucursalId: almacen!.sucursal_id,
+    })
+
+    if (!resultado.ok || !resultado.proveedorPaymentId) {
+      const mensaje = resultado.error?.mensaje ?? 'No se pudo mandar el cobro a la terminal.'
+      if (modo === 'clip') {
+        // Autoservicio: al cliente se le ofrece la salida de "pagar en caja".
+        setErrorProveedor(mensaje)
+        setEstado('no_disponible')
+      } else {
+        // Cajero: mensaje directo y que elija otro método.
+        setError(mensaje)
+        setEstado('eligiendo')
+      }
+      return
+    }
+
+    cobroCancelado.current = false
+    setEstado('eligiendo')
+    setTerminal({ monto: orden.total, proveedorPaymentId: resultado.proveedorPaymentId })
+
+    const inicio = Date.now()
+    let final: 'authorized' | 'rechazado' | 'timeout' = 'timeout'
+    while (Date.now() - inicio < 120_000) {
+      await new Promise((r) => setTimeout(r, 3000))
+      if (cobroCancelado.current) {
+        await proveedor.cancelPayment(resultado.proveedorPaymentId).catch(() => {})
+        setTerminal(null)
+        return
+      }
+      const s = await proveedor.getPaymentStatus(resultado.proveedorPaymentId)
+      if (s.estado === 'authorized') { final = 'authorized'; break }
+      if (['declined', 'cancelled', 'expired'].includes(s.estado)) { final = 'rechazado'; break }
+    }
+
+    setTerminal(null)
+    if (final === 'authorized') {
+      const itemsSnapshot = [...items]
+      const usuarioSnapshot = usuario ? { ...usuario } : null
+      limpiar()
+      navigate('/confirmacion', {
+        state: {
+          folio: String(orden.folio),
+          ordenId: orden.id,
+          total: orden.total,
+          metodo: 'terminal',
+          items: itemsSnapshot,
+          usuario: usuarioSnapshot,
+          demo: false,
+        },
+      })
+    } else if (final === 'rechazado') {
+      setError('La terminal rechazó o canceló el pago. Puedes reintentar o cobrar con otro método.')
+    } else {
+      await proveedor.cancelPayment(resultado.proveedorPaymentId).catch(() => {})
+      setError(
+        'La terminal no confirmó el pago. OJO: si la terminal SÍ cobró, la venta se confirmará sola en unos segundos — verifícalo antes de volver a cobrar.',
+      )
+    }
+  }
+
   async function confirmarCajero(metodo: MetodoPago) {
     if (!almacen || !cajero) return
     setEstado('procesando')
@@ -188,6 +264,13 @@ export function Pago() {
         },
         items.map(lineaParaOrden),
       )
+      // Clip: el cobro viaja a la terminal física y la venta la confirma
+      // el servidor cuando Clip avisa. Los demás métodos se cobran aquí.
+      if (metodo === 'clip') {
+        await cobrarEnTerminal(orden)
+        return
+      }
+
       // El monto sale de la orden que devolvió el servidor, no del carrito:
       // el total autoritativo es el que recalculó la base.
       await cobrarOrden(sb, orden.id, metodo, orden.total, {
@@ -240,31 +323,9 @@ export function Pago() {
         items.map(lineaParaOrden),
       )
 
-      const proveedor = obtenerPaymentProvider('clip', sb)
-      const resultado = await proveedor.createPayment({
-        ordenId: orden.id,
-        monto: orden.total,
-        idempotencyKey: crypto.randomUUID(),
-        sucursalId: almacen.sucursal_id,
-      })
-
-      if (!resultado.ok) {
-        // La orden queda en pending_payment y expira sola (ver
-        // configuracion_kiosko.expira_minutos) — no hace falta cancelarla
-        // a mano. No se intenta ningún fallback automático a "aprobado".
-        setErrorProveedor(resultado.error?.mensaje ?? 'Pago temporalmente no disponible.')
-        setEstado('no_disponible')
-        return
-      }
-
-      // A partir de aquí (cuando exista Clip real) el flujo esperado es:
-      // mostrar "esperando confirmación" y depender del webhook
-      // (clip-webhook) para que fn_confirmar_venta se dispare del lado
-      // servidor — nunca confiar en la respuesta que ve el navegador.
-      // Hoy este camino no se ejecuta porque createPayment() siempre
-      // regresa ok:false sin credenciales configuradas.
-      setErrorProveedor('Esperando confirmación del pago…')
-      setEstado('no_disponible')
+      // El mismo flujo de terminal que usa el cajero: el monto aparece en
+      // la Stand 2 y la venta la confirma el servidor con la verdad de Clip.
+      await cobrarEnTerminal(orden)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
       setEstado('eligiendo')
@@ -369,6 +430,26 @@ export function Pago() {
 
   return (
     <div className="flex flex-col h-screen bg-sa-cream-paper">
+      {/* Cobro vivo en la terminal: pantalla de espera con salida de emergencia. */}
+      {terminal && (
+        <div className="fixed inset-0 z-50 bg-sa-green-deep flex flex-col items-center justify-center gap-5 px-8 text-sa-cream">
+          <svg className="animate-spin w-14 h-14 text-sa-banana" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+            <path className="opacity-80" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+          </svg>
+          <p className="font-display text-4xl text-center leading-tight">Cobra en la terminal</p>
+          <p className="font-display text-6xl text-sa-banana">${terminal.monto.toFixed(2)}</p>
+          <p className="font-body text-base text-sa-cream/70 text-center max-w-sm">
+            El monto ya está en la Clip Stand — acerca, inserta o desliza la tarjeta.
+          </p>
+          <button
+            onClick={() => { cobroCancelado.current = true }}
+            className="mt-2 border border-sa-cream/25 hover:border-sa-cream/60 text-sa-cream/80 px-8 py-3 rounded-full font-display text-lg transition-colors"
+          >
+            Cancelar cobro
+          </button>
+        </div>
+      )}
       {modo === 'demo' && (
         <div className="bg-sa-banana text-sa-coffee text-center py-1.5 font-mono text-xs uppercase tracking-[0.3em]">
           ⚠ Modo demostración — ninguna venta es real
@@ -485,7 +566,7 @@ export function Pago() {
               {([
                 { metodo: 'efectivo', titulo: 'Efectivo', sub: 'Cobro en el cajón' },
                 { metodo: 'tarjeta',  titulo: 'Tarjeta',  sub: 'Terminal bancaria' },
-                { metodo: 'clip',     titulo: 'Clip',     sub: 'Cobra en el Stand y confirma' },
+                { metodo: 'clip',     titulo: 'Clip',     sub: 'El monto aparece en la terminal' },
               ] as const).map((m) => (
                 <button
                   key={m.metodo}

@@ -1,60 +1,62 @@
 // Edge Function: clip-cancelar-cobro
 //
-// Cancela un intento de pago en Clip antes de que se cobre (usado por
-// ClipPaymentProvider.cancelPayment). Mismo principio que clip-crear-cobro:
-// sin credenciales configuradas, responde not_configured explícito, nunca
-// finge que canceló algo que nunca existió en Clip.
-//
-// TODO (cuando existan credenciales + documentación oficial de Clip):
-// reemplazar el bloque "// TODO: llamar a la API real de Clip" con la
-// llamada real. No se inventan aquí endpoints/campos de Clip que no se han
-// confirmado — ver docs/integracion-clip.md.
+// Cancela un intento de pago activo en la terminal (DELETE /payment/{id}
+// de la API de PinPad). Lo usa el kiosko cuando la cajera aborta el cobro
+// o cuando el sondeo se rinde. Cancelar algo ya cobrado no procede: en
+// ese caso el estado real (approved) llegará por webhook/sondeo igual.
 
+import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
-
-interface Body {
-  proveedor_payment_id: string
-}
+import { headersClip, ClipSinCredenciales } from '../_shared/clip.ts'
+import { PINPAD_BASE } from '../_shared/pinpad.ts'
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
-  const CLIP_API_KEY = Deno.env.get('CLIP_API_KEY')
-  if (!CLIP_API_KEY) {
-    return new Response(JSON.stringify({ ok: false, error: { codigo: 'not_configured', mensaje: 'Clip no está configurado' } }), {
-      status: 200,
+  const responder = (cuerpo: unknown, status = 200) =>
+    new Response(JSON.stringify(cuerpo), {
+      status,
       headers: { ...corsHeaders, 'content-type': 'application/json' },
     })
-  }
 
-  let body: Body
+  let body: { proveedor_payment_id?: string }
   try {
     body = await req.json()
   } catch {
-    return new Response(JSON.stringify({ ok: false, error: { codigo: 'bad_request', mensaje: 'JSON inválido' } }), {
-      status: 400,
-      headers: { ...corsHeaders, 'content-type': 'application/json' },
-    })
+    return responder({ ok: false, error: { codigo: 'bad_request', mensaje: 'JSON inválido' } }, 400)
   }
-
   if (!body.proveedor_payment_id) {
-    return new Response(JSON.stringify({ ok: false, error: { codigo: 'bad_request', mensaje: 'Falta proveedor_payment_id' } }), {
-      status: 400,
-      headers: { ...corsHeaders, 'content-type': 'application/json' },
-    })
+    return responder({ ok: false, error: { codigo: 'bad_request', mensaje: 'Falta proveedor_payment_id' } }, 400)
   }
 
-  // TODO: llamar a la API real de Clip aquí para cancelar
-  // body.proveedor_payment_id. Sin documentación oficial confirmada, esta
-  // función no finge una cancelación — devuelve not_implemented explícito.
-  return new Response(
-    JSON.stringify({
-      ok: false,
-      error: {
-        codigo: 'not_implemented',
-        mensaje: 'Credenciales presentes pero la integración real con la API de Clip aún no está escrita. Ver docs/integracion-clip.md.',
-      },
-    }),
-    { status: 501, headers: { ...corsHeaders, 'content-type': 'application/json' } },
-  )
+  let cabeceras: HeadersInit
+  try {
+    cabeceras = headersClip('authorization')
+  } catch (e) {
+    if (e instanceof ClipSinCredenciales) {
+      return responder({ ok: false, error: { codigo: 'not_configured', mensaje: 'Clip no está configurado' } })
+    }
+    throw e
+  }
+
+  const resp = await fetch(`${PINPAD_BASE}/payment/${encodeURIComponent(body.proveedor_payment_id)}`, {
+    method: 'DELETE',
+    headers: cabeceras,
+  }).catch(() => null)
+
+  const sb = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
+  if (resp?.ok) {
+    await sb
+      .from('pagos')
+      .update({ estado_transaccion: 'cancelled', estado: 'cancelado' })
+      .eq('proveedor_payment_id', body.proveedor_payment_id)
+      .in('estado_transaccion', ['created', 'pending', 'processing'])
+    return responder({ ok: true })
+  }
+
+  console.error('clip-cancelar-cobro: Clip respondió', resp?.status, await resp?.text().catch(() => ''))
+  return responder({
+    ok: false,
+    error: { codigo: 'no_cancelado', mensaje: 'Clip no aceptó la cancelación (puede que el pago ya se haya procesado).' },
+  })
 })
