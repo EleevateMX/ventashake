@@ -147,3 +147,38 @@ export async function canjearCupon(
     p_orden_id: ordenId ?? null,
   })
 }
+
+// ── El expediente del cliente ──────────────────────────────────────────────
+// Historial de compras y productos más pedidos del usuario logueado. Las
+// RPCs parten de auth.uid(), así que cada quien ve solo lo suyo; aquí no
+// viaja ningún identificador.
+
+export interface FavoritoCliente {
+  producto: string
+  veces: number
+  ultima_vez: string
+}
+
+export interface CompraItem {
+  producto: string
+  cantidad: number
+  personalizacion: string | null
+}
+
+export interface CompraHistorial {
+  folio: number
+  fecha: string
+  total: number
+  mancuernas_ganadas: number
+  items: CompraItem[] | null
+}
+
+/** Lo que siempre pide: sus productos por número de veces. */
+export async function misFavoritos(sb: ShakeClient, limite = 5): Promise<FavoritoCliente[]> {
+  return (await rpc<FavoritoCliente[]>(sb, 'fn_mis_favoritos', { p_limite: limite })) ?? []
+}
+
+/** Sus últimas compras con detalle, la más reciente primero. */
+export async function miHistorial(sb: ShakeClient, limite = 20): Promise<CompraHistorial[]> {
+  return (await rpc<CompraHistorial[]>(sb, 'fn_mi_historial', { p_limite: limite })) ?? []
+}
