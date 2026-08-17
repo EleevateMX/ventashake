@@ -221,6 +221,29 @@ if (-not $versionOk) {
 }
 
 # ---------------------------------------------------------------------------
+# 3.5 Detener el agente anterior, si esta corriendo
+# ---------------------------------------------------------------------------
+# Si no se detiene, el proceso viejo sigue vivo con el codigo viejo: la
+# instalacion "funciona" pero las etiquetas salen como antes. Solo se tocan
+# los procesos que corren DESDE la carpeta del agente, no cualquier node.
+Paso 'Buscando un agente anterior corriendo'
+$viejos = Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" -EA SilentlyContinue |
+          Where-Object { $_.CommandLine -like "*$Destino*" }
+$ventanas = Get-CimInstance Win32_Process -Filter "Name = 'cmd.exe'" -EA SilentlyContinue |
+            Where-Object { $_.CommandLine -like '*arrancar-agente*' }
+if ($viejos -or $ventanas) {
+  # @($null) mete un elemento nulo al concatenar; sin el filtro,
+  # Stop-Process -Id $null truena aunque lleve -EA SilentlyContinue.
+  foreach ($p in (@($viejos) + @($ventanas) | Where-Object { $_ })) {
+    Stop-Process -Id $p.ProcessId -Force -EA SilentlyContinue
+  }
+  Start-Sleep -Seconds 2
+  Bien 'detenido - al final se arranca solo con la version nueva'
+} else {
+  Bien 'no habia ninguno'
+}
+
+# ---------------------------------------------------------------------------
 # 4. Bajar el agente
 # ---------------------------------------------------------------------------
 Paso "Bajando el agente ($Rama)"
@@ -339,12 +362,18 @@ $inicio = [Environment]::GetFolderPath('Startup')
 Copy-Item $bat (Join-Path $inicio 'Agente de impresion.bat') -Force -EA SilentlyContinue
 Bien 'y arranca solo al prender la PC'
 
+# Arrancarlo aqui mismo: instalar y que quede corriendo es UN solo boton.
+# Sale en su propia ventana para que en el local se vea que esta vivo.
+Paso 'Arrancando el agente'
+Start-Process -FilePath $bat
+Bien 'corriendo en su propia ventana'
+
 Write-Host ''
 Write-Host '  LISTO' -ForegroundColor Green
 Write-Host "  Instalado en: $Destino"
 Write-Host ''
-Write-Host '  Para arrancarlo ahora: doble clic en "Agente de impresion" del escritorio.'
-Write-Host '  Dejalo abierto todo el horario del local - si se cierra, no salen comandas.'
+Write-Host '  El agente ya quedo corriendo en su propia ventana.'
+Write-Host '  Dejala abierta todo el horario del local - si se cierra, no salen comandas.'
 Write-Host ''
 Write-Host '  En Admin -> Impresoras las dos deben verse "En linea" en menos de un minuto.'
 Write-Host ''
