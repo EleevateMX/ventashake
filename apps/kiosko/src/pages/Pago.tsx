@@ -8,6 +8,7 @@ import { obtenerPaymentProvider } from '@shake/payments'
 import type { Almacen, CajaCorte, MetodoPago } from '@shake/types'
 import type { ModoPagoKiosko } from '@shake/types'
 import { useCarrito, type ItemCarrito } from '@/store/carritoStore'
+import { TecladoNombre } from '@/components/TecladoNombre'
 import { sb } from '@/lib/sb'
 import { resolverModoKiosko } from '@/lib/modoKiosko'
 
@@ -401,6 +402,10 @@ export function Pago() {
             onChange={(e) => setNombrePedido(e.target.value)}
             maxLength={20}
             autoComplete="off"
+            /* En cajero escribe el teclado en pantalla propio; esto evita
+               que Windows encime el suyo al tocar el campo. El teclado
+               físico (si hay) sigue funcionando. */
+            inputMode={modo === 'cajero' ? 'none' : undefined}
           />
           {/* Chips solo en la vista de cajero: el cajero teclea decenas de
               nombres al día y un toque gana. Cuando entre el cobro con Clip
@@ -417,6 +422,11 @@ export function Pago() {
                   {n}
                 </button>
               ))}
+            </div>
+          )}
+          {modo === 'cajero' && (
+            <div className="mt-4">
+              <TecladoNombre valor={nombrePedido} onCambio={setNombrePedido} />
             </div>
           )}
         </div>
