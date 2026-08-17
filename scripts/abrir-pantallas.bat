@@ -41,15 +41,15 @@ REM "Chrome no se cerro correctamente" que aparece tras un corte de luz.
 set "FLAGS=--kiosk --noerrdialogs --disable-infobars --no-first-run --disable-session-crashed-bubble --disable-features=TranslateUI"
 
 echo Abriendo KIOSKO (monitor vertical grande)...
-start "" "%NAV%" %FLAGS% --user-data-dir="%LOCALAPPDATA%\shake-kiosko" --window-position=0,0 https://shake-kiosko.pages.dev
+start "" "%NAV%" %FLAGS% --user-data-dir="%LOCALAPPDATA%\shake-kiosko" --window-position=0,0 https://kiosko.shakeaholic.mx
 timeout /t 4 /nobreak >nul
 
 echo Abriendo BARRA - BEBIDAS (monitor chico izquierdo)...
-start "" "%NAV%" %FLAGS% --user-data-dir="%LOCALAPPDATA%\shake-bebidas" --window-position=1080,150 https://shake-cocina-bebidas.pages.dev
+start "" "%NAV%" %FLAGS% --user-data-dir="%LOCALAPPDATA%\shake-bebidas" --window-position=1080,150 https://barra.shakeaholic.mx
 timeout /t 4 /nobreak >nul
 
 echo Abriendo COCINA - ALIMENTOS (monitor chico derecho)...
-start "" "%NAV%" %FLAGS% --user-data-dir="%LOCALAPPDATA%\shake-alimentos" --window-position=1848,139 https://shake-cocina-alimentos.pages.dev
+start "" "%NAV%" %FLAGS% --user-data-dir="%LOCALAPPDATA%\shake-alimentos" --window-position=1848,139 https://cocina.shakeaholic.mx
 timeout /t 4 /nobreak >nul
 
 REM Admin va en ventana normal, no a pantalla completa: es la herramienta del
@@ -59,11 +59,11 @@ REM POS: hace falta abierto aunque se cobre desde el kiosko, porque es donde
 REM se ABRE LA CAJA al inicio del turno. Sin corte abierto, el modo cajero
 REM avisa y la venta no entraria al arqueo del dia.
 echo Abriendo POS - CAJA (ventana normal)...
-start "" "%NAV%" --noerrdialogs --disable-infobars --no-first-run --disable-session-crashed-bubble --user-data-dir="%LOCALAPPDATA%\shake-pos" --window-position=160,160 --window-size=980,1500 https://shake-pos.pages.dev
+start "" "%NAV%" --noerrdialogs --disable-infobars --no-first-run --disable-session-crashed-bubble --user-data-dir="%LOCALAPPDATA%\shake-pos" --window-position=160,160 --window-size=980,1500 https://caja.shakeaholic.mx
 timeout /t 3 /nobreak >nul
 
 echo Abriendo ADMIN (ventana normal)...
-start "" "%NAV%" --noerrdialogs --disable-infobars --no-first-run --disable-session-crashed-bubble --user-data-dir="%LOCALAPPDATA%\shake-admin" --window-position=100,100 --window-size=980,1500 https://shake-admin.pages.dev
+start "" "%NAV%" --noerrdialogs --disable-infobars --no-first-run --disable-session-crashed-bubble --user-data-dir="%LOCALAPPDATA%\shake-admin" --window-position=100,100 --window-size=980,1500 https://admin.shakeaholic.mx
 
 echo.
 echo Listo. Si alguna app quedo en el monitor equivocado, intercambia las

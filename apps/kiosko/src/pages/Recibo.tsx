@@ -13,7 +13,9 @@ import { sb } from '@/lib/sb'
  */
 
 const URL_REWARDS =
-  (import.meta.env.VITE_URL_REWARDS as string | undefined) ?? 'https://shake-cliente-pwa.pages.dev'
+  ((import.meta.env.VITE_URL_REWARDS as string | undefined) ?? 'https://rewards.shakeaholic.mx')
+    // Si la variable en Cloudflare aún trae la URL vieja, se traduce sola.
+    .replace('shake-cliente-pwa.pages.dev', 'rewards.shakeaholic.mx')
 
 function fechaLarga(iso: string): string {
   return new Date(iso).toLocaleString('es-MX', {
