@@ -438,6 +438,24 @@ export async function vincularExtraBebida(
   if (error) throw error
 }
 
+/**
+ * Cambia la categoría de un producto Y la deja escrita en el JSON de costeo
+ * (app_data), que es la fuente de verdad del catálogo. Sin eso, mover en
+ * Admin y guardar después en costeo vivían en dos mundos. La sincronización
+ * respeta la categoría del JSON en alta y actualización.
+ */
+export async function moverCategoriaProducto(
+  sb: ShakeClient,
+  productoId: string,
+  categoriaId: string | null,
+): Promise<void> {
+  const { error } = await (sb.rpc as unknown as RpcCatalogo)('fn_producto_mover_categoria', {
+    p_producto_id: productoId,
+    p_categoria_id: categoriaId,
+  })
+  if (error) throw error
+}
+
 export async function quitarExtra(
   sb: ShakeClient,
   productoId: string,

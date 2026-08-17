@@ -7,6 +7,7 @@ import {
   crearProducto,
   actualizarProducto,
   desactivarProducto,
+  moverCategoriaProducto,
   crearCategoria,
   subirFotoProducto,
   quitarFotoProducto,
@@ -98,7 +99,7 @@ export default function Menu() {
     setMoviendoCategoria(p.id)
     setError(null)
     try {
-      await actualizarProducto(sb, p.id, { categoria_id: categoriaId || null })
+      await moverCategoriaProducto(sb, p.id, categoriaId || null)
       await cargar()
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
@@ -140,7 +141,11 @@ export default function Menu() {
         descripcion: form.descripcion.trim() || null,
       }
       if (editId) {
-        await actualizarProducto(sb, editId, datos)
+        // La categoría va por su propia vía: además de mover el producto, la
+        // escribe en el JSON de costeo para que ambos mundos digan lo mismo.
+        const { categoria_id, ...resto } = datos
+        await actualizarProducto(sb, editId, resto)
+        await moverCategoriaProducto(sb, editId, categoria_id)
         setOk('Producto actualizado.')
       } else {
         await crearProducto(sb, datos)
