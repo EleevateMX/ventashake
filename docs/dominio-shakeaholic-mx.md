@@ -75,6 +75,15 @@ Con 8 subdominios por conectar, la B ahorra bastante trabajo.
 
 ## 2. Mapa de subdominios
 
+> **`api.shakeaholic.mx` — YA ACTIVO (2026-08-17).** Es el Custom Domain de
+> Supabase (add-on sobre plan Pro), configurado con CNAME `api` →
+> `zyjtnaystsporbuzcmqk.supabase.co` + TXT `_acme-challenge.api` directamente
+> en GoDaddy — no depende de la migración de nameservers. Todas las apps web
+> lo usan vía la traducción en `packages/supabase/src/client.ts`
+> (`DOMINIO_PROPIO`); la URL original sigue viva en paralelo y es la que usa
+> el agente de impresión. Es lo que hace que la pantalla de Google diga
+> "continuar a api.shakeaholic.mx". Si el add-on se cancela, vaciar ese mapa.
+
 | Subdominio | Proyecto en Cloudflare Pages | Quién lo usa |
 |---|---|---|
 | `kiosko` | `shake-kiosko` | Pantalla del cliente / cajero |
