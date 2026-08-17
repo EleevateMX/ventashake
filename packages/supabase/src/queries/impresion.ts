@@ -172,11 +172,33 @@ export async function reimprimirTrabajo(
 
 /** Suscripción realtime a la cola de impresión (para Admin/KDS). Devuelve el "desuscribirse". */
 export function suscribirTrabajosImpresion(sb: ShakeClient, onCambio: () => void): () => void {
-  const canal = sb
-    .channel('trabajos-impresion')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'trabajos_impresion' }, onCambio)
-    .subscribe()
+  // Misma resiliencia que suscribirPedidosCocina: si el canal muere en
+  // silencio, se vuelve a suscribir solo en vez de dejar el indicador de
+  // impresión congelado.
+  let canal: ReturnType<ShakeClient['channel']> | null = null
+  let apagado = false
+  let reintento: ReturnType<typeof setTimeout> | null = null
+
+  const conectar = () => {
+    if (apagado) return
+    canal = sb
+      .channel('trabajos-impresion')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'trabajos_impresion' }, onCambio)
+      .subscribe((estado) => {
+        if (apagado) return
+        if (estado === 'CHANNEL_ERROR' || estado === 'TIMED_OUT' || estado === 'CLOSED') {
+          if (canal) void sb.removeChannel(canal)
+          canal = null
+          if (reintento) clearTimeout(reintento)
+          reintento = setTimeout(conectar, 5000)
+        }
+      })
+  }
+  conectar()
+
   return () => {
-    sb.removeChannel(canal)
+    apagado = true
+    if (reintento) clearTimeout(reintento)
+    if (canal) void sb.removeChannel(canal)
   }
 }

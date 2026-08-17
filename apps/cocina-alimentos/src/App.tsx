@@ -119,7 +119,20 @@ export default function App() {
     void recargar()
     const offPedidos = suscribirPedidosCocina(sb, () => { void recargar() })
     const offImpresion = suscribirTrabajosImpresion(sb, () => { void recargar() })
-    return () => { offPedidos(); offImpresion() }
+    // Red de seguridad del canal en vivo: si muere sin avisar, lo más que
+    // espera una comanda en aparecer son estos 20 segundos. El display de
+    // clientes ya sondeaba así; las cocinas no, y un día se congelaron.
+    const sondeo = setInterval(() => { void recargar() }, 20_000)
+    const alRecuperar = () => { void recargar() }
+    window.addEventListener('online', alRecuperar)
+    document.addEventListener('visibilitychange', alRecuperar)
+    return () => {
+      offPedidos()
+      offImpresion()
+      clearInterval(sondeo)
+      window.removeEventListener('online', alRecuperar)
+      document.removeEventListener('visibilitychange', alRecuperar)
+    }
   }, [])
 
   async function reimprimirComanda(pedidoId: string) {

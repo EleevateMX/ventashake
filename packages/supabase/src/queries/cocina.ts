@@ -60,12 +60,35 @@ export function suscribirPedidosCocina(
   sb: ShakeClient,
   onCambio: () => void,
 ): () => void {
-  const canal = sb
-    .channel('pedidos-cocina')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos_cocina' }, onCambio)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'cocina_items' }, onCambio)
-    .subscribe()
+  // El canal en vivo puede morir en silencio (la red parpadea, el socket
+  // caduca) y el navegador no avisa a nadie. Si pasa, aquí se vuelve a
+  // suscribir solo: una pantalla de cocina congelada es una comanda que
+  // nadie prepara mientras el cliente espera en barra.
+  let canal: ReturnType<ShakeClient['channel']> | null = null
+  let apagado = false
+  let reintento: ReturnType<typeof setTimeout> | null = null
+
+  const conectar = () => {
+    if (apagado) return
+    canal = sb
+      .channel('pedidos-cocina')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos_cocina' }, onCambio)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'cocina_items' }, onCambio)
+      .subscribe((estado) => {
+        if (apagado) return
+        if (estado === 'CHANNEL_ERROR' || estado === 'TIMED_OUT' || estado === 'CLOSED') {
+          if (canal) void sb.removeChannel(canal)
+          canal = null
+          if (reintento) clearTimeout(reintento)
+          reintento = setTimeout(conectar, 5000)
+        }
+      })
+  }
+  conectar()
+
   return () => {
-    sb.removeChannel(canal)
+    apagado = true
+    if (reintento) clearTimeout(reintento)
+    if (canal) void sb.removeChannel(canal)
   }
 }
