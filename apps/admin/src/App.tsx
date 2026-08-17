@@ -2,6 +2,7 @@ import logo from '@shake/brand/logo.png'
 import { useState, type ReactElement } from 'react'
 import Dashboard from './pages/Dashboard'
 import Menu from './pages/Menu'
+import Categorias from './pages/Categorias'
 import Combos from './pages/Combos'
 import Extras from './pages/Extras'
 import Ventas from './pages/Ventas'
@@ -11,7 +12,7 @@ import Empleados from './pages/Empleados'
 import Impresoras from './pages/Impresoras'
 import Sistema from './pages/Sistema'
 
-type Tab = 'dashboard' | 'menu' | 'combos' | 'extras' | 'inventario' | 'promos' | 'ventas' | 'empleados' | 'impresoras' | 'sistema'
+type Tab = 'dashboard' | 'menu' | 'categorias' | 'combos' | 'extras' | 'inventario' | 'promos' | 'ventas' | 'empleados' | 'impresoras' | 'sistema'
 
 const w = 18
 
@@ -23,6 +24,12 @@ const IconDashboard = () => (
 const IconMenu = () => (
   <svg width={w} height={w} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2" /><line x1="7" y1="2" x2="7" y2="22" /><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Z" /><line x1="21" y1="15" x2="21" y2="22" />
+  </svg>
+)
+const IconCategorias = () => (
+  <svg width={w} height={w} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" />
+    <circle cx="4" cy="6" r="1.2" /><circle cx="4" cy="12" r="1.2" /><circle cx="4" cy="18" r="1.2" />
   </svg>
 )
 const IconCombos = () => (
@@ -69,6 +76,7 @@ const IconSistema = () => (
 const navItems: { id: Tab; label: string; Icon: () => ReactElement }[] = [
   { id: 'dashboard', label: 'Dashboard', Icon: IconDashboard },
   { id: 'menu', label: 'Menú', Icon: IconMenu },
+  { id: 'categorias', label: 'Categorías', Icon: IconCategorias },
   { id: 'combos', label: 'Combos', Icon: IconCombos },
   { id: 'extras', label: 'Extras', Icon: IconExtras },
   { id: 'inventario', label: 'Inventario', Icon: IconInventario },
@@ -116,6 +124,7 @@ export default function App() {
       <main className="flex-1 min-w-0 p-4 md:p-8">
         {tab === 'dashboard' && <Dashboard />}
         {tab === 'menu' && <Menu />}
+        {tab === 'categorias' && <Categorias />}
         {tab === 'combos' && <Combos />}
         {tab === 'extras' && <Extras />}
         {tab === 'ventas' && <Ventas />}

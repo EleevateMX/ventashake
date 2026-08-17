@@ -131,6 +131,16 @@ export async function crearCategoria(
   return data
 }
 
+/** Renombrar, cambiar de estación o reordenar una categoría. */
+export async function actualizarCategoria(
+  sb: ShakeClient,
+  id: string,
+  cambios: { nombre?: string; cocina_id?: string; orden?: number },
+): Promise<void> {
+  const { error } = await sb.from('categorias').update(cambios).eq('id', id)
+  if (error) throw error
+}
+
 export async function listarCocinas(sb: ShakeClient): Promise<Cocina[]> {
   const { data, error } = await sb.from('cocinas').select('*').order('nombre')
   if (error) throw error
