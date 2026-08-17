@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import QRCode from 'qrcode'
-import { imprimirTicket, type TicketData } from '@shake/ui'
 import { cerrarSesion } from '@shake/supabase'
 import { sb } from '@/lib/sb'
 import { QrRewards } from '@/components/QrRewards'
@@ -9,6 +8,8 @@ import type { ItemCarrito, UsuarioKiosko } from '@/store/carritoStore'
 
 interface EstadoConfirmacion {
   folio?: string | null
+  /** Con esto el QR abre el recibo digital real (/recibo/:ordenId). */
+  ordenId?: string | null
   total?: number
   metodo?: 'terminal' | 'efectivo'
   items?: ItemCarrito[]
@@ -16,20 +17,25 @@ interface EstadoConfirmacion {
   demo?: boolean
 }
 
+/**
+ * Cuánto vive la pantalla antes de volver al menú. Antes eran 15 s y no
+ * alcanzaban: sacar el teléfono, abrir la cámara y escanear el recibo toma
+ * su tiempo — y si la pantalla se va antes, el recibo se pierde.
+ */
+const SEGUNDOS_EN_PANTALLA = 40
+
 export function Confirmacion() {
   const navigate = useNavigate()
   const location = useLocation()
   const state = (location.state as EstadoConfirmacion | null) ?? {}
 
   const folioReal  = state.folio  ?? null
+  const ordenId    = state.ordenId ?? null
   const totalOrden = state.total  ?? 0
-  const metodo     = state.metodo ?? 'efectivo'
-  const items      = state.items  ?? []
   const usuario    = state.usuario ?? null
 
-  const [segundos, setSegundos] = useState(15)
+  const [segundos, setSegundos] = useState(SEGUNDOS_EN_PANTALLA)
   const [qrUrl, setQrUrl] = useState<string>('')
-  const [mostrarQr, setMostrarQr] = useState(false)
 
   const fallbackNumero = useMemo(
     () => Math.floor(100 + Math.random() * 900).toString().padStart(3, '0'),
@@ -42,44 +48,25 @@ export function Confirmacion() {
   const puntosGanados = usuario?.clienteId ? Math.min(100, Math.floor(totalOrden / 10)) : 0
   const esDemo        = state.demo ?? false
 
+  // El QR es una URL de verdad: el teléfono la abre y ve su recibo, con
+  // botones para mandarlo por WhatsApp o entrar a Rewards. (El viejo QR
+  // codificaba un JSON que la cámara mostraba como texto crudo.)
   useEffect(() => {
-    const data = JSON.stringify({
-      folio: numeroOrden,
-      tienda: 'Shakeaholic',
-      total: totalOrden,
-      fecha: new Date().toISOString().slice(0, 10),
-      ...(usuario ? { cliente: usuario.nombre } : {}),
-    })
-    QRCode.toDataURL(data, { width: 240, margin: 2, color: { dark: '#14241D', light: '#F8F4EC' } })
+    if (!ordenId) return
+    const url = `${window.location.origin}/recibo/${ordenId}`
+    QRCode.toDataURL(url, { width: 280, margin: 2, color: { dark: '#14241D', light: '#F8F4EC' } })
       .then(setQrUrl)
       .catch(console.error)
-  }, [numeroOrden, totalOrden, usuario])
+  }, [ordenId])
 
   useEffect(() => {
     const timer = setTimeout(async () => {
       await cerrarSesion(sb).catch(console.error)
       navigate('/catalogo')
-    }, 15000)
+    }, SEGUNDOS_EN_PANTALLA * 1000)
     const tick = setInterval(() => setSegundos((s) => (s > 0 ? s - 1 : 0)), 1000)
     return () => { clearTimeout(timer); clearInterval(tick) }
   }, [navigate])
-
-  function handleImprimir() {
-    const ticket: TicketData = {
-      folio: numeroOrden,
-      fecha: new Date(),
-      canal: 'Kiosko',
-      items: items.map((i) => ({
-        cantidad: i.cantidad,
-        nombre: i.nombre,
-        precioUnitario: i.precio,
-      })),
-      metodoPago: metodo === 'terminal' ? 'Clip · Terminal' : 'Efectivo',
-      clienteNombre: usuario?.nombre,
-      mancuernasGanadas: puntosGanados > 0 ? puntosGanados : undefined,
-    }
-    imprimirTicket(ticket)
-  }
 
   return (
     <div className="relative flex flex-col items-center justify-center h-screen bg-sa-green-deep text-sa-cream overflow-hidden px-8">
@@ -150,41 +137,22 @@ export function Confirmacion() {
         </div>
       </div>
 
-      {/* Actions row */}
-      <div className="mt-5 flex flex-col items-center gap-3 w-full max-w-xs">
-        {/* Print ticket */}
-        <button
-          onClick={handleImprimir}
-          className="w-full flex items-center justify-center gap-2 bg-sa-cream text-sa-green-ink px-6 py-3 rounded-full font-display text-xl shadow-sa active:scale-95 transition-transform"
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
-            <rect x="6" y="14" width="12" height="8"/>
-          </svg>
-          Imprimir ticket
-        </button>
-
-        {/* QR digital */}
-        {mostrarQr ? (
-          <div className="flex flex-col items-center gap-1">
-            {qrUrl && <img src={qrUrl} alt="QR recibo" className="w-36 h-36 rounded-sa shadow-lg" />}
-            <p className="font-mono text-[10px] uppercase tracking-wide text-sa-cream/50">
-              Recibo digital
+      {/* Recibo digital: el QR es lo único que hay que hacer con el ticket.
+          Se muestra directo (sin botones que abrir) porque el cliente tiene
+          los segundos contados para sacar el teléfono y escanear. */}
+      {ordenId && qrUrl && (
+        <div className="mt-5 flex items-center gap-4 bg-sa-cream rounded-sa-lg px-5 py-4 shadow-sa">
+          <img src={qrUrl} alt="QR de tu recibo" className="w-36 h-36 rounded-sa" />
+          <div className="text-left max-w-[13rem]">
+            <p className="font-display text-2xl leading-tight text-sa-green-ink">
+              Tu recibo, en tu cel
+            </p>
+            <p className="font-body text-sm text-sa-green-ink/60 mt-1.5">
+              Escanéalo con la cámara: lo ves, lo guardas o lo mandas por WhatsApp.
             </p>
           </div>
-        ) : (
-          <button
-            onClick={() => setMostrarQr(true)}
-            className="flex items-center gap-2 border border-sa-cream/20 hover:border-sa-cream/50 text-sa-cream/60 hover:text-sa-cream px-5 py-2.5 rounded-sa transition-colors font-mono text-xs uppercase tracking-wide"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
-              <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
-            </svg>
-            Ver recibo digital (QR)
-          </button>
-        )}
-      </div>
+        </div>
+      )}
 
       <div className="mt-5 flex items-center gap-4">
         <p className="font-mono text-xs uppercase tracking-[0.25em] text-sa-cream/50">

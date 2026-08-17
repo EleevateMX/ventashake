@@ -201,6 +201,7 @@ export function Pago() {
       navigate('/confirmacion', {
         state: {
           folio: String(orden.folio),
+          ordenId: orden.id,
           total: orden.total,
           metodo: metodo === 'efectivo' ? 'efectivo' : 'terminal',
           items: itemsSnapshot,
@@ -314,6 +315,7 @@ export function Pago() {
       navigate('/confirmacion', {
         state: {
           folio: String(orden.folio),
+          ordenId: orden.id,
           total: orden.total,
           metodo: 'terminal',
           items: itemsSnapshot,

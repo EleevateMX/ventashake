@@ -182,3 +182,37 @@ export async function misFavoritos(sb: ShakeClient, limite = 5): Promise<Favorit
 export async function miHistorial(sb: ShakeClient, limite = 20): Promise<CompraHistorial[]> {
   return (await rpc<CompraHistorial[]>(sb, 'fn_mi_historial', { p_limite: limite })) ?? []
 }
+
+// ── Recibo digital y ficha ─────────────────────────────────────────────────
+
+export interface ReciboItem {
+  producto: string
+  cantidad: number
+  precio_unitario: number
+  personalizacion: string | null
+  es_extra: boolean
+}
+
+export interface ReciboPublico {
+  folio: number
+  fecha: string
+  total: number
+  metodo_pago: string | null
+  nombre_cliente: string | null
+  es_demo: boolean
+  mancuernas_ganadas: number
+  items: ReciboItem[] | null
+}
+
+/**
+ * El recibo que abre el QR de la pantalla de confirmación. El uuid de la
+ * orden es la llave; solo órdenes pagadas existen para esta función.
+ */
+export async function reciboPublico(sb: ShakeClient, ordenId: string): Promise<ReciboPublico | null> {
+  return rpc<ReciboPublico | null>(sb, 'fn_recibo_publico', { p_orden_id: ordenId })
+}
+
+/** Completa la ficha del usuario logueado con su teléfono (10 dígitos). */
+export async function guardarMiTelefono(sb: ShakeClient, telefono: string): Promise<Cliente> {
+  return rpc<Cliente>(sb, 'fn_mi_telefono_guardar', { p_telefono: telefono })
+}

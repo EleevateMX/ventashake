@@ -12,16 +12,19 @@ import { LoginLealtad } from './pages/LoginLealtad'
 import { AuthCallback } from './pages/AuthCallback'
 import { Pago } from './pages/Pago'
 import { PagarEnCaja } from './pages/PagarEnCaja'
+import { Recibo } from './pages/Recibo'
 import { Confirmacion } from './pages/Confirmacion'
 import { EstadoPedido } from './pages/EstadoPedido'
 import { Rewards } from './pages/Rewards'
 
 export default function App() {
   // El kiosko es una pantalla fija: no debe hacer scroll nunca. Pero
-  // /pedido/:codigo la abre el cliente en su CELULAR, donde el contenido sí
-  // puede ser más alto que la pantalla — con `overflow-hidden` se le quedaría
-  // el total recortado sin poder bajar.
-  const esVistaCelular = useLocation().pathname.startsWith('/pedido/')
+  // /pedido/:codigo y /recibo/:ordenId las abre el cliente en su CELULAR,
+  // donde el contenido sí puede ser más alto que la pantalla — con
+  // `overflow-hidden` se le quedaría el total recortado sin poder bajar.
+  // Además, la vista de celular NUNCA pide el PIN del turno: es del cliente.
+  const rutaActual = useLocation().pathname
+  const esVistaCelular = rutaActual.startsWith('/pedido/') || rutaActual.startsWith('/recibo/')
 
   const cajero = useCarrito((s) => s.cajero)
   const setCajero = useCarrito((s) => s.setCajero)
@@ -70,6 +73,7 @@ export default function App() {
         <Route path="/confirmacion" element={<Confirmacion />} />
         {/* Vista pública para el celular del cliente (destino del QR). */}
         <Route path="/pedido/:codigo" element={<EstadoPedido />} />
+        <Route path="/recibo/:ordenId" element={<Recibo />} />
         {/* Invitación a lealtad: QR grande para escanear con el celular. */}
         <Route path="/rewards" element={<Rewards />} />
       </Routes>

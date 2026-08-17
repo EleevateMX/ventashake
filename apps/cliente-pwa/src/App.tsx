@@ -10,6 +10,7 @@ import {
   vincularClienteAuth,
   misFavoritos,
   miHistorial,
+  guardarMiTelefono,
 } from '@shake/supabase'
 import type { ClienteConLealtad, FavoritoCliente, CompraHistorial } from '@shake/supabase'
 import QR from './QR'
@@ -48,6 +49,28 @@ export default function App() {
   const [favoritos, setFavoritos] = useState<FavoritoCliente[]>([])
   const [historial, setHistorial] = useState<CompraHistorial[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [telefono, setTelefono] = useState('')
+  const [guardandoTel, setGuardandoTel] = useState(false)
+  const [errorTel, setErrorTel] = useState<string | null>(null)
+
+  async function guardarTelefono() {
+    const limpio = telefono.replace(/\D/g, '')
+    if (limpio.length !== 10) {
+      setErrorTel('Escribe tu número a 10 dígitos.')
+      return
+    }
+    setGuardandoTel(true)
+    setErrorTel(null)
+    try {
+      const actualizado = await guardarMiTelefono(sb, limpio)
+      setCliente((c) => (c ? { ...c, telefono: actualizado.telefono } : c))
+      setTelefono('')
+    } catch (e) {
+      setErrorTel(e instanceof Error && e.message ? e.message : 'No se pudo guardar. Intenta de nuevo.')
+    } finally {
+      setGuardandoTel(false)
+    }
+  }
 
   async function sincronizar() {
     try {
@@ -185,6 +208,37 @@ export default function App() {
             </div>
             <div className="text-center font-mono font-medium tracking-widest text-sa-green">{cliente.codigo}</div>
           </section>
+
+          {/* ── Completa tu ficha: el teléfono cierra el círculo del
+              seguimiento (recibos, avisos, y que en caja te encuentren
+              también por número). Solo aparece mientras falte. ── */}
+          {!cliente.telefono && (
+            <section className="rounded-sa-lg p-5 mb-3.5 bg-sa-cream-paper text-sa-green-ink shadow-sa">
+              <h2 className="font-display text-lg text-sa-green mb-1.5">Completa tu ficha</h2>
+              <p className="text-sa-green-ink/60 text-sm mb-3">
+                Deja tu número y en caja también te encontramos por teléfono.
+              </p>
+              <div className="flex gap-2">
+                <input
+                  type="tel"
+                  inputMode="numeric"
+                  maxLength={10}
+                  placeholder="10 dígitos"
+                  value={telefono}
+                  onChange={(e) => setTelefono(e.target.value.replace(/\D/g, ''))}
+                  className="flex-1 min-w-0 rounded-sa border-2 border-sa-green-ink/15 bg-white px-4 py-2.5 font-mono tracking-widest focus:border-sa-green outline-none"
+                />
+                <button
+                  onClick={() => void guardarTelefono()}
+                  disabled={guardandoTel || telefono.length !== 10}
+                  className="rounded-sa bg-sa-green text-sa-cream font-display text-lg px-5 disabled:opacity-40 active:scale-95 transition-transform"
+                >
+                  {guardandoTel ? '…' : 'Guardar'}
+                </button>
+              </div>
+              {errorTel && <p className="text-sa-strawberry text-sm mt-2">{errorTel}</p>}
+            </section>
+          )}
 
           {/* ── Cupones ── */}
           <section className="rounded-sa-lg p-5 mb-3.5 bg-sa-cream-paper text-sa-green-ink shadow-sa">
