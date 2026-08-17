@@ -14,7 +14,7 @@ interface Props {
  * Incluye el agua: en El Clásico "¿con qué lo preparamos?" admite agua, y
  * viaja igual que una leche — pegada al shake, no como línea aparte.
  */
-const esBase = (nombre: string) => /^(leche|agua)\b/i.test(nombre.trim())
+const esBase = (nombre: string) => /^(leche\b|agua\b|sin leche)/i.test(nombre.trim())
 
 /**
  * Las galletas son una promoción: +$5 por 2 piezas, una vez por shake. Se
@@ -43,6 +43,14 @@ const esGalleta = (nombre: string) => /galleta/i.test(nombre.trim())
  */
 const LECHE_DEFAULT = /entera/i
 const LECHE_RESPALDO = (n: string) => /deslactosada/i.test(n) && !/light/i.test(n)
+
+/**
+ * Si el producto ofrece "Sin leche", ESA es su default por encima de todo:
+ * solo la llevan bebidas que naturalmente van sin leche (americano, cold
+ * brew). Con Entera de default, cada americano saldría a barra con
+ * "+ENTERA" y le pondrían leche a un café solo.
+ */
+const SIN_LECHE = /^sin leche/i
 
 /**
  * Proteína a elegir: solo la traen los shakes que se arman a gusto (El
@@ -91,6 +99,7 @@ export function ModalExtras({ producto, extras, onCerrar, onAgregar }: Props) {
   // La de casa viene marcada y es la única visible hasta que el cliente pide
   // otra. Así el caso común es cero toques.
   const lecheDefault =
+    leches.find((l) => SIN_LECHE.test(l.nombre)) ??
     leches.find((l) => LECHE_DEFAULT.test(l.nombre)) ??
     leches.find((l) => LECHE_RESPALDO(l.nombre)) ??
     leches[0] ?? null
@@ -100,6 +109,7 @@ export function ModalExtras({ producto, extras, onCerrar, onAgregar }: Props) {
     proteinas.find((p) => PROTEINA_DEFAULT.test(p.nombre)) ?? proteinas[0] ?? null
   const proteinaElegida = proteinas.find((p) => p.extra_id === proteina) ?? proteinaDefault
   const totalExtras =
+    (lecheElegida?.precio ?? 0) +
     (proteinaElegida?.precio ?? 0) +
     (galletaElegida?.precio ?? 0) +
     adicionales.reduce((s, e) => s + e.precio * (cantidades[e.extra_id] ?? 0), 0)
@@ -120,12 +130,20 @@ export function ModalExtras({ producto, extras, onCerrar, onAgregar }: Props) {
   }
 
   function confirmar() {
-    // La leche NO va como línea aparte del ticket: viaja pegada al shake, en
-    // su misma línea. Es una sustitución sin costo, y verla suelta en la
-    // comanda confundía —"¿esa leche es de cuál shake?"— sobre todo con dos
-    // shakes de leches distintas en el mismo pedido.
-    const nota = lecheElegida ? lecheElegida.nombre : null
+    // La base gratis viaja pegada al shake como nota (verla suelta en la
+    // comanda confundía de cuál vaso era). Dos excepciones con motivo:
+    //   · "Sin leche" no deja nota — es el estado natural del americano y
+    //     escribirlo en cada etiqueta sería ruido.
+    //   · Una base CON precio (agua mineral +$10) va como línea hija
+    //     cobrada: la nota no cobra, y regalar los $10 en silencio es el
+    //     tipo de fuga que nadie detecta hasta el corte.
+    const baseCobrada = lecheElegida && lecheElegida.precio > 0 ? lecheElegida : null
+    const nota =
+      lecheElegida && !baseCobrada && !SIN_LECHE.test(lecheElegida.nombre)
+        ? lecheElegida.nombre
+        : null
     const elegidos = [
+      ...(baseCobrada ? [baseCobrada] : []),
       ...(proteinaElegida ? [proteinaElegida] : []),
       ...(galletaElegida ? [galletaElegida] : []),
       ...adicionales.flatMap((e) =>
