@@ -1,0 +1,29 @@
+-- Copia de referencia (la versión autoritativa corre en Supabase, en dos
+-- migraciones: precio_por_producto_proteinas_y_boosters_v2 y
+-- crear_orden_cobra_sobreprecio_por_producto).
+--
+-- 1) producto_extras.precio numeric(10,2): sobreprecio POR PRODUCTO de un
+--    extra (null = el precio normal del extra). Lo que hace que la MISMA
+--    leche cueste $10 en los americanos y $0 en los shakes.
+--    - vw_producto_extras expone coalesce(pe.precio, e.precio) — el kiosko
+--      muestra el precio efectivo sin cambios de código.
+--    - fn_precio_linea(producto, padre_producto) resuelve el precio de una
+--      línea; fn_crear_orden y fn_crear_orden_kiosko_caja cobran con ella
+--      (subtotal e insert de orden_items) resolviendo el padre por
+--      linea/padre_linea. El cliente sigue sin mandar precios jamás.
+--    - Datos: precio=10 en (Americano Caliente/Helado) x lech% ("Sin
+--      leche" queda en 0).
+--
+-- 2) Elección de proteína (gratis, elige con cuál se prepara) en 6 shakes:
+--    #1 Choco Killer (solo chocolates), #5 Blue Lagoon, #7 Golden Maca,
+--    #9 Açaí Dream, #13 Matcha Latte y #16 Vanilla Bliss (puras vainillas).
+--    Se crearon las proteínas faltantes clonando la estructura de
+--    'Proteína OPTIMUM - Chocolate': BIRDMAN FALCON (Choc/Vain), BIRDMAN
+--    FALCON PERFORMANCE (Choco Bronze/Golden Vainilla), BIRDMAN FITMINGO
+--    (Moka/Vainilla), ISO 100 (Choc/Vain). Default en kiosko: OPTIMUM
+--    (ModalExtras). Administrables en Admin → Extras como las demás.
+--
+-- 3) Boosters ligados a toda bebida preparada (la que ya ofrecía al menos
+--    un extra; embotelladas siguen de un toque): Creatina $15, Colágeno
+--    $19, Probióticos $15, Inositol $19, BCAA $19 — los 5 Scoops pasaron a
+--    es_extra=true (salen del grid, viven dentro del modal).

@@ -61,7 +61,26 @@ const SIN_LECHE = /^sin leche/i
  * Si viajara pegada al shake como la leche, el bote nunca se descontaría.
  */
 const esProteina = (nombre: string) => /^prote[ií]na/i.test(nombre.trim())
-const PROTEINA_DEFAULT = /optimum.*chocolate/i
+// La de casa es la Gold Standard de Optimum en cualquier sabor: los shakes
+// de chocolate solo ofrecen chocolates y los de vainilla puras vainillas,
+// así que con la marca basta (en El Clásico, que trae ambas, el orden
+// alfabético deja Chocolate primero — igual que siempre).
+const PROTEINA_DEFAULT = /optimum/i
+
+/**
+ * Orden de marcas pedido por el negocio: de la más económica a la más
+ * elevada de costo. Una marca fuera de esta lista se va al final, en
+ * alfabético — así una marca nueva dada de alta en Admin no truena nada.
+ */
+const ORDEN_MARCAS = [
+  'OPTIMUM',
+  'BIRDMAN FALCON',
+  'BIRDMAN FALCON PERFORMANCE',
+  'BIRDMAN FITMINGO',
+  'CBUM',
+  'ISO 100',
+  'ISOPURE',
+]
 
 /**
  * Observaciones rápidas, por estación. Chips y no texto libre a propósito:
@@ -107,8 +126,13 @@ export function ModalExtras({ producto, extras, onCerrar, onAgregar }: Props) {
   const hayAgua = leches.some((l) => /^agua\b/i.test(l.nombre))
   const obsDisponibles = OBSERVACIONES[producto.categorias?.cocinas?.slug ?? ''] ?? []
 
-  // Marcas en orden alfabético; los sabores conservan el orden del catálogo.
-  const marcas = [...new Set(proteinas.map((p) => marcaYSabor(p.nombre).marca))].sort()
+  // Marcas en el orden del negocio (económica → elevada); las que no están
+  // en la lista van al final en alfabético.
+  const marcas = [...new Set(proteinas.map((p) => marcaYSabor(p.nombre).marca))].sort((a, b) => {
+    const ia = ORDEN_MARCAS.indexOf(a)
+    const ib = ORDEN_MARCAS.indexOf(b)
+    return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib) || a.localeCompare(b)
+  })
 
   // La de casa viene marcada y es la única visible hasta que el cliente pide
   // otra. Así el caso común es cero toques.
