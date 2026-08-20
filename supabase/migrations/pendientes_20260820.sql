@@ -97,12 +97,16 @@ where c.nombre = 'Shakes'
   and p.activo
   and not p.es_extra
   and not p.es_combo
-  -- Solo a lo que ya se personaliza. Sin esta guarda el extra se le cuelga
-  -- también a "Vaso con Hielo" —que vive en la categoría Shakes y al que se
-  -- le vaciaron los extras a propósito para que entrara en un toque— y le
-  -- devuelve el modal, ofreciendo doble scoop de proteína a un vaso de
-  -- hielo. Es la misma guarda con la que se ligaron los boosters.
-  and exists (select 1 from producto_extras pe0 where pe0.producto_id = p.id)
+  -- "Vaso con Hielo" vive en la categoría Shakes pero no es un shake: es un
+  -- vaso de hielo. Sin excluirlo, el extra le devuelve el modal y le ofrece
+  -- doble scoop de proteína a un vaso de hielo.
+  --
+  -- Se excluye POR NOMBRE y no con un "solo si ya tiene extras": ese filtro
+  -- se probó y no sirve —el vaso con hielo sí tiene un extra ("agua
+  -- minera")— y además habría dejado fuera a los shakes de proteína fija,
+  -- como Blueberry Bloom, que son justo los que el negocio pidió que
+  -- pudieran llevar doble scoop.
+  and p.nombre not ilike 'vaso con hielo'
 on conflict do nothing;
 
 
