@@ -97,6 +97,12 @@ where c.nombre = 'Shakes'
   and p.activo
   and not p.es_extra
   and not p.es_combo
+  -- Solo a lo que ya se personaliza. Sin esta guarda el extra se le cuelga
+  -- también a "Vaso con Hielo" —que vive en la categoría Shakes y al que se
+  -- le vaciaron los extras a propósito para que entrara en un toque— y le
+  -- devuelve el modal, ofreciendo doble scoop de proteína a un vaso de
+  -- hielo. Es la misma guarda con la que se ligaron los boosters.
+  and exists (select 1 from producto_extras pe0 where pe0.producto_id = p.id)
 on conflict do nothing;
 
 
@@ -404,12 +410,27 @@ grant execute on function public.fn_extra_bebida_grupo(uuid, uuid, text) to anon
 
 
 -- ── La vista de extras expone el grupo ─────────────────────────────────────
-create or replace view vw_producto_extras as
+-- Dos cuidados en este bloque, los dos aprendidos a golpes:
+--
+-- 1) `grupo` va AL FINAL a propósito. En un `create or replace view`
+--    Postgres solo admite columnas nuevas al final; meterla en medio
+--    renombra la quinta columna y aborta con "cannot change name of view
+--    column 'activo' to 'grupo'", y con ella se cae la migración entera.
+--
+-- 2) `security_invoker` se vuelve a declarar aquí. Un `create or replace
+--    view` REEMPLAZA la lista de opciones de la vista en vez de heredarla:
+--    si se omite, la vista queda corriendo con los permisos de su dueño y
+--    deja de respetar el RLS de las tablas de abajo. Ya venía puesto desde
+--    catalogo_suplementos_y_extras.sql y aquí se conserva.
+create or replace view public.vw_producto_extras
+with (security_invoker = true) as
 select pe.producto_id,
        e.id as extra_id,
        e.nombre,
        coalesce(pe.precio, e.precio)::numeric(10,2) as precio,
-       pe.grupo,
-       e.activo
+       e.activo,
+       pe.grupo
 from producto_extras pe
 join productos e on e.id = pe.extra_id;
+
+grant select on public.vw_producto_extras to anon, authenticated;
