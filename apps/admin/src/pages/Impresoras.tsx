@@ -7,6 +7,7 @@ import {
 } from '@shake/supabase'
 import type { Cocina, TrabajoImpresion, TipoConexionImpresora, AnchoPapel, EstadoTrabajoImpresion } from '@shake/types'
 import { PageHeader, Loading, ErrorMsg, OkMsg, Panel, Field, cx, Chip } from '../ui'
+import { mensajeDeError } from '@shake/utils'
 
 interface FormState {
   id: string | null
@@ -90,7 +91,7 @@ export default function Impresoras() {
       setSucursalId(almacenes[0]?.sucursal_id ?? null)
       setError(null)
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(mensajeDeError(e))
     } finally {
       setCargando(false)
     }
@@ -141,7 +142,7 @@ export default function Impresoras() {
       setForm(VACIO)
       await cargar()
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(mensajeDeError(e))
     } finally {
       setGuardando(false)
     }
@@ -167,7 +168,7 @@ export default function Impresoras() {
       setTokenVisible({ nombre: imp.nombre, token: nuevoToken, ip: imp.ip, puerto: imp.puerto })
       setOk(`Configuración de "${imp.nombre}" lista abajo.`)
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(mensajeDeError(e))
     }
   }
 
@@ -187,7 +188,7 @@ export default function Impresoras() {
       await activarImpresora(sb, imp.id, !imp.activa)
       await cargar()
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(mensajeDeError(e))
     }
   }
 
@@ -199,7 +200,7 @@ export default function Impresoras() {
       setOk('Reimpresión encolada.')
       await cargar()
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(mensajeDeError(e))
     }
   }
 

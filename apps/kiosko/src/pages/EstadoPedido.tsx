@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { obtenerOrdenPorCodigo, suscribirOrden, type OrdenConItems } from '@shake/supabase'
-import { mxn } from '@shake/utils'
+import { mxn, mensajeDeError } from '@shake/utils'
 import { sb } from '@/lib/sb'
 
 /**
@@ -29,7 +29,7 @@ export function EstadoPedido() {
         setOrden(o)
         if (!o) setError('No encontramos ese pedido. Puede que ya haya pasado mucho tiempo.')
       } catch (e) {
-        if (vivo) setError(e instanceof Error ? e.message : String(e))
+        if (vivo) setError(mensajeDeError(e))
       } finally {
         if (vivo) setCargando(false)
       }

@@ -3,6 +3,7 @@ import { sb } from '../lib/sb'
 import { stockPorAlmacen } from '@shake/supabase'
 import type { StockAlmacen } from '@shake/types'
 import { PageHeader, Loading, ErrorMsg, Panel, cx } from '../ui'
+import { mensajeDeError } from '@shake/utils'
 
 export default function Inventario() {
   const [stock, setStock] = useState<StockAlmacen[]>([])
@@ -12,7 +13,7 @@ export default function Inventario() {
   useEffect(() => {
     stockPorAlmacen(sb)
       .then(setStock)
-      .catch((e) => setError(e instanceof Error ? e.message : String(e)))
+      .catch((e) => setError(mensajeDeError(e)))
       .finally(() => setCargando(false))
   }, [])
 

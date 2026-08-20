@@ -5,6 +5,7 @@ import {
 } from '@shake/supabase'
 import { sb } from '../lib/sb'
 import { cx, Panel, PageHeader } from '../ui'
+import { mensajeDeError } from '@shake/utils'
 
 /**
  * La base de clientes del programa de lealtad, vista desde gerencia.
@@ -40,7 +41,7 @@ export default function Clientes() {
       setClientes(await clientesAdmin(sb, texto || null))
       setError(null)
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(mensajeDeError(e))
     } finally {
       setCargando(false)
     }

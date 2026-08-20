@@ -9,7 +9,7 @@ import {
   moverCategoriaProducto,
 } from '@shake/supabase'
 import type { Producto, Categoria, Cocina } from '@shake/types'
-import { mxn } from '@shake/utils'
+import { mxn, mensajeDeError } from '@shake/utils'
 import { Panel, PageHeader, Loading, ErrorMsg, OkMsg, Chip, cx } from '../ui'
 
 /**
@@ -79,7 +79,7 @@ export default function Categorias() {
       setCocinas(ks)
       setError(null)
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(mensajeDeError(e))
     } finally {
       setCargando(false)
     }
@@ -98,7 +98,7 @@ export default function Categorias() {
       await cargar()
       setTimeout(() => setOk(null), 4000)
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(mensajeDeError(e))
     } finally {
       setCreando(false)
     }
@@ -122,7 +122,7 @@ export default function Categorias() {
       )
       await cargar()
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(mensajeDeError(e))
     }
   }
 
@@ -143,7 +143,7 @@ export default function Categorias() {
       setEditId(null)
       await cargar()
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(mensajeDeError(e))
     }
   }
 
@@ -156,7 +156,7 @@ export default function Categorias() {
       await moverCategoriaProducto(sb, producto.id, categoriaId)
       await cargar()
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(mensajeDeError(e))
     } finally {
       setMoviendo(null)
     }

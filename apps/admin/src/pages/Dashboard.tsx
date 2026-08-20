@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { sb } from '../lib/sb'
 import { ventasDiarias, productosMasVendidos, stockPorAlmacen } from '@shake/supabase'
 import type { VentaDiaria, ProductoVendido, StockAlmacen } from '@shake/types'
-import { mxn } from '@shake/utils'
+import { mxn, mensajeDeError } from '@shake/utils'
 import { Panel, PageHeader, Loading, ErrorMsg, cx } from '../ui'
 
 const HOY = new Date().toISOString().slice(0, 10)
@@ -22,7 +22,7 @@ export default function Dashboard() {
         setStock(s)
         setError(null)
       })
-      .catch((e) => setError(e instanceof Error ? e.message : String(e)))
+      .catch((e) => setError(mensajeDeError(e)))
       .finally(() => setCargando(false))
   }, [])
 

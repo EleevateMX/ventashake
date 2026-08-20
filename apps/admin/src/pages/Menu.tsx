@@ -13,7 +13,7 @@ import {
   quitarFotoProducto,
 } from '@shake/supabase'
 import type { Producto, Categoria, Cocina } from '@shake/types'
-import { mxn } from '@shake/utils'
+import { mxn, mensajeDeError } from '@shake/utils'
 import { Panel, PageHeader, Field, Loading, ErrorMsg, OkMsg, Chip, cx } from '../ui'
 
 interface FormProducto {
@@ -70,7 +70,7 @@ export default function Menu() {
       setCocinas(ks)
       setError(null)
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(mensajeDeError(e))
     } finally {
       setCargando(false)
     }
@@ -96,7 +96,7 @@ export default function Menu() {
       await moverCategoriaProducto(sb, p.id, categoriaId || null)
       await cargar()
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(mensajeDeError(e))
     } finally {
       setMoviendoCategoria(null)
     }
@@ -111,7 +111,7 @@ export default function Menu() {
       await actualizarProducto(sb, p.id, { onzas: valor ? Number(valor) : null })
       await cargar()
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(mensajeDeError(e))
     } finally {
       setCambiandoOnzas(null)
     }
@@ -164,7 +164,7 @@ export default function Menu() {
       await cargar()
       setTimeout(() => setOk(null), 3000)
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(mensajeDeError(e))
     } finally {
       setGuardando(false)
     }
@@ -180,7 +180,7 @@ export default function Menu() {
       await cargar()
       setTimeout(() => setOk(null), 3000)
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(mensajeDeError(e))
     } finally {
       setSubiendoFoto(null)
     }
@@ -193,7 +193,7 @@ export default function Menu() {
       await quitarFotoProducto(sb, p.id)
       await cargar()
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(mensajeDeError(e))
     }
   }
 
@@ -205,7 +205,7 @@ export default function Menu() {
       if (editId === p.id) cancelarEdicion()
       await cargar()
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(mensajeDeError(e))
     }
   }
 
@@ -221,7 +221,7 @@ export default function Menu() {
       await cargar()
       setTimeout(() => setOk(null), 3000)
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(mensajeDeError(e))
     } finally {
       setGuardandoCat(false)
     }
@@ -397,8 +397,10 @@ export default function Menu() {
                           onChange={(e) => void cambiarOnzas(p, e.target.value)}
                         >
                           <option value="">—</option>
+                          <option value="12">12 oz</option>
                           <option value="16">16 oz</option>
                           <option value="20">20 oz</option>
+                          <option value="24">24 oz</option>
                         </select>
                       </td>
                       <td className={cx.tdNum}>{mxn(p.precio)}</td>

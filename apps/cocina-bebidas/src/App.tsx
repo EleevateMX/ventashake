@@ -4,9 +4,11 @@ import { sb } from './lib/sb'
 import {
   listarPedidosCocina, suscribirPedidosCocina, cambiarEstadoPedido,
   trabajosDeVariosPedidos, suscribirTrabajosImpresion, reimprimirTrabajo,
+  etiquetaItem,
 } from '@shake/supabase'
 import type { PedidoConItems } from '@shake/supabase'
 import type { EstadoCocina, TrabajoImpresion } from '@shake/types'
+import { mensajeDeError } from '@shake/utils'
 
 // Indicador de estado de impresión de la comanda de este pedido.
 function EstadoImpresion({ trabajo, onReimprimir }: { trabajo: TrabajoImpresion | undefined; onReimprimir: () => void }) {
@@ -109,7 +111,7 @@ export default function App() {
       const estados = await trabajosDeVariosPedidos(sb, data.map((p) => p.id))
       setImpresion(estados)
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(mensajeDeError(e))
     } finally {
       setCargando(false)
     }
@@ -142,7 +144,7 @@ export default function App() {
       await reimprimirTrabajo(sb, trabajo.id, { motivo: 'Reimpresión desde KDS (falló la automática)' })
       await recargar()
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(mensajeDeError(e))
     }
   }
 
@@ -159,7 +161,7 @@ export default function App() {
       await cambiarEstadoPedido(sb, pedido.id, paso.siguiente)
       await recargar()
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(mensajeDeError(e))
     }
   }
 
@@ -169,7 +171,7 @@ export default function App() {
       await cambiarEstadoPedido(sb, pedido.id, 'entregado')
       await recargar()
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(mensajeDeError(e))
     }
   }
 
@@ -318,7 +320,7 @@ export default function App() {
                         </span>
                         <div className="min-w-0 flex-1">
                           <p className="font-body font-medium text-sa-green-ink leading-tight">
-                            {item.productos?.nombre ?? '—'}
+                            {etiquetaItem(item)}
                             {/* Que vaso agarrar, antes de leer la receta. Solo
                                 aqui: la etiqueta impresa no lo lleva (pedido
                                 explicito de la sucursal). */}

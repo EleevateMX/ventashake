@@ -8,9 +8,10 @@ import {
   actualizarProducto,
   agregarComponenteCombo,
   quitarComponenteCombo,
+  moverCategoriaProducto,
 } from '@shake/supabase'
 import type { ComboVista, Producto, Categoria } from '@shake/types'
-import { mxn } from '@shake/utils'
+import { mxn, mensajeDeError } from '@shake/utils'
 import { Panel, PageHeader, Field, Loading, ErrorMsg, OkMsg, Chip, cx } from '../ui'
 
 interface ComponenteCombo {
@@ -56,13 +57,47 @@ export default function Combos() {
     return m
   }, [categorias])
 
-  // Productos que se pueden agregar como componente: activos y que no sean
-  // ellos mismos un combo (v1 no soporta combos anidados — el servidor lo
-  // rechazaría de todas formas, pero no tiene caso ofrecerlos en la lista).
-  const productosParaComponente = useMemo(
-    () => productos.filter((p) => !p.es_combo),
-    [productos],
-  )
+  /** Estación (cocina) de un producto, vía su categoría. */
+  const cocinaDe = (productoId: string | null | undefined): string | null => {
+    if (!productoId) return null
+    const p = productos.find((x) => x.id === productoId)
+    return p?.categoria_id ? catPorId.get(p.categoria_id)?.cocina_id ?? null : null
+  }
+
+  /**
+   * La estación a la que ya quedó comprometido un combo: la de su categoría
+   * o, si no tiene, la de su primer componente. El servidor exige que todos
+   * los componentes sean de la misma (v1 no arma combos que crucen barra y
+   * cocina), así que conviene saberla antes de ofrecer la lista.
+   */
+  const cocinaDelCombo = (combo: ComboVista | undefined): string | null => {
+    if (!combo) return null
+    const porCategoria = combo.categoria_id ? catPorId.get(combo.categoria_id)?.cocina_id : null
+    if (porCategoria) return porCategoria
+    const primero = componentesDe(combo)[0]
+    return primero ? cocinaDe(primero.producto_id) : null
+  }
+
+  /**
+   * Productos que se pueden agregar como componente.
+   *
+   * Antes la lista ofrecía TODO lo activo y el servidor rechazaba con un
+   * error que además se veía como "[object Object]": elegir "Americano" en
+   * un combo de alimentos era un callejón sin salida sin explicación. Ahora
+   * se ofrece solo lo que va a pasar: nada de combos (no hay anidados),
+   * nada de extras (leches y "Sin leche" no son componentes) y solo la
+   * estación a la que el combo ya pertenece.
+   */
+  const productosParaComponente = useMemo(() => {
+    const combo = combos.find((c) => c.id === comboEditando)
+    const cocina = cocinaDelCombo(combo)
+    return productos.filter((p) => {
+      if (p.es_combo || p.es_extra) return false
+      if (!cocina) return true
+      return cocinaDe(p.id) === cocina
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [productos, combos, comboEditando, catPorId])
 
   async function cargar() {
     try {
@@ -72,7 +107,7 @@ export default function Combos() {
       setCategorias(cats)
       setError(null)
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(mensajeDeError(e))
     } finally {
       setCargando(false)
     }
@@ -97,7 +132,7 @@ export default function Combos() {
       await cargar()
       setTimeout(() => setOk(null), 4000)
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(mensajeDeError(e))
     } finally {
       setGuardando(false)
     }
@@ -110,7 +145,7 @@ export default function Combos() {
       await actualizarProducto(sb, combo.id, { activo: !combo.activo })
       await cargar()
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(mensajeDeError(e))
     }
   }
 
@@ -119,12 +154,20 @@ export default function Combos() {
     setGuardandoComponente(true)
     setError(null)
     try {
+      // El formulario prometía "se fija con el primer componente" y nadie
+      // lo cumplía: el combo se quedaba sin categoría para siempre y así
+      // no sale bajo ningún botón del kiosko. Aquí se cumple de verdad.
+      const combo = combos.find((c) => c.id === comboId)
+      const componente = productos.find((p) => p.id === nuevoComponenteId)
+      if (combo && !combo.categoria_id && componente?.categoria_id) {
+        await moverCategoriaProducto(sb, comboId, componente.categoria_id)
+      }
       await agregarComponenteCombo(sb, comboId, nuevoComponenteId, Number(nuevaCantidad))
       setNuevoComponenteId('')
       setNuevaCantidad('1')
       await cargar()
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(mensajeDeError(e))
     } finally {
       setGuardandoComponente(false)
     }
@@ -136,7 +179,7 @@ export default function Combos() {
       await quitarComponenteCombo(sb, comboId, productoId)
       await cargar()
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(mensajeDeError(e))
     }
   }
 

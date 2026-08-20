@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { sb } from '../lib/sb'
 import { listarPromociones, crearPromocion, actualizarPromocion } from '@shake/supabase'
 import type { Promocion, TipoPromocion } from '@shake/types'
-import { mxn, pct } from '@shake/utils'
+import { mxn, pct, mensajeDeError } from '@shake/utils'
 import { PageHeader, Loading, ErrorMsg, Panel, Field, cx } from '../ui'
 
 const DIAS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
@@ -32,7 +32,7 @@ export default function Promos() {
       setPromos(await listarPromociones(sb))
       setError(null)
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(mensajeDeError(e))
     } finally {
       setCargando(false)
     }
@@ -68,7 +68,7 @@ export default function Promos() {
       setForm(FORM_VACIO)
       await cargar()
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(mensajeDeError(e))
     } finally {
       setGuardando(false)
     }

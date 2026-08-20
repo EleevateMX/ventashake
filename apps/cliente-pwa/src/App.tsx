@@ -15,12 +15,13 @@ import {
 import type { ClienteConLealtad, FavoritoCliente, CompraHistorial } from '@shake/supabase'
 import QR from './QR'
 import { IconMancuerna, IconRegalo, IconPastel, IconRecibo, IconEstrella } from './Iconos'
+import { mensajeDeError } from '@shake/utils'
 
 // Traduce errores técnicos a un mensaje amable en español.
 // Mientras el cliente termina de habilitar Google en Supabase Auth, el
 // proveedor responde "provider is not enabled"; no queremos asustar al usuario.
 function mensajeAmable(e: unknown): string {
-  const raw = (e instanceof Error ? e.message : String(e)).toLowerCase()
+  const raw = mensajeDeError(e).toLowerCase()
   if (raw.includes('provider is not enabled') || raw.includes('unsupported provider')) {
     return 'Rewards estará disponible en un momentito. Estamos afinando el acceso — vuelve a intentar muy pronto.'
   }

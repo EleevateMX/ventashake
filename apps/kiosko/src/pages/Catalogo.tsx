@@ -2,7 +2,9 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Spinner } from '@shake/ui'
 import { useCarrito } from '@/store/carritoStore'
-import { listarProductosParaVenta, listarExtras, listarProductosExtra } from '@shake/supabase'
+import {
+  listarProductosParaVenta, listarExtras, listarProductosExtra, listarObservaciones,
+} from '@shake/supabase'
 import type { ProductoVenta, ExtraDeProducto } from '@shake/supabase'
 import { sb } from '@/lib/sb'
 import { ModalExtras } from '@/components/ModalExtras'
@@ -23,6 +25,12 @@ export function Catalogo() {
   const [extras, setExtras] = useState<ExtraDeProducto[]>([])
   const [productosExtra, setProductosExtra] = useState<ProductoVenta[]>([])
   const [personalizando, setPersonalizando] = useState<ProductoVenta | null>(null)
+  /**
+   * Los chips de "menos hielo" / "sin tomate", por estación. Vienen de la
+   * base (Admin -> Observaciones): antes estaban escritos en el código y
+   * cambiar uno obligaba a desplegar el kiosko.
+   */
+  const [observaciones, setObservaciones] = useState<Record<string, string[]>>({})
 
   useEffect(() => {
     Promise.all([listarProductosParaVenta(sb), listarExtras(sb), listarProductosExtra(sb)])
@@ -33,6 +41,15 @@ export function Catalogo() {
       })
       .catch(() => setProductos([]))
       .finally(() => setLoading(false))
+
+    // Aparte y sin bloquear: si esto falla, el modal simplemente no muestra
+    // chips de observación y la venta sigue igual.
+    Promise.all([listarObservaciones(sb, 'bebidas'), listarObservaciones(sb, 'alimentos')])
+      .then(([beb, ali]) => setObservaciones({
+        bebidas: beb.map((o) => o.texto),
+        alimentos: ali.map((o) => o.texto),
+      }))
+      .catch(() => {})
   }, [])
 
   const extrasDe = (productoId: string) => extras.filter((e) => e.producto_id === productoId)
@@ -284,6 +301,7 @@ export function Catalogo() {
       </main>
 
       <ModalExtras
+        observaciones={observaciones}
         producto={personalizando}
         extras={personalizando ? extrasDe(personalizando.id) : []}
         onCerrar={() => setPersonalizando(null)}

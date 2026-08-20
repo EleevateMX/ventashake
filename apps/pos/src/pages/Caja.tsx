@@ -6,6 +6,7 @@ import { listarAlmacenes, listarCajas, corteAbierto, abrirCaja } from '@shake/su
 import { CatalogoBusqueda } from '@/components/pos/CatalogoBusqueda'
 import { OrdenPanel } from '@/components/pos/OrdenPanel'
 import { useProductosPOS } from '@/hooks/useProductosPOS'
+import { mensajeDeError } from '@shake/utils'
 
 export function Caja() {
   const navigate = useNavigate()
@@ -43,7 +44,7 @@ export function Caja() {
         if (!vivo) return
         setContexto({ almacen: kiosko, caja: c, corte: abierto })
       } catch (e) {
-        if (vivo) setError(e instanceof Error ? e.message : String(e))
+        if (vivo) setError(mensajeDeError(e))
       } finally {
         if (vivo) setCargandoCtx(false)
       }
@@ -62,7 +63,7 @@ export function Caja() {
       const nuevo = await abrirCaja(sb, caja.id, Number(fondo) || 0, empleado?.id)
       setCorte(nuevo)
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(mensajeDeError(e))
     } finally {
       setAbriendo(false)
     }

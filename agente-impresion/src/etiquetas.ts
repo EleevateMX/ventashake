@@ -89,6 +89,26 @@ export function separarTamano(nombre: string): { nombre: string; tamano: string 
 }
 
 /**
+ * Antepone la familia de la bebida a su nombre: "Kombucha - Limonada
+ * Durazno".
+ *
+ * En barra hay sabores que se llaman casi igual entre familias distintas
+ * ("Lemon Twist" es Hydration, "Lemon Glow" es Collagen, "Lemon Lime" es
+ * Amino), y con varias etiquetas en la mano el sabor solo no basta.
+ *
+ * Dos guardas: si la base no manda familia —el caso de los shakes, que se
+ * leen bien solos— el nombre va tal cual; y si el producto ya empieza con
+ * su familia no se repite, mismo criterio con el que `separarTamano` evita
+ * imprimir el tamaño dos veces.
+ */
+export function conFamilia(familia: string | null | undefined, nombre: string): string {
+  const f = familia?.trim()
+  if (!f) return nombre
+  if (nombre.trim().toLowerCase().startsWith(f.toLowerCase())) return nombre
+  return `${f} - ${nombre}`
+}
+
+/**
  * Combina lo estructurado con lo que se deduce del texto libre.
  *
  * No es "uno u otro": hoy la base manda los extras ya separados (las líneas
@@ -182,6 +202,7 @@ export function etiquetasDeTrabajo(trabajo: TrabajoImpresion, numeroDeCopia = 1)
   for (const item of items) {
     const campos = camposDe(item)
     const producto = separarTamano(item.nombre ?? '(producto sin nombre)')
+    const nombreProducto = conFamilia(item.categoria, producto.nombre)
     for (let u = 0; u < Math.max(1, item.cantidad || 1); u++) {
       n++
       etiquetas.push({
@@ -190,7 +211,7 @@ export function etiquetasDeTrabajo(trabajo: TrabajoImpresion, numeroDeCopia = 1)
         item: n,
         deTotal: total,
         nombre,
-        producto: producto.nombre,
+        producto: nombreProducto,
         fecha,
         copia: Math.max(numeroDeCopia, trabajo.numero_copia ?? 1),
         ...campos,

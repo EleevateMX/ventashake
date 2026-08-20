@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { usePosStore } from '@/store/posStore'
 import { sb } from '../lib/sb'
 import { resumenCorte, cerrarCaja } from '@shake/supabase'
-import { mxn } from '@shake/utils'
+import { mxn, mensajeDeError } from '@shake/utils'
 import type { CorteResumen } from '@shake/types'
 
 export function CorteCaja() {
@@ -25,7 +25,7 @@ export function CorteCaja() {
     }
     resumenCorte(sb, corte.id)
       .then(setResumen)
-      .catch((e) => setError(e instanceof Error ? e.message : String(e)))
+      .catch((e) => setError(mensajeDeError(e)))
       .finally(() => setCargando(false))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -40,7 +40,7 @@ export function CorteCaja() {
       limpiarOrden()
       setCortado(true)
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(mensajeDeError(e))
     } finally {
       setGuardando(false)
     }

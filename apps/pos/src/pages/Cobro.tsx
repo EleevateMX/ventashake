@@ -4,7 +4,7 @@ import { usePosStore } from '@/store/posStore'
 import { sb } from '../lib/sb'
 import { crearOrden, cobrarOrden, canjearCupon, registrarAplicacionPromo } from '@shake/supabase'
 import { imprimirTicket, type TicketData } from '@shake/ui'
-import { mxn } from '@shake/utils'
+import { mxn, mensajeDeError } from '@shake/utils'
 import type { MetodoPago } from '@shake/types'
 
 const METODOS: { key: MetodoPago; label: string; icon: string; pideRef?: boolean }[] = [
@@ -104,7 +104,7 @@ export function Cobro() {
       limpiarOrden()
       navigate('/', { replace: true })
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(mensajeDeError(e))
     } finally {
       setProcesando(false)
     }

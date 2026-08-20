@@ -11,6 +11,7 @@ import { useCarrito, type ItemCarrito } from '@/store/carritoStore'
 import { TecladoNombre } from '@/components/TecladoNombre'
 import { sb } from '@/lib/sb'
 import { resolverModoKiosko } from '@/lib/modoKiosko'
+import { mensajeDeError } from '@shake/utils'
 
 type EstadoPago = 'cargando' | 'eligiendo' | 'procesando' | 'no_disponible'
 
@@ -127,7 +128,7 @@ export function Pago() {
 
         setEstado('eligiendo')
       } catch (e) {
-        setError(e instanceof Error ? e.message : String(e))
+        setError(mensajeDeError(e))
         setEstado('eligiendo')
       }
     })()
@@ -157,7 +158,7 @@ export function Pago() {
       limpiar()
       navigate('/pagar-en-caja', { state: { orden } })
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(mensajeDeError(e))
       setEstado('eligiendo')
     }
   }
@@ -293,7 +294,7 @@ export function Pago() {
         },
       })
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(mensajeDeError(e))
       setEstado('eligiendo')
     }
   }
@@ -327,7 +328,7 @@ export function Pago() {
       // la Stand 2 y la venta la confirma el servidor con la verdad de Clip.
       await cobrarEnTerminal(orden)
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(mensajeDeError(e))
       setEstado('eligiendo')
     }
   }
@@ -385,7 +386,7 @@ export function Pago() {
         },
       })
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(mensajeDeError(e))
       setEstado('eligiendo')
     }
   }

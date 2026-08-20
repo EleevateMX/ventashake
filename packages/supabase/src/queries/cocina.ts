@@ -2,7 +2,39 @@ import type { PedidoCocina, CocinaItem, EstadoCocina } from '@shake/types'
 import type { ShakeClient } from '../client'
 
 export interface CocinaItemConProducto extends CocinaItem {
-  productos: { nombre: string; onzas: number | null } | null
+  productos: {
+    nombre: string
+    onzas: number | null
+    /**
+     * Se pide con `*` y `nombre_singular` va opcional a propósito: así la
+     * pantalla no se cae si el código llega a producción antes que la
+     * migración que crea esa columna.
+     */
+    categorias: { nombre: string; nombre_singular?: string | null } | null
+  } | null
+}
+
+/**
+ * Cómo se nombra un item en la pantalla de cocina.
+ *
+ * En barra se confundían de bebida: "Lemon Twist" es Hydration, "Lemon
+ * Glow" es Collagen y "Lemon Lime" es Amino — con muchas en cola, el sabor
+ * solo no alcanza. Cuando la categoría tiene nombre en singular se antepone
+ * ("Hydration Drink - Lemon Twist"); si no lo tiene, el nombre va solo,
+ * porque un shake no necesita que le digan "Shake -".
+ *
+ * Vive en el paquete y no en cada app: las dos pantallas de cocina son
+ * copias literales una de la otra y duplicar esto garantiza que un día
+ * digan cosas distintas.
+ */
+export function etiquetaItem(item: CocinaItemConProducto): string {
+  const nombre = item.productos?.nombre
+  if (!nombre) return '—'
+  const familia = item.productos?.categorias?.nombre_singular?.trim()
+  if (!familia) return nombre
+  // Si el producto ya se llama como su familia, no se dice dos veces.
+  if (nombre.toLowerCase().startsWith(familia.toLowerCase())) return nombre
+  return `${familia} - ${nombre}`
 }
 
 export interface PedidoConItems extends PedidoCocina {
@@ -24,7 +56,7 @@ export async function listarPedidosCocina(
 
   const { data, error } = await sb
     .from('pedidos_cocina')
-    .select('*, cocina_items(*, productos(nombre, onzas)), ordenes(folio, canal, nombre_cliente)')
+    .select('*, cocina_items(*, productos(nombre, onzas, categorias(*))), ordenes(folio, canal, nombre_cliente)')
     .eq('cocina_id', cocina.id)
     .in('estado', ['pendiente', 'en_preparacion', 'listo'])
     .order('created_at')
@@ -36,7 +68,7 @@ export async function listarPedidosCocina(
 export async function listarPedidosActivos(sb: ShakeClient): Promise<PedidoConItems[]> {
   const { data, error } = await sb
     .from('pedidos_cocina')
-    .select('*, cocina_items(*, productos(nombre, onzas)), ordenes(folio, canal, nombre_cliente)')
+    .select('*, cocina_items(*, productos(nombre, onzas, categorias(*))), ordenes(folio, canal, nombre_cliente)')
     .in('estado', ['pendiente', 'en_preparacion', 'listo'])
     .order('created_at')
   if (error) throw error

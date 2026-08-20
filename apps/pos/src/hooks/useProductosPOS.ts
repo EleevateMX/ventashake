@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { sb } from '../lib/sb'
 import { listarProductosParaVenta, listarProductosExtra, listarExtras } from '@shake/supabase'
 import type { ProductoVenta, ExtraDeProducto } from '@shake/supabase'
+import { mensajeDeError } from '@shake/utils'
 
 /** Categoría derivada del catálogo (con su cocina/estación) para los filtros. */
 export interface CategoriaPOS {
@@ -25,7 +26,7 @@ export function useProductosPOS() {
         setProductosExtra(prodsExtra)
         setExtras(exs)
       })
-      .catch((e) => setError(e instanceof Error ? e.message : String(e)))
+      .catch((e) => setError(mensajeDeError(e)))
       .finally(() => setLoading(false))
   }, [])
 

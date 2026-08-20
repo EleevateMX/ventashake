@@ -4,6 +4,7 @@ import { sb } from '../../lib/sb'
 import { identificarCliente, registrarCliente, promosParaCliente } from '@shake/supabase'
 import type { ClienteConLealtad } from '@shake/supabase'
 import type { Promocion } from '@shake/types'
+import { mensajeDeError } from '@shake/utils'
 
 interface Props {
   open: boolean
@@ -35,7 +36,7 @@ export function ModalCliente({ open, onClose, onCliente, onQuitar }: Props) {
       if (!c) setMsg('Cliente no encontrado. Puedes darlo de alta aquí mismo.')
       else setEncontrado(c)
     } catch (e) {
-      setMsg(e instanceof Error ? e.message : String(e))
+      setMsg(mensajeDeError(e))
     } finally {
       setBuscando(false)
     }
@@ -58,7 +59,7 @@ export function ModalCliente({ open, onClose, onCliente, onQuitar }: Props) {
       const c = await registrarCliente(sb, { nombre, telefono })
       await seleccionar({ ...c, cupones: [] })
     } catch (e) {
-      setMsg(e instanceof Error ? e.message : String(e))
+      setMsg(mensajeDeError(e))
     } finally {
       setRegistrando(false)
     }

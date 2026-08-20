@@ -52,6 +52,16 @@ export interface ItemComanda {
    */
   personalizacion?: string | null
 
+  /**
+   * Cómo se llama UNA bebida de esta familia ("Kombucha", "Hydration
+   * Drink"). Lo manda la base cuando la categoría tiene nombre en singular.
+   *
+   * Existe porque en barra se confundían: "Lemon Twist" es Hydration,
+   * "Lemon Glow" es Collagen y "Lemon Lime" es Amino — con varias en cola,
+   * el sabor solo no alcanza para saber qué preparar.
+   */
+  categoria?: string | null
+
   // Campos ya separados. Opcionales a propósito: la base todavía no los
   // emite, pero el día que lo haga el agente los usa sin tocar nada más.
   tamano?: string | null

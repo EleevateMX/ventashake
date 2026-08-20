@@ -7,7 +7,7 @@ import {
   type OrdenConItems,
 } from '@shake/supabase'
 import { imprimirTicket, type TicketData } from '@shake/ui'
-import { mxn } from '@shake/utils'
+import { mxn, mensajeDeError } from '@shake/utils'
 import type { MetodoPago } from '@shake/types'
 
 const METODOS: { key: MetodoPago; label: string; icon: string }[] = [
@@ -42,7 +42,7 @@ export function PedidosPendientes() {
       setOrdenes(data)
       setError(null)
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(mensajeDeError(e))
     } finally {
       setCargando(false)
     }
@@ -82,7 +82,7 @@ export function PedidosPendientes() {
       setOrdenSeleccionada(null)
       await cargar()
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(mensajeDeError(e))
     } finally {
       setCobrando(false)
     }

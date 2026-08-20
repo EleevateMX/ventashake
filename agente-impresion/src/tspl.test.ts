@@ -12,7 +12,7 @@ import {
   type EtiquetaComanda,
 } from './tspl.js'
 import {
-  etiquetasDeTrabajo, formatearFecha, porEtiqueta, repartirPersonalizacion,
+  etiquetasDeTrabajo, formatearFecha, porEtiqueta, repartirPersonalizacion, conFamilia,
 } from './etiquetas.js'
 import type { TrabajoImpresion } from './types.js'
 
@@ -371,5 +371,48 @@ describe('vista previa', () => {
     expect(dibujo).toContain('JAVIER')
     expect(dibujo).toContain('[20 OZ]')
     expect(dibujo).toContain('+S/CREMA')
+  })
+})
+
+describe('familia de la bebida en el nombre', () => {
+  it('antepone la familia: en barra "Lemon Twist" solo no dice qué preparar', () => {
+    expect(conFamilia('Hydration Drink', 'Lemon Twist')).toBe('Hydration Drink - Lemon Twist')
+    expect(conFamilia('Kombucha', 'Limonada Durazno')).toBe('Kombucha - Limonada Durazno')
+  })
+
+  it('sin familia deja el nombre tal cual — un shake se lee bien solo', () => {
+    expect(conFamilia(null, '#1 Choco Killer')).toBe('#1 Choco Killer')
+    expect(conFamilia('   ', 'El Clásico')).toBe('El Clásico')
+    expect(conFamilia(undefined, 'Waffle')).toBe('Waffle')
+  })
+
+  it('no repite la familia si el producto ya empieza con ella', () => {
+    expect(conFamilia('Hydration Drink', 'Hydration Drink Lemon Twist'))
+      .toBe('Hydration Drink Lemon Twist')
+  })
+
+  it('el nombre compuesto más largo sigue cabiendo en la etiqueta', () => {
+    // Es el caso real más largo: familia larga + sabor de dos palabras,
+    // con spec cargada. Si esto desborda, la etiqueta sale mutilada y en
+    // barra preparan a ciegas.
+    const e: EtiquetaComanda = {
+      destino: 'Bebidas', ticket: '999', item: 1, deTotal: 1,
+      nombre: 'Guadalupe',
+      producto: conFamilia('Hydration Drink', 'Watermelon Splash'),
+      tamano: '20 OZ',
+      proteina: 'OPTIMUM VAINILLA',
+      leche: 'Leche de almendras',
+      extras: ['DOBLE SCOOP', 'CREATINA'],
+      notas: 'sin azucar, extra frio',
+      fecha: '20/08 13:00', frase: 'No pain, no gain',
+    }
+    const tspl = generarTSPL(e)
+    const xs = tspl.split('\r\n')
+      .filter((l) => l.startsWith('TEXT'))
+      .map((l) => Number(l.slice(5).split(',')[0]))
+    // X va descendiendo; por debajo de 24 dots el generador marca desborde.
+    expect(Math.min(...xs)).toBeGreaterThan(24)
+    expect(tspl).toContain('HYDRATION')
+    expect(tspl).toContain('WATERMELON')
   })
 })

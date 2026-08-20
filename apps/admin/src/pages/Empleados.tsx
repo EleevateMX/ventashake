@@ -5,6 +5,7 @@ import {
   type EmpleadoAdmin, type Rol,
 } from '@shake/supabase'
 import { PageHeader, Loading, ErrorMsg, OkMsg, Panel, Field, cx } from '../ui'
+import { mensajeDeError } from '@shake/utils'
 
 const ROL_COLOR: Record<string, string> = {
   Administrador: 'bg-sa-blueberry/15 text-sa-blueberry',
@@ -34,7 +35,7 @@ export default function Empleados() {
       setForm((f) => (f.rol_id ? f : { ...f, rol_id: rls.find((r) => r.nombre === 'Cajero')?.id ?? rls[0]?.id ?? '' }))
       setError(null)
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(mensajeDeError(e))
     } finally {
       setCargando(false)
     }
@@ -61,7 +62,7 @@ export default function Empleados() {
       setForm({ ...VACIO, rol_id: form.rol_id })
       await cargar()
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(mensajeDeError(e))
     } finally {
       setGuardando(false)
     }
@@ -73,7 +74,7 @@ export default function Empleados() {
       await actualizarEmpleado(sb, emp.id, { activo: !emp.activo })
       await cargar()
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(mensajeDeError(e))
     }
   }
 

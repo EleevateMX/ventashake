@@ -282,7 +282,14 @@ export interface ExtraDeProducto {
   producto_id: string
   extra_id: string
   nombre: string
+  /** Precio efectivo EN ESTE producto (el sobreprecio del vínculo, si tiene). */
   precio: number
+  /**
+   * Extras del mismo producto que comparten grupo se eligen entre sí, uno
+   * solo (así se ofrece "americano frío o caliente" dentro de un paquete).
+   * Null = adicional suelto, con cantidad.
+   */
+  grupo: string | null
   activo: boolean
 }
 
@@ -418,6 +425,11 @@ export interface ProductoDeExtra {
   nombre: string
   categoria: string
   ofrecido: boolean
+  /** Sobreprecio propio en ESTE producto; null = cobra el precio del extra. */
+  precio_propio: number | null
+  /** El precio normal del extra, para mostrarlo como referencia. */
+  precio_base: number
+  grupo: string | null
 }
 
 /**
@@ -445,6 +457,103 @@ export async function vincularExtraBebida(
     p_producto_id: productoId,
     p_ofrecer: ofrecer,
   })
+  if (error) throw error
+}
+
+/**
+ * Precio de ESTE extra en ESTE producto. `null` devuelve el vínculo a
+ * cobrar el precio normal del extra.
+ *
+ * Es lo que hace que la misma leche cueste $10 en un americano y $0 en un
+ * shake, o que cambiar de proteína sume $10 solo en los shakes que lo
+ * cobran — sin duplicar productos.
+ */
+export async function precioExtraEnProducto(
+  sb: ShakeClient,
+  extraId: string,
+  productoId: string,
+  precio: number | null,
+): Promise<void> {
+  const { error } = await (sb.rpc as unknown as RpcCatalogo)('fn_extra_bebida_precio', {
+    p_extra_id: extraId,
+    p_producto_id: productoId,
+    p_precio: precio,
+  })
+  if (error) throw error
+}
+
+/** Grupo del extra en ese producto: los del mismo grupo se eligen entre sí. */
+export async function grupoExtraEnProducto(
+  sb: ShakeClient,
+  extraId: string,
+  productoId: string,
+  grupo: string | null,
+): Promise<void> {
+  const { error } = await (sb.rpc as unknown as RpcCatalogo)('fn_extra_bebida_grupo', {
+    p_extra_id: extraId,
+    p_producto_id: productoId,
+    p_grupo: grupo,
+  })
+  if (error) throw error
+}
+
+// ---------------------------- observaciones ----------------------------
+// Los chips de "menos hielo" / "sin tomate" que el kiosko ofrece al
+// personalizar. Vivían escritos en el código del kiosko: cambiar uno
+// obligaba a desplegar. Ahora los administra la sucursal.
+
+export interface Observacion {
+  id: string
+  texto: string
+  orden: number
+}
+
+export interface ObservacionAdmin extends Observacion {
+  cocina_id: string
+  cocina: string
+  activa: boolean
+}
+
+/** Las activas de una estación, para el kiosko. */
+export async function listarObservaciones(sb: ShakeClient, cocinaSlug: string): Promise<Observacion[]> {
+  const { data, error } = await (sb.rpc as unknown as RpcCatalogo)('fn_observaciones', {
+    p_cocina_slug: cocinaSlug,
+  })
+  if (error) throw error
+  return (data ?? []) as Observacion[]
+}
+
+/** Todas, incluidas las apagadas, para Admin. */
+export async function listarObservacionesAdmin(sb: ShakeClient): Promise<ObservacionAdmin[]> {
+  const { data, error } = await (sb.rpc as unknown as RpcCatalogo)('fn_observaciones_admin', {})
+  if (error) throw error
+  return (data ?? []) as ObservacionAdmin[]
+}
+
+export async function guardarObservacion(
+  sb: ShakeClient,
+  cocinaSlug: string,
+  texto: string,
+  orden = 100,
+): Promise<void> {
+  const { error } = await (sb.rpc as unknown as RpcCatalogo)('fn_observacion_guardar', {
+    p_cocina_slug: cocinaSlug,
+    p_texto: texto,
+    p_orden: orden,
+  })
+  if (error) throw error
+}
+
+export async function activarObservacion(sb: ShakeClient, id: string, activa: boolean): Promise<void> {
+  const { error } = await (sb.rpc as unknown as RpcCatalogo)('fn_observacion_activar', {
+    p_id: id,
+    p_activa: activa,
+  })
+  if (error) throw error
+}
+
+export async function borrarObservacion(sb: ShakeClient, id: string): Promise<void> {
+  const { error } = await (sb.rpc as unknown as RpcCatalogo)('fn_observacion_borrar', { p_id: id })
   if (error) throw error
 }
 

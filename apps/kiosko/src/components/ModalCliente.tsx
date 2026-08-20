@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { identificarCliente, registrarCliente } from '@shake/supabase'
 import type { ClienteConLealtad } from '@shake/supabase'
 import { sb } from '@/lib/sb'
+import { mensajeDeError } from '@shake/utils'
 
 /**
  * Identificar al cliente en el kiosko-cajero, para que la compra le sume
@@ -58,7 +59,7 @@ export function ModalCliente({ onCerrar, onElegir }: Props) {
         setEstado('no_existe')
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(mensajeDeError(e))
       setEstado('buscar')
     }
   }
@@ -73,7 +74,7 @@ export function ModalCliente({ onCerrar, onElegir }: Props) {
       // Recién creado: cero cupones. No hace falta ir a buscarlos.
       onElegir({ ...nuevo, cupones: [] })
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(mensajeDeError(e))
       setEstado('no_existe')
     }
   }

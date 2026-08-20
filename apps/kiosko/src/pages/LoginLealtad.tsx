@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { iniciarSesionGoogle } from '@shake/supabase'
 import { useCarrito } from '@/store/carritoStore'
 import { sb } from '@/lib/sb'
+import { mensajeDeError } from '@shake/utils'
 
 const GoogleIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24">
@@ -28,7 +29,7 @@ export function LoginLealtad() {
     } catch (e) {
       // Google todavía sin habilitar en Supabase Auth: se avisa aquí en vez
       // de mandar al cliente a la pantalla de error cruda de Supabase.
-      const raw = (e instanceof Error ? e.message : String(e)).toLowerCase()
+      const raw = (mensajeDeError(e)).toLowerCase()
       setError(
         raw.includes('provider is not enabled') || raw.includes('unsupported provider')
           ? 'Los puntos estarán disponibles en un momentito. Puedes continuar sin registrarte. 🥤'

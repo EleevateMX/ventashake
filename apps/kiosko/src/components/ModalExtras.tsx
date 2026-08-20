@@ -5,6 +5,8 @@ import type { ProductoVenta, ExtraDeProducto } from '@shake/supabase'
 interface Props {
   producto: ProductoVenta | null
   extras: ExtraDeProducto[]
+  /** Chips por estación, administrados desde Admin -> Observaciones. */
+  observaciones?: Record<string, string[]>
   onCerrar: () => void
   onAgregar: (nota: string | null, extrasElegidos: ExtraDeProducto[]) => void
 }
@@ -15,6 +17,39 @@ interface Props {
  * viaja igual que una leche — pegada al shake, no como línea aparte.
  */
 const esBase = (nombre: string) => /^(leche\b|agua\b|sin leche)/i.test(nombre.trim())
+
+/**
+ * Orden en que la sucursal quiere ver las bases (pedido del 20/08/26).
+ *
+ * Alfabético no servía: dejaba "Leche de almendras" antes que la
+ * deslactosada, que es la que más se pide después de la entera. El agua va
+ * al inicio donde ya estaba, y "Sin leche" al final —solo la traen los
+ * cafés, donde es el estado natural y no hay que ir a buscarla.
+ *
+ * Lo que no esté en esta lista se va al final en alfabético: una leche
+ * nueva dada de alta en Admin aparece sola, sin tocar código.
+ */
+const ORDEN_BASES = [
+  'agua',
+  'agua mineral',
+  'leche entera',
+  'leche deslactosada',
+  'leche deslactosada light',
+  'leche de almendras',
+  'leche de avena',
+  'leche de coco',
+  'sin leche',
+]
+
+const clavesBase = (nombre: string) => nombre.trim().toLowerCase()
+
+function ordenarBases(bases: ExtraDeProducto[]): ExtraDeProducto[] {
+  return [...bases].sort((a, b) => {
+    const ia = ORDEN_BASES.indexOf(clavesBase(a.nombre))
+    const ib = ORDEN_BASES.indexOf(clavesBase(b.nombre))
+    return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib) || a.nombre.localeCompare(b.nombre)
+  })
+}
 
 /**
  * Las galletas son una promoción: +$5 por 2 piezas, una vez por shake. Se
@@ -89,10 +124,20 @@ const ORDEN_MARCAS = [
  * toque, y la etiqueta ya sabe abreviarlas ("menos hielo" → +-HIELO,
  * "sin tomate" → +S/TOMATE).
  */
-const OBSERVACIONES: Record<string, string[]> = {
+const OBSERVACIONES_RESPALDO: Record<string, string[]> = {
   bebidas: ['Menos hielo', 'Sin hielo', 'Extra frío', 'Sin azúcar', 'Sin crema'],
   alimentos: ['Sin tomate', 'Sin cebolla', 'Sin queso', 'Sin aderezo', 'Aderezo aparte', 'Sin picante'],
 }
+
+/**
+ * El extra que pide doble scoop de proteína.
+ *
+ * Se maneja aparte de la lista de adicionales porque su lugar natural es
+ * junto a la proteína, no perdido entre creatina y colágeno — y porque
+ * aplica igual a los shakes que no dejan elegir proteína (un Blueberry
+ * Bloom lleva la suya, pero el cliente puede querer doble).
+ */
+const esDobleScoop = (nombre: string) => /doble\s+scoop/i.test(nombre.trim())
 
 /**
  * "Proteína BIRDMAN - Fitmingo Blueberry" → marca BIRDMAN, sabor "Fitmingo
@@ -105,26 +150,53 @@ function marcaYSabor(nombre: string): { marca: string; sabor: string } {
   return { marca: 'OTRAS', sabor: nombre.replace(/^prote[ií]na\s*/i, '') }
 }
 
-export function ModalExtras({ producto, extras, onCerrar, onAgregar }: Props) {
+export function ModalExtras({ producto, extras, observaciones: catalogoObs, onCerrar, onAgregar }: Props) {
   const [leche, setLeche] = useState<string | null>(null)
   const [verLeches, setVerLeches] = useState(false)
   const [proteina, setProteina] = useState<string | null>(null)
   const [verProteinas, setVerProteinas] = useState(false)
   const [marcaAbierta, setMarcaAbierta] = useState<string | null>(null)
   const [galleta, setGalleta] = useState<string | null>(null)
+  const [dobleScoop, setDobleScoop] = useState(false)
+  /** Elección dentro de cada grupo configurado en Admin ({grupo: extra_id}). */
+  const [porGrupo, setPorGrupo] = useState<Record<string, string>>({})
   const [cantidades, setCantidades] = useState<Record<string, number>>({})
   const [observaciones, setObservaciones] = useState<string[]>([])
 
   if (!producto) return null
 
-  const leches = extras.filter((e) => esBase(e.nombre))
+  const leches = ordenarBases(extras.filter((e) => esBase(e.nombre)))
   const galletas = extras.filter((e) => esGalleta(e.nombre))
   const proteinas = extras.filter((e) => esProteina(e.nombre))
+  const doble = extras.find((e) => esDobleScoop(e.nombre)) ?? null
+  /**
+   * Grupos armados desde Admin (producto_extras.grupo): los extras que
+   * comparten grupo se eligen entre sí, uno solo. Es lo que permite
+   * ofrecer "americano frío o caliente" dentro de un paquete sin crear un
+   * producto por combinación. 'proteina' se excluye porque ya tiene su
+   * propia sección de dos pasos.
+   */
+  const gruposConfigurados = [
+    ...new Set(
+      extras
+        .filter((e) => e.grupo && e.grupo !== 'proteina' && !esBase(e.nombre) && !esGalleta(e.nombre))
+        .map((e) => e.grupo as string),
+    ),
+  ]
   const adicionales = extras.filter(
-    (e) => !esBase(e.nombre) && !esGalleta(e.nombre) && !esProteina(e.nombre),
+    (e) =>
+      !esBase(e.nombre) &&
+      !esGalleta(e.nombre) &&
+      !esProteina(e.nombre) &&
+      !esDobleScoop(e.nombre) &&
+      !(e.grupo && gruposConfigurados.includes(e.grupo)),
   )
   const hayAgua = leches.some((l) => /^agua\b/i.test(l.nombre))
-  const obsDisponibles = OBSERVACIONES[producto.categorias?.cocinas?.slug ?? ''] ?? []
+  const slugCocina = producto.categorias?.cocinas?.slug ?? ''
+  // Las de la base mandan; el catálogo del código solo cubre el arranque
+  // (y el caso de que la consulta falle).
+  const obsDisponibles =
+    catalogoObs?.[slugCocina]?.length ? catalogoObs[slugCocina] : OBSERVACIONES_RESPALDO[slugCocina] ?? []
 
   // Marcas en el orden del negocio (económica → elevada); las que no están
   // en la lista van al final en alfabético.
@@ -146,10 +218,24 @@ export function ModalExtras({ producto, extras, onCerrar, onAgregar }: Props) {
   const proteinaDefault =
     proteinas.find((p) => PROTEINA_DEFAULT.test(p.nombre)) ?? proteinas[0] ?? null
   const proteinaElegida = proteinas.find((p) => p.extra_id === proteina) ?? proteinaDefault
+  /**
+   * Lo elegido en cada grupo. Si el cliente no tocó el grupo vale la
+   * primera opción — la misma que se ve marcada en pantalla: si aquí no se
+   * respetara ese default, el kiosko mostraría una opción seleccionada que
+   * nunca llegaría a la comanda.
+   */
+  const elegidosDeGrupo = gruposConfigurados
+    .map((g) => {
+      const opciones = extras.filter((e) => e.grupo === g)
+      return opciones.find((e) => e.extra_id === porGrupo[g]) ?? opciones[0] ?? null
+    })
+    .filter((e): e is ExtraDeProducto => e !== null)
   const totalExtras =
     (lecheElegida?.precio ?? 0) +
     (proteinaElegida?.precio ?? 0) +
     (galletaElegida?.precio ?? 0) +
+    (dobleScoop && doble ? doble.precio : 0) +
+    elegidosDeGrupo.reduce((s, e) => s + e.precio, 0) +
     adicionales.reduce((s, e) => s + e.precio * (cantidades[e.extra_id] ?? 0), 0)
 
   function cambiar(id: string, delta: number) {
@@ -165,6 +251,7 @@ export function ModalExtras({ producto, extras, onCerrar, onAgregar }: Props) {
   function limpiar() {
     setLeche(null); setVerLeches(false); setProteina(null); setVerProteinas(false)
     setMarcaAbierta(null); setGalleta(null); setCantidades({}); setObservaciones([])
+    setDobleScoop(false); setPorGrupo({})
   }
 
   function confirmar() {
@@ -186,7 +273,9 @@ export function ModalExtras({ producto, extras, onCerrar, onAgregar }: Props) {
     const elegidos = [
       ...(baseCobrada ? [baseCobrada] : []),
       ...(proteinaElegida ? [proteinaElegida] : []),
+      ...(dobleScoop && doble ? [doble] : []),
       ...(galletaElegida ? [galletaElegida] : []),
+      ...elegidosDeGrupo,
       ...adicionales.flatMap((e) =>
         Array.from({ length: cantidades[e.extra_id] ?? 0 }, () => e),
       ),
@@ -334,6 +423,65 @@ export function ModalExtras({ producto, extras, onCerrar, onAgregar }: Props) {
               )}
             </section>
           )}
+
+          {doble && (
+            <section>
+              {proteinas.length === 0 && (
+                <h3 className="font-display text-xl text-sa-green-ink mb-3">Proteína</h3>
+              )}
+              <button
+                onClick={() => setDobleScoop((v) => !v)}
+                className={`w-full flex items-center justify-between gap-3 px-4 py-3.5 rounded-sa border-2 text-left transition-all ${
+                  dobleScoop
+                    ? 'bg-sa-strawberry text-white border-sa-strawberry'
+                    : 'bg-white border-sa-green-ink/10 text-sa-green-ink hover:border-sa-strawberry/40'
+                }`}
+              >
+                <span>
+                  <span className="font-display text-lg leading-tight block">Doble scoop</span>
+                  <span className={`font-mono text-xs ${dobleScoop ? 'opacity-90' : 'opacity-60'}`}>
+                    {dobleScoop ? 'Va con doble proteína' : `El doble de proteína · +${mxn(doble.precio)}`}
+                  </span>
+                </span>
+                <span className="font-display text-2xl flex-shrink-0">{dobleScoop ? '2×' : '+'}</span>
+              </button>
+            </section>
+          )}
+
+          {gruposConfigurados.map((g) => {
+            const opciones = extras.filter((e) => e.grupo === g)
+            if (opciones.length === 0) return null
+            const elegido = porGrupo[g] ?? opciones[0].extra_id
+            return (
+              <section key={g}>
+                <h3 className="font-display text-xl text-sa-green-ink">{g}</h3>
+                <p className="font-mono text-[10px] uppercase tracking-wide text-sa-green-ink/40 mb-3">
+                  Elige una
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  {opciones.map((o) => {
+                    const activa = elegido === o.extra_id
+                    return (
+                      <button
+                        key={o.extra_id}
+                        onClick={() => setPorGrupo((prev) => ({ ...prev, [g]: o.extra_id }))}
+                        className={`px-4 py-3 rounded-sa text-left transition-all border-2 ${
+                          activa
+                            ? 'bg-sa-green text-sa-cream border-sa-green'
+                            : 'bg-white border-sa-green-ink/10 text-sa-green-ink hover:border-sa-green/40'
+                        }`}
+                      >
+                        <span className="font-display text-base leading-tight block">{o.nombre}</span>
+                        {o.precio > 0 && (
+                          <span className="font-mono text-xs opacity-70">+{mxn(o.precio)}</span>
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+              </section>
+            )
+          })}
 
           {galletas.length > 0 && (
             <section>

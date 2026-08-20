@@ -7,6 +7,7 @@ import {
 } from '@shake/supabase'
 import type { ConfiguracionKiosko, ModoPagoKiosko } from '@shake/types'
 import { PageHeader, Loading, ErrorMsg, OkMsg, Panel, cx, Chip } from '../ui'
+import { mensajeDeError } from '@shake/utils'
 
 interface Indicador {
   label: string
@@ -85,7 +86,7 @@ export default function Sistema() {
       setConfigs(configsData)
       setError(null)
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(mensajeDeError(e))
     } finally {
       setCargando(false)
     }
@@ -104,7 +105,7 @@ export default function Sistema() {
       setOk('Modo de pago del kiosko actualizado.')
       await cargar()
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(mensajeDeError(e))
     }
   }
 
@@ -117,7 +118,7 @@ export default function Sistema() {
       setOk(`Reconciliación completa: ${resultado.length} corrección(es), ${expiradas} orden(es) expirada(s).`)
       await cargar()
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(mensajeDeError(e))
     } finally {
       setReconciliando(false)
     }

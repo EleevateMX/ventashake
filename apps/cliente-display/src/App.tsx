@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { sb } from './lib/sb'
 import { listarPedidosActivos, suscribirPedidosCocina } from '@shake/supabase'
 import type { PedidoConItems } from '@shake/supabase'
+import { mensajeDeError } from '@shake/utils'
 
 interface FolioAgrupado {
   folio: number
@@ -36,7 +37,7 @@ export default function App() {
       setPedidos(await listarPedidosActivos(sb))
       setError(null)
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(mensajeDeError(e))
     } finally {
       setCargando(false)
     }

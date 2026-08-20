@@ -11,11 +11,17 @@ import {
   activarExtraBebida,
   productosDeExtra,
   vincularExtraBebida,
+  precioExtraEnProducto,
+  listarObservacionesAdmin,
+  guardarObservacion,
+  activarObservacion,
+  borrarObservacion,
 } from '@shake/supabase'
 import type {
   ProductoVenta, ExtraDeProducto, IngredienteExtraible, ExtraBebidaAdmin, ProductoDeExtra,
+  ObservacionAdmin,
 } from '@shake/supabase'
-import { mxn } from '@shake/utils'
+import { mxn, mensajeDeError } from '@shake/utils'
 import { Panel, PageHeader, Loading, ErrorMsg, OkMsg, Chip, cx } from '../ui'
 
 /**
@@ -30,6 +36,12 @@ export default function Extras() {
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [ok, setOk] = useState<string | null>(null)
+
+  // --- observaciones (los chips de "menos hielo" / "sin tomate") ---
+  const [observaciones, setObservaciones] = useState<ObservacionAdmin[]>([])
+  const [obsTexto, setObsTexto] = useState('')
+  const [obsEstacion, setObsEstacion] = useState<'bebidas' | 'alimentos'>('bebidas')
+  const [guardandoObs, setGuardandoObs] = useState(false)
 
   // --- extras de shakes (leches, proteínas, agua) ---
   const [bebida, setBebida] = useState<ExtraBebidaAdmin[]>([])
@@ -68,15 +80,17 @@ export default function Extras() {
 
   async function cargar() {
     try {
-      const [ps, exs, bs] = await Promise.all([
+      const [ps, exs, bs, obs] = await Promise.all([
         listarProductosParaVenta(sb), listarExtras(sb), listarExtrasBebidaAdmin(sb),
+        listarObservacionesAdmin(sb),
       ])
       setProductos(ps)
       setExtras(exs)
       setBebida(bs)
+      setObservaciones(obs)
       setError(null)
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(mensajeDeError(e))
     } finally {
       setCargando(false)
     }
@@ -102,7 +116,7 @@ export default function Extras() {
       await cargar()
       setTimeout(() => setOk(null), 4000)
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(mensajeDeError(e))
     } finally {
       setGuardandoBebida(false)
     }
@@ -120,9 +134,78 @@ export default function Extras() {
     try {
       setProductosDelExtra(await productosDeExtra(sb, extraId))
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(mensajeDeError(e))
     } finally {
       setCargandoVinculos(false)
+    }
+  }
+
+  async function agregarObservacion() {
+    const texto = obsTexto.trim()
+    if (!texto) return
+    setGuardandoObs(true)
+    setError(null)
+    try {
+      // El orden manda al final de su estación; se reacomoda editando.
+      const ultimas = observaciones.filter((o) => o.cocina.toLowerCase().startsWith(obsEstacion[0]))
+      await guardarObservacion(sb, obsEstacion, texto, (ultimas.length + 1) * 10)
+      setObsTexto('')
+      setObservaciones(await listarObservacionesAdmin(sb))
+      setOk(`"${texto}" ya aparece en el kiosko.`)
+      setTimeout(() => setOk(null), 3500)
+    } catch (e) {
+      setError(mensajeDeError(e))
+    } finally {
+      setGuardandoObs(false)
+    }
+  }
+
+  async function alternarObservacion(o: ObservacionAdmin) {
+    setError(null)
+    try {
+      await activarObservacion(sb, o.id, !o.activa)
+      setObservaciones(await listarObservacionesAdmin(sb))
+    } catch (e) {
+      setError(mensajeDeError(e))
+    }
+  }
+
+  async function eliminarObservacion(o: ObservacionAdmin) {
+    setError(null)
+    try {
+      await borrarObservacion(sb, o.id)
+      setObservaciones(await listarObservacionesAdmin(sb))
+    } catch (e) {
+      setError(mensajeDeError(e))
+    }
+  }
+
+  /**
+   * Precio de un extra SOLO en ese producto. Vacío devuelve el vínculo a
+   * cobrar el precio normal del extra.
+   */
+  async function cambiarPrecioVinculo(extraId: string, prod: ProductoDeExtra, valor: string) {
+    const limpio = valor.trim()
+    const precio = limpio === '' ? null : Number(limpio)
+    if (precio !== null && (!Number.isFinite(precio) || precio < 0)) return
+    if (precio === (prod.precio_propio ?? null)) return
+    setCambiandoVinculo(prod.producto_id)
+    setError(null)
+    try {
+      await precioExtraEnProducto(sb, extraId, prod.producto_id, precio)
+      setProductosDelExtra((prev) =>
+        prev.map((p) => (p.producto_id === prod.producto_id ? { ...p, precio_propio: precio } : p)),
+      )
+      setOk(
+        precio === null
+          ? `${prod.nombre}: vuelve a cobrar el precio normal del extra.`
+          : `${prod.nombre}: este extra cuesta ${mxn(precio)} aquí.`,
+      )
+      setTimeout(() => setOk(null), 3500)
+    } catch (e) {
+      setError(mensajeDeError(e))
+    } finally {
+      setCambiandoVinculo(null)
     }
   }
 
@@ -140,7 +223,7 @@ export default function Extras() {
       )
       setBebida(await listarExtrasBebidaAdmin(sb))
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(mensajeDeError(e))
     } finally {
       setCambiandoVinculo(null)
     }
@@ -152,7 +235,7 @@ export default function Extras() {
       await activarExtraBebida(sb, e.id, !e.activo)
       await cargar()
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      setError(mensajeDeError(err))
     }
   }
 
@@ -168,7 +251,7 @@ export default function Extras() {
     try {
       setIngredientes(await extrasDisponibles(sb, productoId))
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(mensajeDeError(e))
     } finally {
       setCargandoIngs(false)
     }
@@ -194,7 +277,7 @@ export default function Extras() {
       setIngredientes(await extrasDisponibles(sb, productoId))
       setTimeout(() => setOk(null), 3000)
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(mensajeDeError(e))
     } finally {
       setGuardandoInsumo(null)
     }
@@ -207,7 +290,7 @@ export default function Extras() {
       await cargar()
       if (abierto) setIngredientes(await extrasDisponibles(sb, abierto))
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(mensajeDeError(e))
     }
   }
 
@@ -222,6 +305,90 @@ export default function Extras() {
 
       {error && <ErrorMsg>{error}</ErrorMsg>}
       {ok && <OkMsg>{ok}</OkMsg>}
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Observaciones: los chips que el kiosko ofrece al personalizar.      */}
+      {/* Antes vivían escritos en el código y cambiar uno exigía desplegar.  */}
+      {/* ------------------------------------------------------------------ */}
+      <Panel className="mb-6">
+        <h3 className={cx.h3}>Observaciones del pedido</h3>
+        <p className={`${cx.muted} text-sm mt-1 mb-4`}>
+          Los botones que aparecen al personalizar en el kiosko («menos hielo», «sin tomate»).
+          Van a la comanda y a la etiqueta, así que conviene que sean cortos.
+        </p>
+
+        <div className="flex flex-wrap items-end gap-3 mb-5">
+          <div>
+            <label className={cx.label}>Estación</label>
+            <select
+              className={cx.input}
+              value={obsEstacion}
+              onChange={(ev) => setObsEstacion(ev.target.value as 'bebidas' | 'alimentos')}
+            >
+              <option value="bebidas">Bebidas</option>
+              <option value="alimentos">Alimentos</option>
+            </select>
+          </div>
+          <div className="flex-1 min-w-[200px]">
+            <label className={cx.label}>Nueva observación</label>
+            <input
+              className={cx.input}
+              maxLength={24}
+              placeholder="Ej. Sin popote"
+              value={obsTexto}
+              onChange={(ev) => setObsTexto(ev.target.value)}
+              onKeyDown={(ev) => { if (ev.key === 'Enter') void agregarObservacion() }}
+            />
+          </div>
+          <button
+            className={cx.btnPrimary}
+            disabled={guardandoObs || !obsTexto.trim()}
+            onClick={() => void agregarObservacion()}
+          >
+            {guardandoObs ? 'Guardando…' : '+ Agregar'}
+          </button>
+        </div>
+
+        {observaciones.length === 0 && (
+          <p className={cx.muted}>Todavía no hay observaciones configuradas.</p>
+        )}
+        <div className="grid gap-5 md:grid-cols-2">
+          {['Bebidas', 'Alimentos'].map((estacion) => {
+            const suyas = observaciones.filter((o) => o.cocina === estacion)
+            if (suyas.length === 0) return null
+            return (
+              <div key={estacion}>
+                <p className="font-mono text-xs uppercase tracking-wide text-sa-green mb-2">{estacion}</p>
+                <div className="space-y-1.5">
+                  {suyas.map((o) => (
+                    <div
+                      key={o.id}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-sa bg-white border text-sm ${
+                        o.activa ? 'border-sa-green/40' : 'border-sa-green-ink/10 opacity-60'
+                      }`}
+                    >
+                      <span className="flex-1 truncate text-sa-green-ink">{o.texto}</span>
+                      <button
+                        className="font-mono text-[11px] uppercase tracking-wide text-sa-green-ink/60 hover:text-sa-green-ink"
+                        onClick={() => void alternarObservacion(o)}
+                      >
+                        {o.activa ? 'Apagar' : 'Prender'}
+                      </button>
+                      <button
+                        className="font-mono text-[11px] uppercase tracking-wide text-sa-strawberry/70 hover:text-sa-strawberry"
+                        onClick={() => void eliminarObservacion(o)}
+                        title="Borrar definitivamente"
+                      >
+                        Borrar
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </Panel>
 
       {/* ------------------------------------------------------------------ */}
       {/* Extras de shakes: leches, proteínas, agua. Aquí la sucursal da de  */}
@@ -343,23 +510,42 @@ export default function Extras() {
                                     pr.nombre.toLowerCase().includes(filtroVinculos.toLowerCase()),
                                   )
                                   .map((pr) => (
-                                    <label
+                                    <div
                                       key={pr.producto_id}
-                                      className={`flex items-center gap-2.5 px-3 py-2 rounded-sa bg-white border text-sm cursor-pointer ${
+                                      className={`flex items-center gap-2 px-3 py-2 rounded-sa bg-white border text-sm ${
                                         pr.ofrecido
                                           ? 'border-sa-green/40'
                                           : 'border-sa-green-ink/10'
                                       } ${cambiandoVinculo === pr.producto_id ? 'opacity-50' : ''}`}
                                     >
-                                      <input
-                                        type="checkbox"
-                                        className="w-4 h-4 accent-sa-green"
-                                        checked={pr.ofrecido}
-                                        disabled={cambiandoVinculo === pr.producto_id}
-                                        onChange={() => void toggleVinculo(e.id, pr)}
-                                      />
-                                      <span className="truncate text-sa-green-ink">{pr.nombre}</span>
-                                    </label>
+                                      <label className="flex items-center gap-2.5 min-w-0 flex-1 cursor-pointer">
+                                        <input
+                                          type="checkbox"
+                                          className="w-4 h-4 accent-sa-green shrink-0"
+                                          checked={pr.ofrecido}
+                                          disabled={cambiandoVinculo === pr.producto_id}
+                                          onChange={() => void toggleVinculo(e.id, pr)}
+                                        />
+                                        <span className="truncate text-sa-green-ink">{pr.nombre}</span>
+                                      </label>
+                                      {/* Precio de ESTE extra en ESTE producto: es lo que
+                                          hace que la leche cueste $10 en un americano y $0
+                                          en un shake, o que cambiar de proteína sume $10.
+                                          Vacío = cobra el precio normal del extra. */}
+                                      {pr.ofrecido && (
+                                        <input
+                                          type="number"
+                                          min="0"
+                                          step="1"
+                                          title={`Precio en ${pr.nombre}. Vacío = ${mxn(pr.precio_base)} (el del extra).`}
+                                          placeholder={String(pr.precio_base)}
+                                          defaultValue={pr.precio_propio ?? ''}
+                                          disabled={cambiandoVinculo === pr.producto_id}
+                                          onBlur={(ev) => void cambiarPrecioVinculo(e.id, pr, ev.target.value)}
+                                          className="w-16 shrink-0 px-2 py-1 border border-sa-green-ink/15 rounded text-right font-mono text-xs bg-sa-cream-soft/40"
+                                        />
+                                      )}
+                                    </div>
                                   ))}
                               </div>
                             </>

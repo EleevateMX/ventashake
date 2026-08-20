@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { sb } from '../lib/sb'
 import { ventasDiarias, productosMasVendidos } from '@shake/supabase'
 import type { VentaDiaria, ProductoVendido } from '@shake/types'
-import { mxn } from '@shake/utils'
+import { mxn, mensajeDeError } from '@shake/utils'
 import { PageHeader, Loading, ErrorMsg, Panel, cx } from '../ui'
 
 export default function Ventas() {
@@ -19,7 +19,7 @@ export default function Ventas() {
         setTop(t)
         setError(null)
       })
-      .catch((e) => setError(e instanceof Error ? e.message : String(e)))
+      .catch((e) => setError(mensajeDeError(e)))
       .finally(() => setCargando(false))
   }, [])
 

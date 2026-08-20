@@ -4,6 +4,7 @@ import React, { useState } from 'react'
 // jamás el pin_hash.
 import { loginCajero, type Empleado } from '@shake/supabase'
 import { sb } from '@/lib/sb'
+import { mensajeDeError } from '@shake/utils'
 
 interface Props {
   onEntrar: (empleado: Empleado) => void
@@ -38,7 +39,7 @@ export function CandadoCajero({ onEntrar }: Props) {
       }
       onEntrar(emp)
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(mensajeDeError(e))
       setPin('')
     } finally {
       setVerificando(false)
