@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { mxn } from '@shake/utils'
 import type { ProductoVenta, ExtraDeProducto } from '@shake/supabase'
+import { nombreParaOrdenar } from '@shake/supabase'
 
 interface Props {
   producto: ProductoVenta | null
@@ -53,7 +54,7 @@ export function ModalPersonalizar({ producto, extras, onCerrar, onAgregar }: Pro
       <div className="absolute inset-0 bg-sa-green-deep/60" onClick={cerrar} />
       <div className="relative bg-sa-cream-soft rounded-sa-lg shadow-sa w-full max-w-md max-h-[85vh] flex flex-col">
         <div className="px-5 py-4 border-b border-sa-green-ink/10">
-          <h3 className="font-display text-2xl text-sa-green-ink leading-tight">{producto.nombre}</h3>
+          <h3 className="font-display text-2xl text-sa-green-ink leading-tight">{nombreParaOrdenar(producto.nombre)}</h3>
           <p className="font-mono text-xs text-sa-green-ink/50 mt-0.5">{mxn(producto.precio)}</p>
         </div>
 

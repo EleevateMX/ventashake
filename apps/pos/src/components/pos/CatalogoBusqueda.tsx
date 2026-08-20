@@ -4,6 +4,7 @@ import { mxn } from '@shake/utils'
 import type { ProductoVenta, ExtraDeProducto } from '@shake/supabase'
 import type { CategoriaPOS } from '@/hooks/useProductosPOS'
 import { ModalPersonalizar } from './ModalPersonalizar'
+import { nombreParaOrdenar } from '@shake/supabase'
 
 interface Props {
   productos: ProductoVenta[]
@@ -160,7 +161,7 @@ export function CatalogoBusqueda({ productos, categorias, extras, productosExtra
                 className="flex flex-col items-center p-3 bg-white rounded-sa shadow-sa-sm border border-sa-green-ink/5 hover:border-sa-green/30 hover:-translate-y-0.5 active:scale-95 transition-all text-left group"
               >
                 {p.imagen_url ? (
-                  <img src={p.imagen_url} alt={p.nombre} className="w-16 h-16 rounded-sa object-cover mb-2" />
+                  <img src={p.imagen_url} alt={nombreParaOrdenar(p.nombre)} className="w-16 h-16 rounded-sa object-cover mb-2" />
                 ) : (
                   /* Sin foto: Milo, igual que en el kiosko — mismo lenguaje en
                      las dos pantallas, y de paso se ve de un vistazo a qué
@@ -175,7 +176,7 @@ export function CatalogoBusqueda({ productos, categorias, extras, productosExtra
                   </p>
                 )}
                 <p className="font-display text-sm text-sa-green-ink text-center leading-tight line-clamp-2 w-full">
-                  {p.nombre}
+                  {nombreParaOrdenar(p.nombre)}
                 </p>
                 {/* Los ingredientes del shake, para que el cajero conteste
                     "¿qué trae?" sin salirse de la pantalla ni preguntar. */}

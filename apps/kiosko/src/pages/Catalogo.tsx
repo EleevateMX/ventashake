@@ -4,6 +4,7 @@ import { Spinner } from '@shake/ui'
 import { useCarrito } from '@/store/carritoStore'
 import {
   listarProductosParaVenta, listarExtras, listarProductosExtra, listarObservaciones,
+  nombreParaOrdenar,
 } from '@shake/supabase'
 import type { ProductoVenta, ExtraDeProducto } from '@shake/supabase'
 import { sb } from '@/lib/sb'
@@ -255,7 +256,7 @@ export function Catalogo() {
                     <div className="w-full h-56 bg-white flex items-center justify-center">
                       <img
                         src={producto.imagen_url}
-                        alt={producto.nombre}
+                        alt={nombreParaOrdenar(producto.nombre)}
                         className="max-h-full max-w-full object-contain"
                       />
                     </div>
@@ -274,7 +275,7 @@ export function Catalogo() {
                 </div>
                 <div className="p-4">
                   <p className="font-display text-xl leading-tight text-sa-green-ink line-clamp-2">
-                    {producto.nombre}
+                    {nombreParaOrdenar(producto.nombre)}
                   </p>
                   {producto.descripcion && (
                     <p className="font-body text-xs text-sa-green-ink/60 mt-1 line-clamp-2">
@@ -288,7 +289,7 @@ export function Catalogo() {
                     <button
                       onClick={() => tocarAgregar(producto)}
                       className="w-14 h-14 rounded-full bg-sa-green text-sa-cream font-display text-3xl flex items-center justify-center shadow-sa-sm active:scale-95 transition-transform"
-                      aria-label={`Agregar ${producto.nombre}`}
+                      aria-label={`Agregar ${nombreParaOrdenar(producto.nombre)}`}
                     >
                       +
                     </button>

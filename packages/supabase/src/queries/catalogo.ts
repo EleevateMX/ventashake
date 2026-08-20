@@ -589,3 +589,21 @@ export async function quitarExtra(
   })
   if (error) throw error
 }
+
+/**
+ * Cómo se nombra un producto en la pantalla donde se ordena.
+ *
+ * Los scoops se llaman en la base "Scoop BIRDMAN FALCON - Chocolate": el
+ * prefijo lo pone la sincronización de costosshake, que además empata las
+ * recetas por ese nombre exacto y desactiva cualquier producto de la
+ * categoría Scoops que no lo lleve. Por eso el prefijo NO se le quita al
+ * dato —renombrarlos apagaría los 45 y crearía 45 duplicados— y se le quita
+ * solo aquí, al pintarlo.
+ *
+ * Sirve para que en la tarjeta quepa lo que de verdad hay que leer: la
+ * marca, el producto y su sabor. En comanda y etiqueta el nombre sigue
+ * completo, con su "Scoop" al frente, que es como en barra lo identifican.
+ */
+export function nombreParaOrdenar(nombre: string): string {
+  return nombre.replace(/^\s*scoop\s+/i, '').trim() || nombre
+}
