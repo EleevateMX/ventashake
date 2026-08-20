@@ -11,8 +11,11 @@ import {
   crearCategoria,
   subirFotoProducto,
   quitarFotoProducto,
+  listarCategoriasPantalla,
+  guardarCategoriaPantalla,
 } from '@shake/supabase'
 import type { Producto, Categoria, Cocina } from '@shake/types'
+import type { CategoriaPantalla } from '@shake/supabase'
 import { mxn, mensajeDeError } from '@shake/utils'
 import { Panel, PageHeader, Field, Loading, ErrorMsg, OkMsg, Chip, cx } from '../ui'
 
@@ -58,6 +61,9 @@ export default function Menu() {
   // Foto que se está subiendo (id del producto) para bloquear ese botón
   const [subiendoFoto, setSubiendoFoto] = useState<string | null>(null)
 
+  // A qué pantalla llega cada categoría
+  const [pantallas, setPantallas] = useState<CategoriaPantalla[]>([])
+
   async function cargar() {
     try {
       const [ps, cs, ks] = await Promise.all([
@@ -69,10 +75,22 @@ export default function Menu() {
       setCategorias(cs)
       setCocinas(ks)
       setError(null)
+      // Aparte y sin bloquear: si esto falla, el resto del Menú sigue usable.
+      void cargarPantallas()
     } catch (e) {
       setError(mensajeDeError(e))
     } finally {
       setCargando(false)
+    }
+  }
+
+  async function cargarPantallas() {
+    try {
+      setPantallas(await listarCategoriasPantalla(sb))
+    } catch {
+      // Silencio a propósito: es un panel secundario. Si la migración
+      // todavía no corre en esta base, el Menú no tiene por qué caerse.
+      setPantallas([])
     }
   }
 
@@ -209,6 +227,22 @@ export default function Menu() {
     }
   }
 
+  async function cambiarPantalla(cat: CategoriaPantalla, slug: string) {
+    setError(null)
+    try {
+      await guardarCategoriaPantalla(sb, cat.id, slug || null)
+      setOk(
+        slug
+          ? `"${cat.nombre}" ahora sale en la pantalla de ${slug}.`
+          : `"${cat.nombre}" ya no sale en ninguna pantalla. Se sigue vendiendo y registrando igual.`,
+      )
+      await cargarPantallas()
+      setTimeout(() => setOk(null), 4000)
+    } catch (e) {
+      setError(mensajeDeError(e))
+    }
+  }
+
   async function guardarCategoria() {
     if (!catNombre.trim() || !catCocinaId) return
     setGuardandoCat(true)
@@ -237,6 +271,49 @@ export default function Menu() {
       {ok && <OkMsg>{ok}</OkMsg>}
 
       <div className="space-y-6">
+        {/* A qué pantalla llega cada categoría */}
+        {pantallas.length > 0 && (
+          <Panel title="¿A qué pantalla llega cada categoría?">
+            <p className={`${cx.muted} mb-4`}>
+              Lo que se marca <strong>Ninguna</strong> se sigue vendiendo, cobrando y
+              guardando en la orden — solo deja de ocupar espacio en una pantalla de
+              producción. Es para lo que nadie prepara: un refresco del refrigerador,
+              una galleta del anaquel.
+            </p>
+            <div className={cx.tableWrap}>
+              <table className={cx.table}>
+                <thead>
+                  <tr className={cx.thead}>
+                    <th className={cx.th}>Categoría</th>
+                    <th className={cx.thNum}>Productos</th>
+                    <th className={cx.th}>Sale en la pantalla de</th>
+                  </tr>
+                </thead>
+                <tbody className={cx.tbody}>
+                  {pantallas.map((c) => (
+                    <tr key={c.id}>
+                      <td className={cx.td}>{c.nombre}</td>
+                      <td className={cx.tdNum}>{c.productos_activos}</td>
+                      <td className={cx.td}>
+                        <select
+                          className={cx.input}
+                          value={c.va_a_pantalla ? c.cocina_slug : ''}
+                          onChange={(e) => void cambiarPantalla(c, e.target.value)}
+                        >
+                          <option value="">Ninguna — nadie lo prepara</option>
+                          {cocinas.map((k) => (
+                            <option key={k.id} value={k.slug}>{k.nombre}</option>
+                          ))}
+                        </select>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Panel>
+        )}
+
         {/* Form producto */}
         <Panel title={editId ? 'Editar producto' : 'Nuevo producto'}>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

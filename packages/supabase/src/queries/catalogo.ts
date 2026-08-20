@@ -607,3 +607,37 @@ export async function quitarExtra(
 export function nombreParaOrdenar(nombre: string): string {
   return nombre.replace(/^\s*scoop\s+/i, '').trim() || nombre
 }
+
+// --------------------- a que pantalla va cada categoria ---------------------
+
+export interface CategoriaPantalla {
+  id: string
+  nombre: string
+  /** Estacion a la que pertenece. Sigue puesta aunque no vaya a pantalla. */
+  cocina_slug: string
+  cocina: string
+  va_a_pantalla: boolean
+  productos_activos: number
+}
+
+export async function listarCategoriasPantalla(sb: ShakeClient): Promise<CategoriaPantalla[]> {
+  const { data, error } = await (sb.rpc as unknown as RpcCatalogo)('fn_categorias_pantalla', {})
+  if (error) throw error
+  return (data ?? []) as CategoriaPantalla[]
+}
+
+/**
+ * Cambia a que pantalla llega una categoria.
+ * `cocinaSlug` null = no va a ninguna (se vende, pero nadie lo prepara).
+ */
+export async function guardarCategoriaPantalla(
+  sb: ShakeClient,
+  categoriaId: string,
+  cocinaSlug: string | null,
+): Promise<void> {
+  const { error } = await (sb.rpc as unknown as RpcCatalogo)('fn_categoria_pantalla', {
+    p_categoria_id: categoriaId,
+    p_cocina_slug: cocinaSlug,
+  })
+  if (error) throw error
+}
