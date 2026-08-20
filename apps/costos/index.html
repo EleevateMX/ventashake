@@ -406,7 +406,14 @@ async function dbWrite(){
   setSaved(r.error?"⚠ Error al guardar":"Guardado ✓");
 }
 function persist(){dbWrite();}
-function save(){clearTimeout(saveTimer);saveTimer=setTimeout(dbWrite,500);}
+/* Cada guardado corre fn_sync_app_data, que da de alta un producto y un
+   insumo por cada NOMBRE nuevo que encuentre. Con el rebote de 500 ms,
+   escribir "Peachy Keen" con pausas normales dio de alta "Monster - Peach",
+   "- Peache", "- Peachy", "- Peachy K" y "- Peachy Keen": cinco productos y
+   cinco insumos, cuatro de ellos basura. Lo mismo paso con las aguas.
+   Por eso `save` acepta una espera: los campos de texto usan una larga
+   (ver bindRow) y todo lo demas sigue igual que siempre. */
+function save(ms){clearTimeout(saveTimer);saveTimer=setTimeout(dbWrite,ms||500);}
 function setSaved(t){const e=document.getElementById("saved");if(e)e.textContent=t;}
 
 /* ---------------- CÁLCULOS COSTEO ---------------- */
@@ -569,9 +576,22 @@ async function renderCombosView(m){
 
 /* generic row field binder */
 function bindRow(tr,cat,i,after){
-  tr.querySelectorAll("[data-f]").forEach(x=>x.addEventListener("input",e=>{
-    const v=e.target.type==="checkbox"?e.target.checked:e.target.value;
-    state[cat][i][e.target.dataset.f]=v; if(after)after(tr,state[cat][i]); save();}));}
+  tr.querySelectorAll("[data-f]").forEach(x=>{
+    /* Los campos de texto son los que crean catalogo: su nombre se vuelve un
+       producto y un insumo. Por eso se guardan al SALIR del campo (change),
+       no en cada tecla. La pantalla y los calculos siguen al dia igual,
+       porque el estado se actualiza en `input` como siempre; lo unico que se
+       aplaza es el viaje a la base.
+       El rebote largo en `input` queda de red: si alguien escribe y cierra la
+       pestana sin salir del campo, el cambio no se pierde. */
+    const esTexto = x.tagName==="INPUT" && (x.type===""||x.type==="text");
+    const aplicar = e => {
+      const v=e.target.type==="checkbox"?e.target.checked:e.target.value;
+      state[cat][i][e.target.dataset.f]=v; if(after)after(tr,state[cat][i]);
+    };
+    x.addEventListener("input", e=>{ aplicar(e); save(esTexto?6000:500); });
+    if(esTexto) x.addEventListener("change", ()=>save(200));
+  });}
 
 /* ---------------- RESUMEN ---------------- */
 function renderDash(m){
