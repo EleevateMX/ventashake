@@ -57,7 +57,7 @@ paso siguiente.
 | 5 | `rewards` | `shake-cliente-pwa` | media (lo ve el cliente) |
 | 6 | `pantalla` | `shake-cliente-display` | baja |
 | 7 | `caja` | `shake-pos` | baja (hoy no se usa) |
-| 8 | `costos` | `shake-costos` | baja |
+| 8 | `costos` | `shake-costeo` | baja |
 
 Los ocho estaban **libres** al 21/08: ninguno apunta a nada, así que no
 pisas nada al crearlos.

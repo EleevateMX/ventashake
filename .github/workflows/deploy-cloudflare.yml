@@ -73,6 +73,11 @@ jobs:
             project: shake-cliente-pwa
           - app: costos
             project: shake-costeo
+          # La pagina publica del negocio. Faltaba en esta lista, y por eso
+          # `shake-web` no existia en Cloudflare: la app estaba lista y
+          # compilando desde hace semanas, pero nadie la desplegaba.
+          - app: web
+            project: shake-web
 
     name: ${{ matrix.app }}
     steps:
