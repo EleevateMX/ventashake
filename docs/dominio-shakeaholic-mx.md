@@ -16,15 +16,15 @@ hoy sirve GoDaddy: los que no recrees en Cloudflare dejan de existir. Si se
 pierden los de correo, dejas de recibir mails — y eso se nota tarde, cuando ya
 rebotó algo importante.
 
-Inventario leído en vivo (2026-08-08). Recréalos **todos** en Cloudflare antes
-de completar el cambio, y compáralo contra lo que veas en el panel de GoDaddy
-por si hay algo que no se alcanza a ver desde fuera:
+Inventario **releído en vivo el 2026-08-21** (consultando 1.1.1.1 y 8.8.8.8,
+no el panel). Recréalos **todos** en Cloudflare antes de completar el cambio:
 
 | Tipo | Nombre | Valor | Para qué |
 |---|---|---|---|
 | MX | `@` | `shakeaholic-mx.mail.protection.outlook.com` (prio 0) | **Correo entrante M365** |
 | TXT | `@` | `NETORGFT20557962.onmicrosoft.com` | Verificación del dominio en M365 |
 | TXT | `@` | `v=spf1 include:spf.em.secureserver.net include:secureserver.net -all` | SPF — sin esto tu correo saliente cae en spam |
+| TXT | `@` | `google-site-verification=fKhJh1Sebi85rZJl0eEY16PJJTqmH2po6WReBPd_mrQ` | **Verificación de Google** — ver aviso abajo |
 | TXT | `_dmarc` | `v=DMARC1; p=quarantine; adkim=r; aspf=r; rua=mailto:dmarc_rua@onsecureserver.net;` | DMARC |
 | CNAME | `autodiscover` | `autodiscover.outlook.com` | Outlook configura solo las cuentas |
 | CNAME | `lyncdiscover` | `webdir.online.lync.com` | Teams / Skype Empresarial |
@@ -32,6 +32,26 @@ por si hay algo que no se alcanza a ver desde fuera:
 | SRV | `_sipfederationtls._tcp` | `100 1 5061 sipfed.online.lync.com` | Teams / Skype Empresarial |
 | SRV | `_sip._tls` | `100 1 443 sipdir.online.lync.com` | Teams / Skype Empresarial |
 | CNAME | `email` | `email.secureserver.net` | Webmail de GoDaddy |
+| CNAME | `api` | `zyjtnaystsporbuzcmqk.supabase.co` | **La base de datos. Si esto se cae, la tienda no vende.** |
+| TXT | `_acme-challenge.api` | `epLiJMLG9QefENAesmF_AdkH7s9SuWhUdSV3Uz8odZw` | Certificado de `api` — lo revalida Supabase |
+
+⚠️ **Dos registros que la versión anterior de esta tabla NO tenía** y que se
+perderían si alguien recrea la lista a mano desde el documento viejo:
+
+- El `google-site-verification` de la raíz. Es lo que le prueba a Google que
+  el dominio es tuyo; de ahí cuelga la pantalla de consentimiento que dice
+  "Shakeaholic.mx" al entrar con Google al programa de lealtad. Si se pierde,
+  esa verificación se cae.
+- El `CNAME api` y su `_acme-challenge`. Se agregaron el 17/08, después de
+  escribir la tabla original. **Es por donde hablan todas las pantallas con
+  la base de datos.**
+
+Nameservers actuales (verificado el 21/08): `ns43.domaincontrol.com` y
+`ns44.domaincontrol.com` — o sea GoDaddy, opción A.
+
+Subdominios de las apps: los ocho (`kiosko`, `caja`, `admin`, `barra`,
+`cocina`, `rewards`, `pantalla`, `costos`) están **libres** al 21/08. Ninguno
+apunta a nada todavía.
 
 Los registros que **no** hay que recrear son los `A` de la raíz y de `www`
 (`13.248.243.5`, `76.223.105.230`): son el reenvío/parking de GoDaddy y los
