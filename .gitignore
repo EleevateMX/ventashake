@@ -13,3 +13,7 @@ supabase/seed/reportes/
 
 .DS_Store
 *.log
+
+# Respaldos de costosshake: llevan costos de compra, proveedores y margenes.
+# Este repositorio es publico — no entran aqui ni por accidente.
+respaldo-costosshake-*.json
