@@ -281,26 +281,39 @@ function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true;}c
 async function sha256(t){t="shakeaholic::"+t;
   try{const h=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(t));return [...new Uint8Array(h)].map(x=>x.toString(16).padStart(2,"0")).join("");}
   catch(e){let h=0;for(let i=0;i<t.length;i++){h=(h<<5)-h+t.charCodeAt(i);h|=0;}return "f"+(h>>>0).toString(16);}}
-async function dbUsers(){if(!sb)return [];const r=await sb.from('app_users').select('username,hash');return r.error?[]:(r.data||[]);}
-async function seedUsers(){if(!sb)return;const u=await dbUsers();if(!u.length){await sb.from('app_users').insert({username:"admin",hash:await sha256("shakeaholic")});}}
+/* `dbUsers` y `seedUsers` se quitaron.
+
+   dbUsers se bajaba usuario y HASH de todos con la llave publica, que esta
+   dentro de este archivo. Eran SHA-256 sin sal: una tabla arcoiris los
+   revienta al instante.
+
+   seedUsers creaba la cuenta "admin" con sha256("shakeaholic") si la tabla
+   estaba vacia — y esa linea vivia en un repositorio PUBLICO, o sea que la
+   contrasena del administrador de costeos era de dominio publico. Volver a
+   vaciar la tabla la habria recreado.
+
+   Ahora usuario y contrasena se comparan del lado del servidor
+   (fn_costos_login) y el hash no sale nunca de la base. */
 function authMsg(t,cls){const m=document.getElementById("auth_msg");m.textContent=t;m.className="auth-msg "+cls;}
 async function doLogin(){const user=document.getElementById("li_user").value.trim(),pass=document.getElementById("li_pass").value;
   if(!user||!pass){authMsg("Escribe usuario y contraseña.","err");return;}
   if(!sb){authMsg("No hay conexión con la base de datos.","err");return;}
   authMsg("Verificando…","ok");
-  const r=await sb.from('app_users').select('username,hash').ilike('username',user).limit(1);
+  /* La contrasena se compara EN EL SERVIDOR. Antes se bajaba el hash y se
+     comparaba aqui: un login que valida el que quiere entrar no es un login. */
+  const r=await sb.rpc('fn_costos_login',{p_usuario:user,p_contrasena:pass});
   if(r.error){authMsg("Error de conexión. Revisa tu internet.","err");return;}
-  const u=r.data&&r.data[0];
-  if(u&&u.hash===await sha256(pass)){lsSet(SESS,{user:u.username});showApp(u.username);}
-  else authMsg("Usuario o contraseña incorrectos.","err");}
+  const res=Array.isArray(r.data)?r.data[0]:r.data;
+  if(res&&res.ok){lsSet(SESS,{user:user});showApp(user);}
+  else authMsg((res&&res.mensaje)||"Usuario o contraseña incorrectos.","err");}
 async function doRegister(){const user=document.getElementById("rg_user").value.trim(),p1=document.getElementById("rg_pass").value,p2=document.getElementById("rg_pass2").value;
   if(!user||!p1){authMsg("Completa los campos.","err");return;} if(p1!==p2){authMsg("Las contraseñas no coinciden.","err");return;}
   if(!sb){authMsg("No hay conexión con la base de datos.","err");return;}
-  const ex=await sb.from('app_users').select('username').ilike('username',user).limit(1);
-  if(ex.data&&ex.data.length){authMsg("Ese usuario ya existe.","err");return;}
-  const ins=await sb.from('app_users').insert({username:user,hash:await sha256(p1)});
-  if(ins.error){authMsg("No se pudo crear el usuario.","err");return;}
-  authMsg("Usuario creado. Ya puedes iniciar sesión.","ok");
+  /* Registrarse ya NO es entrar: la cuenta nace bloqueada y gerencia la
+     habilita. Antes bastaba con darse de alta para ver todos los costos. */
+  const ins=await sb.rpc('fn_costos_registrar',{p_usuario:user,p_contrasena:p1});
+  if(ins.error){authMsg(ins.error.message||"No se pudo crear el usuario.","err");return;}
+  authMsg(ins.data||"Cuenta creada. Queda pendiente de que gerencia la habilite.","ok");
   document.getElementById("regForm").style.display="none";document.getElementById("loginForm").style.display="block";document.getElementById("li_user").value=user;}
 function wireAuth(){
   document.getElementById("li_btn").onclick=doLogin;document.getElementById("rg_btn").onclick=doRegister;
@@ -1549,7 +1562,7 @@ function subscribeRealtime(){
   }).subscribe();
 }
 (async function(){
-  await seedUsers();wireAuth();
+  await wireAuth();
   const sess=lsGet(SESS);
   if(sess&&sess.user)showApp(sess.user);
 })();
