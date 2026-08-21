@@ -212,7 +212,16 @@ export function Pago() {
     while (Date.now() - inicio < 120_000) {
       await new Promise((r) => setTimeout(r, 3000))
       if (cobroCancelado.current) {
-        await proveedor.cancelPayment(resultado.proveedorPaymentId).catch(() => {})
+        // Si la cancelacion falla hay que decirlo: la terminal se queda
+        // esperando el cobro y el siguiente cliente pagaria lo del anterior.
+        try {
+          await proveedor.cancelPayment(resultado.proveedorPaymentId)
+        } catch {
+          setError(
+            'No se pudo cancelar en la terminal: puede seguir esperando el cobro. ' +
+              'Cancélalo desde la terminal antes de volver a cobrar.',
+          )
+        }
         setTerminal(null)
         return
       }
@@ -240,9 +249,15 @@ export function Pago() {
     } else if (final === 'rechazado') {
       setError('La terminal rechazó o canceló el pago. Puedes reintentar o cobrar con otro método.')
     } else {
-      await proveedor.cancelPayment(resultado.proveedorPaymentId).catch(() => {})
+      let avisoCancelacion = ''
+      try {
+        await proveedor.cancelPayment(resultado.proveedorPaymentId)
+      } catch {
+        avisoCancelacion = ' Tampoco se pudo cancelar el cobro: puede seguir vivo en la terminal.'
+      }
       setError(
-        'La terminal no confirmó el pago. OJO: si la terminal SÍ cobró, la venta se confirmará sola en unos segundos — verifícalo antes de volver a cobrar.',
+        'La terminal no confirmó el pago. OJO: si la terminal SÍ cobró, la venta se confirmará sola en unos segundos — verifícalo antes de volver a cobrar.' +
+          avisoCancelacion,
       )
     }
   }

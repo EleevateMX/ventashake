@@ -87,12 +87,44 @@ export class ClipPaymentProvider implements PaymentProvider {
     return { estado: this.normalizePaymentStatus(respuesta.estado ?? 'unknown'), raw: respuesta }
   }
 
+  /**
+   * Cancela un cobro que la terminal todavía está esperando.
+   *
+   * Truena si no se pudo. Antes se ignoraba la respuesta, y eso dejaba el
+   * peor de los estados posibles: la caja creyendo que cancelo y la
+   * terminal todavia esperando el cobro. El siguiente cliente pagaba lo del
+   * anterior. Quien llama decide que hacer, pero se entera.
+   */
   async cancelPayment(proveedorPaymentId: string): Promise<void> {
-    await this.sb.functions.invoke('clip-cancelar-cobro', { body: { proveedor_payment_id: proveedorPaymentId } })
+    const { data, error } = await this.sb.functions.invoke('clip-cancelar-cobro', {
+      body: { proveedor_payment_id: proveedorPaymentId },
+    })
+    if (error) throw new Error(`No se pudo cancelar el cobro en la terminal: ${error.message}`)
+    const r = data as { ok?: boolean; error?: { mensaje?: string } } | null
+    if (r && r.ok === false) {
+      throw new Error(r.error?.mensaje ?? 'No se pudo cancelar el cobro en la terminal.')
+    }
   }
 
+  /**
+   * Reembolsa un pago ya cobrado.
+   *
+   * Truena salvo que Clip confirme `ok: true`. Un reembolso es dinero que
+   * sale: fingir que ocurrio es peor que no intentarlo, porque nadie lo
+   * vuelve a revisar. Hoy `clip-reembolsar` responde `not_implemented`
+   * a proposito —la API de reembolsos de Clip no esta escrita— asi que esto
+   * truena con ese mensaje en vez de devolver en silencio, que es justo lo
+   * que hacia antes.
+   */
   async refundPayment(proveedorPaymentId: string, monto?: number): Promise<void> {
-    await this.sb.functions.invoke('clip-reembolsar', { body: { proveedor_payment_id: proveedorPaymentId, monto } })
+    const { data, error } = await this.sb.functions.invoke('clip-reembolsar', {
+      body: { proveedor_payment_id: proveedorPaymentId, monto },
+    })
+    if (error) throw new Error(`No se pudo reembolsar: ${error.message}`)
+    const r = data as { ok?: boolean; error?: { mensaje?: string } } | null
+    if (!r || r.ok !== true) {
+      throw new Error(r?.error?.mensaje ?? 'El reembolso no se completó en Clip.')
+    }
   }
 
   // El webhook real lo procesa la Edge Function `clip-webhook` del lado
