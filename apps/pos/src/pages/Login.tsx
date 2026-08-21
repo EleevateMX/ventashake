@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { usePosStore } from '@/store/posStore'
 import { sb } from '../lib/sb'
-import { listarEmpleadosActivos, loginCajero } from '@shake/supabase'
+import { listarEmpleadosActivos, entrarConPin } from '@shake/supabase'
 import type { Empleado } from '@shake/supabase'
 
 export function Login() {
@@ -40,18 +40,27 @@ export function Login() {
     setError('')
   }
 
+  /**
+   * El PIN abre una SESIÓN, no solo la pantalla.
+   *
+   * Antes se validaba con `fn_login_cajero` y el empleado quedaba en memoria
+   * del navegador mientras la base seguía viendo `anon`. Ahora se canjea por
+   * una sesión de Supabase Auth, así que lo que haga esta caja viaja
+   * identificado y el RLS puede distinguirla de cualquiera con la llave
+   * publicable.
+   */
   async function validarPin() {
     if (pin.length < 4 || validando) return
     setValidando(true)
     try {
-      const emp = await loginCajero(sb, pin)
+      const r = await entrarConPin(sb, pin)
       // El PIN es la autoridad: si hay tile seleccionado, debe coincidir.
-      if (emp && (!seleccionado || emp.id === seleccionado.id)) {
-        iniciarSesion(emp)
+      if (r.ok && r.empleado && (!seleccionado || r.empleado.id === seleccionado.id)) {
+        iniciarSesion(r.empleado)
         navigate('/')
         return
       }
-      setError('Ese PIN no agita, intenta de nuevo')
+      setError(r.error ?? 'Ese PIN no agita, intenta de nuevo')
       setPin('')
     } catch {
       setError('No se pudo validar el PIN, revisa la conexión')

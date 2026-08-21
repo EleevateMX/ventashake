@@ -2,12 +2,12 @@ import React, { useState } from 'react'
 // `Empleado` de @shake/supabase (id/nombre/rol), no la fila cruda de la tabla
 // que expone @shake/types: fn_login_cajero devuelve el rol ya resuelto y
 // jamás el pin_hash.
-import { entrarConPin, type Empleado } from '@shake/supabase'
+import { entrarConPin, type EmpleadoSesion } from '@shake/supabase'
 import { sb } from '@/lib/sb'
 import { mensajeDeError } from '@shake/utils'
 
 interface Props {
-  onEntrar: (empleado: Empleado) => void
+  onEntrar: (empleado: EmpleadoSesion) => void
 }
 
 /**
@@ -46,7 +46,7 @@ export function CandadoCajero({ onEntrar }: Props) {
         setPin('')
         return
       }
-      onEntrar({ id: r.empleado.id, nombre: r.empleado.nombre, rol: r.empleado.rol } as Empleado)
+      onEntrar(r.empleado)
     } catch (e) {
       setError(mensajeDeError(e))
       setPin('')
