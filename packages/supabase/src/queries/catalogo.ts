@@ -648,3 +648,68 @@ export async function guardarCategoriaPantalla(
   })
   if (error) throw error
 }
+
+// ------------------- agrupar categorias para el menu -------------------
+
+export interface CategoriaAgrupable {
+  id: string
+  nombre: string
+  orden: number
+}
+
+export interface FamiliaCategorias<T extends CategoriaAgrupable> {
+  nombre: string
+  orden: number
+  /** La categoría con el nombre de la familia, si existe como tal. */
+  propia: T | null
+  /** Sus subcategorías, ya con el nombre corto ("Proteínas", no "Scoops - Proteínas"). */
+  subs: T[]
+}
+
+/**
+ * Pliega las categorías en dos niveles para el menú.
+ *
+ * Al partir Scoops y Suplementos por tipo, la fila de filtros del kiosko pasó
+ * de 12 chips a 24 y creció de dos renglones a cuatro: media pantalla gastada
+ * antes de mostrar un solo producto. El nombre ya trae la jerarquía
+ * ("Scoops - Proteínas"), así que se aprovecha esa marca en vez de inventar
+ * una tabla de padres.
+ *
+ * Dos formas se reconocen como subcategoría:
+ *   · "Familia - Sub"  — el separador que usa casi todo el catálogo.
+ *   · "Suplementos X"  — sin guion, porque el negocio pidió que ese botón se
+ *                        llamara exactamente "Suplementos Birdman".
+ *
+ * Lo que no encaja en ninguna se queda como familia suelta, que es lo correcto
+ * para Shakes, Café o Combos: no tienen de qué colgar.
+ */
+export function agruparCategorias<T extends CategoriaAgrupable>(
+  categorias: T[],
+): FamiliaCategorias<T>[] {
+  const grupos = new Map<string, FamiliaCategorias<T>>()
+
+  for (const cat of categorias) {
+    let familia = cat.nombre
+    let sub: string | null = null
+
+    const guion = cat.nombre.indexOf(' - ')
+    if (guion > 0) {
+      familia = cat.nombre.slice(0, guion)
+      sub = cat.nombre.slice(guion + 3)
+    } else if (cat.nombre.startsWith('Suplementos ')) {
+      familia = 'Suplementos'
+      sub = cat.nombre.slice('Suplementos '.length)
+    }
+
+    const actual = grupos.get(familia) ?? { nombre: familia, orden: cat.orden, propia: null, subs: [] }
+    // La familia se ordena por el primero de los suyos: así "Scoops" queda
+    // donde estaba y no se va al final por culpa de una subcategoría nueva.
+    actual.orden = Math.min(actual.orden, cat.orden)
+    if (sub) actual.subs.push({ ...cat, nombre: sub })
+    else actual.propia = cat
+    grupos.set(familia, actual)
+  }
+
+  for (const g of grupos.values()) g.subs.sort((a, b) => a.orden - b.orden)
+  return [...grupos.values()].sort((a, b) => a.orden - b.orden || a.nombre.localeCompare(b.nombre))
+}

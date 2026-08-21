@@ -10,3 +10,21 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+/* La barra de scroll no se pinta en el kiosko.
+
+   Es una pantalla táctil: nadie va a arrastrar la barra, se desliza con el
+   dedo. Dibujarla solo mete una franja gris al lado del menú. Se oculta pero
+   el contenido SIGUE desplazándose — no es `overflow: hidden`.
+
+   Para que no se pierda la señal de "hay más abajo", el contenedor lleva un
+   degradado al pie (ver `.con-fondo-degradado`): sin barra y sin pista, la
+   gente no sabe que la lista continúa. */
+.sin-barra {
+  scrollbar-width: none;        /* Firefox */
+  -ms-overflow-style: none;     /* Edge viejo */
+}
+.sin-barra::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}

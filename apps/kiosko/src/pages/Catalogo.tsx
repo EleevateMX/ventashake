@@ -4,7 +4,7 @@ import { Spinner } from '@shake/ui'
 import { useCarrito } from '@/store/carritoStore'
 import {
   listarProductosParaVenta, listarExtras, listarProductosExtra, listarObservaciones,
-  nombreParaOrdenar,
+  nombreParaOrdenar, agruparCategorias,
 } from '@shake/supabase'
 import type { ProductoVenta, ExtraDeProducto } from '@shake/supabase'
 import { sb } from '@/lib/sb'
@@ -141,9 +141,37 @@ export function Catalogo() {
     return [...map.values()].sort((a, b) => a.orden - b.orden || a.nombre.localeCompare(b.nombre))
   }, [productos])
 
-  const productosFiltrados = categoriaActiva
-    ? productos.filter((p) => p.categoria_id === categoriaActiva)
-    : productos
+  /**
+   * Las categorías, agrupadas en dos niveles.
+   *
+   * Al partir Scoops y Suplementos por tipo pasamos de 12 chips a 24, y la
+   * fila de filtros creció de dos renglones a cuatro: se comía media
+   * pantalla antes de mostrar un solo producto. El nombre ya trae la
+   * jerarquía ("Scoops - Proteínas"), así que se usa esa misma marca para
+   * plegarlas: un renglón de familias, y la sub-fila solo cuando hace falta.
+   *
+   * "Suplementos Birdman" no lleva guion —así lo pidió el negocio— por eso
+   * se reconoce aparte en vez de exigir un separador.
+   */
+  const familias = useMemo(() => agruparCategorias(categorias), [categorias])
+
+  /** La familia abierta. Null = ninguna, se ve todo. */
+  const [familiaActiva, setFamiliaActiva] = useState<string | null>(null)
+  const familia = familias.find((f) => f.nombre === familiaActiva) ?? null
+
+  /**
+   * Qué se muestra. Si hay una subcategoría elegida manda ella; si solo hay
+   * familia abierta se muestran TODOS sus productos juntos, que es lo que
+   * espera quien tocó "Scoops" sin más.
+   */
+  const productosFiltrados = useMemo(() => {
+    if (categoriaActiva) return productos.filter((p) => p.categoria_id === categoriaActiva)
+    if (familia) {
+      const ids = new Set([...(familia.propia ? [familia.propia.id] : []), ...familia.subs.map((c) => c.id)])
+      return productos.filter((p) => p.categoria_id && ids.has(p.categoria_id))
+    }
+    return productos
+  }, [productos, categoriaActiva, familia])
 
   return (
     <div className="flex flex-col h-screen bg-sa-cream-paper">
@@ -189,40 +217,84 @@ export function Catalogo() {
         </div>
       </header>
 
-      {/* Categorías: TODAS visibles a la vez, envueltas en renglones.
-          Antes era una fila con desplazamiento horizontal, y en una pantalla
-          táctil eso esconde la mitad del menú: nadie arrastra una barra que
-          no sabe que existe. Con ~10 categorías caben en dos renglones. */}
+      {/* Categorías en dos niveles.
+
+          Todas visibles a la vez y envueltas en renglones: en una pantalla
+          táctil una fila con desplazamiento horizontal esconde la mitad del
+          menú, porque nadie arrastra una barra que no sabe que existe.
+
+          Pero al partir Scoops y Suplementos por tipo pasamos de 12 chips a
+          24 y la fila creció a cuatro renglones — media pantalla gastada
+          antes del primer producto. Por eso las subcategorías se pliegan
+          bajo su familia y solo se despliegan cuando alguien la toca. */}
       <div className="bg-sa-cream-paper border-b border-sa-cream-warm">
-        <div className="flex flex-wrap gap-2.5 px-8 py-4">
+        <div className="flex flex-wrap gap-2.5 px-8 pt-4 pb-3">
           <button
-            onClick={() => setCategoriaActiva(null)}
+            onClick={() => { setFamiliaActiva(null); setCategoriaActiva(null) }}
             className={`flex-shrink-0 px-5 h-12 rounded-full font-mono text-sm uppercase tracking-wider transition-all ${
-              categoriaActiva === null
+              familiaActiva === null
                 ? 'bg-sa-green text-sa-cream shadow-sa-sm'
                 : 'bg-sa-cream-warm text-sa-green-ink hover:bg-sa-cream'
             }`}
           >
             Todo
           </button>
-          {categorias.map((cat) => (
+          {familias.map((f) => (
             <button
-              key={cat.id}
-              onClick={() => setCategoriaActiva(cat.id)}
+              key={f.nombre}
+              onClick={() => {
+                // Volver a tocar la familia abierta la cierra: es la forma
+                // más rápida de regresar a "Todo" sin cruzar la pantalla.
+                const abrir = familiaActiva !== f.nombre
+                setFamiliaActiva(abrir ? f.nombre : null)
+                setCategoriaActiva(null)
+              }}
               className={`flex-shrink-0 px-5 h-12 rounded-full font-mono text-sm uppercase tracking-wider transition-all ${
-                categoriaActiva === cat.id
+                familiaActiva === f.nombre
                   ? 'bg-sa-green text-sa-cream shadow-sa-sm'
                   : 'bg-sa-cream-warm text-sa-green-ink hover:bg-sa-cream'
               }`}
             >
-              {cat.nombre}
+              {f.nombre}
+              {f.subs.length > 0 && (
+                <span className="ml-2 opacity-50">{familiaActiva === f.nombre ? '\u2212' : '+'}</span>
+              )}
             </button>
           ))}
         </div>
+
+        {familia && familia.subs.length > 0 && (
+          <div className="flex flex-wrap gap-2 px-8 pb-4">
+            <button
+              onClick={() => setCategoriaActiva(null)}
+              className={`flex-shrink-0 px-4 h-10 rounded-full font-mono text-xs uppercase tracking-wider transition-all ${
+                categoriaActiva === null
+                  ? 'bg-sa-green-ink text-sa-cream'
+                  : 'bg-sa-cream-warm/60 text-sa-green-ink/80 hover:bg-sa-cream-warm'
+              }`}
+            >
+              Todos
+            </button>
+            {familia.subs.map((sub) => (
+              <button
+                key={sub.id}
+                onClick={() => setCategoriaActiva(sub.id)}
+                className={`flex-shrink-0 px-4 h-10 rounded-full font-mono text-xs uppercase tracking-wider transition-all ${
+                  categoriaActiva === sub.id
+                    ? 'bg-sa-green-ink text-sa-cream'
+                    : 'bg-sa-cream-warm/60 text-sa-green-ink/80 hover:bg-sa-cream-warm'
+                }`}
+              >
+                {sub.nombre}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Productos */}
-      <main className="flex-1 overflow-y-auto px-8 py-6 pb-32">
+      <div className="relative flex-1 min-h-0">
+        <main className="h-full overflow-y-auto sin-barra px-8 py-6 pb-32">
         {loading ? (
           <div className="flex items-center justify-center h-full">
             <Spinner className="w-12 h-12 text-sa-green" />
@@ -241,7 +313,16 @@ export function Catalogo() {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+          <div
+            /* Rejilla que se acomoda sola en vez de saltar por breakpoints.
+               La pantalla de la tienda es vertical y con `lg:grid-cols-4`
+               salían cuatro tarjetas angostas con el nombre y la descripción
+               cortados a media palabra. Con un ancho MÍNIMO por tarjeta, la
+               pantalla decide cuántas caben y todas quedan legibles: tres en
+               la vertical de la tienda, más en un monitor ancho. */
+            className="grid gap-5"
+            style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))' }}
+          >
             {productosFiltrados.map((producto) => (
               <div
                 key={producto.id}
@@ -300,6 +381,11 @@ export function Catalogo() {
           </div>
         )}
       </main>
+        {/* Sin barra de scroll no hay señal de que la lista sigue. Este
+            degradado la da, y no intercepta toques: la tarjeta de abajo se
+            puede tocar a través de él. */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-sa-cream-paper to-transparent" />
+      </div>
 
       <ModalExtras
         observaciones={observaciones}
