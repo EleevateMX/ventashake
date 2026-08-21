@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 // `Empleado` de @shake/supabase (id/nombre/rol), no la fila cruda de la tabla
 // que expone @shake/types: fn_login_cajero devuelve el rol ya resuelto y
 // jamás el pin_hash.
-import { loginCajero, type Empleado } from '@shake/supabase'
+import { entrarConPin, type Empleado } from '@shake/supabase'
 import { sb } from '@/lib/sb'
 import { mensajeDeError } from '@shake/utils'
 
@@ -27,17 +27,26 @@ export function CandadoCajero({ onEntrar }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [verificando, setVerificando] = useState(false)
 
+  /**
+   * El PIN ya no solo abre la pantalla: abre una SESIÓN.
+   *
+   * Antes se validaba con `fn_login_cajero` y el empleado se guardaba en
+   * memoria del navegador, mientras la base seguía viendo `anon`. Ahora se
+   * canjea por una sesión de Supabase Auth, así que cada consulta que haga
+   * esta caja viaja identificada y el RLS puede distinguirla de cualquier
+   * persona con la llave publicable.
+   */
   async function intentar(pinCompleto: string) {
     setVerificando(true)
     setError(null)
     try {
-      const emp = await loginCajero(sb, pinCompleto)
-      if (!emp) {
-        setError('PIN incorrecto')
+      const r = await entrarConPin(sb, pinCompleto)
+      if (!r.ok || !r.empleado) {
+        setError(r.error ?? 'PIN incorrecto')
         setPin('')
         return
       }
-      onEntrar(emp)
+      onEntrar({ id: r.empleado.id, nombre: r.empleado.nombre, rol: r.empleado.rol } as Empleado)
     } catch (e) {
       setError(mensajeDeError(e))
       setPin('')
