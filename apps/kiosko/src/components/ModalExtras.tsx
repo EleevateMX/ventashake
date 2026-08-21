@@ -168,7 +168,7 @@ export function ModalExtras({ producto, extras, observaciones: catalogoObs, onCe
   const leches = ordenarBases(extras.filter((e) => esBase(e.nombre)))
   const galletas = extras.filter((e) => esGalleta(e.nombre))
   const proteinas = extras.filter((e) => esProteina(e.nombre))
-  const doble = extras.find((e) => esDobleScoop(e.nombre)) ?? null
+  const dobles = extras.filter((e) => esDobleScoop(e.nombre))
   /**
    * Grupos armados desde Admin (producto_extras.grupo): los extras que
    * comparten grupo se eligen entre sí, uno solo. Es lo que permite
@@ -218,6 +218,22 @@ export function ModalExtras({ producto, extras, observaciones: catalogoObs, onCe
   const proteinaDefault =
     proteinas.find((p) => PROTEINA_DEFAULT.test(p.nombre)) ?? proteinas[0] ?? null
   const proteinaElegida = proteinas.find((p) => p.extra_id === proteina) ?? proteinaDefault
+  /**
+   * El doble scoop de ESTA proteína.
+   *
+   * Un scoop de Optimum son $25 y uno de Peacock $49, así que un precio
+   * único regalaba dinero en las caras. Donde se elige proteína hay un
+   * "Doble scoop - MARCA" por cada una y aquí se escoge el que le toca;
+   * donde la proteína es fija (Blueberry Bloom siempre lleva Fitmingo) hay
+   * uno solo, sin marca, con su precio puesto por producto desde Admin.
+   *
+   * Se empata por `marca`, que es un dato del catálogo. Recortar el nombre
+   * confundiría "BIRDMAN FALCON" con "BIRDMAN FALCON PERFORMANCE".
+   */
+  const doble =
+    dobles.find((d) => d.marca && d.marca === proteinaElegida?.marca) ??
+    dobles.find((d) => !d.marca) ??
+    (proteinas.length === 0 ? dobles[0] ?? null : null)
   /**
    * Lo elegido en cada grupo. Si el cliente no tocó el grupo vale la
    * primera opción — la misma que se ve marcada en pantalla: si aquí no se

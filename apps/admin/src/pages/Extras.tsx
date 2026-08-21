@@ -12,6 +12,7 @@ import {
   productosDeExtra,
   vincularExtraBebida,
   precioExtraEnProducto,
+  grupoExtraEnProducto,
   listarObservacionesAdmin,
   guardarObservacion,
   activarObservacion,
@@ -184,6 +185,38 @@ export default function Extras() {
    * Precio de un extra SOLO en ese producto. Vacío devuelve el vínculo a
    * cobrar el precio normal del extra.
    */
+  /**
+   * El "grupo" de este extra en este producto.
+   *
+   * Dos o más extras del mismo producto con el MISMO texto aquí se ofrecen
+   * como "elige uno" en vez de con contador: es así como un paquete ofrece
+   * americano frío o caliente, o cómo se eligen las proteínas. El texto da
+   * igual mientras se repita — "cafe", "leche", "pan"; vacío = adicional
+   * suelto, como toda la vida.
+   */
+  async function cambiarGrupoVinculo(extraId: string, prod: ProductoDeExtra, valor: string) {
+    const limpio = valor.trim() || null
+    if (limpio === (prod.grupo ?? null)) return
+    setCambiandoVinculo(prod.producto_id)
+    setError(null)
+    try {
+      await grupoExtraEnProducto(sb, extraId, prod.producto_id, limpio)
+      setProductosDelExtra((prev) =>
+        prev.map((p) => (p.producto_id === prod.producto_id ? { ...p, grupo: limpio } : p)),
+      )
+      setOk(
+        limpio === null
+          ? `${prod.nombre}: vuelve a ser un adicional suelto.`
+          : `${prod.nombre}: se elige junto con los demás del grupo "${limpio}".`,
+      )
+      setTimeout(() => setOk(null), 3500)
+    } catch (e) {
+      setError(mensajeDeError(e))
+    } finally {
+      setCambiandoVinculo(null)
+    }
+  }
+
   async function cambiarPrecioVinculo(extraId: string, prod: ProductoDeExtra, valor: string) {
     const limpio = valor.trim()
     const precio = limpio === '' ? null : Number(limpio)
@@ -543,6 +576,20 @@ export default function Extras() {
                                           disabled={cambiandoVinculo === pr.producto_id}
                                           onBlur={(ev) => void cambiarPrecioVinculo(e.id, pr, ev.target.value)}
                                           className="w-16 shrink-0 px-2 py-1 border border-sa-green-ink/15 rounded text-right font-mono text-xs bg-sa-cream-soft/40"
+                                        />
+                                      )}
+                                      {/* Grupo: los extras con el mismo texto aquí se
+                                          ofrecen como "elige uno". Es lo que convierte
+                                          dos americanos en un botón de frío/caliente. */}
+                                      {pr.ofrecido && (
+                                        <input
+                                          type="text"
+                                          title={`Grupo en ${pr.nombre}. Los extras con el mismo texto se eligen entre sí (uno solo). Vacío = adicional suelto.`}
+                                          placeholder="grupo"
+                                          defaultValue={pr.grupo ?? ''}
+                                          disabled={cambiandoVinculo === pr.producto_id}
+                                          onBlur={(ev) => void cambiarGrupoVinculo(e.id, pr, ev.target.value)}
+                                          className="w-20 shrink-0 px-2 py-1 border border-sa-green-ink/15 rounded font-mono text-xs bg-sa-cream-soft/40"
                                         />
                                       )}
                                     </div>

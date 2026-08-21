@@ -290,6 +290,13 @@ export interface ExtraDeProducto {
    * Null = adicional suelto, con cantidad.
    */
   grupo: string | null
+  /**
+   * Marca del extra. Es lo que amarra "Proteína BIRDMAN FALCON - Chocolate"
+   * con "Doble scoop - BIRDMAN FALCON": un dato, no un recorte del nombre.
+   * Importa porque "BIRDMAN FALCON" y "BIRDMAN FALCON PERFORMANCE" empiezan
+   * igual y adivinarlo por texto los confundiría.
+   */
+  marca: string | null
   activo: boolean
 }
 
