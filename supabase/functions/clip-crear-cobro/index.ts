@@ -66,7 +66,7 @@ Deno.serve(async (req: Request) => {
   // El monto NUNCA se confía del body — se recalcula desde la orden real.
   const { data: orden, error: errOrden } = await sb
     .from('ordenes')
-    .select('id, folio, total, estado_pago_orden, sucursal_id, es_demo')
+    .select('id, folio, total, estado_pago_orden, sucursal_id, es_demo, nombre_cliente')
     .eq('id', body.orden_id)
     .single()
 
@@ -150,9 +150,22 @@ Deno.serve(async (req: Request) => {
   // filtro de entrada de clip-webhook (que corre sin verify_jwt).
   const llaveWebhook = Deno.env.get('CLIP_WEBHOOK_URL_KEY')
   const urlWebhook = `${supabaseUrl}/functions/v1/clip-webhook${llaveWebhook ? `?llave=${encodeURIComponent(llaveWebhook)}` : ''}`
+  // La referencia es lo que se ve en el panel de Clip y en el recibo, y es
+  // por donde se cuadra una venta cuando algo no cuadra. Antes iba el UUID de
+  // la orden: 36 caracteres que no le dicen nada a nadie. Ahora va el folio
+  // —el mismo número que la cajera le canta al cliente y que sale impreso en
+  // la comanda— y el nombre del pedido si lo hay.
+  //
+  // Nada empata por este texto: la verdad de un cobro siempre se consulta con
+  // un GET autenticado contra el pinpad_request_id. Esto es para humanos.
+  const nombre = (orden.nombre_cliente ?? '').trim()
+  const referencia = nombre ? `Folio ${orden.folio} - ${nombre}` : `Folio ${orden.folio}`
+
   const payloadClip = {
     amount: Number(orden.total).toFixed(2),
-    reference: orden.id,
+    // Clip corta la referencia si es muy larga; un nombre kilométrico no debe
+    // empujar al folio fuera de la pantalla, así que el folio va primero.
+    reference: referencia.slice(0, 60),
     serial_number_pos: serial,
     webhook_url: urlWebhook,
     preferences: {
