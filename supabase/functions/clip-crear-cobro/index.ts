@@ -160,8 +160,16 @@ Deno.serve(async (req: Request) => {
   //
   // Nada empata por este texto: la verdad de un cobro siempre se consulta con
   // un GET autenticado contra el pinpad_request_id. Esto es para humanos.
-  const nombre = (orden.nombre_cliente ?? '').trim()
-  const referencia = nombre ? `Folio ${orden.folio} - ${nombre}` : `Folio ${orden.folio}`
+  // Clip solo acepta letras, números y guiones en la referencia ("reference
+  // must not contain special characters" — rechazó los espacios en la primera
+  // venta real con este formato). Se normaliza: acentos fuera, todo lo que no
+  // sea alfanumérico se vuelve guion.
+  const nombre = (orden.nombre_cliente ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')       // é -> e, ñ -> n
+    .replace(/[^A-Za-z0-9]+/g, '-')         // espacios y símbolos -> guion
+    .replace(/^-+|-+$/g, '')
+  const referencia = nombre ? `Folio-${orden.folio}-${nombre}` : `Folio-${orden.folio}`
 
   const payloadClip = {
     amount: Number(orden.total).toFixed(2),
