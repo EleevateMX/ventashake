@@ -10,14 +10,39 @@ const URL_REWARDS =
     // Si la variable en Cloudflare aún trae la URL vieja, se traduce sola.
     .replace('shake-cliente-pwa.pages.dev', 'rewards.shakeaholic.mx')
 
+const WHATSAPP = 'https://wa.me/529995044797'
+
+/**
+ * Categorías del sistema que no pintan en la carta pública: los scoops y
+ * suplementos son surtido de mostrador/venta interna, y "Extras" vive
+ * dentro de cada producto, no como tarjeta propia.
+ */
+const CATEGORIAS_INTERNAS = /^(extras|scoops|suplementos)/i
+
+/** Paleta de sabores del manual, para los puntos de la carta. */
+const SABORES = ['--c-mint', '--c-banana', '--c-strawberry', '--c-mango', '--c-blueberry', '--c-chocolate']
+
+/** $70 en vez de $70.00 cuando el precio es cerrado, como en la maqueta. */
+function precioCorto(n: number): string {
+  if (n <= 0) return 'Gratis'
+  return Number.isInteger(n) ? `$${n}` : mxn(n)
+}
+
+interface CategoriaCarta {
+  nombre: string
+  orden: number
+  cocina: string
+  items: ProductoVenta[]
+}
+
 export default function App() {
   const [productos, setProductos] = useState<ProductoVenta[]>([])
   const [qr, setQr] = useState('')
 
   useEffect(() => {
-    // El menú se lee de la misma base que usa la caja: lo que el negocio
+    // La carta se lee de la misma base que usa la caja: lo que el negocio
     // captura en costeo aparece aquí solo, sin publicar nada a mano. Si la
-    // consulta falla, la página sigue viéndose — el menú es un plus, no el
+    // consulta falla, la página sigue viéndose — la carta es un plus, no el
     // motivo por el que alguien entra.
     listarProductosParaVenta(sb).then(setProductos).catch(() => setProductos([]))
     QRCode.toDataURL(URL_REWARDS, {
@@ -25,178 +50,356 @@ export default function App() {
     }).then(setQr).catch(() => setQr(''))
   }, [])
 
-  const porCategoria = useMemo(() => {
-    const m = new Map<string, ProductoVenta[]>()
+  const carta = useMemo<CategoriaCarta[]>(() => {
+    const m = new Map<string, CategoriaCarta>()
     for (const p of productos) {
-      const cat = p.categorias?.nombre
-      if (!cat) continue
-      if (!m.has(cat)) m.set(cat, [])
-      m.get(cat)!.push(p)
+      const c = p.categorias
+      if (!c || CATEGORIAS_INTERNAS.test(c.nombre)) continue
+      let cat = m.get(c.nombre)
+      if (!cat) {
+        cat = { nombre: c.nombre, orden: c.orden, cocina: c.cocinas?.slug ?? '', items: [] }
+        m.set(c.nombre, cat)
+      }
+      cat.items.push(p)
     }
-    return m
+    return [...m.values()].sort(
+      (a, b) => a.cocina.localeCompare(b.cocina) || a.orden - b.orden || a.nombre.localeCompare(b.nombre),
+    )
   }, [productos])
 
-  const shakes = porCategoria.get('Shakes') ?? []
-  const alimentos = porCategoria.get('Alimentos') ?? []
+  function suscribirse(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    // Sin backend de boletín todavía: el interés llega directo al WhatsApp
+    // del negocio, que es donde de todas formas atienden.
+    const correo = new FormData(e.currentTarget).get('correo')
+    const texto = encodeURIComponent(
+      `¡Hola! Quiero mi 10% de descuento en mi primera compra. Mi correo: ${correo ?? ''}`,
+    )
+    window.open(`${WHATSAPP}?text=${texto}`, '_blank', 'noopener')
+  }
 
   return (
-    <div className="min-h-screen bg-sa-cream-paper text-sa-green-ink font-body">
-      {/* ---------------------------------------------------------------- */}
-      <header className="relative bg-sa-green-deep text-sa-cream overflow-hidden">
-        <img
-          src="/milo-transparent.png"
-          alt=""
-          className="absolute -right-10 -bottom-16 h-72 md:h-96 w-auto opacity-90 pointer-events-none select-none"
-        />
-        <div className="relative z-10 max-w-5xl mx-auto px-6 py-16 md:py-24">
-          <img src="/logo.png" alt="Shakeaholic" className="h-20 md:h-24 w-auto drop-shadow-lg" />
-          <h1 className="font-display text-5xl md:text-7xl leading-none mt-6">
-            Shakeaholic
-          </h1>
-          <p className="font-mono text-xs uppercase tracking-[0.35em] text-sa-banana mt-3">
-            Protein Bar · Mérida
-          </p>
-          <p className="font-body text-lg md:text-xl mt-6 max-w-lg text-sa-cream/90">
-            Shakes de proteína, comida real y snacks. Sin polvo raro, sin pose
-            fitness — y con recompensas por cada visita.
-          </p>
-          <a
-            href={URL_REWARDS}
-            className="inline-flex items-center gap-3 mt-8 bg-sa-banana text-sa-coffee px-7 py-4 rounded-full font-display text-xl shadow-sa hover:scale-[1.02] transition-transform"
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-            </svg>
-            Únete a Rewards
-          </a>
-        </div>
+    <>
+      {/* ============ NAV ============ */}
+      <header className="nav">
+        <a className="wordmark" href="#top">
+          <img src="/logo.png" alt="" />
+          Shakeaholic
+        </a>
+        <nav className="links">
+          <a href="#menu">Menú</a>
+          <a href="#rewards">Rewards</a>
+          <a href="#nosotros">Nosotros</a>
+          <a href="#b2b">Negocios</a>
+          <a href="#contacto">Contacto</a>
+          <a className="cta" href={WHATSAPP}>Pedir por WhatsApp</a>
+        </nav>
       </header>
 
-      {/* ---------------------------------------------------------------- */}
-      <section id="rewards" className="max-w-5xl mx-auto px-6 py-16 md:py-20">
-        <div className="grid md:grid-cols-2 gap-10 items-center">
-          <div>
-            <p className="font-mono text-xs uppercase tracking-[0.3em] text-sa-green/70">
-              Programa de lealtad
-            </p>
-            <h2 className="font-display text-4xl md:text-5xl leading-tight mt-2">
-              Acumula mancuernas
-            </h2>
-            <p className="font-body text-lg text-sa-green-ink/70 mt-4">
-              Escanea el código con la cámara de tu celular, entra con tu cuenta
-              de Google y listo. Tu tarjeta vive en el navegador — no hay que
-              instalar nada ni cargar un plástico más.
-            </p>
-
-            <div className="grid grid-cols-3 gap-3 mt-7">
-              {[
-                { dato: '$10', pie: '1 mancuerna' },
-                { dato: '100', pie: 'Un cupón' },
-                { dato: '1 año', pie: 'Vigencia' },
-              ].map((b) => (
-                <div key={b.pie} className="bg-white rounded-sa p-4 text-center shadow-sa-sm">
-                  <p className="font-display text-2xl leading-none text-sa-green-ink">{b.dato}</p>
-                  <p className="font-mono text-[10px] uppercase tracking-wide text-sa-green-ink/50 mt-1.5">
-                    {b.pie}
-                  </p>
-                </div>
-              ))}
-            </div>
-
-            <p className="font-mono text-[11px] uppercase tracking-wide text-sa-green-ink/40 mt-5">
-              ¿Sin celular a la mano? En caja te damos de alta con tu teléfono
-            </p>
-          </div>
-
-          <div className="flex flex-col items-center">
-            {qr && (
-              <img
-                src={qr}
-                alt="Código QR para entrar a Shakeaholic Rewards"
-                className="w-64 h-64 rounded-sa-lg bg-white p-4 shadow-sa"
-              />
-            )}
+      {/* ============ HERO ============ */}
+      <section className="hero" id="top">
+        <div>
+          <p className="eyebrow" style={{ opacity: 0.7 }}>Protein Bar · Mérida, Yucatán</p>
+          <h1>Alimenta tu energía con <em>sabor</em>.</h1>
+          <p className="sub">
+            Shakes de proteína, bebidas funcionales, sándwiches, wraps y snacks
+            saludables para empezar tu día con todo.
+          </p>
+          <div className="actions">
+            <a className="btn light" href="#menu">Ver el menú</a>
             <a
-              href={URL_REWARDS}
-              className="mt-4 font-mono text-xs uppercase tracking-wide text-sa-green underline underline-offset-4"
+              className="btn ghost"
+              style={{ borderColor: 'var(--cream)', color: 'var(--cream)' }}
+              href={WHATSAPP}
             >
-              o entra desde aquí
+              WhatsApp
             </a>
+          </div>
+          <div className="ticker">
+            <span>★ 100% Mexicana</span>
+            <span>★ Proteína real</span>
+            <span>★ Rico · Rápido · Saludable</span>
+          </div>
+        </div>
+        <div className="hero-img">
+          <div className="badge">Desde<br />$70</div>
+          <div className="frame">
+            <img className="milo" src="/milo-transparent.png" alt="Milo, la mascota de Shakeaholic" />
           </div>
         </div>
       </section>
 
-      {/* ---------------------------------------------------------------- */}
-      {shakes.length > 0 && (
-        <section className="bg-sa-cream-soft">
-          <div className="max-w-5xl mx-auto px-6 py-16 md:py-20">
-            <p className="font-mono text-xs uppercase tracking-[0.3em] text-sa-green/70">Carta</p>
-            <h2 className="font-display text-4xl md:text-5xl leading-tight mt-2 mb-8">
-              Protein shakes
-            </h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
-              {shakes.map((p) => (
-                <article key={p.id} className="bg-white rounded-sa-lg overflow-hidden shadow-sa-sm">
-                  <div className="h-44 bg-white flex items-center justify-center">
-                    {p.imagen_url ? (
-                      <img src={p.imagen_url} alt={p.nombre} className="max-h-full max-w-full object-contain" />
-                    ) : (
-                      <img src="/milo-transparent.png" alt="" className="h-28 opacity-70" />
-                    )}
+      <div className="marquee" aria-hidden="true">
+        <div className="track">
+          <span>Shakes ★ Proteínas ★ Wraps ★ Snacks ★ Kombucha ★ Matcha ★</span>
+          <span>Shakes ★ Proteínas ★ Wraps ★ Snacks ★ Kombucha ★ Matcha ★</span>
+        </div>
+      </div>
+
+      {/* ============ MENÚ (vivo, desde la misma base que la caja) ============ */}
+      <section className="menu" id="menu">
+        <p className="eyebrow">Menú · Price List</p>
+        <h2 className="title">Escoge tu shake.</h2>
+        <p className="menu-note">Leche vegetal +$10 · Precios en MXN</p>
+
+        {carta.length > 0 ? (
+          <div className="menu-grid">
+            {carta.map((cat) => {
+              const desde = Math.min(...cat.items.map((p) => p.precio).filter((n) => n > 0))
+              return (
+                <div key={cat.nombre} className={cat.nombre === 'Shakes' ? 'menu-cat feature' : 'menu-cat'}>
+                  <div className="cat-head">
+                    <h3>{cat.nombre}</h3>
+                    <span className="cat-price">
+                      {Number.isFinite(desde) ? `Desde ${precioCorto(desde)}` : 'Pregunta en barra'}
+                    </span>
                   </div>
-                  <div className="p-4">
-                    <h3 className="font-display text-lg leading-tight">{p.nombre}</h3>
-                    {p.descripcion && (
-                      <p className="font-body text-xs text-sa-green-ink/55 mt-1.5 leading-snug">
-                        {p.descripcion}
-                      </p>
-                    )}
-                    <p className="font-mono text-base text-sa-green mt-3">{mxn(p.precio)}</p>
-                  </div>
-                </article>
-              ))}
+                  {cat.items.map((p, i) => (
+                    <div key={p.id} className="mi">
+                      <span
+                        className="dot"
+                        style={{ '--flav': `var(${SABORES[i % SABORES.length]})` } as React.CSSProperties}
+                      />
+                      <span className="mn">{p.nombre}</span>
+                      <span className="mp">{precioCorto(p.precio)}</span>
+                      {p.descripcion && <span className="md">{p.descripcion}</span>}
+                    </div>
+                  ))}
+                </div>
+              )
+            })}
+          </div>
+        ) : (
+          <div className="menu-grid">
+            <div className="menu-cat">
+              <div className="cat-head">
+                <h3>Carta del día</h3>
+                <span className="cat-price">En barra</span>
+              </div>
+              <div className="mi">
+                <span className="dot" style={{ '--flav': 'var(--c-banana)' } as React.CSSProperties} />
+                <span className="mn">Pregunta por el menú de hoy</span>
+                <span className="mp">→</span>
+                <span className="md">
+                  Escríbenos por WhatsApp o visítanos en The Harbor: shakes, bebidas
+                  funcionales y snacks recién hechos.
+                </span>
+              </div>
             </div>
           </div>
-        </section>
-      )}
+        )}
+      </section>
 
-      {/* ---------------------------------------------------------------- */}
-      {alimentos.length > 0 && (
-        <section className="max-w-5xl mx-auto px-6 py-16 md:py-20">
-          <h2 className="font-display text-4xl md:text-5xl leading-tight mb-8">Comida real</h2>
-          <div className="divide-y divide-sa-green-ink/10">
-            {alimentos.map((p) => (
-              <div key={p.id} className="flex items-baseline justify-between gap-6 py-4">
-                <div>
-                  <h3 className="font-display text-xl leading-tight">{p.nombre}</h3>
-                  {p.descripcion && (
-                    <p className="font-body text-sm text-sa-green-ink/55 mt-1">{p.descripcion}</p>
-                  )}
-                </div>
-                <p className="font-mono text-lg text-sa-green flex-shrink-0">{mxn(p.precio)}</p>
+      {/* ============ REWARDS ============ */}
+      <section className="rewards" id="rewards">
+        <div>
+          <p className="eyebrow">Programa de lealtad</p>
+          <h2 className="title">Acumula mancuernas.</h2>
+          <p className="lede">
+            Escanea el código con la cámara de tu celular, entra con tu cuenta de
+            Google y listo. Tu tarjeta vive en el navegador — no hay que instalar
+            nada ni cargar un plástico más.
+          </p>
+          <div className="stats">
+            <div className="stat"><b>$10</b><span>1 mancuerna</span></div>
+            <div className="stat"><b>100</b><span>Un cupón</span></div>
+            <div className="stat"><b>1 año</b><span>Vigencia</span></div>
+          </div>
+          <p className="fino">¿Sin celular a la mano? En caja te damos de alta con tu teléfono</p>
+        </div>
+        <div className="qr-card">
+          {qr && <img src={qr} alt="Código QR para entrar a Shakeaholic Rewards" />}
+          <a className="btn" href={URL_REWARDS}>Únete a Rewards</a>
+        </div>
+      </section>
+
+      {/* ============ NOSOTROS ============ */}
+      <section className="about" id="nosotros">
+        <div>
+          <p className="eyebrow" style={{ opacity: 0.65 }}>Acerca de Shakeaholic</p>
+          <h2 className="title">Rico, rápido y saludable.</h2>
+          <p className="lede">
+            Somos una marca orgullosamente mexicana en crecimiento, enfocada en
+            bebidas funcionales, nutrición deportiva y bienestar. Te ayudamos a
+            comer rico, rápido y saludable con productos de alta calidad.
+          </p>
+          <div className="vals">
+            <div className="val"><span className="starmark" /><span>Sistemas innovadores para la preparación de bebidas proteicas.</span></div>
+            <div className="val"><span className="starmark" /><span>Tecnología especializada y proveedores nacionales e internacionales.</span></div>
+            <div className="val"><span className="starmark" /><span>Productos innovadores y de alta calidad para el mercado en México.</span></div>
+          </div>
+        </div>
+        <div className="about-img">
+          <img className="logo" src="/logo.png" alt="Logotipo de Shakeaholic" />
+          <img className="milo" src="/milo-transparent.png" alt="" />
+        </div>
+      </section>
+
+      {/* ============ GALERÍA ============ */}
+      <section className="gallery">
+        <p className="eyebrow">Galería</p>
+        <h2 className="title">Momentos Shakeaholic.</h2>
+        <div className="gal-grid">
+          {([
+            ['Shakes', '--green', false],
+            ['Matcha', '--c-mint', true],
+            ['Kombucha', '--c-blueberry', false],
+            ['Snacks', '--c-mango', true],
+            ['Proteína', '--c-chocolate', false],
+            ['Wraps', '--c-banana', true],
+            ['Café', '--green-deep', false],
+            ['Wellness', '--c-strawberry', false],
+          ] as const).map(([nombre, color, oscuro]) => (
+            <div key={nombre}>
+              <div
+                className={oscuro ? 'gal-tile oscuro' : 'gal-tile'}
+                style={{ '--tile': `var(${color})` } as React.CSSProperties}
+              >
+                <span className="starmark" />
+                {nombre}
               </div>
-            ))}
-          </div>
-        </section>
-      )}
+            </div>
+          ))}
+        </div>
+      </section>
 
-      {/* ---------------------------------------------------------------- */}
-      <footer className="bg-sa-green-deep text-sa-cream">
-        <div className="max-w-5xl mx-auto px-6 py-12 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div>
-            <img src="/logo.png" alt="Shakeaholic" className="h-12 w-auto" />
-            <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-sa-cream/50 mt-3">
-              Protein Bar · Mérida, Yucatán
+      {/* ============ NEGOCIOS ============ */}
+      <section className="b2b" id="b2b">
+        <p className="eyebrow" style={{ opacity: 0.6 }}>Para negocios</p>
+        <h2 className="title">¿Tienes cafetería o negocio de proteínas?</h2>
+        <p className="lede">
+          Te ofrecemos proteína, insumos y equipo para tu cafetería a los mejores
+          precios. Soluciones profesionales de almacenamiento y dispensación para
+          proteína en polvo, suplementos, cereales, café y productos alimenticios.
+        </p>
+
+        <div className="b2b-grid">
+          <div className="b2b-card">
+            <span className="tag">Dispensador IDM</span>
+            <h3>HLP1 · 4.5 L</h3>
+            <p>
+              Dispensador individual e independiente de proteína y polvo. Mecanismo
+              patentado "Pro-Portion" con 5 niveles de dosificación (10–35 cc) para
+              la porción exacta en cada uso. Base metálica, libre de BPA, normativas
+              FDA y UE.
             </p>
+            <div className="specs">
+              <span>15 × 15 × 47 cm · 1.3 kg</span>
+              <span>Recipiente 4.5 L</span>
+            </div>
           </div>
+          <div className="b2b-card">
+            <span className="tag">Dispensador IDM</span>
+            <h3>HLP3 · 4.5 L</h3>
+            <p>
+              Dispensador triple de proteínas y polvos con recipientes de 4.5 litros.
+              Dosificación ajustable "Pro-Portion", soporte para montaje en pared.
+              Libre de BPA, cumple normativas FDA y UE para contacto con alimentos.
+            </p>
+            <div className="specs">
+              <span>Triple recipiente · 4.5 L c/u</span>
+              <span>Montaje en pared</span>
+            </div>
+          </div>
+          <div className="b2b-card">
+            <span className="tag">Dispensador IDM</span>
+            <h3>HLP1 · 1.5 L</h3>
+            <p>
+              Dispensador individual para montaje en pared con recipiente compacto de
+              1.5 litros. Mismo mecanismo "Pro-Portion" de 5 niveles. Ideal para
+              espacios reducidos detrás de barra.
+            </p>
+            <div className="specs">
+              <span>15 × 15 × 25 cm · 1.7 kg</span>
+              <span>Recipiente 1.5 L</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="b2b-cta">
+          <a className="btn light" href={WHATSAPP}>Cotizar por WhatsApp</a>
           <a
-            href={URL_REWARDS}
-            className="font-display text-xl text-sa-banana hover:underline underline-offset-4"
+            className="btn ghost"
+            style={{ borderColor: 'var(--cream)', color: 'var(--cream)' }}
+            href="mailto:hola@shakeaholic.mx?subject=COTIZACIÓN DISPENSADORES IDM"
           >
-            Únete a Rewards →
+            Cotizar por correo
           </a>
         </div>
+
+        <div className="partners">
+          <div className="partner">
+            <p className="eyebrow" style={{ opacity: 0.55 }}>Socio comercial</p>
+            <h3>Birdman</h3>
+            <p>
+              Marca mexicana líder en nutrición basada en plantas. Su compromiso con
+              la calidad, la innovación y el bienestar la convierte en un aliado
+              estratégico en productos saludables para nuestros clientes.
+            </p>
+          </div>
+          <div className="partner">
+            <p className="eyebrow" style={{ opacity: 0.55 }}>Socio comercial</p>
+            <h3>IDM</h3>
+            <p>
+              Colaboramos con IDM para acercar al mercado mexicano soluciones
+              innovadoras de almacenamiento y dispensación que optimizan operaciones,
+              mejoran la higiene y hacen más eficiente la experiencia en negocios de
+              nutrición y alimentos.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* ============ BOLETÍN ============ */}
+      <section className="subscribe">
+        <p className="eyebrow" style={{ opacity: 0.7 }}>Boletín</p>
+        <h2>10% de descuento en tu primera compra.</h2>
+        <p>Suscríbete a nuestro boletín y recibe promociones, nuevos sabores y noticias Shakeaholic.</p>
+        <form className="sub-form" onSubmit={suscribirse}>
+          <input type="email" name="correo" placeholder="tu@correo.com" required />
+          <button type="submit">Inscribirse</button>
+        </form>
+      </section>
+
+      {/* ============ CONTACTO ============ */}
+      <section className="contact" id="contacto">
+        <p className="eyebrow">Contacto</p>
+        <h2 className="title">Mejor aún: visítanos.</h2>
+        <p className="lede">Amamos a nuestros clientes — no dudes en visitarnos en nuestro horario habitual.</p>
+
+        <div className="contact-grid">
+          <div className="c-card">
+            <h3>Shakeaholic Mérida</h3>
+            <div className="c-list">
+              <div className="c-row"><b>Dirección</b><span>The Harbor Lifestyle Mall, Prol. Paseo Montejo, Zona Industrial, Mérida, Yuc., México</span></div>
+              <div className="c-row"><b>Teléfono</b><span><a href="tel:+529995044797">+52 999 504 4797</a></span></div>
+              <div className="c-row"><b>WhatsApp</b><span><a href={WHATSAPP}>wa.me/529995044797</a></span></div>
+              <div className="c-row"><b>Correo</b><span><a href="mailto:hola@shakeaholic.mx">hola@shakeaholic.mx</a></span></div>
+              <div className="c-row"><b>Horario</b><span>Abierto hoy · 6:00 – 10:30 a.m.</span></div>
+            </div>
+          </div>
+          <div className="c-map">
+            <iframe
+              title="Mapa — Shakeaholic en The Harbor, Mérida"
+              src="https://maps.google.com/maps?q=The%20Harbor%20Lifestyle%20Mall%2C%20M%C3%A9rida%2C%20Yucat%C3%A1n&z=16&output=embed"
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* ============ FOOTER ============ */}
+      <footer className="footer">
+        <span className="wordmark">Shakeaholic</span>
+        <div className="social">
+          <a href="https://www.facebook.com/1037156399485268">Facebook</a>
+          <a href="https://www.instagram.com/shakeaholicmx">Instagram</a>
+          <a href="https://www.tiktok.com/@shakeaholicmx">TikTok</a>
+          <a href={URL_REWARDS}>Rewards</a>
+        </div>
+        <span className="legal">© 2026 Shakeaholic · Mérida, Yucatán</span>
       </footer>
-    </div>
+    </>
   )
 }
