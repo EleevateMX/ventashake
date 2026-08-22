@@ -58,12 +58,48 @@ export function estadoDeRespuestaClip(resp: unknown): string {
   return mapearEstadoClip(typeof crudo === 'string' ? crudo : undefined)
 }
 
-/** GET del intento de pago en Clip. Devuelve el JSON crudo o null si 404. */
+/**
+ * Llama al pinpad de Clip con la cabecera de autenticación correcta.
+ *
+ * Descubierto en producción el 22/08: el POST de creación acepta
+ * `Authorization: Basic ...`, pero el GET y el DELETE viven detrás de un
+ * gateway de AWS que intenta leer esa cabecera como firma SigV4 y responde
+ * 403 "Authorization header requires 'Credential' parameter". Por ese 403
+ * los cobros ya pagados se quedaban en `pending` (la caja "pegada" esperando
+ * confirmación) y cancelar en el POS nunca cancelaba en la terminal.
+ *
+ * En estas rutas el token va en `x-api-key`. Se intenta así primero y, por
+ * si Clip unifica el esquema algún día, ante un rechazo de autenticación se
+ * reintenta con `authorization` en vez de quedarse tirado.
+ */
+export async function llamarPinpadClip(url: string, method: 'GET' | 'DELETE'): Promise<Response> {
+  // `authorization` primero: es la que aceptan el POST y el GET (probado en
+  // produccion el 22/08 — con x-api-key el GET responde 401). El reintento
+  // con x-api-key queda por si alguna ruta de Clip lo pide al reves.
+  let resp = await fetch(url, { method, headers: headersClip('authorization') })
+  if (resp.status === 401 || resp.status === 403) {
+    console.log(`pinpad: ${method} rechazado con authorization (${resp.status}), reintentando con x-api-key`)
+    resp = await fetch(url, { method, headers: headersClip('x-api-key') })
+  }
+  return resp
+}
+
+/**
+ * GET del intento de pago en Clip. Devuelve el JSON crudo o null si 404.
+ *
+ * La ruta real, encontrada sondeando el gateway en producción el 22/08
+ * porque la documentación no la detalla y el path "obvio" no existe:
+ *
+ *   GET /payment?pinpadRequestId={id}     <- camelCase, query param
+ *
+ * `GET /payment/{id}` no existe como ruta (el gateway responde "Missing
+ * Authentication Token"); `?pinpad_request_id=` en snake_case existe pero
+ * responde ERROR_BODY_STRUCTURE. La respuesta buena trae `status` arriba
+ * ("APPROVED", etc.) y también acepta `?reference=`. El DELETE es al
+ * revés: ahí el id sí va en el path, en snake nada — /payment/{id}.
+ */
 export async function obtenerPagoClip(pinpadRequestId: string): Promise<unknown | null> {
-  const resp = await fetch(`${PINPAD_BASE}/payment/${encodeURIComponent(pinpadRequestId)}`, {
-    method: 'GET',
-    headers: headersClip('authorization'),
-  })
+  const resp = await llamarPinpadClip(`${PINPAD_BASE}/payment?pinpadRequestId=${encodeURIComponent(pinpadRequestId)}`, 'GET')
   if (resp.status === 404) return null
   if (!resp.ok) {
     throw new Error(`Clip GET /payment respondió ${resp.status}: ${await resp.text()}`)

@@ -17,7 +17,7 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
 import { headersClip, ClipSinCredenciales } from '../_shared/clip.ts'
-import { PINPAD_BASE } from '../_shared/pinpad.ts'
+import { PINPAD_BASE, llamarPinpadClip } from '../_shared/pinpad.ts'
 
 interface Body {
   orden_id: string
@@ -117,10 +117,12 @@ Deno.serve(async (req: Request) => {
     .in('estado_transaccion', ['created', 'pending', 'processing'])
   for (const v of vivos ?? []) {
     if (v.proveedor_payment_id) {
-      await fetch(`${PINPAD_BASE}/payment/${encodeURIComponent(v.proveedor_payment_id)}`, {
-        method: 'DELETE',
-        headers: cabecerasClip,
-      }).catch(() => {})
+      // llamarPinpadClip y no fetch directo: el DELETE rechaza Basic en
+      // `authorization` (403 del gateway), la cabecera correcta es x-api-key.
+      await llamarPinpadClip(
+        `${PINPAD_BASE}/payment/${encodeURIComponent(v.proveedor_payment_id)}`,
+        'DELETE',
+      ).catch(() => {})
     }
     await sb.from('pagos').update({ estado_transaccion: 'cancelled', estado: 'cancelado' }).eq('id', v.id)
   }

@@ -7,8 +7,8 @@
 
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
-import { headersClip, ClipSinCredenciales } from '../_shared/clip.ts'
-import { PINPAD_BASE } from '../_shared/pinpad.ts'
+import { ClipSinCredenciales, credencialesClip } from '../_shared/clip.ts'
+import { PINPAD_BASE, llamarPinpadClip } from '../_shared/pinpad.ts'
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
@@ -29,9 +29,8 @@ Deno.serve(async (req: Request) => {
     return responder({ ok: false, error: { codigo: 'bad_request', mensaje: 'Falta proveedor_payment_id' } }, 400)
   }
 
-  let cabeceras: HeadersInit
   try {
-    cabeceras = headersClip('authorization')
+    credencialesClip() // valida que existan antes de intentar nada
   } catch (e) {
     if (e instanceof ClipSinCredenciales) {
       return responder({ ok: false, error: { codigo: 'not_configured', mensaje: 'Clip no está configurado' } })
@@ -39,10 +38,13 @@ Deno.serve(async (req: Request) => {
     throw e
   }
 
-  const resp = await fetch(`${PINPAD_BASE}/payment/${encodeURIComponent(body.proveedor_payment_id)}`, {
-    method: 'DELETE',
-    headers: cabeceras,
-  }).catch(() => null)
+  // llamarPinpadClip resuelve la cabecera correcta: el DELETE, igual que el
+  // GET, rechaza `Authorization: Basic` con un 403 de gateway de AWS. Ese
+  // 403 era la razón de que cancelar en el POS no cancelara en la terminal.
+  const resp = await llamarPinpadClip(
+    `${PINPAD_BASE}/payment/${encodeURIComponent(body.proveedor_payment_id)}`,
+    'DELETE',
+  ).catch(() => null)
 
   const sb = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
   if (resp?.ok) {
