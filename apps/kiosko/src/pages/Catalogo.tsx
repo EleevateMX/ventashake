@@ -9,6 +9,7 @@ import {
 import type { ProductoVenta, ExtraDeProducto } from '@shake/supabase'
 import { sb } from '@/lib/sb'
 import { ModalExtras } from '@/components/ModalExtras'
+import { CorteMilo } from '@/components/CorteMilo'
 
 interface Categoria {
   id: string
@@ -32,6 +33,21 @@ export function Catalogo() {
    * cambiar uno obligaba a desplegar el kiosko.
    */
   const [observaciones, setObservaciones] = useState<Record<string, string[]>>({})
+  /**
+   * Pasadizo del corte de caja: cinco toques a Milo en menos de cuatro
+   * segundos. Sin botón visible a propósito — el personal lo sabe, el
+   * cliente no tiene por qué.
+   */
+  const [modalCorte, setModalCorte] = useState(false)
+  const toquesMilo = React.useRef<number[]>([])
+  function tocarMilo() {
+    const ahora = Date.now()
+    toquesMilo.current = [...toquesMilo.current.filter((t) => ahora - t < 4000), ahora]
+    if (toquesMilo.current.length >= 5) {
+      toquesMilo.current = []
+      setModalCorte(true)
+    }
+  }
 
   useEffect(() => {
     Promise.all([listarProductosParaVenta(sb), listarExtras(sb), listarProductosExtra(sb)])
@@ -177,11 +193,14 @@ export function Catalogo() {
     <div className="flex flex-col h-screen bg-sa-cream-paper">
       {/* Hero strip */}
       <header className="relative bg-sa-green-deep text-sa-cream px-8 pt-8 pb-10 overflow-hidden">
-        <div className="absolute -right-6 -bottom-10 opacity-90 pointer-events-none select-none">
+        {/* Toca a Milo 5 veces: abre el corte de caja (ver CorteMilo). */}
+        <div className="absolute -right-6 -bottom-10 opacity-90 select-none">
           <img
             src="/milo-transparent.png"
             alt=""
+            onClick={tocarMilo}
             className="h-56 w-auto drop-shadow-2xl"
+            draggable={false}
           />
         </div>
         <div className="relative z-10 flex items-start justify-between gap-6">
@@ -407,6 +426,8 @@ export function Catalogo() {
           </span>
         </button>
       )}
+
+      <CorteMilo abierto={modalCorte} onCerrar={() => setModalCorte(false)} />
     </div>
   )
 }
