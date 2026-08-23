@@ -171,6 +171,8 @@ export async function historialPedidos(sb: ShakeClient, limite = 5): Promise<Ped
 export interface PanelEnVivo {
   ahora: string
   dia: { ordenes: number; total: number; ticket: number }
+  /** Lo pagado desde que se abrió la caja (o desde medianoche sin corte). */
+  turno: { ordenes: number; total: number }
   /** Suma aprobada de hoy por método: {efectivo: 1855, clip: 586.5, ...} */
   por_metodo: Record<string, number>
   corte: { desde: string; fondo: number; abrio: string | null } | null
@@ -185,6 +187,6 @@ export interface PanelEnVivo {
  * `fn_panel_en_vivo`). Un solo viaje con todo; el servidor exige
  * fn_es_jefe() — a cualquier otro le truena, no le regresa datos vacíos.
  */
-export async function panelEnVivo(sb: ShakeClient): Promise<PanelEnVivo> {
-  return rpc<PanelEnVivo>(sb, 'fn_panel_en_vivo', {})
+export async function panelEnVivo(sb: ShakeClient, todosLosPedidos = false): Promise<PanelEnVivo> {
+  return rpc<PanelEnVivo>(sb, 'fn_panel_en_vivo', { p_todos_los_pedidos: todosLosPedidos })
 }
