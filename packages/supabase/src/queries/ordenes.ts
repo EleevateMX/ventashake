@@ -165,3 +165,26 @@ export interface PedidoHistorial {
 export async function historialPedidos(sb: ShakeClient, limite = 5): Promise<PedidoHistorial[]> {
   return rpc<PedidoHistorial[]>(sb, 'fn_historial_pedidos', { p_limite: limite })
 }
+
+// --------------------------- panel en vivo ---------------------------
+
+export interface PanelEnVivo {
+  ahora: string
+  dia: { ordenes: number; total: number; ticket: number }
+  /** Suma aprobada de hoy por método: {efectivo: 1855, clip: 586.5, ...} */
+  por_metodo: Record<string, number>
+  corte: { desde: string; fondo: number; abrio: string | null } | null
+  en_cocina: { estacion: string; estado: string; folio: number; nombre: string | null; minutos: number }[]
+  pedidos_recientes: { folio: number; nombre: string | null; hora: string; total: number; canal: string; items: string }[]
+  top_productos: { nombre: string; cantidad: number }[]
+  impresoras: { nombre: string; en_linea: boolean; ultima_impresion: string | null }[]
+}
+
+/**
+ * La foto del momento para el panel "En vivo" del Admin (RPC
+ * `fn_panel_en_vivo`). Un solo viaje con todo; el servidor exige
+ * fn_es_jefe() — a cualquier otro le truena, no le regresa datos vacíos.
+ */
+export async function panelEnVivo(sb: ShakeClient): Promise<PanelEnVivo> {
+  return rpc<PanelEnVivo>(sb, 'fn_panel_en_vivo', {})
+}

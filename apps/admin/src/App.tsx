@@ -1,6 +1,7 @@
 import logo from '@shake/brand/logo.png'
 import { useState, type ReactElement } from 'react'
 import Dashboard from './pages/Dashboard'
+import EnVivo from './pages/EnVivo'
 import Menu from './pages/Menu'
 import Categorias from './pages/Categorias'
 import Combos from './pages/Combos'
@@ -13,13 +14,20 @@ import Empleados from './pages/Empleados'
 import Impresoras from './pages/Impresoras'
 import Sistema from './pages/Sistema'
 
-type Tab = 'dashboard' | 'menu' | 'categorias' | 'combos' | 'extras' | 'inventario' | 'promos' | 'ventas' | 'clientes' | 'empleados' | 'impresoras' | 'sistema'
+type Tab = 'dashboard' | 'envivo' | 'menu' | 'categorias' | 'combos' | 'extras' | 'inventario' | 'promos' | 'ventas' | 'clientes' | 'empleados' | 'impresoras' | 'sistema'
 
 const w = 18
 
 const IconDashboard = () => (
   <svg width={w} height={w} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <rect x="3" y="13" width="4" height="8" rx="1" /><rect x="10" y="8" width="4" height="13" rx="1" /><rect x="17" y="3" width="4" height="18" rx="1" />
+  </svg>
+)
+const IconEnVivo = () => (
+  <svg width={w} height={w} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="2" fill="currentColor" stroke="none" />
+    <path d="M16.24 7.76a6 6 0 0 1 0 8.49" /><path d="M7.76 16.24a6 6 0 0 1 0-8.49" />
+    <path d="M19.07 4.93a10 10 0 0 1 0 14.14" /><path d="M4.93 19.07a10 10 0 0 1 0-14.14" />
   </svg>
 )
 const IconMenu = () => (
@@ -81,6 +89,7 @@ const IconSistema = () => (
 
 const navItems: { id: Tab; label: string; Icon: () => ReactElement }[] = [
   { id: 'dashboard', label: 'Dashboard', Icon: IconDashboard },
+  { id: 'envivo', label: 'En vivo', Icon: IconEnVivo },
   { id: 'menu', label: 'Menú', Icon: IconMenu },
   { id: 'categorias', label: 'Categorías', Icon: IconCategorias },
   { id: 'combos', label: 'Combos', Icon: IconCombos },
@@ -130,6 +139,7 @@ export default function App() {
       {/* Contenido */}
       <main className="flex-1 min-w-0 p-4 md:p-8">
         {tab === 'dashboard' && <Dashboard />}
+        {tab === 'envivo' && <EnVivo />}
         {tab === 'menu' && <Menu />}
         {tab === 'categorias' && <Categorias />}
         {tab === 'combos' && <Combos />}
