@@ -4,6 +4,7 @@ import QRCode from 'qrcode'
 import { cerrarSesion } from '@shake/supabase'
 import { sb } from '@/lib/sb'
 import { QrRewards } from '@/components/QrRewards'
+import { HistorialPedidos } from '@/components/HistorialPedidos'
 import type { ItemCarrito, UsuarioKiosko } from '@/store/carritoStore'
 
 interface EstadoConfirmacion {
@@ -36,6 +37,7 @@ export function Confirmacion() {
 
   const [segundos, setSegundos] = useState(SEGUNDOS_EN_PANTALLA)
   const [qrUrl, setQrUrl] = useState<string>('')
+  const [verHistorial, setVerHistorial] = useState(false)
 
   const fallbackNumero = useMemo(
     () => Math.floor(100 + Math.random() * 900).toString().padStart(3, '0'),
@@ -60,13 +62,18 @@ export function Confirmacion() {
   }, [ordenId])
 
   useEffect(() => {
+    // Con el historial abierto la cuenta se pausa: quien lo está leyendo no
+    // debe perder la pantalla a media consulta. Al cerrarlo, vuelve a contar
+    // desde el principio.
+    if (verHistorial) return
+    setSegundos(SEGUNDOS_EN_PANTALLA)
     const timer = setTimeout(async () => {
       await cerrarSesion(sb).catch(console.error)
       navigate('/catalogo')
     }, SEGUNDOS_EN_PANTALLA * 1000)
     const tick = setInterval(() => setSegundos((s) => (s > 0 ? s - 1 : 0)), 1000)
     return () => { clearTimeout(timer); clearInterval(tick) }
-  }, [navigate])
+  }, [navigate, verHistorial])
 
   return (
     <div className="relative flex flex-col items-center justify-center h-screen bg-sa-green-deep text-sa-cream overflow-hidden px-8">
@@ -159,12 +166,20 @@ export function Confirmacion() {
           Menú en {segundos}s
         </p>
         <button
+          onClick={() => setVerHistorial(true)}
+          className="border border-sa-cream/30 text-sa-cream px-6 h-12 rounded-full font-display text-lg hover:bg-sa-cream/10 active:scale-95 transition-all"
+        >
+          Historial de pedidos
+        </button>
+        <button
           onClick={() => navigate('/catalogo')}
           className="bg-sa-strawberry text-white px-8 h-12 rounded-full font-display text-xl shadow-sa active:scale-95 transition-transform"
         >
           Otro round
         </button>
       </div>
+
+      <HistorialPedidos abierto={verHistorial} onCerrar={() => setVerHistorial(false)} />
     </div>
   )
 }

@@ -131,3 +131,37 @@ export async function nombresPedidoFrecuentes(sb: ShakeClient, limite = 30): Pro
   )
   return (filas ?? []).map((f) => f.nombre)
 }
+
+// ------------------------- historial de pedidos ----------------------
+
+export interface HistorialExtra {
+  nombre: string
+  cantidad: number
+}
+
+export interface HistorialItem {
+  cantidad: number
+  nombre: string
+  personalizacion: string | null
+  extras: HistorialExtra[]
+}
+
+export interface PedidoHistorial {
+  folio: number
+  /** Null cuando el pedido se levantó sin nombre. */
+  nombre: string | null
+  total: number
+  /** Hora local de la sucursal, 'HH:MM'. */
+  hora: string
+  items: HistorialItem[]
+}
+
+/**
+ * Los últimos pedidos pagados (RPC `fn_historial_pedidos`): folio, nombre,
+ * hora y renglones con sus extras. Va por RPC y no por SELECT porque el
+ * kiosko puede estar como anon y las tablas de órdenes no se abren para
+ * eso — la función devuelve solo lo que esta pantalla enseña, tope 10.
+ */
+export async function historialPedidos(sb: ShakeClient, limite = 5): Promise<PedidoHistorial[]> {
+  return rpc<PedidoHistorial[]>(sb, 'fn_historial_pedidos', { p_limite: limite })
+}
