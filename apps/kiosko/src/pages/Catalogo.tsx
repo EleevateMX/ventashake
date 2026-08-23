@@ -10,6 +10,7 @@ import type { ProductoVenta, ExtraDeProducto } from '@shake/supabase'
 import { sb } from '@/lib/sb'
 import { ModalExtras } from '@/components/ModalExtras'
 import { CorteMilo } from '@/components/CorteMilo'
+import { HistorialPedidos } from '@/components/HistorialPedidos'
 
 interface Categoria {
   id: string
@@ -39,6 +40,7 @@ export function Catalogo() {
    * cliente no tiene por qué.
    */
   const [modalCorte, setModalCorte] = useState(false)
+  const [verHistorial, setVerHistorial] = useState(false)
   const toquesMilo = React.useRef<number[]>([])
   function tocarMilo() {
     const ahora = Date.now()
@@ -193,16 +195,24 @@ export function Catalogo() {
     <div className="flex flex-col h-screen bg-sa-cream-paper">
       {/* Hero strip */}
       <header className="relative bg-sa-green-deep text-sa-cream px-8 pt-8 pb-10 overflow-hidden">
-        {/* Toca a Milo 5 veces: abre el corte de caja (ver CorteMilo). */}
-        <div className="absolute -right-6 -bottom-10 opacity-90 select-none">
-          <img
-            src="/milo-transparent.png"
-            alt=""
-            onClick={tocarMilo}
-            className="h-56 w-auto drop-shadow-2xl"
-            draggable={false}
-          />
-        </div>
+        {/* Toca a Milo 5 veces: abre el corte de caja (ver CorteMilo).
+            Va como fondo CSS y no como <img>: una imagen de verdad, al
+            mantenerla presionada, saca el menú del navegador ("buscar
+            imagen", arrastrar) — como fondo es un dibujo estático que solo
+            cuenta toques. */}
+        <div
+          onClick={tocarMilo}
+          onContextMenu={(e) => e.preventDefault()}
+          className="absolute -right-6 -bottom-10 opacity-90 select-none h-56 w-[242px] drop-shadow-2xl"
+          style={{
+            backgroundImage: 'url(/milo-transparent.png)',
+            backgroundSize: 'contain',
+            backgroundRepeat: 'no-repeat',
+            backgroundPosition: 'center',
+            WebkitTouchCallout: 'none',
+            WebkitUserSelect: 'none',
+          } as React.CSSProperties}
+        />
         <div className="relative z-10 flex items-start justify-between gap-6">
           <div className="flex items-center gap-5">
             <img
@@ -222,15 +232,29 @@ export function Catalogo() {
               </p>
               {/* Acceso a la invitación de lealtad: el cajero la muestra
                   cuando quiere ofrecerle el programa al cliente. */}
-              <button
-                onClick={() => navigate('/rewards')}
-                className="mt-4 inline-flex items-center gap-2 bg-sa-banana/20 hover:bg-sa-banana/30 border border-sa-banana/40 text-sa-banana px-4 py-2 rounded-full font-mono text-xs uppercase tracking-wide transition-colors"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-                </svg>
-                Únete a Rewards
-              </button>
+              <div className="mt-4 flex items-center gap-3 flex-wrap">
+                <button
+                  onClick={() => navigate('/rewards')}
+                  className="inline-flex items-center gap-2 bg-sa-banana/20 hover:bg-sa-banana/30 border border-sa-banana/40 text-sa-banana px-4 py-2 rounded-full font-mono text-xs uppercase tracking-wide transition-colors"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                  </svg>
+                  Únete a Rewards
+                </button>
+                {/* Historial a la mano: la barra pregunta "¿de quién era el
+                    último?" sin esperar a la pantalla de confirmación. */}
+                <button
+                  onClick={() => setVerHistorial(true)}
+                  className="inline-flex items-center gap-2 bg-sa-cream/10 hover:bg-sa-cream/20 border border-sa-cream/30 text-sa-cream/90 px-4 py-2 rounded-full font-mono text-xs uppercase tracking-wide transition-colors"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10" />
+                    <polyline points="12 6 12 12 16 14" />
+                  </svg>
+                  Historial de pedidos
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -428,6 +452,7 @@ export function Catalogo() {
       )}
 
       <CorteMilo abierto={modalCorte} onCerrar={() => setModalCorte(false)} />
+      <HistorialPedidos abierto={verHistorial} onCerrar={() => setVerHistorial(false)} />
     </div>
   )
 }
