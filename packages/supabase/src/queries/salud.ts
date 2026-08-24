@@ -35,3 +35,34 @@ export async function obtenerSaludSistema(sb: ShakeClient): Promise<SaludSistema
     ventasSinMovimientoInventario: fila?.ventas_sin_movimiento_inventario ?? 0,
   }
 }
+
+// --------------------------- diagnóstico -----------------------------
+
+export interface HallazgoDiagnostico {
+  area: string
+  severidad: 'alta' | 'media' | 'baja'
+  cuantos: number
+  titulo: string
+  detalle: string
+  que_hacer: string
+}
+
+export interface Diagnostico {
+  revisado_en: string
+  hallazgos: HallazgoDiagnostico[]
+}
+
+/**
+ * El chequeo médico del sistema (RPC `fn_diagnostico_sistema`): no cuántos
+ * problemas hay, sino CUÁLES, con ejemplos concretos y qué hacer con cada
+ * uno — incluido lo que pasa fuera del punto de venta (Rewards).
+ *
+ * Exige gerencia del lado del servidor.
+ */
+export async function diagnosticoSistema(sb: ShakeClient): Promise<Diagnostico> {
+  const { data, error } = await (sb.rpc as unknown as
+    (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>
+  )('fn_diagnostico_sistema', {})
+  if (error) throw error
+  return data as Diagnostico
+}
