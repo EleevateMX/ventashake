@@ -1,27 +1,30 @@
 import milo from '@shake/brand/milo.png'
 import { useEffect, useState } from 'react'
-import { sb } from './lib/sb'
 import {
-  iniciarSesionGoogle,
-  sesionActual,
-  usuarioActual,
-  cerrarSesion,
-  onCambioSesion,
-  vincularClienteAuth,
-  misFavoritos,
-  miHistorial,
-  guardarMiTelefono,
+  sesionActual, usuarioActual, iniciarSesionGoogle, cerrarSesion, onCambioSesion,
+  vincularClienteAuth, guardarMiTelefono, miResumenLealtad, listarProductosParaVenta,
+  nombreParaOrdenar,
+  type ResumenLealtad, type ProductoVenta,
 } from '@shake/supabase'
-import type { ClienteConLealtad, FavoritoCliente, CompraHistorial } from '@shake/supabase'
+import { mxn } from '@shake/utils'
+import { sb } from './lib/sb'
 import QR from './QR'
-import { IconMancuerna, IconRegalo, IconPastel, IconRecibo, IconEstrella } from './Iconos'
-import { mensajeDeError } from '@shake/utils'
 
-// Traduce errores técnicos a un mensaje amable en español.
-// Mientras el cliente termina de habilitar Google en Supabase Auth, el
-// proveedor responde "provider is not enabled"; no queremos asustar al usuario.
+/** Las secciones de la app, como pestañas de abajo. */
+type Pestana = 'inicio' | 'menu' | 'actividad' | 'cuenta'
+
+const PESTANAS: { id: Pestana; label: string; icono: string }[] = [
+  { id: 'inicio', label: 'Tarjeta', icono: '🏋️' },
+  { id: 'menu', label: 'Menú', icono: '🥤' },
+  { id: 'actividad', label: 'Actividad', icono: '📋' },
+  { id: 'cuenta', label: 'Cuenta', icono: '👤' },
+]
+
+const WHATSAPP = 'https://wa.me/529995044797'
+
+/** Los errores crudos no le sirven a nadie parado en la barra. */
 function mensajeAmable(e: unknown): string {
-  const raw = mensajeDeError(e).toLowerCase()
+  const raw = (e instanceof Error ? e.message : String(e ?? '')).toLowerCase()
   if (raw.includes('provider is not enabled') || raw.includes('unsupported provider')) {
     return 'Rewards estará disponible en un momentito. Estamos afinando el acceso — vuelve a intentar muy pronto.'
   }
@@ -31,58 +34,30 @@ function mensajeAmable(e: unknown): string {
   return 'Algo salió mal. Inténtalo de nuevo en un momento.'
 }
 
-/** "Hoy", "Ayer" o la fecha corta, como se dice en la barra. */
-function fechaHumana(iso: string): string {
-  const d = new Date(iso)
-  const hoy = new Date()
-  const ayer = new Date()
-  ayer.setDate(hoy.getDate() - 1)
-  const hora = d.toLocaleTimeString('es-MX', { hour: 'numeric', minute: '2-digit' })
-  if (d.toDateString() === hoy.toDateString()) return `Hoy · ${hora}`
-  if (d.toDateString() === ayer.toDateString()) return `Ayer · ${hora}`
-  return d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })
-}
-
 export default function App() {
   const [cargando, setCargando] = useState(true)
   const [logueado, setLogueado] = useState(false)
-  const [cliente, setCliente] = useState<ClienteConLealtad | null>(null)
-  const [favoritos, setFavoritos] = useState<FavoritoCliente[]>([])
-  const [historial, setHistorial] = useState<CompraHistorial[]>([])
+  const [datos, setDatos] = useState<ResumenLealtad | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [telefono, setTelefono] = useState('')
-  const [guardandoTel, setGuardandoTel] = useState(false)
-  const [errorTel, setErrorTel] = useState<string | null>(null)
-
-  async function guardarTelefono() {
-    const limpio = telefono.replace(/\D/g, '')
-    if (limpio.length !== 10) {
-      setErrorTel('Escribe tu número a 10 dígitos.')
-      return
-    }
-    setGuardandoTel(true)
-    setErrorTel(null)
-    try {
-      const actualizado = await guardarMiTelefono(sb, limpio)
-      setCliente((c) => (c ? { ...c, telefono: actualizado.telefono } : c))
-      setTelefono('')
-    } catch (e) {
-      setErrorTel(e instanceof Error && e.message ? e.message : 'No se pudo guardar. Intenta de nuevo.')
-    } finally {
-      setGuardandoTel(false)
-    }
-  }
+  // Los atajos del icono (mantener presionado en el celular) abren
+  // directo en una pestaña: /?ir=menu. Si prometemos el atajo, tiene que
+  // llevar a algún lado.
+  const [pestana, setPestana] = useState<Pestana>(() => {
+    const ir = new URLSearchParams(window.location.search).get('ir')
+    return (['inicio', 'menu', 'actividad', 'cuenta'] as const).includes(ir as Pestana)
+      ? (ir as Pestana)
+      : 'inicio'
+  })
+  const [menu, setMenu] = useState<ProductoVenta[] | null>(null)
 
   /**
-   * Trae la sesión y el expediente del cliente.
+   * Trae la sesión y el expediente completo.
    *
-   * Al volver de Google la sesión tarda un instante en asentarse, y este
-   * mismo método se dispara dos veces (al montar y al cambiar la sesión).
-   * El intento que llega temprano fallaba y pintaba un error rojo que
-   * desaparecía solo un segundo después: alarmar al cliente por algo que
-   * ya se arregló es peor que no decir nada. Ahora los primeros tropiezos
-   * se reintentan en silencio y solo se muestra el error si de verdad no
-   * levanta.
+   * Al volver de Google la sesión tarda un instante en asentarse, y esto se
+   * dispara dos veces (al montar y al cambiar la sesión). El intento que
+   * llega temprano fallaba y pintaba un error rojo que se iba solo un
+   * segundo después: alarmar por algo ya resuelto es peor que callar. Los
+   * primeros tropiezos se reintentan en silencio.
    */
   async function sincronizar(intento = 0) {
     let reintentando = false
@@ -90,7 +65,7 @@ export default function App() {
       const sesion = await sesionActual(sb)
       if (!sesion) {
         setLogueado(false)
-        setCliente(null)
+        setDatos(null)
         return
       }
       setLogueado(true)
@@ -101,26 +76,19 @@ export default function App() {
         (user.user_metadata?.name as string) ||
         user.email ||
         'Cliente'
-      // El id y el correo los toma el servidor de la sesión, no de aquí.
-      const cli = await vincularClienteAuth(sb, { nombre })
-      setCliente(cli)
+      // Da de alta la ficha si es la primera vez; el servidor toma el id y
+      // el correo de la sesión, no de aquí.
+      await vincularClienteAuth(sb, { nombre })
+      setDatos(await miResumenLealtad(sb))
       setError(null)
-      // El expediente llega aparte y sin bloquear la tarjeta: si fallara,
-      // las secciones simplemente muestran su estado vacío.
-      void misFavoritos(sb).then(setFavoritos).catch(() => {})
-      void miHistorial(sb).then(setHistorial).catch(() => {})
     } catch (e) {
       if (intento < 2) {
-        // Se queda en "Cargando…" y lo vuelve a intentar: para el cliente
-        // es el mismo instante, sin un rojo que aparece y se va.
         reintentando = true
         window.setTimeout(() => void sincronizar(intento + 1), 700)
         return
       }
       setError(mensajeAmable(e))
     } finally {
-      // Solo mientras haya un reintento en camino se sigue en "Cargando…";
-      // en cuanto termina bien (o se rinde), la pantalla se muestra.
       if (!reintentando) setCargando(false)
     }
   }
@@ -131,239 +99,460 @@ export default function App() {
     return off
   }, [])
 
-  async function entrar() {
-    try {
-      await iniciarSesionGoogle(sb, window.location.origin)
-    } catch (e) {
-      setError(mensajeAmable(e))
-    }
-  }
+  // El menú se trae la primera vez que se abre esa pestaña, no al arrancar:
+  // la mayoría entra a ver su saldo, no la carta.
+  useEffect(() => {
+    if (pestana !== 'menu' || menu !== null) return
+    listarProductosParaVenta(sb).then(setMenu).catch(() => setMenu([]))
+  }, [pestana, menu])
 
-  if (cargando)
+  if (cargando) {
     return (
       <div className="min-h-[100dvh] flex flex-col items-center justify-center gap-3 px-5 bg-sa-green-deep font-body text-sa-cream/70">
         <img src={milo} alt="" className="w-24 h-auto animate-pulse" />
         <p>Cargando…</p>
       </div>
     )
-
-  if (!logueado) {
-    return (
-      <div className="min-h-[100dvh] flex items-center justify-center px-5 bg-sa-green-deep font-body">
-        <div className="text-center max-w-[340px] w-full">
-          <img src={milo} alt="Milo, la mascota de Shakeaholic" className="w-[132px] h-auto mx-auto" />
-          <h1 className="font-display text-3xl text-sa-cream mt-3 mb-2 leading-tight">
-            Shakeaholic Rewards
-          </h1>
-          <p className="text-sa-mint">
-            Acumula <b className="font-semibold">mancuernas</b> con cada compra y gana shakes gratis.
-          </p>
-          {error && (
-            <div className="mt-4 rounded-sa border border-sa-mint/40 bg-sa-mint/10 text-sa-cream font-body text-sm px-4 py-3 leading-snug">
-              {error}
-            </div>
-          )}
-          <button
-            className="mt-4 mb-2 w-full rounded-sa-lg bg-sa-cream text-sa-green-ink font-display text-xl py-4 hover:bg-sa-cream-soft transition-colors"
-            onClick={() => void entrar()}
-          >
-            Continuar con Google
-          </button>
-          <p className="text-sa-cream/50 text-sm">Regístrate en segundos. 1 mancuerna por cada $10.</p>
-        </div>
-      </div>
-    )
   }
 
-  const restantes = cliente ? Math.max(0, 100 - (cliente.mancuernas % 100 || 0)) : 100
+  if (!logueado) return <Bienvenida error={error} />
+
+  const c = datos?.cliente
 
   return (
-    <div className="min-h-[100dvh] max-w-[460px] mx-auto px-4 py-4 bg-sa-green-deep font-body">
-      <header className="flex justify-between items-center mb-3">
-        <span className="flex items-center gap-2 font-display text-sa-cream text-xl">
-          <img src={milo} alt="" className="w-8 h-auto" />
-          Rewards
-        </span>
-        <button
-          className="font-body text-sm font-semibold text-sa-mint hover:text-sa-cream transition-colors"
-          onClick={() => void cerrarSesion(sb)}
-        >
-          Salir
-        </button>
+    <div className="min-h-[100dvh] bg-sa-green-deep font-body flex flex-col">
+      {/* Encabezado compacto: en una app el nombre no ocupa media pantalla. */}
+      <header className="flex items-center justify-between px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-3 shrink-0">
+        <div className="min-w-0">
+          <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-sa-banana">
+            Shakeaholic Rewards
+          </p>
+          <p className="font-display text-xl text-sa-cream leading-tight truncate">
+            {c?.nombre?.split(' ')[0] ?? 'Hola'}
+          </p>
+        </div>
+        <img src={milo} alt="" className="h-10 w-auto shrink-0" />
       </header>
 
       {error && (
-        <div className="mb-3 rounded-sa border border-sa-strawberry/60 bg-sa-strawberry/15 text-sa-strawberry font-mono text-sm px-4 py-3">
+        <div className="mx-4 mb-3 rounded-sa border border-sa-strawberry/60 bg-sa-strawberry/15 text-sa-strawberry font-mono text-sm px-4 py-3">
           {error}
         </div>
       )}
 
-      {cliente && (
-        <>
-          {/* ── La tarjeta: saldo y camino al próximo cupón ── */}
-          <section className="relative overflow-hidden rounded-sa-lg p-5 mb-3.5 text-sa-cream shadow-sa bg-gradient-to-br from-sa-green to-sa-green-deep">
-            <img
-              src={milo}
-              alt=""
-              className="absolute -right-3 -bottom-4 w-24 h-auto opacity-25 rotate-6 pointer-events-none"
-            />
-            <div className="text-sm opacity-90">Hola, {cliente.nombre.split(' ')[0]}</div>
-            <div className="flex items-center gap-3 mt-1.5">
-              <IconMancuerna className="w-12 h-12 text-sa-banana shrink-0" />
-              <span className="font-display text-6xl leading-none text-sa-banana">{cliente.mancuernas}</span>
-            </div>
-            <div className="uppercase tracking-widest text-xs opacity-85 mt-1">mancuernas</div>
-            <div className="bg-sa-cream/25 rounded-full h-2 my-3 overflow-hidden">
-              <div className="bg-sa-mint h-full" style={{ width: `${cliente.mancuernas % 100}%` }} />
-            </div>
-            <div className="text-sa-cream/85 text-sm">
-              {restantes} para tu próximo cupón
-            </div>
-          </section>
+      {/* El contenido se desplaza; las pestañas se quedan fijas abajo. */}
+      <main className="flex-1 min-h-0 overflow-y-auto px-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))]">
+        {pestana === 'inicio' && <Inicio datos={datos} alRecargar={() => void sincronizar()} />}
+        {pestana === 'menu' && <Menu productos={menu} />}
+        {pestana === 'actividad' && <Actividad datos={datos} />}
+        {pestana === 'cuenta' && <Cuenta datos={datos} alRecargar={() => void sincronizar()} />}
+      </main>
 
-          {/* ── Su código: lo que muestra en caja ── */}
-          <section className="rounded-sa-lg p-5 mb-3.5 bg-sa-cream-paper text-sa-green-ink shadow-sa">
-            <h2 className="font-display text-lg text-sa-green mb-1.5">Tu código</h2>
-            <p className="text-sa-green-ink/60 text-sm">Muéstralo en caja o en el kiosko para identificarte.</p>
-            <div className="flex justify-center py-2.5">
-              {cliente.codigo ? <QR value={cliente.codigo} /> : <span className="text-sa-green-ink/50 text-sm">—</span>}
-            </div>
-            <div className="text-center font-mono font-medium tracking-widest text-sa-green">{cliente.codigo}</div>
-          </section>
+      {/* Barra de pestañas — el patrón que la gente ya conoce de cualquier
+          app, y lo que hace que esto se sienta una app y no una página. */}
+      <nav className="fixed bottom-0 inset-x-0 bg-sa-green-ink/95 backdrop-blur border-t border-sa-cream/10 px-2 pb-[env(safe-area-inset-bottom)]">
+        <div className="flex">
+          {PESTANAS.map((p) => (
+            <button
+              key={p.id}
+              onClick={() => setPestana(p.id)}
+              className={`flex-1 flex flex-col items-center gap-0.5 py-2.5 transition-colors ${
+                pestana === p.id ? 'text-sa-banana' : 'text-sa-cream/45'
+              }`}
+            >
+              <span className="text-xl leading-none">{p.icono}</span>
+              <span className="font-mono text-[10px] uppercase tracking-wide">{p.label}</span>
+            </button>
+          ))}
+        </div>
+      </nav>
+    </div>
+  )
+}
 
-          {/* ── Completa tu ficha: el teléfono cierra el círculo del
-              seguimiento (recibos, avisos, y que en caja te encuentren
-              también por número). Solo aparece mientras falte. ── */}
-          {!cliente.telefono && (
-            <section className="rounded-sa-lg p-5 mb-3.5 bg-sa-cream-paper text-sa-green-ink shadow-sa">
-              <h2 className="font-display text-lg text-sa-green mb-1.5">Completa tu ficha</h2>
-              <p className="text-sa-green-ink/60 text-sm mb-3">
-                Deja tu número y en caja también te encontramos por teléfono.
-              </p>
-              <div className="flex gap-2">
-                <input
-                  type="tel"
-                  inputMode="numeric"
-                  maxLength={10}
-                  placeholder="10 dígitos"
-                  value={telefono}
-                  onChange={(e) => setTelefono(e.target.value.replace(/\D/g, ''))}
-                  className="flex-1 min-w-0 rounded-sa border-2 border-sa-green-ink/15 bg-white px-4 py-2.5 font-mono tracking-widest focus:border-sa-green outline-none"
-                />
-                <button
-                  onClick={() => void guardarTelefono()}
-                  disabled={guardandoTel || telefono.length !== 10}
-                  className="rounded-sa bg-sa-green text-sa-cream font-display text-lg px-5 disabled:opacity-40 active:scale-95 transition-transform"
-                >
-                  {guardandoTel ? '…' : 'Guardar'}
-                </button>
+// ─────────────────────────── Pantalla de entrada ──────────────────────────
+
+function Bienvenida({ error }: { error: string | null }) {
+  return (
+    <div className="min-h-[100dvh] flex items-center justify-center px-5 bg-sa-green-deep font-body">
+      <div className="text-center max-w-[340px] w-full">
+        <img src={milo} alt="Milo, la mascota de Shakeaholic" className="w-[132px] h-auto mx-auto" />
+        <h1 className="font-display text-3xl text-sa-cream mt-3 mb-2 leading-tight">
+          Shakeaholic Rewards
+        </h1>
+        <p className="text-sa-mint">
+          Acumula <b className="font-semibold">mancuernas</b> con cada compra y gana shakes gratis.
+        </p>
+        {error && (
+          <div className="mt-4 rounded-sa border border-sa-mint/40 bg-sa-mint/10 text-sa-cream text-sm px-4 py-3 leading-snug">
+            {error}
+          </div>
+        )}
+        <button
+          className="mt-4 mb-2 w-full rounded-sa-lg bg-sa-cream text-sa-green-ink font-display text-xl py-4 active:scale-[0.98] transition-transform"
+          onClick={() => void iniciarSesionGoogle(sb, window.location.origin)}
+        >
+          Continuar con Google
+        </button>
+        <p className="text-sa-cream/45 text-xs mt-3">
+          1 mancuerna por cada $10 · 100 mancuernas = un cupón
+        </p>
+      </div>
+    </div>
+  )
+}
+
+// ──────────────────────────────── Tarjeta ─────────────────────────────────
+
+function Inicio({ datos, alRecargar }: { datos: ResumenLealtad | null; alRecargar: () => void }) {
+  const c = datos?.cliente
+  const p = datos?.progreso
+  if (!c) return null
+
+  return (
+    <>
+      {/* La tarjeta: saldo y camino al próximo cupón. */}
+      <section className="relative overflow-hidden rounded-sa-lg p-5 mb-3 text-sa-cream shadow-sa bg-gradient-to-br from-sa-green to-sa-green-deep">
+        <img src={milo} alt="" className="absolute -right-4 -bottom-6 h-32 opacity-20 pointer-events-none" />
+        <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-sa-banana">Tus mancuernas</p>
+        <p className="font-display text-6xl leading-none text-sa-banana mt-1">{c.mancuernas}</p>
+
+        {p && (
+          <div className="mt-4 relative z-10">
+            <div className="h-2.5 rounded-full bg-sa-cream/15 overflow-hidden">
+              <div className="h-full rounded-full bg-sa-banana transition-all" style={{ width: `${p.pct}%` }} />
+            </div>
+            <p className="text-sm text-sa-cream/85 mt-2">
+              {p.faltan === 0
+                ? '¡Tienes un cupón listo! Pídelo en caja.'
+                : <>Te faltan <b className="text-sa-banana">{p.faltan}</b> para tu próximo cupón</>}
+            </p>
+          </div>
+        )}
+      </section>
+
+      {/* El código: lo único que tiene que enseñar en la barra. Va grande y
+          arriba a propósito — es el momento en que abre la app. */}
+      <section className="rounded-sa-lg p-5 mb-3 bg-sa-cream-paper text-sa-green-ink shadow-sa text-center">
+        <h2 className="font-display text-lg text-sa-green">Muéstralo en caja</h2>
+        <p className="text-xs text-sa-green-ink/55 mb-3">
+          Con esto te sumamos las mancuernas de tu compra
+        </p>
+        {c.codigo ? (
+          <>
+            <div className="inline-block bg-white rounded-sa p-3">
+              <QR value={c.codigo} size={168} />
+            </div>
+            <p className="font-mono font-medium tracking-[0.2em] text-sa-green text-lg mt-2">{c.codigo}</p>
+          </>
+        ) : (
+          <p className="text-sa-green-ink/50 text-sm">—</p>
+        )}
+      </section>
+
+      <Cupones datos={datos} />
+
+      {datos?.vida && datos.vida.visitas > 0 && (
+        <section className="grid grid-cols-3 gap-2 mb-3">
+          <Dato valor={String(datos.vida.visitas)} pie="visitas" />
+          <Dato valor={mxn(datos.vida.gastado)} pie="gastado" />
+          <Dato valor={String(datos.ganadas_total ?? 0)} pie="ganadas" />
+        </section>
+      )}
+
+      <button
+        onClick={alRecargar}
+        className="w-full rounded-sa border border-sa-cream/20 text-sa-cream/70 font-mono text-xs uppercase tracking-wide py-3 mb-3 active:scale-[0.99] transition-transform"
+      >
+        Actualizar
+      </button>
+    </>
+  )
+}
+
+function Dato({ valor, pie }: { valor: string; pie: string }) {
+  return (
+    <div className="rounded-sa bg-sa-cream-paper/10 border border-sa-cream/10 px-2 py-3 text-center">
+      <p className="font-display text-xl text-sa-cream leading-none">{valor}</p>
+      <p className="font-mono text-[9px] uppercase tracking-wide text-sa-cream/45 mt-1">{pie}</p>
+    </div>
+  )
+}
+
+function Cupones({ datos }: { datos: ResumenLealtad | null }) {
+  const cupones = datos?.cupones ?? []
+  return (
+    <section className="rounded-sa-lg p-5 mb-3 bg-sa-cream-paper text-sa-green-ink shadow-sa">
+      <h2 className="font-display text-lg text-sa-green mb-2">
+        Cupones activos ({cupones.length})
+      </h2>
+      {cupones.length === 0 ? (
+        <p className="text-sm text-sa-green-ink/55">
+          Todavía ninguno. Al llegar a 100 mancuernas te damos el primero.
+        </p>
+      ) : (
+        <div className="space-y-3">
+          {cupones.map((cu) => (
+            <div key={cu.codigo} className="flex items-center gap-3 rounded-sa bg-sa-mint/20 border border-sa-mint/50 p-3">
+              <div className="bg-white rounded p-1.5 shrink-0">
+                <QR value={cu.codigo} size={64} />
               </div>
-              {errorTel && <p className="text-sa-strawberry text-sm mt-2">{errorTel}</p>}
-            </section>
-          )}
-
-          {/* ── Cupones ── */}
-          <section className="rounded-sa-lg p-5 mb-3.5 bg-sa-cream-paper text-sa-green-ink shadow-sa">
-            <h2 className="font-display text-lg text-sa-green mb-1.5">Cupones activos ({cliente.cupones.length})</h2>
-            {cliente.cupones.length === 0 && (
-              <p className="text-sa-green-ink/60 text-sm">
-                Aún no tienes cupones. Junta {restantes} mancuernas más y el siguiente shake corre por nuestra cuenta.
-              </p>
-            )}
-            {cliente.cupones.map((c) => (
-              <div
-                key={c.id}
-                className="flex justify-between items-center gap-2.5 py-2.5 border-t border-sa-green-ink/10 first-of-type:border-t-0"
-              >
-                <div className="flex items-start gap-2.5">
-                  <span className="mt-0.5 w-9 h-9 shrink-0 rounded-full bg-sa-green/10 text-sa-green flex items-center justify-center">
-                    {c.tipo === 'cumpleanos' ? <IconPastel className="w-5 h-5" /> : <IconRegalo className="w-5 h-5" />}
-                  </span>
-                  <div>
-                    <b className="font-display font-normal text-base">
-                      {c.tipo === 'cumpleanos' ? 'Cumpleaños' : 'Recompensa'}
-                    </b>
-                    <div className="text-sa-green-ink/60 text-sm">{c.beneficio}</div>
-                    <div className="text-sa-green-ink/60 text-sm">
-                      Vence: {new Date(c.vence_en).toLocaleDateString('es-MX')}
-                    </div>
-                  </div>
-                </div>
-                <div className="shrink-0">
-                  <QR value={c.codigo} size={72} />
-                </div>
-              </div>
-            ))}
-          </section>
-
-          {/* ── Lo que siempre pides ── */}
-          {favoritos.length > 0 && (
-            <section className="rounded-sa-lg p-5 mb-3.5 bg-sa-cream-paper text-sa-green-ink shadow-sa">
-              <h2 className="flex items-center gap-2 font-display text-lg text-sa-green mb-1.5">
-                <IconEstrella className="w-5 h-5 text-sa-banana" />
-                Lo que siempre pides
-              </h2>
-              {favoritos.map((f, i) => (
-                <div
-                  key={f.producto}
-                  className="flex items-center gap-3 py-2.5 border-t border-sa-green-ink/10 first-of-type:border-t-0"
-                >
-                  <span className="w-7 h-7 shrink-0 rounded-full bg-sa-green text-sa-cream font-display text-sm flex items-center justify-center">
-                    {i + 1}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium truncate">{f.producto}</div>
-                    <div className="text-sa-green-ink/60 text-sm">
-                      {f.veces === 1 ? '1 vez' : `${f.veces} veces`} · última {fechaHumana(f.ultima_vez).toLowerCase()}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </section>
-          )}
-
-          {/* ── Tus últimas compras ── */}
-          <section className="rounded-sa-lg p-5 mb-3.5 bg-sa-cream-paper text-sa-green-ink shadow-sa">
-            <h2 className="flex items-center gap-2 font-display text-lg text-sa-green mb-1.5">
-              <IconRecibo className="w-5 h-5 text-sa-green" />
-              Tus últimas compras
-            </h2>
-            {historial.length === 0 && (
-              <div className="flex items-center gap-3 py-2">
-                <img src={milo} alt="" className="w-14 h-auto opacity-70" />
-                <p className="text-sa-green-ink/60 text-sm">
-                  Tus compras aparecerán aquí. Muestra tu código al pagar para que cada una cuente.
+              <div className="min-w-0">
+                <p className="font-display text-base leading-tight">{cu.beneficio}</p>
+                <p className="font-mono text-[11px] text-sa-green-ink/60 mt-0.5">{cu.codigo}</p>
+                <p className={`text-[11px] mt-0.5 ${cu.dias_restantes <= 7 ? 'text-sa-strawberry font-semibold' : 'text-sa-green-ink/55'}`}>
+                  {cu.dias_restantes <= 0
+                    ? 'Vence hoy'
+                    : cu.dias_restantes <= 7
+                      ? `Vence en ${cu.dias_restantes} días`
+                      : `Vence el ${cu.vence}`}
                 </p>
               </div>
-            )}
-            {historial.map((h) => (
-              <div key={h.folio} className="py-2.5 border-t border-sa-green-ink/10 first-of-type:border-t-0">
-                <div className="flex justify-between items-baseline gap-2">
-                  <span className="text-sa-green-ink/60 text-sm">{fechaHumana(h.fecha)}</span>
-                  <span className="flex items-center gap-1 text-sa-green text-sm font-semibold shrink-0">
-                    <IconMancuerna className="w-4 h-4" />
-                    +{h.mancuernas_ganadas}
-                  </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  )
+}
+
+// ────────────────────────────────── Menú ──────────────────────────────────
+
+function Menu({ productos }: { productos: ProductoVenta[] | null }) {
+  if (productos === null) {
+    return <p className="text-sa-cream/50 text-center py-10 font-mono text-xs uppercase tracking-widest">Cargando el menú…</p>
+  }
+
+  // Solo lo que se antoja: los scoops y suplementos son surtido de
+  // mostrador, no carta.
+  const carta = new Map<string, ProductoVenta[]>()
+  for (const p of productos) {
+    const cat = p.categorias?.nombre
+    if (!cat || /^(extras|scoops|suplementos)/i.test(cat)) continue
+    if (!carta.has(cat)) carta.set(cat, [])
+    carta.get(cat)!.push(p)
+  }
+
+  if (carta.size === 0) {
+    return <p className="text-sa-cream/50 text-center py-10">El menú no está disponible ahora.</p>
+  }
+
+  return (
+    <>
+      <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-sa-banana mb-3">
+        Lo que hay hoy en la barra
+      </p>
+      {[...carta.entries()].map(([cat, items]) => (
+        <section key={cat} className="rounded-sa-lg p-5 mb-3 bg-sa-cream-paper text-sa-green-ink shadow-sa">
+          <h2 className="font-display text-lg text-sa-green mb-2">{cat}</h2>
+          <div className="divide-y divide-sa-green-ink/10">
+            {items.map((p) => (
+              <div key={p.id} className="flex items-baseline justify-between gap-3 py-2">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium leading-tight">{nombreParaOrdenar(p.nombre)}</p>
+                  {p.descripcion && (
+                    <p className="text-xs text-sa-green-ink/55 leading-snug mt-0.5">{p.descripcion}</p>
+                  )}
                 </div>
-                <div className="mt-0.5">
-                  {(h.items ?? []).map((it, i) => (
-                    <div key={i} className="text-sm">
-                      <span className="font-medium">
-                        {it.cantidad > 1 ? `${it.cantidad}× ` : ''}
-                        {it.producto}
-                      </span>
-                      {it.personalizacion && (
-                        <span className="text-sa-green-ink/50"> — {it.personalizacion}</span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-                <div className="text-sa-green-ink/60 text-sm mt-0.5">${Number(h.total).toFixed(2)}</div>
+                <p className="font-mono text-sm text-sa-green shrink-0">{mxn(p.precio)}</p>
               </div>
             ))}
-          </section>
-        </>
+          </div>
+        </section>
+      ))}
+      <a
+        href={WHATSAPP}
+        className="block w-full rounded-sa-lg bg-sa-banana text-sa-green-ink font-display text-xl py-4 text-center mb-3 active:scale-[0.98] transition-transform"
+      >
+        Pedir por WhatsApp
+      </a>
+    </>
+  )
+}
+
+// ──────────────────────────────── Actividad ───────────────────────────────
+
+function Actividad({ datos }: { datos: ResumenLealtad | null }) {
+  const historial = datos?.historial ?? []
+  const favoritos = datos?.favoritos ?? []
+  const movimientos = datos?.movimientos ?? []
+
+  if (historial.length === 0 && movimientos.length === 0) {
+    return (
+      <div className="text-center py-12">
+        <img src={milo} alt="" className="h-24 mx-auto opacity-60" />
+        <p className="font-display text-xl text-sa-cream mt-3">Aún no hay nada por aquí</p>
+        <p className="text-sm text-sa-cream/60 mt-1 max-w-[260px] mx-auto">
+          En tu próxima compra, muestra tu código en caja y aquí verás tus
+          mancuernas y lo que pediste.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <>
+      {favoritos.length > 0 && (
+        <section className="rounded-sa-lg p-5 mb-3 bg-sa-cream-paper text-sa-green-ink shadow-sa">
+          <h2 className="font-display text-lg text-sa-green mb-2">Lo que siempre pides</h2>
+          <div className="space-y-1.5">
+            {favoritos.map((f, i) => (
+              <div key={f.nombre} className="flex items-center gap-3">
+                <span className="w-6 h-6 shrink-0 rounded-full bg-sa-green text-sa-cream font-display text-xs flex items-center justify-center">
+                  {i + 1}
+                </span>
+                <span className="text-sm flex-1 min-w-0 truncate">{nombreParaOrdenar(f.nombre)}</span>
+                <span className="font-mono text-xs text-sa-green-ink/50">{f.veces}×</span>
+              </div>
+            ))}
+          </div>
+        </section>
       )}
+
+      {historial.length > 0 && (
+        <section className="rounded-sa-lg p-5 mb-3 bg-sa-cream-paper text-sa-green-ink shadow-sa">
+          <h2 className="font-display text-lg text-sa-green mb-2">Tus compras</h2>
+          <div className="divide-y divide-sa-green-ink/10">
+            {historial.map((h) => (
+              <div key={h.folio} className="py-2.5">
+                <div className="flex items-baseline justify-between gap-3">
+                  <p className="font-mono text-xs text-sa-green-ink/55">{h.fecha}</p>
+                  <p className="font-mono text-sm">{mxn(h.total)}</p>
+                </div>
+                <p className="text-sm leading-snug mt-0.5">{h.items}</p>
+                {h.mancuernas > 0 && (
+                  <p className="font-mono text-[11px] text-sa-green mt-0.5">+{h.mancuernas} mancuernas</p>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {movimientos.length > 0 && (
+        <section className="rounded-sa-lg p-5 mb-3 bg-sa-cream-paper text-sa-green-ink shadow-sa">
+          <h2 className="font-display text-lg text-sa-green mb-2">Movimientos</h2>
+          <div className="divide-y divide-sa-green-ink/10">
+            {movimientos.map((m, i) => (
+              <div key={i} className="flex items-center justify-between gap-3 py-2">
+                <div className="min-w-0">
+                  <p className="text-sm truncate">{m.descripcion}</p>
+                  <p className="font-mono text-[11px] text-sa-green-ink/50">{m.fecha}</p>
+                </div>
+                <span className={`font-mono text-sm shrink-0 ${m.puntos > 0 ? 'text-sa-green' : 'text-sa-strawberry'}`}>
+                  {m.puntos > 0 ? '+' : ''}{m.puntos}
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+    </>
+  )
+}
+
+// ───────────────────────────────── Cuenta ─────────────────────────────────
+
+function Cuenta({ datos, alRecargar }: { datos: ResumenLealtad | null; alRecargar: () => void }) {
+  const c = datos?.cliente
+  const [telefono, setTelefono] = useState('')
+  const [guardando, setGuardando] = useState(false)
+  const [errorTel, setErrorTel] = useState<string | null>(null)
+
+  async function guardarTelefono() {
+    const limpio = telefono.replace(/\D/g, '')
+    if (limpio.length !== 10) {
+      setErrorTel('Escribe tu número a 10 dígitos.')
+      return
+    }
+    setGuardando(true)
+    setErrorTel(null)
+    try {
+      await guardarMiTelefono(sb, limpio)
+      setTelefono('')
+      alRecargar()
+    } catch (e) {
+      setErrorTel(e instanceof Error && e.message ? e.message : 'No se pudo guardar.')
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  return (
+    <>
+      <section className="rounded-sa-lg p-5 mb-3 bg-sa-cream-paper text-sa-green-ink shadow-sa">
+        <h2 className="font-display text-lg text-sa-green mb-2">Tu cuenta</h2>
+        <div className="space-y-2 text-sm">
+          <Fila etiqueta="Nombre" valor={c?.nombre ?? '—'} />
+          <Fila etiqueta="Código" valor={c?.codigo ?? '—'} mono />
+          <Fila etiqueta="Teléfono" valor={c?.telefono ?? 'sin registrar'} mono />
+          <Fila etiqueta="Cliente desde" valor={c?.desde ?? '—'} />
+        </div>
+      </section>
+
+      {!c?.telefono && (
+        <section className="rounded-sa-lg p-5 mb-3 bg-sa-cream-paper text-sa-green-ink shadow-sa">
+          <h2 className="font-display text-lg text-sa-green mb-1">Agrega tu teléfono</h2>
+          <p className="text-xs text-sa-green-ink/60 mb-3">
+            Con él te encontramos en caja aunque no traigas el celular.
+          </p>
+          <div className="flex gap-2">
+            <input
+              value={telefono}
+              onChange={(e) => setTelefono(e.target.value)}
+              inputMode="numeric"
+              placeholder="9991234567"
+              className="flex-1 min-w-0 rounded-sa border border-sa-green-ink/15 px-3 py-2.5 font-mono"
+            />
+            <button
+              onClick={() => void guardarTelefono()}
+              disabled={guardando}
+              className="rounded-sa bg-sa-green text-sa-cream font-display text-lg px-5 disabled:opacity-40 active:scale-95 transition-transform"
+            >
+              {guardando ? '…' : 'Guardar'}
+            </button>
+          </div>
+          {errorTel && <p className="text-sa-strawberry text-xs mt-2">{errorTel}</p>}
+        </section>
+      )}
+
+      <section className="rounded-sa-lg p-5 mb-3 bg-sa-cream-paper text-sa-green-ink shadow-sa">
+        <h2 className="font-display text-lg text-sa-green mb-2">Cómo funciona</h2>
+        <ul className="text-sm text-sa-green-ink/75 space-y-1.5 leading-snug">
+          <li>· Ganas <b>1 mancuerna por cada $10</b> de compra.</li>
+          <li>· Al llegar a <b>100</b> te damos un cupón.</li>
+          <li>· Muestra tu código en caja <b>antes de pagar</b> para que cuente.</li>
+          <li>· Tus cupones vencen al año de ganarlos.</li>
+        </ul>
+      </section>
+
+      <section className="rounded-sa-lg p-5 mb-3 bg-sa-cream-paper text-sa-green-ink shadow-sa">
+        <h2 className="font-display text-lg text-sa-green mb-2">Shakeaholic</h2>
+        <div className="space-y-2 text-sm">
+          <a href={WHATSAPP} className="block text-sa-green underline underline-offset-4">WhatsApp: 999 504 4797</a>
+          <a href="https://www.instagram.com/shakeaholicmx" className="block text-sa-green underline underline-offset-4">@shakeaholicmx</a>
+          <a href="https://shakeaholic.mx" className="block text-sa-green underline underline-offset-4">shakeaholic.mx</a>
+          <p className="text-sa-green-ink/60 leading-snug pt-1">
+            The Harbor Lifestyle Mall, Prol. Paseo Montejo · Mérida, Yuc.
+          </p>
+        </div>
+      </section>
+
+      <button
+        onClick={() => void cerrarSesion(sb)}
+        className="w-full rounded-sa border border-sa-cream/25 text-sa-cream/70 font-mono text-xs uppercase tracking-wide py-3.5 mb-3 active:scale-[0.99] transition-transform"
+      >
+        Cerrar sesión
+      </button>
+    </>
+  )
+}
+
+function Fila({ etiqueta, valor, mono }: { etiqueta: string; valor: string; mono?: boolean }) {
+  return (
+    <div className="flex items-baseline justify-between gap-3">
+      <span className="text-sa-green-ink/55 text-xs uppercase tracking-wide font-mono">{etiqueta}</span>
+      <span className={`${mono ? 'font-mono' : ''} text-right min-w-0 truncate`}>{valor}</span>
     </div>
   )
 }
