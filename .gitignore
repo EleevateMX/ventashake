@@ -17,3 +17,10 @@ supabase/seed/reportes/
 # Respaldos de costosshake: llevan costos de compra, proveedores y margenes.
 # Este repositorio es publico — no entran aqui ni por accidente.
 respaldo-costosshake-*.json
+
+# La app nativa se REGENERA, no se versiona. El proyecto de Xcode y el de
+# Android salen de capacitor.config.ts + scripts/app-nativa-preparar.sh en
+# cada compilacion. Versionarlos invita a arreglar algo a mano en Xcode y
+# perderlo en el siguiente `cap sync`, sin ningun error que lo delate.
+apps/cliente-pwa/ios/
+apps/cliente-pwa/android/

@@ -3,6 +3,7 @@ import { useState, type ReactElement } from 'react'
 import Dashboard from './pages/Dashboard'
 import EnVivo from './pages/EnVivo'
 import Diagnostico from './pages/Diagnostico'
+import Metas from './pages/Metas'
 import Menu from './pages/Menu'
 import Categorias from './pages/Categorias'
 import Combos from './pages/Combos'
@@ -15,7 +16,7 @@ import Empleados from './pages/Empleados'
 import Impresoras from './pages/Impresoras'
 import Sistema from './pages/Sistema'
 
-type Tab = 'dashboard' | 'envivo' | 'diagnostico' | 'menu' | 'categorias' | 'combos' | 'extras' | 'inventario' | 'promos' | 'ventas' | 'clientes' | 'empleados' | 'impresoras' | 'sistema'
+type Tab = 'dashboard' | 'envivo' | 'diagnostico' | 'menu' | 'categorias' | 'combos' | 'extras' | 'inventario' | 'promos' | 'ventas' | 'clientes' | 'metas' | 'empleados' | 'impresoras' | 'sistema'
 
 const w = 18
 
@@ -93,6 +94,12 @@ const IconSistema = () => (
   </svg>
 )
 
+const IconMetas = () => (
+  <svg width={w} height={w} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="5" /><circle cx="12" cy="12" r="1.5" />
+  </svg>
+)
+
 const navItems: { id: Tab; label: string; Icon: () => ReactElement }[] = [
   { id: 'dashboard', label: 'Dashboard', Icon: IconDashboard },
   { id: 'envivo', label: 'En vivo', Icon: IconEnVivo },
@@ -105,6 +112,7 @@ const navItems: { id: Tab; label: string; Icon: () => ReactElement }[] = [
   { id: 'promos', label: 'Promos', Icon: IconPromos },
   { id: 'ventas', label: 'Ventas', Icon: IconVentas },
   { id: 'clientes', label: 'Clientes', Icon: IconClientes },
+  { id: 'metas', label: 'Metas', Icon: IconMetas },
   { id: 'empleados', label: 'Empleados', Icon: IconEmpleados },
   { id: 'impresoras', label: 'Impresoras', Icon: IconImpresoras },
   { id: 'sistema', label: 'Sistema', Icon: IconSistema },
@@ -148,6 +156,7 @@ export default function App() {
         {tab === 'dashboard' && <Dashboard />}
         {tab === 'envivo' && <EnVivo />}
         {tab === 'diagnostico' && <Diagnostico />}
+        {tab === 'metas' && <Metas />}
         {tab === 'menu' && <Menu />}
         {tab === 'categorias' && <Categorias />}
         {tab === 'combos' && <Combos />}

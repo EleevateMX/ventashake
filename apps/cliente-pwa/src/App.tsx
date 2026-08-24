@@ -10,16 +10,24 @@ import {
 import { mxn } from '@shake/utils'
 import { sb } from './lib/sb'
 import { esNativo, iniciarSesionGoogleNativa, escucharVueltaDeLogin } from './nativo'
+import {
+  IconoMancuerna, IconoVaso, IconoLista, IconoPersona,
+  IconoComida, IconoRegalo, IconoPalomita,
+} from './Iconos'
+import { Metas } from './Metas'
+import { Avatar, CambiarFoto } from './Avatar'
 import QR from './QR'
 
 /** Las secciones de la app, como pestañas de abajo. */
 type Pestana = 'inicio' | 'menu' | 'actividad' | 'cuenta'
 
-const PESTANAS: { id: Pestana; label: string; icono: string }[] = [
-  { id: 'inicio', label: 'Tarjeta', icono: '🏋️' },
-  { id: 'menu', label: 'Menú', icono: '🥤' },
-  { id: 'actividad', label: 'Actividad', icono: '📋' },
-  { id: 'cuenta', label: 'Cuenta', icono: '👤' },
+type IconoPestana = (p: { className?: string }) => JSX.Element
+
+const PESTANAS: { id: Pestana; label: string; Icono: IconoPestana }[] = [
+  { id: 'inicio', label: 'Tarjeta', Icono: IconoMancuerna },
+  { id: 'menu', label: 'Menú', Icono: IconoVaso },
+  { id: 'actividad', label: 'Actividad', Icono: IconoLista },
+  { id: 'cuenta', label: 'Cuenta', Icono: IconoPersona },
 ]
 
 const WHATSAPP = 'https://wa.me/529995044797'
@@ -131,7 +139,8 @@ export default function App() {
   return (
     <div className="min-h-[100dvh] bg-sa-green-deep font-body flex flex-col">
       {/* Encabezado compacto: en una app el nombre no ocupa media pantalla. */}
-      <header className="flex items-center justify-between px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-3 shrink-0">
+      <header className="flex items-center gap-3 px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-3 shrink-0">
+        <Avatar foto={c?.foto ?? null} nombre={c?.nombre ?? ''} tam={40} />
         <div className="min-w-0">
           <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-sa-banana">
             Shakeaholic Rewards
@@ -171,7 +180,7 @@ export default function App() {
                 pestana === p.id ? 'text-sa-banana' : 'text-sa-cream/45'
               }`}
             >
-              <span className="text-xl leading-none">{p.icono}</span>
+              <p.Icono className="w-6 h-6" />
               <span className="font-mono text-[10px] uppercase tracking-wide">{p.label}</span>
             </button>
           ))}
@@ -227,9 +236,9 @@ function Bienvenida({ error }: { error: string | null }) {
 
 // ──────────────────────────────── Tarjeta ─────────────────────────────────
 
-const NOMBRE_SELLO: Record<string, { titulo: string; icono: string; que: string }> = {
-  bebida: { titulo: 'Bebidas', icono: '🥤', que: 'bebida' },
-  alimento: { titulo: 'Comida', icono: '🥪', que: 'comida' },
+const NOMBRE_SELLO: Record<string, { titulo: string; Icono: IconoPestana; que: string }> = {
+  bebida: { titulo: 'Bebidas', Icono: IconoVaso, que: 'bebida' },
+  alimento: { titulo: 'Comida', Icono: IconoComida, que: 'comida' },
 }
 
 function Inicio({ datos, alRecargar }: { datos: ResumenLealtad | null; alRecargar: () => void }) {
@@ -243,6 +252,7 @@ function Inicio({ datos, alRecargar }: { datos: ResumenLealtad | null; alRecarga
       {ampliado && c.codigo && <CodigoEnGrande codigo={c.codigo} alCerrar={() => setAmpliado(false)} />}
 
       <Bolsas datos={datos} />
+      <Metas alGanar={alRecargar} />
       <Sellos datos={datos} />
       <Cupones datos={datos} />
       <Paquetes datos={datos} />
@@ -290,13 +300,16 @@ function Pase({
     <section className="relative overflow-hidden rounded-sa-lg mb-3 text-sa-cream shadow-sa bg-gradient-to-br from-sa-green to-sa-green-deep">
       <img src={milo} alt="" className="absolute -right-6 top-6 h-36 opacity-15 pointer-events-none" />
 
-      <div className="px-5 pt-4 relative z-10">
-        <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-sa-cream/45">
-          Titular
-        </p>
-        <p className="font-display text-lg text-sa-cream leading-tight truncate">
-          {cliente.nombre}
-        </p>
+      <div className="px-5 pt-4 relative z-10 flex items-center gap-3">
+        <Avatar foto={cliente.foto} nombre={cliente.nombre} tam={44} />
+        <div className="min-w-0">
+          <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-sa-cream/45">
+            Titular
+          </p>
+          <p className="font-display text-lg text-sa-cream leading-tight truncate">
+            {cliente.nombre}
+          </p>
+        </div>
       </div>
 
       <div className="px-5 pt-3 relative z-10">
@@ -439,13 +452,14 @@ function Sellos({ datos }: { datos: ResumenLealtad | null }) {
 
       <div className="space-y-4">
         {sellos.map((s) => {
-          const info = NOMBRE_SELLO[s.tipo] ?? { titulo: s.tipo, icono: '⭐', que: s.tipo }
+          const info = NOMBRE_SELLO[s.tipo] ?? { titulo: s.tipo, Icono: IconoRegalo, que: s.tipo }
           const cuantos = premios.filter((pr) => pr.tipo === s.tipo).length
           return (
             <div key={s.tipo}>
               <div className="flex items-baseline justify-between gap-3">
-                <p className="font-display text-base leading-tight">
-                  {info.icono} {info.titulo}
+                <p className="font-display text-base leading-tight flex items-center gap-1.5">
+                  <info.Icono className="w-[18px] h-[18px] text-sa-green" />
+                  {info.titulo}
                 </p>
                 <p className="font-mono text-xs text-sa-green-ink/55">
                   {s.tiene}/{s.requeridos}
@@ -464,7 +478,7 @@ function Sellos({ datos }: { datos: ResumenLealtad | null }) {
                         : 'border-dashed border-sa-green-ink/25 text-sa-green-ink/20'
                     }`}
                   >
-                    {i < s.tiene ? '✓' : i + 1}
+                    {i < s.tiene ? <IconoPalomita className="w-3.5 h-3.5" /> : i + 1}
                   </span>
                 ))}
                 <span
@@ -474,7 +488,7 @@ function Sellos({ datos }: { datos: ResumenLealtad | null }) {
                       : 'border-dashed border-sa-banana/50 text-sa-banana/60'
                   }`}
                 >
-                  🎁
+                  <IconoRegalo className="w-[15px] h-[15px]" />
                 </span>
               </div>
 
@@ -861,6 +875,13 @@ function Cuenta({ datos, alRecargar }: { datos: ResumenLealtad | null; alRecarga
 
   return (
     <>
+      <CambiarFoto
+        foto={c?.foto ?? null}
+        nombre={c?.nombre ?? ''}
+        propia={c?.foto_propia ?? false}
+        alCambiar={alRecargar}
+      />
+
       <section className="rounded-sa-lg p-5 mb-3 bg-sa-cream-paper text-sa-green-ink shadow-sa">
         <h2 className="font-display text-lg text-sa-green mb-2">Tu cuenta</h2>
         <div className="space-y-2 text-sm">
