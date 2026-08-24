@@ -13,7 +13,7 @@ y qué falta el día que se decida publicarla en las tiendas.
 
 | Pestaña | Qué muestra |
 |---|---|
-| **Tarjeta** | Mancuernas, barra de progreso al próximo cupón, el código con QR grande, cupones activos y estadísticas de vida |
+| **Tarjeta** | El pase con el total canjeable y su QR, las dos bolsas de mancuernas, las tarjetas de sellos, los cupones, los paquetes de recarga y el canje de tarjetas de regalo |
 | **Menú** | La carta viva de la barra, leída de la misma base que la caja |
 | **Actividad** | Lo que siempre pide, sus compras con las mancuernas de cada una, y el movimiento de puntos |
 | **Cuenta** | Datos, teléfono, cómo funciona el programa, contacto y cerrar sesión |
@@ -82,7 +82,10 @@ tiene que hacer algo que el navegador no hace. Lo natural aquí:
 - **Notificaciones push** — "tu cupón vence en 5 días", "hoy hay Matcha
   Glow". Es la razón más fuerte para tener app y ya hay dónde engancharla
   (los cupones tienen fecha de vencimiento).
-- **Wallet / tarjeta en el Apple Wallet** con el código del cliente.
+- **Wallet / tarjeta en el Apple Wallet** con el código del cliente. La
+  pestaña Tarjeta ya está dibujada con la anatomía de un pase (titular,
+  dato grande, perforación, código abajo), así que el `.pkpass` sería el
+  mismo diseño — falta el certificado de firma y quién lo emita.
 - **Widget** con las mancuernas en la pantalla de inicio.
 
 También pedirán: cuenta de desarrollador ($99 USD/año Apple, $25 USD única

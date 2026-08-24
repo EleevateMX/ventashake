@@ -155,12 +155,45 @@ X" no basta: hay que poder reconstruir cómo llegó a X.
 
 ---
 
-## 6. Lo que falta (siguiente paso)
+## 6. Cómo lo ve el cliente
 
-El motor está completo y probado. Falta la parte que se toca:
+`rewards.shakeaholic.mx` → pestaña **Tarjeta**. Todo se pinta con una sola
+llamada (`fn_mi_resumen_lealtad`), así que abrir la app es una espera, no
+cinco.
+
+**El pase.** Dibujado con la anatomía de un pase de Apple Wallet —
+titular, un dato grande, perforación y el código abajo — para que el día
+que se emita el `.pkpass` real el cliente reconozca lo mismo en los dos
+lados. Arriba va el **total canjeable** y lo que vale en pesos, que es la
+única cifra que le importa parado en la barra.
+
+**El QR va chico.** En la tarjeta es la firma, no la herramienta: se toca
+y ocupa la pantalla completa **sobre blanco**. Un lector falla con un QR
+pequeño sobre fondo verde y el celular a media luz; blanco de borde a
+borde es lo más cerca que se puede estar de subir el brillo desde la web.
+
+Debajo del pase, en este orden: **las dos bolsas** por separado (ganadas /
+compradas), **las dos tarjetas de sellos** dibujadas como las de papel —
+13 círculos y un regalo, para ver cuántas faltan sin leer un número —,
+**los cupones**, **los paquetes de recarga** con su bono, y el campo para
+**canjear una tarjeta de regalo**.
+
+### Apple Wallet y Google Wallet
+
+El pase real necesita certificado de firma y un servidor que lo emita: es
+el siguiente paso, y por eso la app **no** enseña un botón que todavía no
+funciona. Lo que sí resuelve hoy el mismo problema — tenerla a un toque —
+es instalarla en la pantalla de inicio, y la app explica cómo según sea
+iPhone o Android (y esconde el aviso si ya está instalada).
+
+---
+
+## 7. Lo que falta (siguiente paso)
 
 - **Kiosko / POS**: botón para canjear mancuernas al cobrar, canjear la
-  tarjeta de sellos, y vender los paquetes de recarga.
-- **App del cliente**: ver las dos bolsas, los sellos y comprar recarga.
+  tarjeta de sellos, y vender los paquetes de recarga. Es lo único que
+  bloquea el uso real: el cliente ya puede ver su saldo, pero todavía no
+  hay dónde gastarlo.
 - **Admin**: generar lotes de tarjetas, editar el catálogo de premios y ver
-  cuánto saldo hay en la calle.
+  cuánto saldo hay en la calle (es un pasivo, no una promoción).
+- **Wallet**: emitir el `.pkpass` firmado y su equivalente de Google.
