@@ -25,7 +25,7 @@ GitHub Actions al hacer push a `main`.
 | `cocina-alimentos` | `cocina.shakeaholic.mx` | Estación de cocina |
 | `cliente-display` | `pantalla.shakeaholic.mx` | TV de folios |
 | `admin` | `admin.shakeaholic.mx` | Gerencia |
-| `cliente-pwa` | `rewards.shakeaholic.mx` | Celular del cliente |
+| `cliente-pwa` | `rewards.shakeaholic.mx` | Celular del cliente (y la app de TestFlight) |
 | `costos` | `costos.shakeaholic.mx` | Costeo e inventario (HTML plano) |
 
 `api.shakeaholic.mx` es el dominio propio de Supabase (add-on). Los
@@ -192,6 +192,25 @@ pantallas muestran comandas pero **no sale papel**.
   Supabase (pg_net / Edge Function).
 - Al subir por la API de GitHub, **verifica el árbol contra el local**
   (`git diff HEAD origin/rama`): una subida parcial pasa desapercibida.
+
+---
+
+### 2.6 La app del cliente se compila en la nube
+
+`.github/workflows/testflight-ios.yml` la sube a TestFlight desde un
+runner de macOS: **no hace falta una Mac**. Cuatro secrets (llave de App
+Store Connect + Team ID) y ningún certificado — `xcodebuild
+-allowProvisioningUpdates` los crea solo. Por eso puede correr en la nube:
+no hay un `.p12` que alguien tenga que exportar de su llavero.
+
+El proyecto nativo **no se versiona**: se regenera en cada corrida desde
+`capacitor.config.ts` + `scripts/app-nativa-preparar.sh`. Ese script pone
+los tres ajustes que Capacitor no pone solo, y el primero es el que más
+duele si falta: sin el **URL Type** `mx.shakeaholic.rewards`, el login de
+Google termina bien y el teléfono no sabe a qué app devolver el resultado
+— sin ningún mensaje de error.
+
+Detalle completo en `docs/rewards-app-nativa.md`.
 
 ---
 

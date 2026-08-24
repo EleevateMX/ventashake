@@ -228,6 +228,10 @@ export interface ResumenLealtad {
     nombre: string
     codigo: string | null
     telefono: string | null
+    /** La de Google, o la que subió el cliente. */
+    foto: string | null
+    /** Subió la suya: la de Google ya no la pisa. */
+    foto_propia: boolean
     /** Ganadas por comprar (promoción — pueden caducar). */
     mancuernas: number
     /** Compradas con dinero real (recarga o tarjeta — no caducan). */
@@ -320,4 +324,118 @@ export async function canjearTarjeta(
     p_codigo: codigo.trim().toUpperCase(),
     p_cliente_id: clienteId ?? null,
   })
+}
+
+// ─────────────────────────── Metas y logros ───────────────────────────────
+
+export interface Meta {
+  clave: string
+  nombre: string
+  descripcion: string
+  tipo: 'automatica' | 'evidencia'
+  mancuernas: number
+  pide_texto: string | null
+  orden: number
+  /** Cuántas veces ya la cumplió. */
+  veces: number
+  /** Mandó captura y está esperando revisión. */
+  pendiente: boolean
+  /** Se puede cobrar ahora mismo. */
+  disponible: boolean
+  ultima: string | null
+}
+
+export async function misMetas(sb: ShakeClient): Promise<Meta[]> {
+  return rpc<Meta[]>(sb, 'fn_mis_metas', {})
+}
+
+export interface ResultadoMeta {
+  acreditada: boolean
+  mancuernas?: number
+  nombre?: string
+  motivo?: string
+}
+
+/**
+ * Cobra una meta automática.
+ *
+ * El servidor comprueba el hecho — que hoy no se haya cobrado, que el
+ * teléfono esté guardado. Si dependiera de lo que dice el cliente, la meta
+ * sería un botón de regalarse mancuernas.
+ */
+export async function cobrarMeta(sb: ShakeClient, clave: string): Promise<ResultadoMeta> {
+  return rpc<ResultadoMeta>(sb, 'fn_meta_automatica', { p_clave: clave })
+}
+
+export async function enviarEvidencia(
+  sb: ShakeClient,
+  clave: string,
+  url: string,
+  nota?: string,
+): Promise<{ enviada: boolean; mancuernas: number }> {
+  return rpc(sb, 'fn_meta_enviar_evidencia', {
+    p_clave: clave,
+    p_url: url,
+    p_nota: nota ?? null,
+  })
+}
+
+export interface MetaPorRevisar {
+  id: string
+  cliente: string
+  codigo: string | null
+  foto: string | null
+  meta: string
+  mancuernas: number
+  evidencia: string | null
+  nota: string | null
+  fecha: string
+}
+
+export async function metasPorRevisar(sb: ShakeClient): Promise<MetaPorRevisar[]> {
+  return rpc<MetaPorRevisar[]>(sb, 'fn_metas_por_revisar', {})
+}
+
+export async function revisarMeta(
+  sb: ShakeClient,
+  id: string,
+  aprobar: boolean,
+  motivo?: string,
+): Promise<{ aprobada: boolean; mancuernas: number }> {
+  return rpc(sb, 'fn_meta_revisar', { p_id: id, p_aprobar: aprobar, p_motivo: motivo ?? null })
+}
+
+export async function guardarMiFoto(sb: ShakeClient, url: string | null): Promise<void> {
+  await rpc(sb, 'fn_guardar_mi_foto', { p_url: url })
+}
+
+/**
+ * Sube una imagen al almacenamiento y devuelve su URL pública.
+ *
+ * La carpeta es el id del usuario porque las políticas del bucket exigen
+ * eso: sin ese prefijo, cualquiera con sesión podría sobrescribir la foto
+ * de otro.
+ */
+export async function subirImagen(
+  sb: ShakeClient,
+  bucket: 'avatares' | 'evidencias',
+  archivo: File,
+): Promise<string> {
+  const { data: sesion } = await sb.auth.getUser()
+  const uid = sesion.user?.id
+  if (!uid) throw new Error('Primero entra a tu cuenta')
+
+  const extension = (archivo.name.split('.').pop() || 'jpg').toLowerCase().slice(0, 5)
+  // El nombre lleva la hora: si se reusara el mismo, el CDN seguiría
+  // sirviendo la imagen vieja y parecería que la subida no funcionó.
+  const ruta = `${uid}/${Date.now()}.${extension}`
+
+  const { error } = await sb.storage.from(bucket).upload(ruta, archivo, {
+    cacheControl: '3600',
+    upsert: false,
+    contentType: archivo.type || 'image/jpeg',
+  })
+  if (error) throw error
+
+  return sb.storage.from(bucket).getPublicUrl(ruta).data.publicUrl
 }
