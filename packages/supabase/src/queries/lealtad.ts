@@ -221,16 +221,42 @@ export async function guardarMiTelefono(sb: ShakeClient, telefono: string): Prom
 
 export interface ResumenLealtad {
   registrado: boolean
+  /** Mancuernas por peso: 10 = $1. Se usa para pintar equivalencias. */
+  tasa?: number
   cliente?: {
     id: string
     nombre: string
     codigo: string | null
     telefono: string | null
+    /** Ganadas por comprar (promoción — pueden caducar). */
     mancuernas: number
+    /** Compradas con dinero real (recarga o tarjeta — no caducan). */
+    saldo: number
+    total_canjeable: number
+    /** Lo que valen las dos bolsas juntas, en pesos. */
+    vale_pesos: number
     /** "Agosto 2026" — desde cuándo es cliente. */
     desde: string
   }
   progreso?: { meta: number; faltan: number; pct: number }
+  /** Las dos tarjetas 13+1: una de bebidas y otra de comida. */
+  sellos?: {
+    tipo: string
+    tiene: number
+    requeridos: number
+    faltan: number
+    listo: boolean
+  }[]
+  /** Catálogo de lo que se puede pedir al llenar una tarjeta. */
+  premios?: { tipo: string; nombre: string; precio: number }[]
+  /** Paquetes de recarga a la venta, con el bono que regalan. */
+  paquetes?: {
+    nombre: string
+    precio: number
+    mancuernas: number
+    vale: number
+    bono_pct: number
+  }[]
   vida?: { visitas: number; gastado: number; ticket: number; ultima: string | null }
   ganadas_total?: number
   cupones?: { codigo: string; beneficio: string; vence: string; dias_restantes: number }[]
@@ -243,7 +269,13 @@ export interface ResumenLealtad {
     items: string
     mancuernas: number
   }[]
-  movimientos?: { puntos: number; descripcion: string; fecha: string }[]
+  /** Las dos bolsas mezcladas en una sola línea de tiempo. */
+  movimientos?: {
+    puntos: number
+    descripcion: string
+    fecha: string
+    bolsa?: 'ganadas' | 'saldo'
+  }[]
 }
 
 /**
@@ -259,4 +291,33 @@ export interface ResumenLealtad {
  */
 export async function miResumenLealtad(sb: ShakeClient): Promise<ResumenLealtad> {
   return rpc<ResumenLealtad>(sb, 'fn_mi_resumen_lealtad', {})
+}
+
+export interface TarjetaCanjeada {
+  cargadas: number
+  cliente: string
+  saldo_nuevo: number
+  vale_pesos: number
+}
+
+/**
+ * Carga una tarjeta de regalo física a una cuenta.
+ *
+ * Sin `clienteId` la carga a la cuenta de quien está logueado — es el camino
+ * de la app. Con `clienteId` la carga a otra cuenta, y para eso el servidor
+ * exige ser personal: si no, cualquiera podría mandar el saldo de una
+ * tarjeta ajena a su propia cuenta.
+ *
+ * La tarjeta se bloquea y se marca canjeada en la misma transacción, así que
+ * dos escaneos simultáneos no pueden cargarla dos veces.
+ */
+export async function canjearTarjeta(
+  sb: ShakeClient,
+  codigo: string,
+  clienteId?: string,
+): Promise<TarjetaCanjeada> {
+  return rpc<TarjetaCanjeada>(sb, 'fn_canjear_tarjeta', {
+    p_codigo: codigo.trim().toUpperCase(),
+    p_cliente_id: clienteId ?? null,
+  })
 }

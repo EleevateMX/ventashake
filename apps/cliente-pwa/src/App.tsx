@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import {
   sesionActual, usuarioActual, iniciarSesionGoogle, cerrarSesion, onCambioSesion,
   vincularClienteAuth, guardarMiTelefono, miResumenLealtad, listarProductosParaVenta,
+  canjearTarjeta,
   nombreParaOrdenar,
   type ResumenLealtad, type ProductoVenta,
 } from '@shake/supabase'
@@ -131,7 +132,6 @@ export default function App() {
             {c?.nombre?.split(' ')[0] ?? 'Hola'}
           </p>
         </div>
-        <img src={milo} alt="" className="h-10 w-auto shrink-0" />
       </header>
 
       {error && (
@@ -204,53 +204,27 @@ function Bienvenida({ error }: { error: string | null }) {
 
 // ──────────────────────────────── Tarjeta ─────────────────────────────────
 
+const NOMBRE_SELLO: Record<string, { titulo: string; icono: string; que: string }> = {
+  bebida: { titulo: 'Bebidas', icono: '🥤', que: 'bebida' },
+  alimento: { titulo: 'Comida', icono: '🥪', que: 'comida' },
+}
+
 function Inicio({ datos, alRecargar }: { datos: ResumenLealtad | null; alRecargar: () => void }) {
   const c = datos?.cliente
-  const p = datos?.progreso
+  const [ampliado, setAmpliado] = useState(false)
   if (!c) return null
 
   return (
     <>
-      {/* La tarjeta: saldo y camino al próximo cupón. */}
-      <section className="relative overflow-hidden rounded-sa-lg p-5 mb-3 text-sa-cream shadow-sa bg-gradient-to-br from-sa-green to-sa-green-deep">
-        <img src={milo} alt="" className="absolute -right-4 -bottom-6 h-32 opacity-20 pointer-events-none" />
-        <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-sa-banana">Tus mancuernas</p>
-        <p className="font-display text-6xl leading-none text-sa-banana mt-1">{c.mancuernas}</p>
+      <Pase cliente={c} alAmpliar={() => setAmpliado(true)} />
+      {ampliado && c.codigo && <CodigoEnGrande codigo={c.codigo} alCerrar={() => setAmpliado(false)} />}
 
-        {p && (
-          <div className="mt-4 relative z-10">
-            <div className="h-2.5 rounded-full bg-sa-cream/15 overflow-hidden">
-              <div className="h-full rounded-full bg-sa-banana transition-all" style={{ width: `${p.pct}%` }} />
-            </div>
-            <p className="text-sm text-sa-cream/85 mt-2">
-              {p.faltan === 0
-                ? '¡Tienes un cupón listo! Pídelo en caja.'
-                : <>Te faltan <b className="text-sa-banana">{p.faltan}</b> para tu próximo cupón</>}
-            </p>
-          </div>
-        )}
-      </section>
-
-      {/* El código: lo único que tiene que enseñar en la barra. Va grande y
-          arriba a propósito — es el momento en que abre la app. */}
-      <section className="rounded-sa-lg p-5 mb-3 bg-sa-cream-paper text-sa-green-ink shadow-sa text-center">
-        <h2 className="font-display text-lg text-sa-green">Muéstralo en caja</h2>
-        <p className="text-xs text-sa-green-ink/55 mb-3">
-          Con esto te sumamos las mancuernas de tu compra
-        </p>
-        {c.codigo ? (
-          <>
-            <div className="inline-block bg-white rounded-sa p-3">
-              <QR value={c.codigo} size={168} />
-            </div>
-            <p className="font-mono font-medium tracking-[0.2em] text-sa-green text-lg mt-2">{c.codigo}</p>
-          </>
-        ) : (
-          <p className="text-sa-green-ink/50 text-sm">—</p>
-        )}
-      </section>
-
+      <Bolsas datos={datos} />
+      <Sellos datos={datos} />
       <Cupones datos={datos} />
+      <Paquetes datos={datos} />
+      <TarjetaRegalo alRecargar={alRecargar} />
+      <Guardar codigo={c.codigo} />
 
       {datos?.vida && datos.vida.visitas > 0 && (
         <section className="grid grid-cols-3 gap-2 mb-3">
@@ -267,6 +241,390 @@ function Inicio({ datos, alRecargar }: { datos: ResumenLealtad | null; alRecarga
         Actualizar
       </button>
     </>
+  )
+}
+
+/**
+ * El pase: la tarjeta como se ve en un wallet.
+ *
+ * Está dibujada con la misma anatomía de un pase de Apple Wallet —
+ * encabezado con la marca, un dato grande, campos secundarios y el código
+ * abajo tras una perforación — para que el día que se emita el `.pkpass`
+ * real el cliente reconozca lo mismo en los dos lados.
+ *
+ * El QR va chico a propósito: aquí es la firma de la tarjeta, no la
+ * herramienta. Cuando de verdad hay que escanearlo se toca y ocupa la
+ * pantalla completa sobre blanco, que es lo que un lector necesita.
+ */
+function Pase({
+  cliente,
+  alAmpliar,
+}: {
+  cliente: NonNullable<ResumenLealtad['cliente']>
+  alAmpliar: () => void
+}) {
+  return (
+    <section className="relative overflow-hidden rounded-sa-lg mb-3 text-sa-cream shadow-sa bg-gradient-to-br from-sa-green to-sa-green-deep">
+      <img src={milo} alt="" className="absolute -right-6 top-6 h-36 opacity-15 pointer-events-none" />
+
+      <div className="px-5 pt-4 relative z-10">
+        <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-sa-cream/45">
+          Titular
+        </p>
+        <p className="font-display text-lg text-sa-cream leading-tight truncate">
+          {cliente.nombre}
+        </p>
+      </div>
+
+      <div className="px-5 pt-3 relative z-10">
+        <p className="font-mono text-[10px] uppercase tracking-wider text-sa-cream/50">
+          Mancuernas disponibles
+        </p>
+        <p className="font-display text-6xl leading-none text-sa-banana mt-0.5">
+          {cliente.total_canjeable.toLocaleString('es-MX')}
+        </p>
+        <p className="text-sa-cream/80 text-sm mt-1">
+          valen <b className="text-sa-cream">{mxn(cliente.vale_pesos)}</b> en la barra
+        </p>
+      </div>
+
+      {/* La perforación: dos muescas y una línea punteada, como el pase de
+          un boleto. Es lo que hace que se lea "tarjeta" y no "recuadro". */}
+      <div className="relative mt-4">
+        <span className="absolute -left-2.5 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-sa-green-deep" />
+        <span className="absolute -right-2.5 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-sa-green-deep" />
+        <div className="mx-5 border-t border-dashed border-sa-cream/25" />
+      </div>
+
+      <button
+        onClick={alAmpliar}
+        disabled={!cliente.codigo}
+        className="w-full flex items-center gap-4 px-5 py-4 text-left active:scale-[0.99] transition-transform relative z-10"
+      >
+        {cliente.codigo ? (
+          <span className="bg-white rounded-sa p-1.5 shrink-0 leading-none">
+            <QR value={cliente.codigo} size={62} />
+          </span>
+        ) : (
+          <span className="w-[74px] h-[74px] shrink-0 rounded-sa bg-sa-cream/10" />
+        )}
+        <span className="min-w-0 flex-1">
+          <span className="block font-mono text-[10px] uppercase tracking-wider text-sa-cream/50">
+            Tu código
+          </span>
+          <span className="block font-mono text-lg tracking-[0.15em] text-sa-cream leading-tight">
+            {cliente.codigo ?? '—'}
+          </span>
+          <span className="block text-[11px] text-sa-banana mt-0.5">
+            Toca para agrandarlo en caja →
+          </span>
+        </span>
+      </button>
+    </section>
+  )
+}
+
+/**
+ * El código a pantalla completa, sobre blanco.
+ *
+ * Un lector de códigos falla con un QR chico sobre fondo verde y el celular
+ * a media luz. Blanco de borde a borde es lo más cerca que se puede estar
+ * de subir el brillo desde la web.
+ */
+function CodigoEnGrande({ codigo, alCerrar }: { codigo: string; alCerrar: () => void }) {
+  const lado = Math.min(300, Math.round(window.innerWidth * 0.72))
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={alCerrar}
+      onKeyDown={(e) => { if (e.key === 'Escape' || e.key === 'Enter') alCerrar() }}
+      className="fixed inset-0 z-50 bg-white flex flex-col items-center justify-center gap-5 px-6"
+    >
+      <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-sa-green-ink/50">
+        Muéstralo antes de pagar
+      </p>
+      <QR value={codigo} size={lado} />
+      <p className="font-mono text-2xl tracking-[0.2em] text-sa-green-ink">{codigo}</p>
+      <p className="font-mono text-[11px] uppercase tracking-wide text-sa-green-ink/40">
+        Toca para cerrar
+      </p>
+    </div>
+  )
+}
+
+/**
+ * Las dos bolsas, separadas.
+ *
+ * Se ven aparte porque son cosas distintas: las ganadas son promoción y
+ * pueden caducar; las compradas son dinero del cliente y no caducan nunca.
+ * Juntarlas en un solo número escondería de quién es cada peso.
+ */
+function Bolsas({ datos }: { datos: ResumenLealtad | null }) {
+  const c = datos?.cliente
+  const p = datos?.progreso
+  if (!c) return null
+  return (
+    <section className="rounded-sa-lg p-5 mb-3 bg-sa-cream-paper text-sa-green-ink shadow-sa">
+      <div className="grid grid-cols-2 gap-3">
+        <div className="rounded-sa bg-sa-mint/25 border border-sa-mint/50 px-3 py-3">
+          <p className="font-mono text-[10px] uppercase tracking-wider text-sa-green-ink/55">Ganadas</p>
+          <p className="font-display text-3xl text-sa-green leading-none mt-0.5">
+            {c.mancuernas.toLocaleString('es-MX')}
+          </p>
+          <p className="text-[11px] text-sa-green-ink/60 mt-1 leading-snug">Por tus compras</p>
+        </div>
+        <div className="rounded-sa bg-sa-banana/25 border border-sa-banana/50 px-3 py-3">
+          <p className="font-mono text-[10px] uppercase tracking-wider text-sa-green-ink/55">Compradas</p>
+          <p className="font-display text-3xl text-sa-green leading-none mt-0.5">
+            {c.saldo.toLocaleString('es-MX')}
+          </p>
+          <p className="text-[11px] text-sa-green-ink/60 mt-1 leading-snug">Tu saldo · no caduca</p>
+        </div>
+      </div>
+
+      {p && (
+        <div className="mt-4">
+          <div className="h-2.5 rounded-full bg-sa-green-ink/10 overflow-hidden">
+            <div className="h-full rounded-full bg-sa-green transition-all" style={{ width: `${p.pct}%` }} />
+          </div>
+          <p className="text-sm text-sa-green-ink/75 mt-2 leading-snug">
+            {p.faltan === 0 ? (
+              '¡Tienes un cupón listo! Pídelo en caja.'
+            ) : (
+              <>Te faltan <b className="text-sa-green">{p.faltan}</b> mancuernas ganadas para tu próximo cupón</>
+            )}
+          </p>
+        </div>
+      )}
+    </section>
+  )
+}
+
+/** Las tarjetas 13 + 1, una por familia. */
+function Sellos({ datos }: { datos: ResumenLealtad | null }) {
+  const sellos = datos?.sellos ?? []
+  const premios = datos?.premios ?? []
+  if (sellos.length === 0) return null
+
+  return (
+    <section className="rounded-sa-lg p-5 mb-3 bg-sa-cream-paper text-sa-green-ink shadow-sa">
+      <h2 className="font-display text-lg text-sa-green">Tus tarjetas de sellos</h2>
+      <p className="text-xs text-sa-green-ink/55 mb-3">
+        Junta 13 y la 14 va por cuenta de la casa. Bebidas y comida cuentan por separado.
+      </p>
+
+      <div className="space-y-4">
+        {sellos.map((s) => {
+          const info = NOMBRE_SELLO[s.tipo] ?? { titulo: s.tipo, icono: '⭐', que: s.tipo }
+          const cuantos = premios.filter((pr) => pr.tipo === s.tipo).length
+          return (
+            <div key={s.tipo}>
+              <div className="flex items-baseline justify-between gap-3">
+                <p className="font-display text-base leading-tight">
+                  {info.icono} {info.titulo}
+                </p>
+                <p className="font-mono text-xs text-sa-green-ink/55">
+                  {s.tiene}/{s.requeridos}
+                </p>
+              </div>
+
+              {/* Los sellos como los del papel: se ven de un vistazo cuántos
+                  faltan sin tener que leer un número. */}
+              <div className="grid grid-cols-7 gap-1.5 mt-2">
+                {Array.from({ length: s.requeridos }, (_, i) => (
+                  <span
+                    key={i}
+                    className={`aspect-square rounded-full border flex items-center justify-center text-[11px] ${
+                      i < s.tiene
+                        ? 'bg-sa-green border-sa-green text-sa-cream'
+                        : 'border-dashed border-sa-green-ink/25 text-sa-green-ink/20'
+                    }`}
+                  >
+                    {i < s.tiene ? '✓' : i + 1}
+                  </span>
+                ))}
+                <span
+                  className={`aspect-square rounded-full border flex items-center justify-center text-[11px] ${
+                    s.listo
+                      ? 'bg-sa-banana border-sa-banana text-sa-green-ink font-bold'
+                      : 'border-dashed border-sa-banana/50 text-sa-banana/60'
+                  }`}
+                >
+                  🎁
+                </span>
+              </div>
+
+              <p className={`text-[12px] mt-1.5 leading-snug ${s.listo ? 'text-sa-green font-semibold' : 'text-sa-green-ink/60'}`}>
+                {s.listo
+                  ? `¡Lista! Pide tu ${info.que} gratis en caja.`
+                  : `Te ${s.faltan === 1 ? 'falta' : 'faltan'} ${s.faltan} para tu ${info.que} gratis${cuantos > 0 ? ` (${cuantos} a elegir)` : ''}.`}
+              </p>
+            </div>
+          )
+        })}
+      </div>
+    </section>
+  )
+}
+
+/** Los paquetes de recarga, con el regalo bien a la vista. */
+function Paquetes({ datos }: { datos: ResumenLealtad | null }) {
+  const paquetes = datos?.paquetes ?? []
+  const tasa = datos?.tasa ?? 10
+  if (paquetes.length === 0) return null
+
+  return (
+    <section className="rounded-sa-lg p-5 mb-3 bg-sa-cream-paper text-sa-green-ink shadow-sa">
+      <h2 className="font-display text-lg text-sa-green">Recarga tus mancuernas</h2>
+      <p className="text-xs text-sa-green-ink/55 mb-3">
+        Adelanta tu consumo y te regalamos mancuernas. {tasa} mancuernas = $1.
+      </p>
+
+      <div className="space-y-2">
+        {paquetes.map((p) => (
+          <div key={p.nombre} className="flex items-center gap-3 rounded-sa border border-sa-green-ink/10 px-3 py-2.5">
+            <div className="min-w-0 flex-1">
+              <p className="font-display text-base leading-tight">{mxn(p.precio)}</p>
+              <p className="text-[12px] text-sa-green-ink/65 leading-snug">
+                {p.mancuernas.toLocaleString('es-MX')} mancuernas · valen {mxn(p.vale)}
+              </p>
+            </div>
+            {p.bono_pct > 0 && (
+              <span className="shrink-0 rounded-full bg-sa-banana px-2.5 py-1 font-mono text-[11px] font-bold text-sa-green-ink">
+                +{p.bono_pct}%
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <p className="text-[12px] text-sa-green-ink/55 mt-3 leading-snug">
+        Se compran en caja o en el kiosko — se cargan a tu cuenta al pagar.
+      </p>
+    </section>
+  )
+}
+
+/**
+ * Canjear una tarjeta de regalo física.
+ *
+ * El plástico es el vehículo de la venta, no el monedero: al canjearlo el
+ * saldo pasa a la cuenta y la tarjeta queda muerta. Por eso si la pierde
+ * después de canjearla no pierde nada.
+ */
+function TarjetaRegalo({ alRecargar }: { alRecargar: () => void }) {
+  const [codigo, setCodigo] = useState('')
+  const [enviando, setEnviando] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [ok, setOk] = useState<string | null>(null)
+
+  async function canjear() {
+    const limpio = codigo.trim().toUpperCase()
+    if (limpio.length < 6) {
+      setError('Escribe el código completo de la tarjeta.')
+      return
+    }
+    setEnviando(true)
+    setError(null)
+    setOk(null)
+    try {
+      const r = await canjearTarjeta(sb, limpio)
+      setOk(`¡Listo! Se cargaron ${r.cargadas.toLocaleString('es-MX')} mancuernas (${mxn(r.vale_pesos)}).`)
+      setCodigo('')
+      alRecargar()
+    } catch (e) {
+      // Aquí sí conviene el mensaje del servidor: "ya se usó el 12/08" dice
+      // exactamente qué pasó, y es lo que el cliente va a repetir en caja.
+      setError(e instanceof Error && e.message ? e.message : 'No se pudo canjear.')
+    } finally {
+      setEnviando(false)
+    }
+  }
+
+  return (
+    <section className="rounded-sa-lg p-5 mb-3 bg-sa-cream-paper text-sa-green-ink shadow-sa">
+      <h2 className="font-display text-lg text-sa-green mb-1">¿Tienes una tarjeta de regalo?</h2>
+      <p className="text-xs text-sa-green-ink/60 mb-3">
+        Escribe su código y el saldo se pasa a tu cuenta.
+      </p>
+      <div className="flex gap-2">
+        <input
+          value={codigo}
+          onChange={(e) => setCodigo(e.target.value.toUpperCase())}
+          autoCapitalize="characters"
+          autoCorrect="off"
+          spellCheck={false}
+          placeholder="SHKG-XXXXXXXX"
+          className="flex-1 min-w-0 rounded-sa border border-sa-green-ink/15 px-3 py-2.5 font-mono tracking-wider uppercase"
+        />
+        <button
+          onClick={() => void canjear()}
+          disabled={enviando}
+          className="rounded-sa bg-sa-green text-sa-cream font-display text-lg px-5 disabled:opacity-40 active:scale-95 transition-transform"
+        >
+          {enviando ? '…' : 'Canjear'}
+        </button>
+      </div>
+      {error && <p className="text-sa-strawberry text-xs mt-2 leading-snug">{error}</p>}
+      {ok && <p className="text-sa-green text-sm mt-2 font-semibold leading-snug">{ok}</p>}
+    </section>
+  )
+}
+
+/**
+ * Guardar la tarjeta en el celular.
+ *
+ * El pase de Apple Wallet / Google Wallet necesita firma con certificado y
+ * un servidor que lo emita — es el siguiente paso. Mientras tanto esto sí
+ * deja la tarjeta a un toque: instalada en la pantalla de inicio abre en su
+ * código sin pasar por el navegador. Prometer un botón que no existe sería
+ * peor que decir cómo se hace hoy.
+ */
+function Guardar({ codigo }: { codigo: string | null }) {
+  const [abierto, setAbierto] = useState(false)
+  const esIOS = /iphone|ipad|ipod/i.test(navigator.userAgent)
+  const instalada = window.matchMedia?.('(display-mode: standalone)').matches
+
+  if (instalada || !codigo) return null
+
+  return (
+    <section className="rounded-sa-lg p-5 mb-3 bg-sa-cream-paper text-sa-green-ink shadow-sa">
+      <button
+        onClick={() => setAbierto((v) => !v)}
+        className="w-full flex items-center justify-between gap-3 text-left"
+      >
+        <span className="min-w-0">
+          <span className="block font-display text-lg text-sa-green leading-tight">
+            Guarda tu tarjeta en el celular
+          </span>
+          <span className="block text-xs text-sa-green-ink/60 mt-0.5">
+            Para abrirla de un toque, sin buscar la página
+          </span>
+        </span>
+        <span className="shrink-0 font-mono text-sa-green-ink/40">{abierto ? '−' : '+'}</span>
+      </button>
+
+      {abierto && (
+        <div className="mt-3 text-sm text-sa-green-ink/75 leading-snug space-y-2">
+          {esIOS ? (
+            <p>
+              En Safari toca <b>Compartir</b> (el cuadrito con la flecha) y elige{' '}
+              <b>Agregar a inicio</b>.
+            </p>
+          ) : (
+            <p>
+              En Chrome abre el menú <b>⋮</b> y elige <b>Instalar aplicación</b> o{' '}
+              <b>Agregar a pantalla de inicio</b>.
+            </p>
+          )}
+          <p className="text-sa-green-ink/55">
+            Queda con su ícono y sin barra del navegador. El pase para Apple Wallet y
+            Google Wallet está en camino.
+          </p>
+        </div>
+      )}
+    </section>
   )
 }
 
