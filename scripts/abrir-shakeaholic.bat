@@ -170,14 +170,16 @@ echo   Abriendo COCINA - ALIMENTOS (monitor chico derecho)...
 start "" "%NAV%" %FLAGS% --user-data-dir="%LOCALAPPDATA%\shake-alimentos" --window-position=1848,139 https://cocina.shakeaholic.mx
 timeout /t 4 /nobreak >nul
 
-REM POS: hace falta abierto aunque se cobre desde el kiosko, porque es donde
-REM se ABRE LA CAJA al inicio del turno.
-echo   Abriendo POS - CAJA (ventana normal)...
-start "" "%NAV%" --noerrdialogs --disable-infobars --no-first-run --disable-session-crashed-bubble --user-data-dir="%LOCALAPPDATA%\shake-pos" --window-position=160,160 --window-size=980,1500 https://caja.shakeaholic.mx
-timeout /t 3 /nobreak >nul
-
-echo   Abriendo ADMIN (ventana normal)...
-start "" "%NAV%" --noerrdialogs --disable-infobars --no-first-run --disable-session-crashed-bubble --user-data-dir="%LOCALAPPDATA%\shake-admin" --window-position=100,100 --window-size=980,1500 https://admin.shakeaholic.mx
+REM  Caja (POS) y Admin YA NO se abren aqui.
+REM
+REM  El POS estaba en esta lista solo porque era el unico lugar donde se
+REM  abria la caja del turno. Desde que eso se hace en el kiosko (cinco
+REM  toques a Milo), tener dos ventanas mas encima estorba en una pantalla
+REM  que ya trae tres apps.
+REM
+REM  Cuando se necesiten, estan en el escritorio:
+REM  "Abrir Caja y Admin.bat" - o directo en caja.shakeaholic.mx y
+REM  admin.shakeaholic.mx desde cualquier navegador o celular.
 
 echo.
 echo   ----------------------------------------------------------------
@@ -186,6 +188,7 @@ echo.
 echo   * Cambios de precios o productos: NO hace falta reabrir nada.
 echo     Admin - En vivo - boton "Actualizar pantallas".
 echo   * El agente se actualiza solo la proxima vez que abras el dia.
+echo   * Caja y Admin: icono "Abrir Caja y Admin" en el escritorio.
 echo   ----------------------------------------------------------------
 timeout /t 8 /nobreak >nul
 endlocal
