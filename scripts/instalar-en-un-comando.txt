@@ -1,24 +1,35 @@
 ================================================================
- SHAKEAHOLIC - actualizar el agente de impresion SIN archivos
+ SHAKEAHOLIC - dejar una PC lista
 ================================================================
 
- En la PC de la tienda:
+ OPCION A (la facil): el archivo instalar-todo.bat
+ -------------------------------------------------
+ Doble clic. Windows pide permiso una vez, acepta, y ya:
+ instala el agente de impresion, deja el arranque automatico
+ y abre todo. No hace falta clic derecho ni PowerShell.
 
+ Solo pide la llave publica de Supabase la primera vez.
+
+
+ OPCION B: si no se puede pasar el archivo a esa PC
+ --------------------------------------------------
  1. Tecla Windows -> escribir:  powershell
- 2. Clic DERECHO sobre "Windows PowerShell"
-    -> "Ejecutar como administrador"  (importante)
- 3. Copiar TODO el bloque de abajo, pegarlo con clic derecho,
-    y presionar Enter.
+ 2. Clic DERECHO -> "Ejecutar como administrador"
+ 3. Pegar esta linea y Enter:
 
 ----------------------------------------------------------------
-Set-ExecutionPolicy Bypass -Scope Process -Force; [Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -UseBasicParsing 'https://raw.githubusercontent.com/EleevateMX/ventashake/main/scripts/instalar-agente-impresion.ps1' -OutFile "$env:TEMP\shake-instalar.ps1"; Unblock-File "$env:TEMP\shake-instalar.ps1"; & "$env:TEMP\shake-instalar.ps1" -AnonKey 'sb_publishable_cMUhN7qNUY_AY-E4U1dCnw_fR_C9sOb'
+Set-ExecutionPolicy Bypass -Scope Process -Force; [Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -UseBasicParsing 'https://raw.githubusercontent.com/EleevateMX/ventashake/main/scripts/instalar-todo.bat' -OutFile "$env:TEMP\shake.bat"; Start-Process "$env:TEMP\shake.bat" -Verb RunAs
 ----------------------------------------------------------------
 
- Eso baja la version mas reciente del agente, configura las dos
- etiquetadoras y lo deja corriendo en su ventana.
 
- DEJA ESA VENTANA ABIERTA todo el dia: si se cierra, no salen
- comandas en papel.
+ DESPUES DE ESTO
+ ---------------
+ * Al prender la PC se abre todo solo.
+ * El agente se actualiza solo cuando haya version nueva.
+ * Cambios de precios o productos: boton "Actualizar pantallas"
+   en Admin - En vivo. NO hay que tocar esa computadora.
 
  Para comprobar que quedo: pedir una kombucha. La etiqueta debe
  decir "KOMBUCHA - <sabor>" y NO traer el recuadro de onzas.
+ Y en Admin - En vivo, junto a cada impresora, debe decir v1.1.0
+ en verde.
