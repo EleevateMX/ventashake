@@ -9,6 +9,7 @@ import {
 } from '@shake/supabase'
 import { mxn } from '@shake/utils'
 import { sb } from './lib/sb'
+import { esNativo, iniciarSesionGoogleNativa, escucharVueltaDeLogin } from './nativo'
 import QR from './QR'
 
 /** Las secciones de la app, como pestañas de abajo. */
@@ -97,7 +98,14 @@ export default function App() {
   useEffect(() => {
     void sincronizar()
     const off = onCambioSesion(sb, () => void sincronizar())
-    return off
+    // Solo hace algo dentro de la app de iOS/Android; en el navegador
+    // devuelve una funcion vacia.
+    let soltar: (() => void) | null = null
+    void escucharVueltaDeLogin(sb, () => void sincronizar()).then((f) => { soltar = f })
+    return () => {
+      off()
+      soltar?.()
+    }
   }, [])
 
   // El menú se trae la primera vez que se abre esa pestaña, no al arrancar:
@@ -150,7 +158,10 @@ export default function App() {
 
       {/* Barra de pestañas — el patrón que la gente ya conoce de cualquier
           app, y lo que hace que esto se sienta una app y no una página. */}
-      <nav className="fixed bottom-0 inset-x-0 bg-sa-green-ink/95 backdrop-blur border-t border-sa-cream/10 px-2 pb-[env(safe-area-inset-bottom)]">
+      {/* Fondo solido, no 95% + desenfoque: a 95% el desenfoque no se
+          alcanza a ver, pero obliga al telefono a recomponer la capa en
+          cada scroll. En un celular de gama media eso se nota. */}
+      <nav className="fixed bottom-0 inset-x-0 bg-sa-green-ink border-t border-sa-cream/10 px-2 pb-[env(safe-area-inset-bottom)]">
         <div className="flex">
           {PESTANAS.map((p) => (
             <button
@@ -172,6 +183,18 @@ export default function App() {
 
 // ─────────────────────────── Pantalla de entrada ──────────────────────────
 
+/**
+ * Entrar con Google.
+ *
+ * En el navegador, Supabase redirige y vuelve con el codigo en la URL. En
+ * la app envuelta no hay a donde redirigir, asi que la vuelta llega como
+ * enlace profundo y hay que atenderla aparte (ver `nativo.ts`).
+ */
+async function entrarConGoogle() {
+  if (esNativo()) return iniciarSesionGoogleNativa(sb)
+  return iniciarSesionGoogle(sb, window.location.origin)
+}
+
 function Bienvenida({ error }: { error: string | null }) {
   return (
     <div className="min-h-[100dvh] flex items-center justify-center px-5 bg-sa-green-deep font-body">
@@ -190,7 +213,7 @@ function Bienvenida({ error }: { error: string | null }) {
         )}
         <button
           className="mt-4 mb-2 w-full rounded-sa-lg bg-sa-cream text-sa-green-ink font-display text-xl py-4 active:scale-[0.98] transition-transform"
-          onClick={() => void iniciarSesionGoogle(sb, window.location.origin)}
+          onClick={() => void entrarConGoogle()}
         >
           Continuar con Google
         </button>
