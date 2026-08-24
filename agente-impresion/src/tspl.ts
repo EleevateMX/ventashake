@@ -310,12 +310,10 @@ export function generarTSPL(e: EtiquetaComanda): string {
     gap = 3
   }
 
-  // --- Tamaño, en recuadro invertido --------------------------------------
-  if (e.tamano?.trim()) {
-    const etiqueta = ` ${mayus(e.tamano).slice(0, anchoF2 - 2)} `
-    l.escribir(etiqueta, '2', 10)
-    l.recuadrar(etiqueta, '2')
-  }
+  // --- Tamaño: NO va en la etiqueta ---------------------------------------
+  // El tamaño del vaso vive en la pantalla de la estación; en papel solo
+  // estorba (pedido del local, 24/08/26). El dato sigue llegando en el
+  // payload por si algún día se quiere de vuelta.
 
   // --- SPEC ---------------------------------------------------------------
   const spec = lineasSpec(e)
@@ -369,10 +367,7 @@ export function vistaPrevia(e: EtiquetaComanda): string {
   for (const t of partir(mayus(e.nombre), caracteresPorLinea('3'))) fila(t)
   fila()
   for (const t of partir(mayus(e.producto), caracteresPorLinea('2'))) fila(t)
-  if (e.tamano?.trim()) {
-    fila()
-    fila(`[${mayus(e.tamano)}]`)
-  }
+  // (El tamaño no se imprime: solo pantalla — ver arriba.)
   const spec = lineasSpec(e)
   if (spec.length > 0) {
     fila()

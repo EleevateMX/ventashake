@@ -52,16 +52,15 @@ describe('geometría TSPL', () => {
       'TEXT 562,16,"1",90,1,1,"2 de 5"',
       'TEXT 528,16,"3",90,1,1,"JAVIER"',
       'TEXT 490,16,"2",90,1,1,"SHAKE OREO"',
-      'TEXT 460,16,"2",90,1,1," 20 OZ "',
-      'REVERSE 438,14,24,88',
-      'TEXT 410,16,"1",90,1,1,"SPEC"',
-      'TEXT 384,16,"1",90,1,1,"+WHEY CHOCOLATE"',
-      'TEXT 367,16,"1",90,1,1,"+DESLACTOSADA"',
-      'TEXT 350,16,"1",90,1,1,"+GALLETA"',
-      'TEXT 333,16,"1",90,1,1,"+S/CREMA"',
-      'TEXT 292,16,"1",90,1,1,"10/08 18:58"',
-      'TEXT 254,16,"2",90,1,1,"Eres un"',
-      'TEXT 231,16,"2",90,1,1,"shakeaholic"',
+      // El tamano ya NO se imprime (vive solo en pantalla): la SPEC sube.
+      'TEXT 440,16,"1",90,1,1,"SPEC"',
+      'TEXT 414,16,"1",90,1,1,"+WHEY CHOCOLATE"',
+      'TEXT 397,16,"1",90,1,1,"+DESLACTOSADA"',
+      'TEXT 380,16,"1",90,1,1,"+GALLETA"',
+      'TEXT 363,16,"1",90,1,1,"+S/CREMA"',
+      'TEXT 322,16,"1",90,1,1,"10/08 18:58"',
+      'TEXT 284,16,"2",90,1,1,"Eres un"',
+      'TEXT 261,16,"2",90,1,1,"shakeaholic"',
       'PRINT 1,1',
       '',
     ])
@@ -369,7 +368,8 @@ describe('vista previa', () => {
   it('dibuja la etiqueta sin gastar consumible', () => {
     const dibujo = vistaPrevia(EJEMPLO)
     expect(dibujo).toContain('JAVIER')
-    expect(dibujo).toContain('[20 OZ]')
+    // El tamano no va en papel: solo pantalla.
+    expect(dibujo).not.toContain('[20 OZ]')
     expect(dibujo).toContain('+S/CREMA')
   })
 })
