@@ -27,6 +27,7 @@ set "BASE=C:\Shakeaholic"
 set "AGENTE=%BASE%\agente-impresion"
 set "RAWPS1=https://raw.githubusercontent.com/EleevateMX/ventashake/main/scripts/instalar-agente-impresion.ps1"
 set "RAWBAT=https://raw.githubusercontent.com/EleevateMX/ventashake/main/scripts/abrir-shakeaholic.bat"
+set "RAWCAJA=https://raw.githubusercontent.com/EleevateMX/ventashake/main/scripts/abrir-caja-y-admin.bat"
 
 REM ---------------------------------------------------------------------------
 REM 0. Permisos: si no los hay, este mismo archivo se vuelve a lanzar con ellos
@@ -143,6 +144,15 @@ if exist "%INICIO%\Shakeaholic.bat" (
 
 copy /y "%BASE%\abrir-shakeaholic.bat" "%USERPROFILE%\Desktop\Abrir Shakeaholic.bat" >nul 2>&1
 if exist "%USERPROFILE%\Desktop\Abrir Shakeaholic.bat" echo   [OK] Acceso directo en el escritorio.
+
+REM Caja y Admin no van en el arranque (estorban en la pantalla de la caja),
+REM pero tienen que estar a un clic cuando hagan falta.
+powershell -NoProfile -Command ^
+  "[Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -UseBasicParsing '%RAWCAJA%' -OutFile '%BASE%\abrir-caja-y-admin.bat'" >nul 2>&1
+if exist "%BASE%\abrir-caja-y-admin.bat" (
+  copy /y "%BASE%\abrir-caja-y-admin.bat" "%USERPROFILE%\Desktop\Abrir Caja y Admin.bat" >nul 2>&1
+  echo   [OK] "Abrir Caja y Admin" en el escritorio.
+)
 
 REM ---------------------------------------------------------------------------
 REM 5. Arrancar
