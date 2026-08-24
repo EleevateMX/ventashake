@@ -195,7 +195,7 @@ funciona, pero se ve poco profesional impreso en un letrero.
 
 ### 4.4 El lanzador de las pantallas
 
-`scripts/abrir-pantallas.bat` y los bloques de PowerShell traen las URLs
+`scripts/pantallas.ps1` y los bloques de PowerShell traen las URLs
 `.pages.dev`. Cámbialas por las nuevas en la NUC de la sucursal.
 
 ### 4.5 El iPad

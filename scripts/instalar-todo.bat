@@ -2,21 +2,25 @@
 REM ============================================================================
 REM  SHAKEAHOLIC - dejar la PC lista, de un solo clic
 REM ============================================================================
-REM  Este archivo se corre UNA VEZ por computadora. Hace todo lo que antes
-REM  eran dos instaladores y varios pasos a mano:
+REM  Se corre UNA VEZ por computadora. Deja:
 REM
-REM    1. Instala (o actualiza) el agente de impresion.
-REM    2. Deja "abrir-shakeaholic.bat" guardado en la PC.
-REM    3. Lo pone en el ARRANQUE de Windows: al prender la maquina, las
-REM       pantallas y el agente se abren solos.
-REM    4. Deja un acceso directo en el escritorio por si hay que reabrir.
-REM    5. Arranca todo ahora mismo.
+REM    * el agente de impresion instalado y corriendo,
+REM    * "Shakeaholic" en el arranque de Windows, con su icono,
+REM    * "Shakeaholic" y "Caja y Admin" en el escritorio,
+REM    * y todo abierto ahora mismo.
 REM
-REM  Se pide el permiso de Windows una sola vez, al principio: sin permisos
-REM  no se puede instalar Node ni escribir en C:\Shakeaholic. Se avisa aqui
-REM  y no a la mitad, con medio trabajo hecho.
+REM  POR QUE ESTA PARTIDO EN DOS MITADES
 REM
-REM  Despues de esto, el dia a dia es: prender la PC. Nada mas.
+REM  Instalar Node y escribir en C:\ necesita permisos de administrador.
+REM  Pero al elevarse, Windows puede cambiar de usuario, y entonces
+REM  %APPDATA% apunta al perfil del administrador. La version anterior
+REM  guardaba ahi el arranque automatico: en un perfil que nadie abre. La
+REM  PC se prendia en frio y no pasaba nada, mientras el instalador ya
+REM  habia dicho "[OK] al prender la PC se abre solo".
+REM
+REM  Ahora la mitad que necesita permisos corre elevada y aparte, y la
+REM  mitad que toca el escritorio y el arranque corre como el usuario que
+REM  de verdad usa la caja.
 REM ============================================================================
 
 setlocal EnableDelayedExpansion
@@ -24,27 +28,15 @@ title Shakeaholic - dejar la PC lista
 color 0A
 
 set "BASE=C:\Shakeaholic"
-set "AGENTE=%BASE%\agente-impresion"
-set "RAWPS1=https://raw.githubusercontent.com/EleevateMX/ventashake/main/scripts/instalar-agente-impresion.ps1"
-set "RAWBAT=https://raw.githubusercontent.com/EleevateMX/ventashake/main/scripts/abrir-shakeaholic.bat"
-set "RAWCAJA=https://raw.githubusercontent.com/EleevateMX/ventashake/main/scripts/abrir-caja-y-admin.bat"
+set "CRUDO=https://raw.githubusercontent.com/EleevateMX/ventashake/main"
 
-REM ---------------------------------------------------------------------------
-REM 0. Permisos: si no los hay, este mismo archivo se vuelve a lanzar con ellos
-REM ---------------------------------------------------------------------------
-net session >nul 2>&1
-if errorlevel 1 (
-  echo.
-  echo   Pidiendo permiso de Windows para instalar...
-  powershell -NoProfile -Command "Start-Process '%~f0' -Verb RunAs" >nul 2>&1
-  if errorlevel 1 (
-    echo.
-    echo   [X] No se pudo elevar. Haz clic DERECHO sobre este archivo
-    echo       y elige "Ejecutar como administrador".
-    pause
-  )
-  exit /b
+REM  Al llamarse a si mismo elevado, el primer argumento es la bandera y el
+REM  segundo la llave.
+if /i "%~1"=="/elevado" (
+  set "LLAVE=%~2"
+  goto :parte_admin
 )
+set "LLAVE=%~1"
 
 echo.
 echo   SHAKEAHOLIC - dejando esta PC lista
@@ -52,12 +44,12 @@ echo   ==================================
 echo.
 
 REM ---------------------------------------------------------------------------
-REM 1. La llave: si ya se instalo antes, se reutiliza y no se pregunta nada
+REM 1. La llave, ANTES de elevar
 REM ---------------------------------------------------------------------------
-set "LLAVE=%~1"
-
-if "%LLAVE%"=="" if exist "%AGENTE%\.env" (
-  for /f "usebackq tokens=1,* delims==" %%a in ("%AGENTE%\.env") do (
+REM  Se pregunta aqui y no en la ventana elevada porque esa se abre y se
+REM  cierra sola: si algo falla, nadie alcanza a leer lo que decia.
+if "%LLAVE%"=="" if exist "%BASE%\agente-impresion\.env" (
+  for /f "usebackq tokens=1,* delims==" %%a in ("%BASE%\agente-impresion\.env") do (
     if /i "%%a"=="SUPABASE_ANON_KEY" set "LLAVE=%%b"
   )
   if not "!LLAVE!"=="" echo   [OK] Llave tomada de la instalacion anterior.
@@ -78,10 +70,38 @@ if "%LLAVE%"=="" (
 )
 
 REM ---------------------------------------------------------------------------
-REM 2. Agente de impresion
+REM 2. La mitad que necesita permisos
 REM ---------------------------------------------------------------------------
+net session >nul 2>&1
+if errorlevel 1 (
+  echo.
+  echo   Windows va a pedir permiso para instalar. Acepta.
+  echo.
+  powershell -NoProfile -Command "Start-Process '%~f0' -ArgumentList '/elevado','%LLAVE%' -Verb RunAs -Wait"
+  if errorlevel 1 (
+    echo.
+    echo   [X] No se pudo obtener el permiso. Haz clic DERECHO sobre este
+    echo       archivo y elige "Ejecutar como administrador".
+    pause
+    exit /b 1
+  )
+) else (
+  REM  Ya se abrio como administrador: no hay una mitad de usuario aparte,
+  REM  asi que se hace todo aqui mismo.
+  call :hacer_admin
+)
+
+goto :parte_usuario
+
+REM ===========================================================================
+:parte_admin
+call :hacer_admin
+exit /b 0
+
+REM ===========================================================================
+:hacer_admin
 echo.
-echo   [1/4] Instalando el agente de impresion...
+echo   [1/3] Instalando el agente de impresion...
 echo.
 
 REM El agente viejo debe soltar la impresora antes de reemplazar archivos.
@@ -90,7 +110,7 @@ taskkill /f /fi "WINDOWTITLE eq Shakeaholic - agente de impresion*" >nul 2>&1
 set "TMPPS=%TEMP%\shake-instalar-agente.ps1"
 > "%TMPPS%" echo [Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12
 >>"%TMPPS%" echo $i = Join-Path $env:TEMP 'shake-instalador.ps1'
->>"%TMPPS%" echo Invoke-WebRequest -UseBasicParsing '%RAWPS1%' -OutFile $i
+>>"%TMPPS%" echo Invoke-WebRequest -UseBasicParsing '%CRUDO%/scripts/instalar-agente-impresion.ps1' -OutFile $i
 >>"%TMPPS%" echo Unblock-File $i
 >>"%TMPPS%" echo ^& $i -AnonKey '%LLAVE%'
 
@@ -100,77 +120,72 @@ del "%TMPPS%" >nul 2>&1
 
 if not "%RESULTADO%"=="0" (
   echo.
-  echo   [!] El instalador del agente termino con problemas.
-  echo       Arriba esta el detalle. Se continua con el resto: las
-  echo       pantallas van a funcionar aunque el papel no salga.
+  echo   [!] El instalador del agente termino con problemas. Arriba esta el
+  echo       detalle. Se continua: las pantallas van a funcionar aunque el
+  echo       papel no salga.
   echo.
 )
 
-REM ---------------------------------------------------------------------------
-REM 3. El lanzador del dia a dia
-REM ---------------------------------------------------------------------------
 echo.
-echo   [2/4] Guardando el lanzador...
+echo   [2/3] Bajando el lanzador y sus archivos...
 
 if not exist "%BASE%" mkdir "%BASE%" >nul 2>&1
-powershell -NoProfile -Command ^
-  "[Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -UseBasicParsing '%RAWBAT%' -OutFile '%BASE%\abrir-shakeaholic.bat'" >nul 2>&1
+call :bajar "scripts/abrir-shakeaholic.bat" "%BASE%\abrir-shakeaholic.bat"
+call :bajar "scripts/abrir-caja-y-admin.bat" "%BASE%\abrir-caja-y-admin.bat"
+call :bajar "scripts/pantallas.ps1"          "%BASE%\pantallas.ps1"
+call :bajar "scripts/instalar-inicio.ps1"    "%BASE%\instalar-inicio.ps1"
+call :bajar "scripts/shakeaholic.ico"        "%BASE%\shakeaholic.ico"
+call :bajar "scripts/shakeaholic-logo.png"   "%BASE%\shakeaholic-logo.png"
 
 if not exist "%BASE%\abrir-shakeaholic.bat" (
   echo   [X] No se pudo bajar el lanzador. Revisa el internet de esta PC.
   pause
   exit /b 1
 )
-echo   [OK] %BASE%\abrir-shakeaholic.bat
+goto :eof
 
-REM ---------------------------------------------------------------------------
-REM 4. Arranque automatico de Windows
-REM ---------------------------------------------------------------------------
-echo.
-echo   [3/4] Dejandolo en el arranque de Windows...
-
-REM Se usa el Inicio del USUARIO (no el de "todos los usuarios"): las
-REM ventanas de Chrome tienen que abrirse en la sesion de quien usa la
-REM caja, no en una sesion de sistema donde nadie las veria.
-set "INICIO=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup"
-copy /y "%BASE%\abrir-shakeaholic.bat" "%INICIO%\Shakeaholic.bat" >nul 2>&1
-if exist "%INICIO%\Shakeaholic.bat" (
-  echo   [OK] Al prender la PC se abre solo.
-) else (
-  echo   [!] No se pudo poner en el arranque. Se puede hacer a mano:
-  echo       tecla Windows + R, escribir  shell:startup  y copiar ahi
-  echo       el archivo %BASE%\abrir-shakeaholic.bat
-)
-
-copy /y "%BASE%\abrir-shakeaholic.bat" "%USERPROFILE%\Desktop\Abrir Shakeaholic.bat" >nul 2>&1
-if exist "%USERPROFILE%\Desktop\Abrir Shakeaholic.bat" echo   [OK] Acceso directo en el escritorio.
-
-REM Caja y Admin no van en el arranque (estorban en la pantalla de la caja),
-REM pero tienen que estar a un clic cuando hagan falta.
+REM ===========================================================================
+:bajar
+REM  %~1 = ruta dentro del repo, %~2 = donde guardarlo
 powershell -NoProfile -Command ^
-  "[Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -UseBasicParsing '%RAWCAJA%' -OutFile '%BASE%\abrir-caja-y-admin.bat'" >nul 2>&1
-if exist "%BASE%\abrir-caja-y-admin.bat" (
-  copy /y "%BASE%\abrir-caja-y-admin.bat" "%USERPROFILE%\Desktop\Abrir Caja y Admin.bat" >nul 2>&1
-  echo   [OK] "Abrir Caja y Admin" en el escritorio.
+  "try{[Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -UseBasicParsing -TimeoutSec 40 '%CRUDO%/%~1' -OutFile '%~2'}catch{}" >nul 2>&1
+if exist "%~2" (echo   [OK] %~nx2) else (echo   [!] No se pudo bajar %~nx2)
+goto :eof
+
+REM ===========================================================================
+:parte_usuario
+REM ---------------------------------------------------------------------------
+REM 3. Arranque y escritorio - como el usuario que usa la caja
+REM ---------------------------------------------------------------------------
+echo.
+echo   [3/3] Dejandolo en el arranque de Windows y en el escritorio...
+
+if not exist "%BASE%\instalar-inicio.ps1" (
+  echo   [X] Falta instalar-inicio.ps1. Revisa el internet y vuelve a correr esto.
+  pause
+  exit /b 1
 )
+powershell -NoProfile -ExecutionPolicy Bypass -File "%BASE%\instalar-inicio.ps1"
 
 REM ---------------------------------------------------------------------------
-REM 5. Arrancar
+REM 4. Arrancar
 REM ---------------------------------------------------------------------------
 echo.
-echo   [4/4] Abriendo todo...
-echo.
+echo   Abriendo todo...
 start "" "%BASE%\abrir-shakeaholic.bat"
 
 echo.
 echo   ================================================================
 echo   LISTO. Esta PC ya no necesita mantenimiento.
 echo.
-echo   * Al prender la maquina se abre todo solo.
-echo   * El agente se actualiza solo cuando haya version nueva.
+echo   * Al prender la maquina se abre todo solo, con su icono.
+echo   * El agente se actualiza solo, DESPUES de abrir la tienda.
 echo   * Precios y productos: boton "Actualizar pantallas" en
 echo     Admin - En vivo. No hay que tocar esta computadora.
+echo   * Si algo abre en el monitor equivocado:
+echo     C:\Shakeaholic\ultimo-arranque.log dice que vio Windows.
 echo   ================================================================
 echo.
 pause
 endlocal
+exit /b 0
