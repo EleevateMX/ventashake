@@ -713,3 +713,45 @@ export function agruparCategorias<T extends CategoriaAgrupable>(
   for (const g of grupos.values()) g.subs.sort((a, b) => a.orden - b.orden)
   return [...grupos.values()].sort((a, b) => a.orden - b.orden || a.nombre.localeCompare(b.nombre))
 }
+
+// ---------------------- recarga remota de pantallas ------------------
+
+/**
+ * Suscripción al timbre de recargas: cuando gerencia pide "actualizar
+ * pantallas" desde Admin, cada pantalla suscrita ejecuta `alRecibir`.
+ * Devuelve la función para colgar el canal (React cleanup).
+ *
+ * `alRecibir` decide CÓMO recargar: las pantallas de solo-lectura
+ * (barra, cocina, folios) recargan al instante; el kiosko espera a no
+ * tener un pedido a medias para no tirarle el carrito a un cliente.
+ */
+export function escucharRecargas(
+  sb: ShakeClient,
+  pantalla: 'kiosko' | 'barra' | 'cocina' | 'pantalla',
+  alRecibir: () => void,
+): () => void {
+  const canal = sb
+    .channel(`recargas-${pantalla}`)
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'senales_pantallas' },
+      (evento: { new?: { pantalla?: string; accion?: string } }) => {
+        const fila = evento.new
+        if (!fila || fila.accion !== 'recargar') return
+        if (fila.pantalla === pantalla || fila.pantalla === 'todas') alRecibir()
+      },
+    )
+    .subscribe()
+  return () => { void sb.removeChannel(canal) }
+}
+
+/** Admin: toca el timbre (RPC con candado de gerencia). */
+export async function pedirRecargaPantallas(
+  sb: ShakeClient,
+  pantalla: 'kiosko' | 'barra' | 'cocina' | 'pantalla' | 'todas',
+): Promise<void> {
+  const { error } = await (sb.rpc as unknown as RpcCatalogo)('fn_pantallas_recargar', {
+    p_pantalla: pantalla,
+  })
+  if (error) throw error
+}
