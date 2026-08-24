@@ -7,6 +7,7 @@ import {
 } from '@shake/supabase'
 import type { ConfiguracionKiosko, ModoPagoKiosko } from '@shake/types'
 import { PageHeader, Loading, ErrorMsg, OkMsg, Panel, cx, Chip } from '../ui'
+import { BotonActualizarPantallas } from '../BotonActualizarPantallas'
 import { mensajeDeError } from '@shake/utils'
 
 interface Indicador {
@@ -135,9 +136,12 @@ export default function Sistema() {
         title="Sistema"
         subtitle="Salud operativa, modo de pago del kiosko y reconciliación de pagos"
         action={
-          <button className={cx.btnPrimary} onClick={() => void ejecutarReconciliacion()} disabled={reconciliando}>
-            {reconciliando ? 'Reconciliando…' : 'Reconciliar ahora'}
-          </button>
+          <div className="flex items-center gap-3 flex-wrap justify-end">
+            <BotonActualizarPantallas compacto />
+            <button className={cx.btnPrimary} onClick={() => void ejecutarReconciliacion()} disabled={reconciliando}>
+              {reconciliando ? 'Reconciliando…' : 'Reconciliar ahora'}
+            </button>
+          </div>
         }
       />
 
