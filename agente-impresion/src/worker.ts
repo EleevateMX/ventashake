@@ -3,6 +3,13 @@ import type { PrinterConfig, TrabajoImpresion } from './types.js'
 import { imprimirTrabajo } from './printerAdapter.js'
 import { log } from './log.js'
 
+/**
+ * Version del agente, tal cual la reporta en cada latido. Se compara con
+ * lo que Admin muestra para saber si la tienda ya corre el agente nuevo.
+ * Subela cuando cambie algo que se note en el papel.
+ */
+const VERSION_AGENTE = '1.1.0'
+
 export interface EstadoWorker {
   printerId: string
   conectadoRealtime: boolean
@@ -84,7 +91,12 @@ export class PrinterWorker {
   }
 
   private async latido(): Promise<void> {
-    const { error } = await this.sb.rpc('fn_imprimir_latido', { p_token: this.cfg.token })
+    // La version viaja en el latido: desde Admin se ve si la tienda ya
+    // corre el agente nuevo, sin tener que mirar una etiqueta impresa.
+    const { error } = await this.sb.rpc('fn_imprimir_latido', {
+      p_token: this.cfg.token,
+      p_version: VERSION_AGENTE,
+    })
     if (error) {
       log.error(`Latido falló: ${error.message}`, this.cfg.id)
       this.estado.ultimoError = error.message

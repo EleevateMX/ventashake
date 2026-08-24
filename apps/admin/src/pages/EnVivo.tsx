@@ -11,6 +11,13 @@ import { BotonActualizarPantallas } from '../BotonActualizarPantallas'
  */
 const RESPALDO_MS = 30_000
 
+/**
+ * Version del agente de impresion que debe correr la tienda. Si una
+ * impresora reporta otra, es que falta correr el instalador en la PC.
+ * Subela junto con VERSION_AGENTE del agente.
+ */
+const AGENTE_ESPERADO = '1.1.0'
+
 const METODOS: Record<string, { etiqueta: string; icono: string }> = {
   efectivo: { etiqueta: 'Efectivo', icono: '💵' },
   clip: { etiqueta: 'Clip', icono: '📟' },
@@ -178,6 +185,20 @@ export default function EnVivo() {
                 <span className={`w-2 h-2 rounded-full ${i.en_linea ? 'bg-sa-mint animate-pulse' : 'bg-sa-strawberry'}`} />
                 {i.nombre.replace(' — ', ' ')} {i.en_linea ? '· en línea' : '· SIN SEÑAL'}
                 {i.ultima_impresion && <span className="font-mono text-xs opacity-60">últ. {i.ultima_impresion}</span>}
+                {/* La version del agente: sin esto no se distingue "no lo
+                    actualizaron" de "lo actualizaron y falla otra cosa". */}
+                <span
+                  className={`font-mono text-[10px] px-1.5 py-0.5 rounded-full ${
+                    i.version === AGENTE_ESPERADO
+                      ? 'bg-sa-mint/40 text-sa-green-ink'
+                      : 'bg-sa-banana/40 text-sa-coffee'
+                  }`}
+                  title={i.version === AGENTE_ESPERADO
+                    ? 'Agente al día'
+                    : `Agente viejo — corre instalar-agente-impresion.bat (esperado ${AGENTE_ESPERADO})`}
+                >
+                  {i.version ? `v${i.version}` : 'v?'}
+                </span>
               </span>
             ))}
           </div>
