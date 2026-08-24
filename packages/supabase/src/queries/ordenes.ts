@@ -179,7 +179,7 @@ export interface PanelEnVivo {
   en_cocina: { estacion: string; estado: string; folio: number; nombre: string | null; minutos: number }[]
   pedidos_recientes: { folio: number; nombre: string | null; hora: string; total: number; canal: string; items: string }[]
   top_productos: { nombre: string; cantidad: number }[]
-  impresoras: { nombre: string; en_linea: boolean; ultima_impresion: string | null }[]
+  impresoras: { nombre: string; en_linea: boolean; ultima_impresion: string | null; version: string | null }[]
   /** Trabajos de impresión esperando >90 s: 0 = el papel fluye. */
   impresion_atorada: number
   /** Bitácora del día (máx 40, más nuevo primero): cobros, comandas, impresiones, caja. */

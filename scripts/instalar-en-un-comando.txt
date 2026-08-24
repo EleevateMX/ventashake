@@ -1,0 +1,24 @@
+================================================================
+ SHAKEAHOLIC - actualizar el agente de impresion SIN archivos
+================================================================
+
+ En la PC de la tienda:
+
+ 1. Tecla Windows -> escribir:  powershell
+ 2. Clic DERECHO sobre "Windows PowerShell"
+    -> "Ejecutar como administrador"  (importante)
+ 3. Copiar TODO el bloque de abajo, pegarlo con clic derecho,
+    y presionar Enter.
+
+----------------------------------------------------------------
+Set-ExecutionPolicy Bypass -Scope Process -Force; [Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -UseBasicParsing 'https://raw.githubusercontent.com/EleevateMX/ventashake/main/scripts/instalar-agente-impresion.ps1' -OutFile "$env:TEMP\shake-instalar.ps1"; Unblock-File "$env:TEMP\shake-instalar.ps1"; & "$env:TEMP\shake-instalar.ps1" -AnonKey 'sb_publishable_cMUhN7qNUY_AY-E4U1dCnw_fR_C9sOb'
+----------------------------------------------------------------
+
+ Eso baja la version mas reciente del agente, configura las dos
+ etiquetadoras y lo deja corriendo en su ventana.
+
+ DEJA ESA VENTANA ABIERTA todo el dia: si se cierra, no salen
+ comandas en papel.
+
+ Para comprobar que quedo: pedir una kombucha. La etiqueta debe
+ decir "KOMBUCHA - <sabor>" y NO traer el recuadro de onzas.
