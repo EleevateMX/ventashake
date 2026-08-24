@@ -50,6 +50,36 @@ export default function Combos() {
   const [nuevoComponenteId, setNuevoComponenteId] = useState('')
   const [nuevaCantidad, setNuevaCantidad] = useState('1')
   const [guardandoComponente, setGuardandoComponente] = useState(false)
+  const [paqueteEdit, setPaqueteEdit] = useState<{ id: string; nombre: string; precio: string } | null>(null)
+
+  async function guardarPaquete() {
+    if (!paqueteEdit || !paqueteEdit.nombre.trim()) return
+    setGuardando(true)
+    setError(null)
+    try {
+      await actualizarProducto(sb, paqueteEdit.id, {
+        nombre: paqueteEdit.nombre.trim(),
+        precio: Number(paqueteEdit.precio) || 0,
+      })
+      setPaqueteEdit(null)
+      setOk('Paquete guardado')
+      await cargar()
+    } catch (e) {
+      setError(mensajeDeError(e))
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  async function alternarPaquete(p: Producto) {
+    setError(null)
+    try {
+      await actualizarProducto(sb, p.id, { activo: !p.activo })
+      await cargar()
+    } catch (e) {
+      setError(mensajeDeError(e))
+    }
+  }
 
   const catPorId = useMemo(() => {
     const m = new Map<string, Categoria>()
@@ -186,6 +216,11 @@ export default function Combos() {
   if (cargando) return <Loading>Cargando combos…</Loading>
 
   const combo = combos.find((c) => c.id === comboEditando) ?? null
+  // Paquetes tipo "Paquete Americano": viven en la categoría Combos pero no
+  // son combos de componentes — sus opciones son extras del producto.
+  const paquetes = productos.filter(
+    (p) => !p.es_combo && p.categoria_id && catPorId.get(p.categoria_id)?.nombre === 'Combos',
+  )
 
   return (
     <div>
@@ -198,6 +233,62 @@ export default function Combos() {
       {ok && <OkMsg>{ok}</OkMsg>}
 
       <div className="space-y-6">
+        {paquetes.length > 0 && (
+          <Panel title="Paquetes (armados con extras)">
+            <p className={`${cx.muted} text-sm mb-4`}>
+              Estos no son combos de componentes: son un producto normal cuyas
+              opciones (el americano frío o caliente, la galleta) se ofrecen
+              como extras. Aquí cambias nombre, precio y si está a la venta;
+              sus opciones se administran en <b>Extras → Dónde se ofrece</b>.
+              Es también la única forma hoy de vender juntos barra y cocina
+              (café + galletas) en un solo botón.
+            </p>
+            <div className="space-y-2">
+              {paquetes.map((p) => (
+                <div key={p.id} className="flex flex-wrap items-center gap-3 bg-sa-cream-soft rounded-sa px-4 py-3">
+                  {paqueteEdit?.id === p.id ? (
+                    <>
+                      <input
+                        className={cx.input}
+                        style={{ maxWidth: 260 }}
+                        value={paqueteEdit.nombre}
+                        onChange={(e) => setPaqueteEdit({ ...paqueteEdit, nombre: e.target.value })}
+                      />
+                      <input
+                        className={cx.input}
+                        style={{ maxWidth: 110 }}
+                        type="number"
+                        value={paqueteEdit.precio}
+                        onChange={(e) => setPaqueteEdit({ ...paqueteEdit, precio: e.target.value })}
+                      />
+                      <button className={cx.btnPrimary} disabled={guardando} onClick={() => void guardarPaquete()}>
+                        Guardar
+                      </button>
+                      <button className={cx.btnSec} onClick={() => setPaqueteEdit(null)}>Cancelar</button>
+                    </>
+                  ) : (
+                    <>
+                      <span className="font-semibold text-sm text-sa-green-ink">{p.nombre}</span>
+                      <span className="font-mono text-sm text-sa-green-ink/60">{mxn(p.precio)}</span>
+                      <Chip tone={p.activo ? 'si' : 'no'}>{p.activo ? 'A la venta' : 'Apagado'}</Chip>
+                      <span className="flex-1" />
+                      <button
+                        className={cx.btnSec}
+                        onClick={() => setPaqueteEdit({ id: p.id, nombre: p.nombre, precio: String(p.precio) })}
+                      >
+                        Editar
+                      </button>
+                      <button className={cx.btnSec} onClick={() => void alternarPaquete(p)}>
+                        {p.activo ? 'Apagar' : 'Prender'}
+                      </button>
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+          </Panel>
+        )}
+
         <Panel title="Nuevo combo">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <Field label="Nombre">

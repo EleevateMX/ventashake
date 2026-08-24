@@ -1,0 +1,11 @@
+-- El panel "En vivo" pasa de fotos cada 5 s a tiempo real de verdad:
+--   · caja_cortes entra a Realtime (ordenes, pagos, pedidos_cocina y
+--     trabajos_impresion ya estaban en la publicación);
+--   · fn_panel_en_vivo gana 'registro' — la bitácora del día: cobros,
+--     comandas, cambios de estado en cocina, impresiones y sus fallas,
+--     aperturas y cierres de caja (máx 40, más nuevo primero) — y
+--     'impresion_atorada': trabajos esperando >90 s (0 = el papel fluye).
+-- El cuerpo completo de la función quedó aplicado en producción con la
+-- migración del mismo nombre; el panel del Admin se suscribe a esas tablas
+-- y refresca al instante con cada evento.
+alter publication supabase_realtime add table caja_cortes;

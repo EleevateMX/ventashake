@@ -4,8 +4,11 @@ import { panelEnVivo, type PanelEnVivo } from '@shake/supabase'
 import { mxn, mensajeDeError } from '@shake/utils'
 import { PageHeader, Loading, ErrorMsg } from '../ui'
 
-/** Cada cuánto se pide una foto nueva a la base. */
-const CADA_MS = 5_000
+/**
+ * Respaldo por si un evento de Realtime se pierde: una foto de cortesía
+ * cada 30 s. El motor principal ya no es este reloj, son los eventos.
+ */
+const RESPALDO_MS = 30_000
 
 const METODOS: Record<string, { etiqueta: string; icono: string }> = {
   efectivo: { etiqueta: 'Efectivo', icono: '💵' },
@@ -21,72 +24,98 @@ const ESTADOS_COCINA: Record<string, string> = {
   listo: 'bg-sa-mint/25 text-sa-green-ink border-sa-mint/50',
 }
 
+const ICONO_EVENTO: Record<string, string> = {
+  cobro: '💰',
+  comanda: '🧾',
+  cocina: '👨‍🍳',
+  impresion: '🖨️',
+  falla: '🚨',
+  caja: '🔐',
+}
+
 /**
- * On Duty: lo que está pasando en la tienda AHORITA, visto desde donde sea.
+ * On Duty: la tienda en tiempo real de verdad.
  *
- * No es el Dashboard (ese mira semanas): esta pestaña mira el turno — quién
- * abrió la caja, qué hay en cocina y hace cuántos minutos, qué acaban de
- * vender, qué se pide más hoy, y si las impresoras respiran. Pide foto nueva
- * cada 5 segundos y el reloj corre segundo a segundo para que se VEA vivo.
+ * Ya no es un reloj que pide fotos: el panel está SUSCRITO a la base
+ * (Realtime). Cada venta, comanda, impresión o movimiento de caja dispara
+ * un evento y el panel se refresca en ese instante — con una foto de
+ * respaldo cada 30 s por si un evento se pierde. La bitácora de abajo es
+ * el registro del día, y si la impresión se atora, grita en rojo.
  */
 export default function EnVivo() {
   const [panel, setPanel] = useState<PanelEnVivo | null>(null)
   const [error, setError] = useState<string | null>(null)
-  /** 'ultimos' = los 8 más recientes · 'turno' = todo desde que abrió la caja. */
   const [vista, setVista] = useState<'ultimos' | 'turno'>('ultimos')
-  /** Epoch (ms) de la última foto buena; el reloj de "hace Xs" cuelga de él. */
-  const [ultimaFoto, setUltimaFoto] = useState<number | null>(null)
+  const [conectado, setConectado] = useState(false)
   const [, setTic] = useState(0)
   const vivo = useRef(true)
   const vistaRef = useRef(vista)
+  const debounce = useRef<ReturnType<typeof setTimeout> | null>(null)
   vistaRef.current = vista
 
   useEffect(() => {
     vivo.current = true
     const cargar = () =>
       panelEnVivo(sb, vistaRef.current === 'turno')
-        .then((p) => {
-          if (!vivo.current) return
-          setPanel(p)
-          setUltimaFoto(Date.now())
-          setError(null)
-        })
+        .then((p) => { if (vivo.current) { setPanel(p); setError(null) } })
         .catch((e) => { if (vivo.current) setError(mensajeDeError(e)) })
     void cargar()
-    const sonda = setInterval(cargar, CADA_MS)
-    // Un tic por segundo re-pinta "hace Xs" y los minutos de espera aunque
-    // la foto no haya cambiado: es lo que hace que el panel se sienta vivo.
+
+    // El corazón: cualquier movimiento en las tablas que laten dispara una
+    // recarga. El debounce junta la ráfaga de una venta (orden + pago +
+    // comanda + impresión) en una sola consulta.
+    const alEvento = () => {
+      if (debounce.current) clearTimeout(debounce.current)
+      debounce.current = setTimeout(() => void cargar(), 350)
+    }
+    let canal = sb.channel('panel-en-vivo')
+    for (const tabla of ['ordenes', 'pagos', 'pedidos_cocina', 'trabajos_impresion', 'caja_cortes']) {
+      canal = canal.on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: tabla },
+        alEvento,
+      )
+    }
+    canal.subscribe((estado) => {
+      if (!vivo.current) return
+      setConectado(estado === 'SUBSCRIBED')
+      if (estado === 'SUBSCRIBED') void cargar()
+    })
+
+    const respaldo = setInterval(cargar, RESPALDO_MS)
+    // Un tic por segundo re-pinta los minutos de espera y los relativos.
     const reloj = setInterval(() => setTic((t) => t + 1), 1_000)
-    return () => { vivo.current = false; clearInterval(sonda); clearInterval(reloj) }
+    return () => {
+      vivo.current = false
+      if (debounce.current) clearTimeout(debounce.current)
+      void sb.removeChannel(canal)
+      clearInterval(respaldo)
+      clearInterval(reloj)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vista])
 
   if (!panel && !error) return <Loading>Conectando con la tienda…</Loading>
 
   const maxTop = Math.max(1, ...(panel?.top_productos ?? []).map((p) => p.cantidad))
-  const hace = ultimaFoto ? Math.max(0, Math.round((Date.now() - ultimaFoto) / 1000)) : null
-  const alDia = hace !== null && hace <= Math.ceil(CADA_MS / 1000) + 4
+  const ultimoEvento = panel?.registro?.[0] ?? null
 
   return (
     <div>
       <PageHeader
         title="En vivo"
-        subtitle="Lo que está pasando en el kiosko, ahorita"
+        subtitle="La tienda, movimiento por movimiento"
         action={
           <div
             className={`flex items-center gap-2.5 rounded-full px-4 py-2 shadow-sa-sm border ${
-              alDia ? 'bg-white border-sa-green-ink/10' : 'bg-sa-strawberry/10 border-sa-strawberry/30'
+              conectado ? 'bg-white border-sa-green-ink/10' : 'bg-sa-strawberry/10 border-sa-strawberry/30'
             }`}
           >
-            <span className={`w-2 h-2 rounded-full ${alDia ? 'bg-sa-strawberry animate-pulse' : 'bg-sa-strawberry'}`} />
+            <span className={`w-2 h-2 rounded-full bg-sa-strawberry ${conectado ? 'animate-pulse' : ''}`} />
             <span className="font-mono text-xs uppercase tracking-wider text-sa-green-ink">
-              {alDia ? 'EN VIVO' : 'SIN SEÑAL'}
+              {conectado ? 'EN VIVO' : 'RECONECTANDO…'}
             </span>
             {panel && <span className="font-mono text-sm text-sa-green-ink/70">{panel.ahora}</span>}
-            {hace !== null && (
-              <span className={`font-mono text-[11px] ${alDia ? 'text-sa-green-ink/45' : 'text-sa-strawberry font-bold'}`}>
-                hace {hace}s
-              </span>
-            )}
           </div>
         }
       />
@@ -95,6 +124,20 @@ export default function EnVivo() {
 
       {panel && (
         <>
+          {/* Alerta: el papel no está saliendo */}
+          {panel.impresion_atorada > 0 && (
+            <div className="mb-6 bg-sa-strawberry text-white rounded-sa-lg px-5 py-4 flex items-center gap-3 shadow-sa">
+              <span className="text-2xl">🚨</span>
+              <div>
+                <p className="font-display text-lg leading-tight">La impresión está atorada</p>
+                <p className="text-sm text-white/85">
+                  {panel.impresion_atorada} {panel.impresion_atorada === 1 ? 'comanda espera' : 'comandas esperan'} más
+                  de 90 segundos sin imprimirse. Revisa la ventana del agente en la PC y el papel de las etiquetadoras.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* KPIs del turno */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <Kpi lbl="Órdenes de hoy" val={String(panel.dia.ordenes)} accent="text-sa-banana" />
@@ -111,7 +154,7 @@ export default function EnVivo() {
           </div>
 
           {/* Por método + impresoras */}
-          <div className="flex flex-wrap items-center gap-3 mb-8">
+          <div className="flex flex-wrap items-center gap-3 mb-6">
             {Object.entries(panel.por_metodo).map(([m, monto]) => (
               <span key={m} className="inline-flex items-center gap-2 bg-white border border-sa-green-ink/10 rounded-full px-4 py-2 shadow-sa-sm text-sm text-sa-green-ink">
                 <span>{METODOS[m]?.icono ?? '•'}</span>
@@ -135,7 +178,16 @@ export default function EnVivo() {
             ))}
           </div>
 
-          <div className="grid lg:grid-cols-3 gap-6">
+          {/* Último movimiento, siempre a la vista */}
+          {ultimoEvento && (
+            <div className="mb-6 flex items-center gap-3 bg-sa-green-deep text-sa-cream rounded-sa-lg px-5 py-3">
+              <span className="text-xl">{ICONO_EVENTO[ultimoEvento.tipo] ?? '•'}</span>
+              <p className="text-sm flex-1 min-w-0 truncate">{ultimoEvento.texto}</p>
+              <span className="font-mono text-xs text-sa-cream/60 shrink-0">{ultimoEvento.hora}</span>
+            </div>
+          )}
+
+          <div className="grid lg:grid-cols-3 gap-6 mb-6">
             {/* En cocina ahora */}
             <div className="bg-white rounded-sa p-5 shadow-sa-sm border border-sa-green-ink/5">
               <h3 className="font-display text-xl text-sa-green-ink mb-4">En cocina ahora</h3>
@@ -237,6 +289,29 @@ export default function EnVivo() {
                 )}
               </div>
             </div>
+          </div>
+
+          {/* Registro del día: la bitácora, movimiento por movimiento */}
+          <div className="bg-white rounded-sa p-5 shadow-sa-sm border border-sa-green-ink/5">
+            <h3 className="font-display text-xl text-sa-green-ink mb-4">Registro del día</h3>
+            {panel.registro.length === 0 ? (
+              <p className="text-sm text-sa-green-ink/50 py-6 text-center">Sin movimientos todavía.</p>
+            ) : (
+              <div className="max-h-[22rem] overflow-y-auto pr-1">
+                {panel.registro.map((ev, i) => (
+                  <div
+                    key={`${ev.ts}-${i}`}
+                    className={`flex items-center gap-3 py-2 border-b border-dotted border-sa-green-ink/10 last:border-0 ${
+                      ev.tipo === 'falla' ? 'text-sa-strawberry' : 'text-sa-green-ink'
+                    }`}
+                  >
+                    <span className="text-base shrink-0">{ICONO_EVENTO[ev.tipo] ?? '•'}</span>
+                    <span className="font-mono text-xs text-sa-green-ink/45 shrink-0">{ev.hora}</span>
+                    <span className="text-sm min-w-0 flex-1">{ev.texto}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </>
       )}

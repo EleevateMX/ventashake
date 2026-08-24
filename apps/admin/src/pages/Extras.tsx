@@ -521,7 +521,7 @@ export default function Extras() {
                       <tr>
                         <td colSpan={5} className="px-5 py-4 bg-sa-cream-soft/60">
                           {cargandoVinculos ? (
-                            <p className={cx.muted}>Cargando bebidas…</p>
+                            <p className={cx.muted}>Cargando productos…</p>
                           ) : (
                             <>
                               <div className="flex items-center gap-3 mb-3 flex-wrap">
@@ -533,8 +533,8 @@ export default function Extras() {
                                   onChange={(ev) => setFiltroVinculos(ev.target.value)}
                                 />
                                 <span className={`${cx.muted} text-xs`}>
-                                  Palomita = se ofrece en ese producto. Una bebida nueva de
-                                  costeo aparece aquí sola.
+                                  Palomita = se ofrece en ese producto — bebidas Y alimentos.
+                                  Un producto nuevo de costeo aparece aquí solo.
                                 </span>
                               </div>
                               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5">

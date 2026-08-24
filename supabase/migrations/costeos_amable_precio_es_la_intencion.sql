@@ -1,0 +1,17 @@
+-- Costeos amable: el precio ES la intención de venta.
+-- (Aplicada en producción con el patrón de parche dinámico con anclas;
+-- este archivo documenta QUÉ cambió en fn_sync_app_data.)
+--
+--   vende scoop = sufijo "- B"  O  precioScoop > 0
+--   vende bote  = sufijo "- R"  O  precioBote  > 0
+--
+-- · El nombre visible SIEMPRE pierde el sufijo -B/-R (con trim del sabor,
+--   que un espacio final lo esquivaba).
+-- · Lo nuevo de scoops/suplementos se archiva solo en su categoría por
+--   tipo (Creatinas, BCAAs, Colágeno, Pre-entrenos, Birdman, Proteínas).
+-- · El ancla de renombre por Clave distingue especie: el scoop y el bote
+--   de una misma fila comparten clave y antes se inhibía el renombre.
+-- · Los 68 productos "... - R" existentes se renombraron sin el sufijo.
+-- Ver migraciones aplicadas: costeos_amable_precio_es_la_intencion,
+-- sync_recorta_espacios_del_sabor, renombre_por_clave_distingue_scoop_y_bote.
+select 1;

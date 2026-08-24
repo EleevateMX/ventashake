@@ -411,7 +411,23 @@ async function load(){
     lsSet(CACHE,state);
   }catch(e){let c=lsGet(CACHE);state=(c&&c.params)?migrate(c):defaultState();setSaved("⚠ Sin conexión (local)");}
 }
+/* La Clave (codigo) es el ANCLA del renombre: el sistema de venta renombra
+   un producto en su lugar solo cuando la clave empata. Sin clave, cambiar
+   marca o sabor "parte" el producto (nace uno nuevo y el viejo se apaga,
+   perdiendo extras y foto). Por eso toda fila de proteins sin clave recibe
+   una automática antes de guardar: única, corta y estable. */
+function asegurarClaves(){
+  const usadas=new Set((state.proteins||[]).map(p=>(p.codigo||"").trim()).filter(Boolean));
+  let n=0;
+  (state.proteins||[]).forEach(p=>{
+    if((p.codigo||"").trim())return;
+    let c;
+    do{c="P-"+Date.now().toString(36).slice(-4).toUpperCase()+(++n)+Math.floor(Math.random()*36).toString(36).toUpperCase();}while(usadas.has(c));
+    usadas.add(c);p.codigo=c;
+  });
+}
 async function dbWrite(){
+  asegurarClaves();
   lsSet(CACHE,state);
   if(!sb){setSaved("⚠ Guardado local");return;}
   lastLocalSave=Date.now();
@@ -685,6 +701,7 @@ function renderProt(m){
   const canReorder=!protUI.brand && !protUI.byBrand;
   const anyFilter=!!(protUI.q||protUI.brand||protUI.byBrand);
   m.innerHTML=`<h2>Proteínas</h2><p class="hint">Catálogo con código, proveedor, fechas, precios (scoop y bote) e inventario doble (botes en bodega / scoops en kiosko). Tu <b>orden</b> lo defines arrastrando ⠿ o con ↑ ↓ y se guarda. <b>Ver por marca</b> y el buscador son vistas temporales: no cambian tu orden.</p>
+   <p class="hint" style="background:#e8f4ec;border-left:3px solid #2C4A3E;padding:8px 12px;border-radius:6px"><b>¿Cómo llega a la venta?</b> Pon <b>Precio/scoop</b> y aparece como scoop en el kiosko; pon <b>Precio bote</b> y aparece el bote completo. Puedes poner los dos. Ya no hace falta el "- B" / "- R" en el sabor. Para <b>renombrar</b> marca o sabor sin que se pierda nada, la fila solo necesita su <b>Clave</b> — y si la dejas vacía, se asigna una sola al guardar.</p>
    <div class="protctrls">
      <input id="protSearch" class="ingsearch" style="margin:0;flex:1;min-width:200px" placeholder="🔎 Buscar (sabor, marca, proveedor, código)…" value="${esc(protUI.q)}">
      <select id="protBrand"><option value="">Todas las marcas</option>${brands.map(b=>`<option ${b===protUI.brand?'selected':''}>${esc(b)}</option>`).join("")}</select>
