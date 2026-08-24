@@ -1,0 +1,8 @@
+-- Migración aplicada en producción con este mismo nombre.
+-- El diseño completo, la tabla de equivalencias y los candados que evitan
+-- que falle cobrando están en docs/monedero-y-sellos.md
+--
+-- Resumen de la_recarga_no_genera_mancuernas_de_lealtad:
+--   Una prueba destapó que recargar $200 daba 2200 compradas Y 20 de
+--   lealtad: pagar el bono dos veces. Ahora se resta del total la parte de
+--   recargas, así una compra mixta sigue premiando el consumo real.

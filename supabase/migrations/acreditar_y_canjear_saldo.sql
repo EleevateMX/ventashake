@@ -1,0 +1,9 @@
+-- Migración aplicada en producción con este mismo nombre.
+-- El diseño completo, la tabla de equivalencias y los candados que evitan
+-- que falle cobrando están en docs/monedero-y-sellos.md
+--
+-- Resumen de acreditar_y_canjear_saldo:
+--   trg_acreditar_recargas (abona AL PAGAR, no al pedir, y no duplica),
+--   fn_canjear_mancuernas (bloqueo for update, un canje por orden, recorta
+--   al costo, gasta primero las ganadas, BAJA el total porque el cobro
+--   valida contra ordenes.total) y fn_devolver_canje para cancelaciones.

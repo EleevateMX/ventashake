@@ -1,0 +1,9 @@
+-- Migración aplicada en producción con este mismo nombre.
+-- El diseño completo, la tabla de equivalencias y los candados que evitan
+-- que falle cobrando están en docs/monedero-y-sellos.md
+--
+-- Resumen de tarjetas_de_regalo_fisicas:
+--   tarjetas_regalo + fn_generar_tarjetas (solo gerencia, códigos no
+--   secuenciales y sin caracteres confundibles) + fn_canjear_tarjeta (con
+--   bloqueo, una sola vez). La tarjeta es el vehículo de venta: al canjear,
+--   el saldo pasa a la cuenta y la tarjeta muere.
