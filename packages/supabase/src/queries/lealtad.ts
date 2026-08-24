@@ -216,3 +216,47 @@ export async function reciboPublico(sb: ShakeClient, ordenId: string): Promise<R
 export async function guardarMiTelefono(sb: ShakeClient, telefono: string): Promise<Cliente> {
   return rpc<Cliente>(sb, 'fn_mi_telefono_guardar', { p_telefono: telefono })
 }
+
+// ------------------- el expediente del cliente (app) ------------------
+
+export interface ResumenLealtad {
+  registrado: boolean
+  cliente?: {
+    id: string
+    nombre: string
+    codigo: string | null
+    telefono: string | null
+    mancuernas: number
+    /** "Agosto 2026" — desde cuándo es cliente. */
+    desde: string
+  }
+  progreso?: { meta: number; faltan: number; pct: number }
+  vida?: { visitas: number; gastado: number; ticket: number; ultima: string | null }
+  ganadas_total?: number
+  cupones?: { codigo: string; beneficio: string; vence: string; dias_restantes: number }[]
+  favoritos?: { nombre: string; veces: number }[]
+  historial?: {
+    folio: number
+    orden_id: string
+    fecha: string
+    total: number
+    items: string
+    mancuernas: number
+  }[]
+  movimientos?: { puntos: number; descripcion: string; fecha: string }[]
+}
+
+/**
+ * Todo el expediente del cliente en un viaje (RPC `fn_mi_resumen_lealtad`).
+ *
+ * La app pedía lealtad, cupones, favoritos e historial por separado: en un
+ * celular con la red de la tienda eso son cuatro esperas. Además el
+ * servidor ya trae calculado el camino al próximo cupón y las estadísticas
+ * de vida, que es lo que de verdad engancha.
+ *
+ * Lee siempre del usuario de la sesión: no recibe id, así nadie puede
+ * pedir el expediente de otra persona.
+ */
+export async function miResumenLealtad(sb: ShakeClient): Promise<ResumenLealtad> {
+  return rpc<ResumenLealtad>(sb, 'fn_mi_resumen_lealtad', {})
+}

@@ -1,0 +1,13 @@
+-- El expediente del cliente para su app: todo lo suyo en un viaje.
+--
+-- La PWA pedía lealtad, cupones, favoritos e historial por separado; en un
+-- celular con red de tienda eso son cuatro esperas. Y ninguna respondía la
+-- pregunta que de verdad engancha: "cuánto llevo, cuánto me falta, qué he
+-- gastado". fn_mi_resumen_lealtad() lo arma completo: cliente, progreso al
+-- próximo cupón (ya calculado), estadísticas de vida, mancuernas ganadas,
+-- cupones vigentes con días restantes, favoritos, historial de 30 compras
+-- y 20 movimientos de puntos.
+--
+-- Lee SIEMPRE del usuario de la sesión (auth.uid()): no recibe cliente_id,
+-- así nadie puede pedir el expediente de otra persona. El cuerpo completo
+-- quedó aplicado en producción con la migración del mismo nombre.
