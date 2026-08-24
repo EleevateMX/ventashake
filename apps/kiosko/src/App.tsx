@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
-import { listarAlmacenes } from '@shake/supabase'
+import { listarAlmacenes, escucharRecargas } from '@shake/supabase'
 import type { ModoPagoKiosko } from '@shake/types'
 import { resolverModoKiosko } from './lib/modoKiosko'
 import { CandadoCajero } from './components/CandadoCajero'
@@ -48,6 +48,30 @@ export default function App() {
       }
     })()
     return () => { vivo = false }
+  }, [esVistaCelular])
+
+  // El timbre de "actualizar pantallas" del Admin. El kiosko NO recarga a
+  // media venta: si hay carrito o el flujo va más allá del catálogo, la
+  // señal queda pendiente y se ejecuta en cuanto la pantalla vuelva a
+  // estar libre. (La vista del celular del cliente no participa.)
+  useEffect(() => {
+    if (esVistaCelular) return
+    let pendiente = false
+    const esSeguro = () => {
+      const ruta = window.location.pathname
+      const enCatalogo = ruta === '/' || ruta.startsWith('/catalogo')
+      return enCatalogo && useCarrito.getState().items.length === 0
+    }
+    const intentar = () => {
+      if (!pendiente) return
+      if (esSeguro()) window.location.reload()
+    }
+    const colgar = escucharRecargas(sb, 'kiosko', () => {
+      pendiente = true
+      intentar()
+    })
+    const vigia = setInterval(intentar, 10_000)
+    return () => { colgar(); clearInterval(vigia) }
   }, [esVistaCelular])
 
   if (modo === 'cajero' && !cajero && !esVistaCelular) {

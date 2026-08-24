@@ -3,6 +3,7 @@ import { sb } from '../lib/sb'
 import { panelEnVivo, type PanelEnVivo } from '@shake/supabase'
 import { mxn, mensajeDeError } from '@shake/utils'
 import { PageHeader, Loading, ErrorMsg } from '../ui'
+import { BotonActualizarPantallas } from '../BotonActualizarPantallas'
 
 /**
  * Respaldo por si un evento de Realtime se pierde: una foto de cortesía
@@ -106,6 +107,8 @@ export default function EnVivo() {
         title="En vivo"
         subtitle="La tienda, movimiento por movimiento"
         action={
+          <div className="flex items-center gap-3 flex-wrap justify-end">
+          <BotonActualizarPantallas compacto />
           <div
             className={`flex items-center gap-2.5 rounded-full px-4 py-2 shadow-sa-sm border ${
               conectado ? 'bg-white border-sa-green-ink/10' : 'bg-sa-strawberry/10 border-sa-strawberry/30'
@@ -116,6 +119,7 @@ export default function EnVivo() {
               {conectado ? 'EN VIVO' : 'RECONECTANDO…'}
             </span>
             {panel && <span className="font-mono text-sm text-sa-green-ink/70">{panel.ahora}</span>}
+          </div>
           </div>
         }
       />

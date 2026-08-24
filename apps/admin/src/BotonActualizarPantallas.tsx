@@ -1,0 +1,98 @@
+import { useState } from 'react'
+import { pedirRecargaPantallas } from '@shake/supabase'
+import { mensajeDeError } from '@shake/utils'
+import { sb } from './lib/sb'
+import { cx } from './ui'
+
+type Pantalla = 'todas' | 'kiosko' | 'barra' | 'cocina' | 'pantalla'
+
+const OPCIONES: { id: Pantalla; label: string }[] = [
+  { id: 'todas', label: 'Todas' },
+  { id: 'kiosko', label: 'Kiosko' },
+  { id: 'barra', label: 'Barra' },
+  { id: 'cocina', label: 'Cocina' },
+  { id: 'pantalla', label: 'Folios' },
+]
+
+/**
+ * "Actualizar pantallas": después de cambiar precios o productos (aquí o
+ * en Costeos), este botón hace que las pantallas de la tienda se recarguen
+ * solas — nadie tiene que caminar a picarles F5.
+ *
+ * El kiosko es el delicado: si hay un cliente con carrito o a media orden,
+ * la señal se le queda pendiente y se aplica en cuanto la pantalla vuelva
+ * al menú. Las demás (barra, cocina, folios) recargan al instante.
+ */
+export function BotonActualizarPantallas({ compacto = false }: { compacto?: boolean }) {
+  const [abierto, setAbierto] = useState(false)
+  const [enviando, setEnviando] = useState<Pantalla | null>(null)
+  const [aviso, setAviso] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  async function mandar(p: Pantalla) {
+    setEnviando(p)
+    setError(null)
+    setAviso(null)
+    try {
+      await pedirRecargaPantallas(sb, p)
+      setAviso(
+        p === 'kiosko' || p === 'todas'
+          ? 'Señal enviada. El kiosko se actualiza en cuanto no tenga un pedido a medias.'
+          : 'Señal enviada — esa pantalla ya se está recargando.',
+      )
+      setAbierto(false)
+      setTimeout(() => setAviso(null), 6000)
+    } catch (e) {
+      setError(mensajeDeError(e))
+      setTimeout(() => setError(null), 8000)
+    } finally {
+      setEnviando(null)
+    }
+  }
+
+  return (
+    <div className="relative inline-block">
+      <div className="flex items-center gap-2">
+        <button
+          className={cx.btnPrimary}
+          onClick={() => void mandar('todas')}
+          disabled={enviando !== null}
+        >
+          {enviando ? 'Enviando…' : compacto ? '⟳ Actualizar pantallas' : '⟳ Actualizar pantallas de la tienda'}
+        </button>
+        <button
+          className={cx.btnSec}
+          onClick={() => setAbierto((v) => !v)}
+          disabled={enviando !== null}
+          title="Elegir una pantalla en particular"
+        >
+          ▾
+        </button>
+      </div>
+
+      {abierto && (
+        <div className="absolute right-0 mt-2 z-20 bg-white border border-sa-green-ink/10 rounded-sa shadow-sa p-1.5 min-w-[190px]">
+          {OPCIONES.map((o) => (
+            <button
+              key={o.id}
+              onClick={() => void mandar(o.id)}
+              className="w-full text-left px-3 py-2 rounded-sa text-sm text-sa-green-ink hover:bg-sa-cream-soft"
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {(aviso || error) && (
+        <p
+          className={`absolute right-0 top-full mt-2 z-10 whitespace-nowrap text-xs font-mono px-3 py-2 rounded-sa shadow-sa-sm ${
+            error ? 'bg-sa-strawberry text-white' : 'bg-sa-mint/25 text-sa-green-ink'
+          }`}
+        >
+          {error ?? aviso}
+        </p>
+      )}
+    </div>
+  )
+}
