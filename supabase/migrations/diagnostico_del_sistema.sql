@@ -1,0 +1,17 @@
+-- "Diagnóstico": el chequeo médico del sistema, en una sola llamada.
+--
+-- El tablero de Sistema dice CUÁNTOS problemas hay; esto dice CUÁLES, qué
+-- tan graves son y qué hacer con cada uno — incluyendo lo que pasa fuera
+-- del punto de venta (Rewards) y la basura de datos que se va acumulando.
+--
+-- Cada hallazgo trae ejemplos concretos: un número suelto no se puede
+-- perseguir, "folio 711 — Monster Lando Norris" sí.
+--
+-- Revisa: cobros atorados y desconocidos, ventas sin descuento de
+-- inventario, impresión encolada, impresoras sin señal, ventas que debían
+-- llegar a una estación y no llegaron, productos sin receta o con precio
+-- cero, Claves de Costeos faltantes o repetidas, y salud de Rewards
+-- (clientes sin compras, sin teléfono, cupones vencidos activos).
+--
+-- El cuerpo completo quedó aplicado en produccion con la migracion del
+-- mismo nombre. Exige fn_es_jefe() del lado del servidor.

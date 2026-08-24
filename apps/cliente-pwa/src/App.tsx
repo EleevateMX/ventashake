@@ -73,7 +73,19 @@ export default function App() {
     }
   }
 
-  async function sincronizar() {
+  /**
+   * Trae la sesión y el expediente del cliente.
+   *
+   * Al volver de Google la sesión tarda un instante en asentarse, y este
+   * mismo método se dispara dos veces (al montar y al cambiar la sesión).
+   * El intento que llega temprano fallaba y pintaba un error rojo que
+   * desaparecía solo un segundo después: alarmar al cliente por algo que
+   * ya se arregló es peor que no decir nada. Ahora los primeros tropiezos
+   * se reintentan en silencio y solo se muestra el error si de verdad no
+   * levanta.
+   */
+  async function sincronizar(intento = 0) {
+    let reintentando = false
     try {
       const sesion = await sesionActual(sb)
       if (!sesion) {
@@ -98,9 +110,18 @@ export default function App() {
       void misFavoritos(sb).then(setFavoritos).catch(() => {})
       void miHistorial(sb).then(setHistorial).catch(() => {})
     } catch (e) {
+      if (intento < 2) {
+        // Se queda en "Cargando…" y lo vuelve a intentar: para el cliente
+        // es el mismo instante, sin un rojo que aparece y se va.
+        reintentando = true
+        window.setTimeout(() => void sincronizar(intento + 1), 700)
+        return
+      }
       setError(mensajeAmable(e))
     } finally {
-      setCargando(false)
+      // Solo mientras haya un reintento en camino se sigue en "Cargando…";
+      // en cuanto termina bien (o se rinde), la pantalla se muestra.
+      if (!reintentando) setCargando(false)
     }
   }
 
