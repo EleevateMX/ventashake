@@ -1,0 +1,8 @@
+-- Migración aplicada en producción con este mismo nombre.
+-- El diseño completo, la tabla de equivalencias y los candados que evitan
+-- que falle cobrando están en docs/monedero-y-sellos.md
+--
+-- Resumen de sellos_trece_mas_uno:
+--   config_sellos (13 por defecto, precio_minimo ajustable), premios_sellos
+--   (catálogo fijo del regalo), contadores en clientes, sellos_movimientos
+--   y trg_sellar_compra. Cuenta productos, no visitas; recargas no sellan.

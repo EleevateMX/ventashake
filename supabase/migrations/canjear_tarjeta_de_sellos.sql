@@ -1,0 +1,8 @@
+-- Migración aplicada en producción con este mismo nombre.
+-- El diseño completo, la tabla de equivalencias y los candados que evitan
+-- que falle cobrando están en docs/monedero-y-sellos.md
+--
+-- Resumen de canjear_tarjeta_de_sellos:
+--   fn_canjear_sellos: exige que el producto esté en el catálogo y ya en la
+--   orden (para que salga en comanda y descuente inventario), lo pone a $0
+--   y baja el total. Catálogo inicial: shakes de carta y alimentos.

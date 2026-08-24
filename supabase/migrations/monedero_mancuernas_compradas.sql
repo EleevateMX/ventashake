@@ -1,0 +1,8 @@
+-- Migración aplicada en producción con este mismo nombre.
+-- El diseño completo, la tabla de equivalencias y los candados que evitan
+-- que falle cobrando están en docs/monedero-y-sellos.md
+--
+-- Resumen de monedero_mancuernas_compradas:
+--   clientes.saldo_mancuernas (bolsa de dinero comprado, aparte de las
+--   ganadas), tabla saldo_movimientos con auditoría completa (incluye
+--   saldo_despues), paquetes_saldo, y fn_tasa_mancuernas() = 10 por peso.

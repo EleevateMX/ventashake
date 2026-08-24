@@ -1,0 +1,9 @@
+-- Migración aplicada en producción con este mismo nombre.
+-- El diseño completo, la tabla de equivalencias y los candados que evitan
+-- que falle cobrando están en docs/monedero-y-sellos.md
+--
+-- Resumen de productos_de_recarga_y_paquetes:
+--   Categoría "Recargas" (no va a pantalla) con tres productos, y los
+--   paquetes: $200->2200 (+10%), $500->5750 (+15%), $1000->12000 (+20%).
+--   La recarga se vende como cualquier producto para reutilizar el camino
+--   de cobro ya auditado (Clip, efectivo, corte).
