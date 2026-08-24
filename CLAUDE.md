@@ -105,11 +105,28 @@ pantallas muestran comandas pero **no sale papel**.
 
 ### 2.5 La PC de la tienda se mantiene sola
 
-- `scripts/instalar-todo.bat` — una vez por PC. Se auto-eleva, instala el
-  agente, deja el arranque de Windows y abre todo.
-- `scripts/abrir-shakeaholic.bat` — el del día a día (y está en el
-  arranque). Compara versión del agente contra la publicada y **se
-  actualiza solo** antes de abrir. Abre kiosko, barra y cocina.
+- `scripts/instalar-todo.bat` — una vez por PC. Va **partido en dos
+  mitades a propósito**: la que instala corre elevada, la que deja el
+  arranque y el escritorio corre como el usuario de la caja. Al elevarse,
+  Windows puede cambiar de usuario y `%APPDATA%` apunta a otro perfil —
+  ahí se guardaba el arranque automático, en un perfil que nadie abre. Por
+  eso una PC quedó configurada "[OK]" y no abría nada al prender.
+- `scripts/instalar-inicio.ps1` — la mitad de usuario. Crea accesos
+  directos `.lnk` con icono (minimizados), resuelve Escritorio e Inicio
+  **desde el registro** (con OneDrive, las rutas de siempre no existen) y
+  además registra `HKCU\...\Run` como segunda red.
+- `scripts/abrir-shakeaholic.bat` — el del día a día. **El orden importa**:
+  espera internet → arranca el agente → abre pantallas → *y hasta el final*
+  busca actualización. Antes la actualización iba primero, y su ventana de
+  permiso dejaba la tienda cerrada si nadie estaba ahí para aceptarla.
+- `scripts/pantallas.ps1` — acomoda cada app en su monitor. **No hay
+  coordenadas escritas a mano**: le pregunta a Windows dónde están los
+  monitores y reparte por tamaño (el grande es del cliente, los dos chicos
+  son las estaciones, izquierda = bebidas). Después **empuja** cada ventana
+  con `SetWindowPos`, porque Chrome recuerda en el perfil la última
+  posición e ignora `--window-position`. Escape: `C:\Shakeaholic\pantallas.txt`
+  con `kiosko=1` / `bebidas=2` / `cocina=3` manda sobre el automático.
+  Cada arranque deja su bitácora en `C:\Shakeaholic\ultimo-arranque.log`.
 - `scripts/abrir-caja-y-admin.bat` — POS y Admin, que ya no van en el
   arranque (el turno se abre desde el kiosko).
 - Los `.bat`/`.ps1` deben ser **ASCII puro**:
