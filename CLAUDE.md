@@ -109,7 +109,33 @@ pantallas muestran comandas pero **no sale papel**.
 - Si el agente "acepta datos y no imprime", el problema es físico
   (papel/tapa/sensor): el autotest con FEED al encender lo confirma.
 
-### 2.5 La PC de la tienda se mantiene sola
+### 2.5 La identidad es una sola, y vive en `packages/brand`
+
+`packages/brand/tokens.css` es la **fuente de la verdad**: los colores y
+las tres tipografías. Las 8 apps de Vite lo importan en su `index.css`, así
+que heredan la marca sin hacer nada.
+
+- **Bagel Fat One** (display) · **DM Sans** (cuerpo) · **DM Mono** (cifras
+  y etiquetas chicas).
+- Verde `#2C4A3E`, verde profundo `#1A2E26`, tinta `#14241D`, crema
+  `#E8E6CC`, y los acentos de sabor (plátano `#F0C649`, fresa `#E04E5C`,
+  menta `#88C0A0`…) **uno por superficie**, nunca varios.
+
+**La regla de tamaños, tomada del kiosko**: la display se usa de **18 px
+para arriba** (títulos y cifras grandes); abajo de eso va DM Sans, y los
+números y etiquetas en versalitas van en DM Mono. Bagel Fat One solo
+existe en **un peso**: pedirle `font-weight: 700` hace que el navegador la
+engorde sola y se ve emborronada.
+
+**Las dos excepciones que hay que vigilar**, porque no pasan por el
+empaquetador y se desvían solas:
+
+- `apps/costos/index.html` — HTML plano. Copia los valores a mano en su
+  bloque `:root`. Ya se desvió una vez (usaba Fredoka + Inter y una paleta
+  verde-olivo); si se toca `tokens.css`, hay que copiarlo aquí.
+- `apps/web` — carga las fuentes con su propio `<link>`.
+
+### 2.6 La PC de la tienda se mantiene sola
 
 - `scripts/instalar-todo.bat` — una vez por PC. Va **partido en dos
   mitades a propósito**: la que instala corre elevada, la que deja el
@@ -201,7 +227,7 @@ pantallas muestran comandas pero **no sale papel**.
 
 ---
 
-### 2.6 La app del cliente se compila en la nube
+### 2.7 La app del cliente se compila en la nube
 
 `.github/workflows/testflight-ios.yml` la sube a TestFlight desde un
 runner de macOS: **no hace falta una Mac**. Cuatro secrets (llave de App
