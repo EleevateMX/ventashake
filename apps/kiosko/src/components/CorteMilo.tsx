@@ -40,13 +40,13 @@ export function CorteMilo({ abierto, onCerrar }: Props) {
   const [corte, setCorte] = useState<CajaCorte | null>(null)
   const [resumen, setResumen] = useState<CorteResumen | null>(null)
   const [fondo, setFondo] = useState('')
-  const [contado, setContado] = useState('')
+  const [conteo, setConteo] = useState<Conteo>({})
   const [guardando, setGuardando] = useState(false)
   const [resultado, setResultado] = useState<'abierto' | 'cerrado' | null>(null)
 
   useEffect(() => {
     if (!abierto) return
-    setPin(''); setError(null); setFondo(''); setContado('')
+    setPin(''); setError(null); setFondo(''); setConteo({})
     setResultado(null); setResumen(null); setCorte(null)
     setFase('cargando')
     empleadoDeLaSesion(sb)
@@ -141,7 +141,7 @@ export function CorteMilo({ abierto, onCerrar }: Props) {
     setGuardando(true)
     setError(null)
     try {
-      await cerrarCaja(sb, corte.id, Number(contado) || 0, empleado?.id)
+      await cerrarCaja(sb, corte.id, sumaConteo(conteo), empleado?.id)
       setCorte(null)
       setResultado('cerrado')
       setFase('listo')
@@ -163,7 +163,8 @@ export function CorteMilo({ abierto, onCerrar }: Props) {
 
   if (!abierto) return null
 
-  const dif = (Number(contado) || 0) - (resumen?.efectivo_esperado ?? 0)
+  const totalContado = sumaConteo(conteo)
+  const dif = totalContado - (resumen?.efectivo_esperado ?? 0)
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-6">
@@ -289,8 +290,8 @@ export function CorteMilo({ abierto, onCerrar }: Props) {
                   </div>
                 ))}
               </div>
-              <MontoConPad etiqueta="Efectivo contado en caja" valor={contado} onCambiar={setContado} />
-              {contado !== '' && (
+              <ConteoDeCaja conteo={conteo} onCambiar={setConteo} />
+              {totalContado > 0 && (
                 <p
                   className={`font-mono text-xs rounded-sa px-3 py-2 mt-3 ${
                     dif === 0
@@ -351,6 +352,102 @@ export function CorteMilo({ abierto, onCerrar }: Props) {
             </div>
           )}
         </div>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Conteo por denominación.
+ *
+ * Antes había que sumar el cajón de cabeza y teclear un total. Eso es
+ * justo donde se cuela el error del corte: si el número no cuadra, no hay
+ * forma de saber si falta dinero o si alguien sumó mal, y lo segundo pasa
+ * mucho más seguido que lo primero.
+ *
+ * Contando por denominación el total lo hace la máquina, y de paso queda
+ * el desglose: si mañana falta un billete de 500, se ve cuántos había.
+ */
+const BILLETES = [500, 200, 100, 50, 20]
+const MONEDAS = [20, 10, 5, 2, 1]
+
+type Conteo = Record<number, number>
+
+function sumaConteo(c: Conteo): number {
+  return Object.entries(c).reduce((t, [den, n]) => t + Number(den) * (n || 0), 0)
+}
+
+function FilaDenominacion({
+  den, cuantos, onCambiar, moneda,
+}: { den: number; cuantos: number; onCambiar: (n: number) => void; moneda?: boolean }) {
+  const subtotal = den * (cuantos || 0)
+  return (
+    <div className="flex items-center gap-2">
+      <span
+        className={`shrink-0 w-14 text-center font-display text-base leading-none py-2 rounded-sa ${
+          moneda
+            ? 'bg-sa-banana/25 text-sa-green-ink'
+            : 'bg-sa-mint/25 text-sa-green-ink'
+        }`}
+      >
+        ${den}
+      </span>
+      <button
+        onClick={() => onCambiar(Math.max(0, (cuantos || 0) - 1))}
+        className="shrink-0 w-11 h-11 rounded-sa bg-sa-cream-soft border border-sa-green-ink/10 font-display text-xl text-sa-green-ink active:scale-95 transition-transform disabled:opacity-30"
+        disabled={!cuantos}
+        aria-label={`Quitar un ${den}`}
+      >
+        −
+      </button>
+      <input
+        value={cuantos || ''}
+        onChange={(e) => onCambiar(Math.max(0, Math.min(999, Number(e.target.value.replace(/\D/g, '')) || 0)))}
+        inputMode="numeric"
+        placeholder="0"
+        className="w-14 h-11 text-center rounded-sa border border-sa-green-ink/15 font-mono text-lg"
+      />
+      <button
+        onClick={() => onCambiar(Math.min(999, (cuantos || 0) + 1))}
+        className="shrink-0 w-11 h-11 rounded-sa bg-sa-cream-soft border border-sa-green-ink/10 font-display text-xl text-sa-green-ink active:scale-95 transition-transform"
+        aria-label={`Agregar un ${den}`}
+      >
+        +
+      </button>
+      <span className="flex-1 text-right font-mono text-sm text-sa-green-ink/60">
+        {subtotal ? mxn(subtotal) : ''}
+      </span>
+    </div>
+  )
+}
+
+function ConteoDeCaja({
+  conteo, onCambiar,
+}: { conteo: Conteo; onCambiar: (c: Conteo) => void }) {
+  const poner = (den: number, n: number) => onCambiar({ ...conteo, [den]: n })
+  const total = sumaConteo(conteo)
+
+  return (
+    <div className="mt-4">
+      <p className="font-mono text-xs uppercase tracking-wide text-sa-green-ink/60 mb-2">
+        Efectivo contado en caja
+      </p>
+
+      <div className="bg-white border border-sa-green-ink/10 rounded-sa p-3 space-y-2">
+        <p className="font-mono text-[10px] uppercase tracking-wider text-sa-green-ink/45">Billetes</p>
+        {BILLETES.map((d) => (
+          <FilaDenominacion key={d} den={d} cuantos={conteo[d] || 0} onCambiar={(n) => poner(d, n)} />
+        ))}
+
+        <p className="font-mono text-[10px] uppercase tracking-wider text-sa-green-ink/45 pt-2">Monedas</p>
+        {MONEDAS.map((d) => (
+          <FilaDenominacion key={d} den={d} cuantos={conteo[d] || 0} onCambiar={(n) => poner(d, n)} moneda />
+        ))}
+      </div>
+
+      <div className="flex items-baseline justify-between gap-3 mt-3 px-1">
+        <span className="font-mono text-xs uppercase tracking-wide text-sa-green-ink/60">Total contado</span>
+        <span className="font-display text-3xl text-sa-green-ink leading-none">{mxn(total)}</span>
       </div>
     </div>
   )
