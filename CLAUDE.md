@@ -210,7 +210,9 @@ duele si falta: sin el **URL Type** `mx.shakeaholic.rewards`, el login de
 Google termina bien y el teléfono no sabe a qué app devolver el resultado
 — sin ningún mensaje de error.
 
-Detalle completo en `docs/rewards-app-nativa.md`.
+Para retomar solo Rewards en otra sesión, el mapa está en
+`docs/rewards-donde-vamos.md`; el detalle, en `docs/rewards-app-nativa.md`,
+`docs/monedero-y-sellos.md` y `docs/metas-y-perfil.md`.
 
 ---
 
