@@ -745,6 +745,43 @@ export function escucharRecargas(
   return () => { void sb.removeChannel(canal) }
 }
 
+export interface CambiosCatalogo {
+  primera_vez: boolean
+  hay_cambios: boolean
+  /** Fecha de la última publicación; null si nunca se publicó. */
+  desde: string | null
+  altas: { nombre: string; precio: number; categoria: string | null }[]
+  bajas: { nombre: string; categoria: string | null }[]
+  renombres: { antes: string; ahora: string }[]
+  precios: { nombre: string; antes: number; ahora: number }[]
+  encendidos: string[]
+  apagados: string[]
+  combos: { nombre: string | null; antes: string | null; ahora: string | null }[]
+}
+
+/**
+ * Qué va a cambiar en las pantallas si se publica ahora.
+ *
+ * Se compara contra la FOTO de la última publicación, no contra "hace un
+ * rato": si alguien guardó el lunes y publica el jueves, tiene que ver los
+ * tres días de cambios juntos.
+ */
+export async function cambiosDelCatalogo(sb: ShakeClient): Promise<CambiosCatalogo> {
+  const { data, error } = await (sb.rpc as unknown as RpcCatalogo)('fn_catalogo_cambios', {})
+  if (error) throw error
+  return data as CambiosCatalogo
+}
+
+/** Cuántas cosas cambiaron, para el contador. */
+export function contarCambios(c: CambiosCatalogo | null): number {
+  if (!c) return 0
+  if (c.primera_vez) return 1
+  return (
+    c.altas.length + c.bajas.length + c.renombres.length +
+    c.precios.length + c.encendidos.length + c.apagados.length + c.combos.length
+  )
+}
+
 /**
  * Admin: publicar el catálogo.
  *
