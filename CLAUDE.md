@@ -52,6 +52,12 @@ Consecuencias que hay que respetar:
   el producto se parte en dos y pierde sus extras. Por eso Costeos asigna
   Clave sola al guardar, y el ancla exige que la Clave sea única *dentro
   de su especie* (el scoop y el bote de una misma fila la comparten).
+- **Guardar y publicar ya no son lo mismo.** Guardar sincroniza el catálogo
+  (se sigue costeando con datos reales); **"Mostrar en el kiosko"** enseña
+  el diff — altas, bajas, renombres, precios, combos — y al confirmar toca
+  el timbre de las pantallas. Ojo: las pantallas leen `productos` **en
+  vivo**, así que publicar sincroniza *cuándo* lo ven, no congela lo que
+  ven; un reinicio del kiosko también trae lo no publicado.
 - **El precio es la intención de venta**: `precioScoop` > 0 lo vende por
   scoop, `precioBote` > 0 vende el bote. El sufijo `- B` / `- R` en el
   sabor es legado que sigue funcionando, pero ya no hace falta.
@@ -140,7 +146,7 @@ pantallas muestran comandas pero **no sale papel**.
 |---|---|
 | Abrir la tienda | Nada: la PC arranca todo sola |
 | Abrir/cerrar caja o cambiar turno | **5 toques a Milo** en el kiosko → PIN |
-| Cambiar precios o productos | Costeos o Admin → botón **"Actualizar pantallas"** |
+| Cambiar precios o productos | Costeos → **Guardar**, y cuando esté listo → **"Mostrar en el kiosko"** (enseña qué va a cambiar antes de confirmar) |
 | Ver la tienda a distancia | Admin → **En vivo** |
 | Algo se siente raro | Admin → **Diagnóstico** |
 | Actualizar el agente de impresión | Solo, al abrir el día siguiente |

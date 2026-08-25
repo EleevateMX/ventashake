@@ -49,6 +49,16 @@
   nav button{background:transparent;border:0;color:var(--cream);opacity:.72;padding:8px 13px;border-radius:9px;cursor:pointer;font-size:13px;font-weight:600;font-family:var(--display);white-space:nowrap}
   nav button:hover{opacity:1;background:rgba(255,255,255,.08)} nav button.active{background:var(--cream);color:var(--green);opacity:1}
   .toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:10px 20px;background:#fff;border-bottom:1px solid var(--line)} .toolbar .sp{flex:1}
+  .pendchip{font-size:11.5px;font-weight:600;padding:4px 10px;border-radius:999px;display:none}
+  .pendchip.hay{display:inline-block;background:var(--accent);color:var(--green-d)}
+  .pendchip.limpio{display:inline-block;background:var(--ok-bg);color:var(--ok)}
+  .cambios{max-height:46vh;overflow:auto;margin:4px 0 10px}
+  .cambios h4{margin:12px 0 5px;font-size:12px;letter-spacing:.4px;text-transform:uppercase;color:var(--muted)}
+  .cambios h4:first-child{margin-top:0}
+  .cambios ul{margin:0;padding-left:18px}
+  .cambios li{font-size:13px;line-height:1.55}
+  .cambios .quita{text-decoration:line-through;color:var(--muted)}
+  .cambios .nada{font-size:13px;color:var(--muted)}
   main{padding:22px 20px 70px;max-width:1280px;margin:0 auto}
   h2{font-family:var(--display);font-size:22px;font-weight:700;margin:0 0 2px;color:var(--green)}
   .hint{color:var(--muted);font-size:12.5px;margin:0 0 16px;max-width:820px;line-height:1.5}
@@ -237,11 +247,14 @@
   </header>
   <nav id="nav"></nav>
   <div class="toolbar">
-    <button class="btn mini" id="tbBackupAll">💾 Guardar TODO</button>
+    <button class="btn mini" id="tbGuardar">💾 Guardar</button>
+    <button class="btn mini" id="tbPublicar" style="background:var(--accent);color:var(--green-d)">📺 Mostrar en el kiosko</button>
+    <span class="pendchip" id="pendchip"></span>
+    <span class="sp"></span>
+    <button class="btn ghost mini" id="tbBackupAll">💾 Respaldo completo</button>
     <button class="btn ghost mini" id="tbBackup">⬇ Respaldar</button>
     <button class="btn ghost mini" id="tbRestore">⬆ Restaurar</button>
     <button class="btn ghost mini" id="tbCsv">📄 Exportar CSV</button>
-    <span class="sp"></span>
     <button class="btn ghost mini warn" id="tbReset">↺ Restaurar ejemplo</button>
     <input type="file" id="fileInput" accept="application/json" style="display:none">
   </div>
@@ -274,6 +287,8 @@ const fmtU=(n)=> (n||n===0)? "$"+Number(n).toLocaleString("es-MX",{minimumFracti
 const pct=(n)=> (n||n===0)? (n*100).toFixed(2)+"%":"–";
 const round5=(n)=> n? Math.round(n/5)*5 : 0;
 const esc=(s)=> (s==null?"":String(s)).replace(/"/g,"&quot;");
+const escTxt=(s)=> (s==null?"":String(s))
+  .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 function lsGet(k){try{return JSON.parse(localStorage.getItem(k));}catch(e){return null;}}
 function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true;}catch(e){return false;}}
 
@@ -1542,7 +1557,158 @@ function restoreFrom(file){const fr=new FileReader();
   fr.onload=()=>{try{const data=JSON.parse(fr.result);if(!data||!data.params||!data.proteins)throw 0;state=migrate(data);persist();render();setSaved("Restaurado ✓");}
     catch(e){alert("El archivo no es un respaldo válido de este tablero.");}};
   fr.readAsText(file);}
+
+/* ============ GUARDAR ≠ PUBLICAR ============================================
+   Antes eran lo mismo: guardar sincronizaba el catalogo y la barra veia el
+   cambio en cuanto alguien recargara. Eso obliga a que quien costea no se
+   equivoque nunca a media captura, porque un nombre a medio escribir o un
+   precio en borrador ya iba camino al kiosko.
+
+   Ahora hay dos momentos:
+     · Guardar  -> escribe y sincroniza el catalogo (se sigue costeando con
+                   datos reales).
+     · Publicar -> le toca el timbre a las pantallas para que recarguen, y
+                   antes ensena exactamente que va a cambiar.
+
+   Ojo con lo que esto NO hace: las pantallas leen el catalogo en vivo, asi
+   que si alguien recarga el kiosko a mano antes de publicar, va a ver lo no
+   publicado. Publicar sincroniza el MOMENTO en que lo ven, no congela lo
+   que ven. La comprobacion de la clave, en cambio, si esta del lado del
+   servidor: esto cambia lo que paga el cliente.
+   ========================================================================== */
+
+/* Guardado explicito. El automatico sigue ahi; este es para que quien
+   trabaja pueda ver "Guardado ✓" cuando lo pide, en vez de confiar en que
+   algo paso solo. */
+async function guardarYa(){
+  clearTimeout(saveTimer);
+  setSaved("Guardando…");
+  await dbWrite();
+  // El catalogo se sincroniza con un trigger despues del guardado; darle un
+  // respiro antes de preguntar cuantos cambios hay pendientes.
+  setTimeout(refrescarPendientes,900);
+}
+
+let ultimosCambios=null;
+function totalCambios(c){
+  if(!c) return 0;
+  if(c.primera_vez) return 1;
+  return (c.altas||[]).length+(c.bajas||[]).length+(c.renombres||[]).length
+       + (c.precios||[]).length+(c.encendidos||[]).length+(c.apagados||[]).length
+       + (c.combos||[]).length;
+}
+async function refrescarPendientes(){
+  const chip=document.getElementById("pendchip");
+  if(!chip||!sb)return;
+  try{
+    const {data,error}=await sb.rpc("fn_catalogo_cambios");
+    if(error)throw error;
+    ultimosCambios=data;
+    const n=totalCambios(data);
+    if(data&&data.primera_vez){
+      chip.className="pendchip hay";chip.textContent="Nunca se ha publicado";
+    }else if(n>0){
+      chip.className="pendchip hay";
+      chip.textContent="Sin publicar: "+n+(n===1?" cambio":" cambios");
+    }else{
+      chip.className="pendchip limpio";chip.textContent="Al día con el kiosko ✓";
+    }
+  }catch(e){chip.className="pendchip";chip.textContent="";}
+}
+
+function listaCambios(c){
+  const partes=[];
+  const li=(x)=>"<li>"+x+"</li>";
+  if(c.primera_vez){
+    return '<p class="nada">Es la primera vez que se publica desde aquí, así que no hay con qué comparar. '
+         + 'Al confirmar se guarda la foto del catálogo actual y a partir de la próxima vez '
+         + 'esta ventana te va a decir exactamente qué cambió.</p>';
+  }
+  if((c.altas||[]).length)partes.push("<h4>Nuevos ("+c.altas.length+")</h4><ul>"+
+    c.altas.map(a=>li(escTxt(a.nombre)+" · "+fmt(a.precio)+(a.categoria?' <span class="quita">'+escTxt(a.categoria)+"</span>":""))).join("")+"</ul>");
+  if((c.renombres||[]).length)partes.push("<h4>Renombrados ("+c.renombres.length+")</h4><ul>"+
+    c.renombres.map(r=>li('<span class="quita">'+escTxt(r.antes)+"</span> → <b>"+escTxt(r.ahora)+"</b>")).join("")+"</ul>");
+  if((c.precios||[]).length)partes.push("<h4>Cambios de precio ("+c.precios.length+")</h4><ul>"+
+    c.precios.map(x=>li(escTxt(x.nombre)+': <span class="quita">'+fmt(x.antes)+"</span> → <b>"+fmt(x.ahora)+"</b>")).join("")+"</ul>");
+  if((c.bajas||[]).length)partes.push("<h4>Ya no aparecen ("+c.bajas.length+")</h4><ul>"+
+    c.bajas.map(b=>li('<span class="quita">'+escTxt(b.nombre)+"</span>")).join("")+"</ul>");
+  if((c.apagados||[]).length)partes.push("<h4>Se apagan ("+c.apagados.length+")</h4><ul>"+
+    c.apagados.map(n=>li('<span class="quita">'+escTxt(n)+"</span>")).join("")+"</ul>");
+  if((c.encendidos||[]).length)partes.push("<h4>Vuelven a la carta ("+c.encendidos.length+")</h4><ul>"+
+    c.encendidos.map(n=>li("<b>"+escTxt(n)+"</b>")).join("")+"</ul>");
+  if((c.combos||[]).length)partes.push("<h4>Combos que cambiaron ("+c.combos.length+")</h4><ul>"+
+    c.combos.map(x=>li(escTxt(x.nombre||"(combo)")+": "+(x.antes||"—")+" → <b>"+(x.ahora||"—")+"</b> piezas")).join("")+"</ul>");
+
+  if(!partes.length)return '<p class="nada">No hay nada nuevo que mostrar: el kiosko ya tiene lo último que guardaste.</p>';
+  return partes.join("");
+}
+
+async function abrirPublicar(){
+  const host=document.getElementById("modalHost");
+  host.innerHTML=`<div class="modal-bg"><div class="modal">
+    <h3>Mostrar en el kiosko</h3>
+    <div class="sub">Cargando los cambios…</div></div></div>`;
+
+  let c=null;
+  try{
+    const {data,error}=await sb.rpc("fn_catalogo_cambios");
+    if(error)throw error;
+    c=data;ultimosCambios=data;
+  }catch(e){
+    host.innerHTML=`<div class="modal-bg"><div class="modal">
+      <h3>Mostrar en el kiosko</h3>
+      <div class="merr" style="display:block">No se pudo consultar qué cambió. Revisa la conexión.</div>
+      <div class="mrow"><button class="btn ghost mini" id="pb_cancel">Cerrar</button></div>
+    </div></div>`;
+    host.querySelector("#pb_cancel").onclick=()=>host.innerHTML="";
+    return;
+  }
+
+  const n=totalCambios(c);
+  const desde=c.desde?("Desde la última publicación, el "+esc(c.desde)+"."):"";
+
+  host.innerHTML=`<div class="modal-bg"><div class="modal">
+    <h3>Esto es lo que va a ver el kiosko</h3>
+    <div class="sub">${desde}</div>
+    <div class="cambios">${listaCambios(c)}</div>
+    <div class="mfield"><label>Clave del encargado</label><input id="pb_clave" type="password" placeholder="••••"></div>
+    <div class="merr" id="pb_err"></div>
+    <div class="mrow">
+      <button class="btn ghost mini" id="pb_cancel">Cancelar</button>
+      <button class="btn mini" id="pb_ok">${n?"Actualizar el kiosko":"Actualizar de todos modos"}</button>
+    </div>
+  </div></div>`;
+
+  const err=host.querySelector("#pb_err");
+  host.querySelector("#pb_cancel").onclick=()=>host.innerHTML="";
+  host.querySelector("#pb_clave").focus();
+  host.querySelector("#pb_ok").onclick=async()=>{
+    const clave=host.querySelector("#pb_clave").value;
+    err.style.display="none";
+    if(!clave){err.textContent="Escribe la clave del encargado.";err.style.display="block";return;}
+    const btn=host.querySelector("#pb_ok");
+    btn.disabled=true;btn.textContent="Publicando…";
+    try{
+      // La clave se valida en el servidor, no aquí: una comprobación en el
+      // navegador la salta cualquiera con la consola abierta, y esto cambia
+      // lo que ve y lo que paga el cliente.
+      const {error}=await sb.rpc("fn_catalogo_publicar",{p_clave:clave,p_quien:currentUser||"Costeos"});
+      if(error)throw error;
+      host.innerHTML="";
+      setSaved("Publicado en el kiosko ✓");
+      refrescarPendientes();
+    }catch(e){
+      btn.disabled=false;btn.textContent="Actualizar el kiosko";
+      const msg=(e&&e.message)||"";
+      err.textContent=/clave/i.test(msg)?"Clave incorrecta.":"No se pudo publicar. Inténtalo de nuevo.";
+      err.style.display="block";
+    }
+  };
+}
+
 function wireToolbar(){
+  document.getElementById("tbGuardar").onclick=guardarYa;
+  document.getElementById("tbPublicar").onclick=abrirPublicar;
   document.getElementById("tbBackupAll").onclick=backupAll;
   document.getElementById("tbBackup").onclick=backup;
   document.getElementById("tbCsv").onclick=exportCsv;
@@ -1565,6 +1731,7 @@ async function showApp(user){
   await load();
   renderNav();wireToolbar();render();
   setSaved(sb?"Sincronizado ✓":"Local (sin nube)");
+  refrescarPendientes();
   subscribeRealtime();
 }
 function subscribeRealtime(){

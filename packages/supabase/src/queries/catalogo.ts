@@ -745,7 +745,27 @@ export function escucharRecargas(
   return () => { void sb.removeChannel(canal) }
 }
 
-/** Admin: toca el timbre (RPC con candado de gerencia). */
+/**
+ * Admin: publicar el catálogo.
+ *
+ * Es lo mismo que hace Costeos con "Mostrar en el kiosko": guarda la foto
+ * del catálogo y toca el timbre de todas las pantallas. Va por aquí y no
+ * por `pedirRecargaPantallas('todas')` para que las dos puertas dejen la
+ * misma marca — si Admin recargara sin guardar la foto, el contador de
+ * Costeos seguiría diciendo "sin publicar: 3" para siempre, y un contador
+ * que miente deja de leerse.
+ *
+ * No pide clave: quien está en Admin ya tiene sesión de gerencia.
+ */
+export async function publicarCatalogo(sb: ShakeClient): Promise<void> {
+  const { error } = await (sb.rpc as unknown as RpcCatalogo)('fn_catalogo_publicar', {
+    p_clave: null,
+    p_quien: null,
+  })
+  if (error) throw error
+}
+
+/** Admin: recargar UNA pantalla que se quedó atorada. */
 export async function pedirRecargaPantallas(
   sb: ShakeClient,
   pantalla: 'kiosko' | 'barra' | 'cocina' | 'pantalla' | 'todas',
