@@ -1,8 +1,12 @@
 import { useState } from 'react'
-import { pedirRecargaPantallas, publicarCatalogo } from '@shake/supabase'
+import {
+  pedirRecargaPantallas, publicarCatalogo, cambiosDelCatalogo, contarCambios,
+  type CambiosCatalogo,
+} from '@shake/supabase'
 import { mensajeDeError } from '@shake/utils'
 import { sb } from './lib/sb'
 import { cx } from './ui'
+import { ResumenCambios } from './ResumenCambios'
 
 type Pantalla = 'todas' | 'kiosko' | 'barra' | 'cocina' | 'pantalla'
 
@@ -28,6 +32,25 @@ export function BotonActualizarPantallas({ compacto = false }: { compacto?: bool
   const [enviando, setEnviando] = useState<Pantalla | null>(null)
   const [aviso, setAviso] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // Publicar pasa por una ventana con el diff, igual que en Costeos: las
+  // dos puertas al mismo acto tienen que enseñar lo mismo antes de tocarlo.
+  const [revisando, setRevisando] = useState<CambiosCatalogo | null>(null)
+  const [cargandoDiff, setCargandoDiff] = useState(false)
+
+  async function abrirRevision() {
+    setCargandoDiff(true)
+    setError(null)
+    setAviso(null)
+    setAbierto(false)
+    try {
+      setRevisando(await cambiosDelCatalogo(sb))
+    } catch (e) {
+      setError(mensajeDeError(e))
+      setTimeout(() => setError(null), 8000)
+    } finally {
+      setCargandoDiff(false)
+    }
+  }
 
   async function mandar(p: Pantalla) {
     setEnviando(p)
@@ -40,6 +63,7 @@ export function BotonActualizarPantallas({ compacto = false }: { compacto?: bool
       // aunque las pantallas ya tuvieran el cambio.
       if (p === 'todas') await publicarCatalogo(sb)
       else await pedirRecargaPantallas(sb, p)
+      setRevisando(null)
       setAviso(
         p === 'kiosko' || p === 'todas'
           ? 'Señal enviada. El kiosko se actualiza en cuanto no tenga un pedido a medias.'
@@ -60,10 +84,14 @@ export function BotonActualizarPantallas({ compacto = false }: { compacto?: bool
       <div className="flex items-center gap-2">
         <button
           className={cx.btnPrimary}
-          onClick={() => void mandar('todas')}
-          disabled={enviando !== null}
+          onClick={() => void abrirRevision()}
+          disabled={enviando !== null || cargandoDiff}
         >
-          {enviando ? 'Enviando…' : compacto ? '⟳ Actualizar pantallas' : '⟳ Actualizar pantallas de la tienda'}
+          {cargandoDiff
+            ? 'Revisando…'
+            : compacto
+              ? '⟳ Actualizar pantallas'
+              : '⟳ Actualizar pantallas de la tienda'}
         </button>
         <button
           className={cx.btnSec}
@@ -77,7 +105,11 @@ export function BotonActualizarPantallas({ compacto = false }: { compacto?: bool
 
       {abierto && (
         <div className="absolute right-0 mt-2 z-20 bg-white border border-sa-green-ink/10 rounded-sa shadow-sa p-1.5 min-w-[190px]">
-          {OPCIONES.map((o) => (
+          <p className="px-3 pt-1 pb-2 text-[11px] leading-snug text-sa-green-ink/50">
+            Recargar una sola pantalla, para cuando se queda pegada. Publicar
+            el catálogo es el botón de al lado.
+          </p>
+          {OPCIONES.filter((o) => o.id !== 'todas').map((o) => (
             <button
               key={o.id}
               onClick={() => void mandar(o.id)}
@@ -86,6 +118,38 @@ export function BotonActualizarPantallas({ compacto = false }: { compacto?: bool
               {o.label}
             </button>
           ))}
+        </div>
+      )}
+
+      {revisando && (
+        <div className="fixed inset-0 z-50 bg-sa-green-ink/50 flex items-center justify-center p-4"
+             onClick={() => setRevisando(null)}>
+          <div className="bg-white rounded-sa-lg shadow-sa max-w-lg w-full p-6"
+               onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-display text-2xl text-sa-green-ink leading-tight">
+              Esto es lo que va a ver la tienda
+            </h3>
+            <p className="text-xs text-sa-green-ink/55 mt-0.5 mb-4">
+              {revisando.desde
+                ? `Desde la última publicación, el ${revisando.desde}.`
+                : 'Todavía no hay una publicación anterior.'}
+            </p>
+
+            <ResumenCambios c={revisando} />
+
+            <div className="flex gap-2 justify-end mt-5">
+              <button className={cx.btnSec} onClick={() => setRevisando(null)}>
+                Cancelar
+              </button>
+              <button
+                className={cx.btnPrimary}
+                onClick={() => void mandar('todas')}
+                disabled={enviando !== null}
+              >
+                {enviando ? 'Publicando…' : 'Actualizar la tienda'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
