@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { pedirRecargaPantallas } from '@shake/supabase'
+import { pedirRecargaPantallas, publicarCatalogo } from '@shake/supabase'
 import { mensajeDeError } from '@shake/utils'
 import { sb } from './lib/sb'
 import { cx } from './ui'
@@ -34,7 +34,12 @@ export function BotonActualizarPantallas({ compacto = false }: { compacto?: bool
     setError(null)
     setAviso(null)
     try {
-      await pedirRecargaPantallas(sb, p)
+      // "Todas" es publicar: además de tocar el timbre guarda la foto del
+      // catálogo, que es contra la que Costeos compara. Si aquí solo se
+      // recargara, el contador de Costeos seguiría diciendo "sin publicar"
+      // aunque las pantallas ya tuvieran el cambio.
+      if (p === 'todas') await publicarCatalogo(sb)
+      else await pedirRecargaPantallas(sb, p)
       setAviso(
         p === 'kiosko' || p === 'todas'
           ? 'Señal enviada. El kiosko se actualiza en cuanto no tenga un pedido a medias.'
