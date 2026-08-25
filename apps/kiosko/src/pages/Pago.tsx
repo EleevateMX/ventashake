@@ -11,6 +11,8 @@ import { useCarrito, type ItemCarrito } from '@/store/carritoStore'
 import { TecladoNombre } from '@/components/TecladoNombre'
 import { sb } from '@/lib/sb'
 import { resolverModoKiosko } from '@/lib/modoKiosko'
+import { canjearMancuernas, canjearSellos } from '@shake/supabase'
+import { PanelRewards, SIN_REWARDS, type DecisionRewards } from '@/components/PanelRewards'
 import { mensajeDeError } from '@shake/utils'
 
 type EstadoPago = 'cargando' | 'eligiendo' | 'procesando' | 'no_disponible'
@@ -74,6 +76,7 @@ function ProcesandoOverlay({ monto }: { monto: number }) {
 export function Pago() {
   const navigate = useNavigate()
   const { items, total, usuario, cajero, nombrePedido, setNombrePedido, limpiar } = useCarrito()
+  const [rewards, setRewards] = useState<DecisionRewards>(SIN_REWARDS)
   const [estado, setEstado] = useState<EstadoPago>('cargando')
   const [modo, setModo] = useState<ModoPagoKiosko | null>(null)
   const [almacen, setAlmacen] = useState<Almacen | null>(null)
@@ -287,9 +290,23 @@ export function Pago() {
         return
       }
 
+      // Rewards, entre crear y cobrar. El orden importa: primero el
+      // premio de sellos y después las mancuernas, porque el servidor
+      // recorta las mancuernas a lo que cuesta la orden — si fuera al
+      // revés se gastarían de más sobre un total que aún iba a bajar.
+      let totalAPagar = orden.total
+      if (rewards.sello) {
+        const r = await canjearSellos(sb, orden.id, rewards.sello.tipo, rewards.sello.productoId)
+        totalAPagar = r.total_a_pagar
+      }
+      if (rewards.mancuernas > 0) {
+        const r = await canjearMancuernas(sb, orden.id, rewards.mancuernas)
+        totalAPagar = r.total_a_pagar
+      }
+
       // El monto sale de la orden que devolvió el servidor, no del carrito:
       // el total autoritativo es el que recalculó la base.
-      await cobrarOrden(sb, orden.id, metodo, orden.total, {
+      await cobrarOrden(sb, orden.id, metodo, totalAPagar, {
         autorizadoPor: cajero.id,
         idempotencyKey: crypto.randomUUID(),
       })
@@ -301,7 +318,7 @@ export function Pago() {
         state: {
           folio: String(orden.folio),
           ordenId: orden.id,
-          total: orden.total,
+          total: totalAPagar,
           metodo: metodo === 'efectivo' ? 'efectivo' : 'terminal',
           items: itemsSnapshot,
           usuario: usuarioSnapshot,
@@ -573,6 +590,17 @@ export function Pago() {
 
           {modo === 'cajero' && (
             <>
+              {/* El canje va ANTES de los botones de cobro: es una decisión
+                  que cambia el monto, no algo que se agrega después. */}
+              {usuario?.clienteId && (
+                <PanelRewards
+                  clienteId={usuario.clienteId}
+                  items={items}
+                  total={total()}
+                  decision={rewards}
+                  onCambiar={setRewards}
+                />
+              )}
               {!corte && (
                 <p className="font-mono text-sm text-sa-strawberry text-center">
                   No hay caja abierta. Ábrela en el POS antes de cobrar, o la
