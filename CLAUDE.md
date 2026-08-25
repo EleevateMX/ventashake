@@ -190,6 +190,17 @@ empaquetador y se desvían solas:
   tres `fn_crear_orden` viejas conviviendo que no cobraban sobreprecios.
   Al cambiar parámetros, `drop function` de la firma anterior.
 - `UPDATE ... FROM LATERAL` no puede referenciar la tabla destino; usar CTE.
+- Un `update ... from` que empata **por nombre** le pega a TODAS las filas
+  con ese nombre. En `fn_sync_app_data` eso ponía `activo = precio > 0` en
+  el duplicado también, o sea **resucitaba** el que alguien acababa de
+  apagar: apagarlo a mano no servía de nada. Se arregló limitando el
+  update a una sola fila por nombre (`p.id = (select … limit 1)`).
+- **Primero se arregla quien crea el conflicto, después se pone el
+  candado.** Poner el índice único por nombre antes de arreglar ese update
+  hacía fallar el guardado entero de Costeos — y dejar a la tienda sin
+  poder guardar precios es peor que el duplicado que se quería evitar.
+  Igual con `on conflict`: si el índice al que apunta no existe, Postgres
+  rechaza la sentencia completa. Los dos van juntos o ninguno.
 - Para parchear una función grande sin reescribirla: leer
   `pg_get_functiondef`, **verificar que el ancla aparece exactamente N
   veces**, reemplazar y `execute`. Si el ancla no cuadra, abortar — así el
