@@ -439,3 +439,147 @@ export async function subirImagen(
 
   return sb.storage.from(bucket).getPublicUrl(ruta).data.publicUrl
 }
+
+// ──────────────────────────── Canje en la caja ────────────────────────────
+
+export interface RewardsCaja {
+  existe: boolean
+  nombre?: string
+  codigo?: string | null
+  foto?: string | null
+  tasa?: number
+  ganadas?: number
+  compradas?: number
+  total?: number
+  vale_pesos?: number
+  sellos?: {
+    tipo: 'bebida' | 'alimento'
+    tiene: number
+    requeridos: number
+    listo: boolean
+    /** Ids de los productos que pueden ir gratis con esta tarjeta. */
+    premios: string[]
+  }[]
+}
+
+/** Todo lo que la caja necesita de un cliente para cobrarle, en un viaje. */
+export async function rewardsParaCaja(sb: ShakeClient, clienteId: string): Promise<RewardsCaja> {
+  return rpc<RewardsCaja>(sb, 'fn_rewards_para_caja', { p_cliente_id: clienteId })
+}
+
+export interface CanjeMancuernas {
+  usadas: number
+  de_ganadas: number
+  de_compradas: number
+  descuento_pesos: number
+  total_a_pagar: number
+  saldo_restante: number
+}
+
+/**
+ * Usa mancuernas en una orden ya creada.
+ *
+ * Baja `ordenes.total`, así que hay que cobrar con el total que devuelve —
+ * no con el que traía la orden al crearse. El servidor recorta solo a lo
+ * que cuesta la orden: el monedero no da cambio.
+ */
+export async function canjearMancuernas(
+  sb: ShakeClient,
+  ordenId: string,
+  mancuernas: number,
+): Promise<CanjeMancuernas> {
+  return rpc<CanjeMancuernas>(sb, 'fn_canjear_mancuernas', {
+    p_orden_id: ordenId,
+    p_mancuernas: mancuernas,
+  })
+}
+
+export interface CanjeSellos {
+  premio: string
+  valor: number
+  sellos_usados: number
+  total_a_pagar: number
+  sellos_restantes: number
+}
+
+/**
+ * Cobra la tarjeta 13+1: un producto que YA está en la orden pasa a $0.
+ *
+ * El renglón se queda para que la comanda y el inventario sigan bien —
+ * el cliente se lleva el producto igual, solo que no se cobra.
+ */
+export async function canjearSellos(
+  sb: ShakeClient,
+  ordenId: string,
+  tipo: 'bebida' | 'alimento',
+  productoId: string,
+): Promise<CanjeSellos> {
+  return rpc<CanjeSellos>(sb, 'fn_canjear_sellos', {
+    p_orden_id: ordenId,
+    p_tipo: tipo,
+    p_producto_id: productoId,
+  })
+}
+
+// ─────────────────────────── Rewards en Admin ─────────────────────────────
+
+export interface RewardsAdmin {
+  tasa: number
+  /** Lo que se debe en producto. Las compradas son pasivo; las ganadas, promoción. */
+  en_la_calle: {
+    compradas: number
+    compradas_pesos: number
+    ganadas: number
+    ganadas_pesos: number
+    clientes_con_saldo: number
+  }
+  sellos: { bebida_listas: number; alimento_listas: number; con_sellos: number }
+  tarjetas: {
+    lote: string
+    mancuernas: number
+    total: number
+    nuevas: number
+    canjeadas: number
+    anuladas: number
+    pendiente_pesos: number
+  }[]
+  ultimos_movimientos: {
+    cliente: string
+    mancuernas: number
+    tipo: string
+    descripcion: string | null
+    cuando: string
+  }[]
+}
+
+export async function rewardsAdmin(sb: ShakeClient): Promise<RewardsAdmin> {
+  return rpc<RewardsAdmin>(sb, 'fn_rewards_admin', {})
+}
+
+export interface TarjetaGenerada {
+  codigo: string
+  mancuernas: number
+  lote: string | null
+  estado: string
+}
+
+/**
+ * Genera un lote de tarjetas de regalo. Solo gerencia.
+ *
+ * Los códigos no son secuenciales a propósito: con lotes numerados, quien
+ * compra una tarjeta podría adivinar las de al lado.
+ */
+export async function generarTarjetas(
+  sb: ShakeClient,
+  cantidad: number,
+  mancuernas: number,
+  lote: string,
+): Promise<TarjetaGenerada[]> {
+  const { data, error } = await sb.rpc('fn_generar_tarjetas' as never, {
+    p_cantidad: cantidad,
+    p_mancuernas: mancuernas,
+    p_lote: lote || null,
+  } as never)
+  if (error) throw error
+  return (data ?? []) as TarjetaGenerada[]
+}

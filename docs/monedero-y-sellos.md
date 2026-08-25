@@ -188,12 +188,54 @@ iPhone o Android (y esconde el aviso si ya está instalada).
 
 ---
 
-## 7. Lo que falta (siguiente paso)
+## 7. El canje, en la caja
 
-- **Kiosko / POS**: botón para canjear mancuernas al cobrar, canjear la
-  tarjeta de sellos, y vender los paquetes de recarga. Es lo único que
-  bloquea el uso real: el cliente ya puede ver su saldo, pero todavía no
-  hay dónde gastarlo.
-- **Admin**: generar lotes de tarjetas, editar el catálogo de premios y ver
-  cuánto saldo hay en la calle (es un pasivo, no una promoción).
+En el kiosko en modo cajero, al identificar al cliente aparece un panel
+**solo si trae algo que usar**. Si no, la pantalla de cobro se queda igual
+de simple que siempre.
+
+**El orden de las dos operaciones importa**, y por eso está fijo en el
+código: primero el premio de sellos y después las mancuernas. El servidor
+recorta las mancuernas a lo que cuesta la orden, así que al revés se
+gastarían de más sobre un total que todavía iba a bajar.
+
+El canje ocurre **entre crear la orden y cobrarla**:
+
+1. `fn_crear_orden` — el total lo calcula el servidor.
+2. `fn_canjear_sellos` — el producto premiado, que **ya tiene que estar en
+   la orden**, pasa a $0. El renglón se queda para que la comanda y el
+   inventario sigan bien: el cliente se lleva el producto igual.
+3. `fn_canjear_mancuernas` — baja `ordenes.total`.
+4. `fn_cobrar_orden` con el total que devolvió el paso anterior, **no** con
+   el que traía la orden al crearse.
+
+### Probado de punta a punta
+
+Orden de $250 (dos shakes), cliente con 300 ganadas + 2,000 compradas y la
+tarjeta de bebidas llena:
+
+- Sellos → un shake a $0, total **$125**, 13 sellos consumidos.
+- Mancuernas → se pidieron 99,999 y el servidor recortó solo a **1,250**
+  (exactamente $125), gastando primero las 300 ganadas y luego 950
+  compradas. Total **$0**.
+- Quedaron 1,050 compradas y 0 sellos. Los renglones: uno en $125 y otro
+  en $0.
+
+## 8. En Admin
+
+**Rewards** muestra el **saldo en la calle** separado en dos, y esa
+separación es el punto: las compradas son dinero que ya entró a la caja y
+se debe en producto — un pasivo —; las ganadas son promoción y no le deben
+nada a nadie. Sumarlas escondería justo el dato que importa.
+
+Desde ahí también se generan los lotes de tarjetas de regalo (los códigos
+se muestran una sola vez, para copiar y mandar a imprimir) y se ve cuánto
+falta por canjear de cada lote.
+
+## 9. Lo que falta
+
 - **Wallet**: emitir el `.pkpass` firmado y su equivalente de Google.
+- **Editar el catálogo de premios** desde Admin (hoy es un `insert` en
+  `premios_sellos`).
+- **Devolución**: `fn_devolver_canje` existe pero no tiene botón; si se
+  cancela una venta pagada con mancuernas hay que llamarla a mano.

@@ -4,6 +4,7 @@ import Dashboard from './pages/Dashboard'
 import EnVivo from './pages/EnVivo'
 import Diagnostico from './pages/Diagnostico'
 import Metas from './pages/Metas'
+import Rewards from './pages/Rewards'
 import Menu from './pages/Menu'
 import Categorias from './pages/Categorias'
 import Combos from './pages/Combos'
@@ -16,7 +17,7 @@ import Empleados from './pages/Empleados'
 import Impresoras from './pages/Impresoras'
 import Sistema from './pages/Sistema'
 
-type Tab = 'dashboard' | 'envivo' | 'diagnostico' | 'menu' | 'categorias' | 'combos' | 'extras' | 'inventario' | 'promos' | 'ventas' | 'clientes' | 'metas' | 'empleados' | 'impresoras' | 'sistema'
+type Tab = 'dashboard' | 'envivo' | 'diagnostico' | 'menu' | 'categorias' | 'combos' | 'extras' | 'inventario' | 'promos' | 'ventas' | 'clientes' | 'metas' | 'rewards' | 'empleados' | 'impresoras' | 'sistema'
 
 const w = 18
 
@@ -94,6 +95,12 @@ const IconSistema = () => (
   </svg>
 )
 
+const IconRewards = () => (
+  <svg width={w} height={w} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 9v6M6 7v10M18 7v10M21 9v6M6 12h12" />
+  </svg>
+)
+
 const IconMetas = () => (
   <svg width={w} height={w} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="5" /><circle cx="12" cy="12" r="1.5" />
@@ -113,6 +120,7 @@ const navItems: { id: Tab; label: string; Icon: () => ReactElement }[] = [
   { id: 'ventas', label: 'Ventas', Icon: IconVentas },
   { id: 'clientes', label: 'Clientes', Icon: IconClientes },
   { id: 'metas', label: 'Metas', Icon: IconMetas },
+  { id: 'rewards', label: 'Rewards', Icon: IconRewards },
   { id: 'empleados', label: 'Empleados', Icon: IconEmpleados },
   { id: 'impresoras', label: 'Impresoras', Icon: IconImpresoras },
   { id: 'sistema', label: 'Sistema', Icon: IconSistema },
@@ -157,6 +165,7 @@ export default function App() {
         {tab === 'envivo' && <EnVivo />}
         {tab === 'diagnostico' && <Diagnostico />}
         {tab === 'metas' && <Metas />}
+        {tab === 'rewards' && <Rewards />}
         {tab === 'menu' && <Menu />}
         {tab === 'categorias' && <Categorias />}
         {tab === 'combos' && <Combos />}
