@@ -29,11 +29,14 @@ porque quien lo vea puede canjearlo.
 > Diseña un set de **tarjetas de regalo físicas** y su **sobre** para
 > Shakeaholic, un protein bar en Mérida, México.
 >
-> **Marca.** Verde profundo `#1A2E26` y verde `#2C4A3E` como base; crema
-> `#E8E6CC` para texto y fondos claros; amarillo plátano `#F0C649` como
-> acento. Tipografía de display redonda y gruesa, tipo Bagel Fat One, para
-> los títulos; una sans limpia (DM Sans) para el cuerpo; monoespaciada
-> (DM Mono) para códigos y cifras. La mascota es **Milo**: un vaso de
+> **Marca** (los valores exactos, de `packages/brand/tokens.css`): verde
+> `#2C4A3E`, verde profundo `#1A2E26`, tinta `#14241D`, crema `#E8E6CC`,
+> crema suave `#F2EFD9`; acento amarillo plátano `#F0C649` y, si hace
+> falta un segundo, fresa `#E04E5C` o menta `#88C0A0` — **uno por
+> superficie, nunca varios**. Tipografías: **Bagel Fat One** para títulos
+> y cifras grandes, **DM Sans** para el cuerpo, **DM Mono** para el código
+> y las etiquetas en versalitas. Bagel Fat One solo tiene un peso: no
+> pedirle negritas. La mascota es **Milo**: un vaso de
 > batido con brazos y piernas, cara sonriente, cargando una mancuerna,
 > dibujado con línea de un solo grosor en crema sobre verde. El programa
 > de lealtad se llama **Mancuernas**.
