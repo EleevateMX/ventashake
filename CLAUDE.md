@@ -201,6 +201,15 @@ empaquetador y se desvían solas:
   poder guardar precios es peor que el duplicado que se quería evitar.
   Igual con `on conflict`: si el índice al que apunta no existe, Postgres
   rechaza la sentencia completa. Los dos van juntos o ninguno.
+- `data->'a'||data->'b'` **no hace lo que parece**: `||` se aplica antes
+  que `->`, así que se parsea como `data -> ('a' || data) -> 'b'` y
+  devuelve NULL. Y como `->` con una llave inexistente devuelve NULL en
+  vez de fallar, el `jsonb_array_elements(NULL)` no produce filas y el
+  DELETE que lo usaba **no borró nada durante meses**, sin un solo error.
+  Consecuencia: las recetas se escribían una vez y nunca se actualizaban —
+  editar una receta en Costeos no llegaba a ningún lado, y el inventario
+  descontaba cantidades viejas. **Siempre paréntesis alrededor de cada
+  `data->'x'` antes de concatenar.**
 - Para parchear una función grande sin reescribirla: leer
   `pg_get_functiondef`, **verificar que el ancla aparece exactamente N
   veces**, reemplazar y `execute`. Si el ancla no cuadra, abortar — así el
