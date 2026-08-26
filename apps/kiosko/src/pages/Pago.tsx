@@ -13,6 +13,7 @@ import { sb } from '@/lib/sb'
 import { resolverModoKiosko } from '@/lib/modoKiosko'
 import { canjearMancuernas, canjearSellos } from '@shake/supabase'
 import { PanelRewards, SIN_REWARDS, type DecisionRewards } from '@/components/PanelRewards'
+import { CobroEfectivo } from '@/components/CobroEfectivo'
 import { mensajeDeError } from '@shake/utils'
 
 type EstadoPago = 'cargando' | 'eligiendo' | 'procesando' | 'no_disponible'
@@ -77,6 +78,24 @@ export function Pago() {
   const navigate = useNavigate()
   const { items, total, usuario, cajero, nombrePedido, setNombrePedido, limpiar } = useCarrito()
   const [rewards, setRewards] = useState<DecisionRewards>(SIN_REWARDS)
+  // Efectivo pasa por la calculadora de cambio antes de cobrar.
+  const [enEfectivo, setEnEfectivo] = useState(false)
+
+  /**
+   * Lo que el cliente va a pagar de verdad, para la calculadora de cambio.
+   *
+   * Es una estimación del navegador — el total autoritativo lo recalcula
+   * el servidor al cobrar — pero el cajero tiene que ver el número real
+   * ANTES de pedir el dinero, no después.
+   */
+  const totalConCanjes = useMemo(() => {
+    const bruto = total()
+    const gratis = rewards.sello
+      ? items.find((i) => i.producto_id === rewards.sello!.productoId)?.precio ?? 0
+      : 0
+    const conSello = Math.max(0, bruto - gratis)
+    return Math.max(0, conSello - rewards.mancuernas / 10)
+  }, [items, total, rewards])
   const [estado, setEstado] = useState<EstadoPago>('cargando')
   const [modo, setModo] = useState<ModoPagoKiosko | null>(null)
   const [almacen, setAlmacen] = useState<Almacen | null>(null)
@@ -588,7 +607,19 @@ export function Pago() {
             </button>
           )}
 
-          {modo === 'cajero' && (
+          {modo === 'cajero' && enEfectivo && (
+            <CobroEfectivo
+              total={totalConCanjes}
+              // Aquí `estado` ya está acotado a 'eligiendo': mientras se
+              // cobra, esta pantalla se reemplaza entera por la de
+              // "procesando", así que este bloque ni se pinta.
+              procesando={false}
+              onCancelar={() => setEnEfectivo(false)}
+              onCobrar={() => void confirmarCajero('efectivo')}
+            />
+          )}
+
+          {modo === 'cajero' && !enEfectivo && (
             <>
               {/* El canje va ANTES de los botones de cobro: es una decisión
                   que cambia el monto, no algo que se agrega después. */}
@@ -614,7 +645,11 @@ export function Pago() {
               ] as const).map((m) => (
                 <button
                   key={m.metodo}
-                  onClick={() => void confirmarCajero(m.metodo)}
+                  onClick={() =>
+                    m.metodo === 'efectivo'
+                      ? setEnEfectivo(true)
+                      : void confirmarCajero(m.metodo)
+                  }
                   className="flex items-center gap-5 p-6 rounded-sa-lg bg-sa-cream-soft hover:bg-sa-cream shadow-sa-sm transition-all text-left active:scale-[0.98]"
                 >
                   <span className="text-sa-green-ink/70"><IconCard /></span>
