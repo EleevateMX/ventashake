@@ -48,6 +48,26 @@ describe('agruparCategorias', () => {
     expect(scoops.propia?.nombre).toBe('Scoops')
   })
 
+  it('agrupa Energy Drinks por marca y Snacks por tipo', () => {
+    // El caso real del 27/08: el padre se queda sin productos activos, asi
+    // que el kiosko no lo pinta y la familia tiene que salir igual, en su
+    // lugar, con los chips de marca/tipo debajo.
+    const familias = agruparCategorias([
+      cat('Bebidas', 80),
+      cat('Energy Drinks - BUM', 91),
+      cat('Energy Drinks - Ghost', 92),
+      cat('Alimentos', 100),
+      cat('Snacks - Barras Proteicas', 111),
+      cat('Snacks - Nuts', 114),
+    ])
+    expect(familias.map((f) => f.nombre)).toEqual(['Bebidas', 'Energy Drinks', 'Alimentos', 'Snacks'])
+    const energy = familias.find((f) => f.nombre === 'Energy Drinks')!
+    expect(energy.subs.map((s) => s.nombre)).toEqual(['BUM', 'Ghost'])
+    expect(energy.propia).toBeNull()
+    const snacks = familias.find((f) => f.nombre === 'Snacks')!
+    expect(snacks.subs.map((s) => s.nombre)).toEqual(['Barras Proteicas', 'Nuts'])
+  })
+
   it('reconoce "Suplementos Birdman", que no lleva guion', () => {
     const [suplementos] = agruparCategorias([
       cat('Suplementos', 13),
