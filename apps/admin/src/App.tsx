@@ -3,6 +3,7 @@ import { useState, type ReactElement } from 'react'
 import Dashboard from './pages/Dashboard'
 import EnVivo from './pages/EnVivo'
 import Diagnostico from './pages/Diagnostico'
+import Nombres from './pages/Nombres'
 import Metas from './pages/Metas'
 import Rewards from './pages/Rewards'
 import Menu from './pages/Menu'
@@ -17,7 +18,7 @@ import Empleados from './pages/Empleados'
 import Impresoras from './pages/Impresoras'
 import Sistema from './pages/Sistema'
 
-type Tab = 'dashboard' | 'envivo' | 'diagnostico' | 'menu' | 'categorias' | 'combos' | 'extras' | 'inventario' | 'promos' | 'ventas' | 'clientes' | 'metas' | 'rewards' | 'empleados' | 'impresoras' | 'sistema'
+type Tab = 'dashboard' | 'envivo' | 'diagnostico' | 'menu' | 'categorias' | 'combos' | 'extras' | 'inventario' | 'promos' | 'ventas' | 'clientes' | 'nombres' | 'metas' | 'rewards' | 'empleados' | 'impresoras' | 'sistema'
 
 const w = 18
 
@@ -101,6 +102,14 @@ const IconRewards = () => (
   </svg>
 )
 
+/* Una etiqueta con su nombre: es literalmente de donde salen estos datos. */
+const IconNombres = () => (
+  <svg width={w} height={w} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="5" width="18" height="14" rx="2" />
+    <path d="M7 10h6M7 14h4" />
+  </svg>
+)
+
 const IconMetas = () => (
   <svg width={w} height={w} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="5" /><circle cx="12" cy="12" r="1.5" />
@@ -119,6 +128,7 @@ const navItems: { id: Tab; label: string; Icon: () => ReactElement }[] = [
   { id: 'promos', label: 'Promos', Icon: IconPromos },
   { id: 'ventas', label: 'Ventas', Icon: IconVentas },
   { id: 'clientes', label: 'Clientes', Icon: IconClientes },
+  { id: 'nombres', label: 'Nombres', Icon: IconNombres },
   { id: 'metas', label: 'Metas', Icon: IconMetas },
   { id: 'rewards', label: 'Rewards', Icon: IconRewards },
   { id: 'empleados', label: 'Empleados', Icon: IconEmpleados },
@@ -174,6 +184,7 @@ export default function App() {
         {tab === 'inventario' && <Inventario />}
         {tab === 'promos' && <Promos />}
         {tab === 'clientes' && <Clientes />}
+        {tab === 'nombres' && <Nombres />}
         {tab === 'empleados' && <Empleados />}
         {tab === 'impresoras' && <Impresoras />}
         {tab === 'sistema' && <Sistema />}

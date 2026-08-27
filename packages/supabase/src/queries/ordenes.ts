@@ -134,6 +134,35 @@ export async function nombresPedidoFrecuentes(sb: ShakeClient, limite = 30): Pro
   return (filas ?? []).map((f) => f.nombre)
 }
 
+/** Una fila del registro de nombres de Admin. */
+export interface NombreRegistrado {
+  nombre: string
+  veces: number
+  total: number
+  ticket: number
+  primera_vez: string
+  ultima_vez: string
+}
+
+/**
+ * El registro de nombres para Admin: quién repite, cuánto lleva gastado y
+ * cuándo vino la última vez.
+ *
+ * Va por RPC y pide ser jefe, a diferencia de `nombresPedidoFrecuentes`
+ * (los chips del kiosko): aquí sale dinero, y eso no puede viajar por la
+ * llave pública.
+ */
+export async function nombresRegistrados(
+  sb: ShakeClient,
+  dias = 90,
+  limite = 200,
+): Promise<NombreRegistrado[]> {
+  const filas = await rpc<NombreRegistrado[]>(
+    sb, 'fn_nombres_registro', { p_dias: dias, p_limite: limite },
+  )
+  return filas ?? []
+}
+
 // ------------------------- historial de pedidos ----------------------
 
 export interface HistorialExtra {
