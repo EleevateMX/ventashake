@@ -480,6 +480,9 @@ importers:
       '@shake/types':
         specifier: workspace:*
         version: link:../types
+      '@shake/utils':
+        specifier: workspace:*
+        version: link:../utils
       '@supabase/supabase-js':
         specifier: ^2.47.0
         version: 2.110.0

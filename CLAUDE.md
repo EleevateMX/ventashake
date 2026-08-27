@@ -210,6 +210,24 @@ empaquetador y se desvían solas:
   editar una receta en Costeos no llegaba a ningún lado, y el inventario
   descontaba cantidades viejas. **Siempre paréntesis alrededor de cada
   `data->'x'` antes de concatenar.**
+- **Un `delete` sin `WHERE` dentro de una función revienta en la caja, no
+  en la prueba.** Supabase (supautils) bloquea `DELETE` sin `WHERE` para
+  los roles de la API: *"DELETE requires a WHERE clause"*. Con la conexión
+  de administrador el mismo código pasa sin chistar. Un `delete from
+  <tabla temporal>;` dentro de un trigger sobre `ordenes` dejó a la tienda
+  **50 minutos sin poder cobrar** (27/08/26): las órdenes se creaban y
+  ninguna se pagaba. Regla: dentro de funciones que corren desde la app,
+  nada de tablas temporales ni de `delete` pelado — el conjunto se calcula
+  con CTEs, aunque se repita.
+- **Al tocar el camino del dinero, la verificación no es un `select`: es
+  cobrar.** `fn_crear_orden` puede devolver una orden perfecta y el cobro
+  fallar en el trigger siguiente. Hay que correr `fn_crear_orden` →
+  `fn_cobrar_orden` de verdad y luego limpiar (el orden importa:
+  `trabajos_impresion` → `cocina_items` → `pedidos_cocina` →
+  `inventario_movimientos` → `venta_confirmaciones` → `ventas` → `pagos` →
+  `promocion_aplicaciones` → `orden_items` → `ordenes`). Y después mirar
+  `ordenes` de la última hora: si hay una fila de `pagado = false`
+  consecutivas, la tienda está parada.
 - Para parchear una función grande sin reescribirla: leer
   `pg_get_functiondef`, **verificar que el ancla aparece exactamente N
   veces**, reemplazar y `execute`. Si el ancla no cuadra, abortar — así el
