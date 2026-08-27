@@ -66,6 +66,28 @@ viaja por las dos puertas que crean órdenes: `fn_crear_orden` y
 `fn_crear_orden_kiosko_caja`. Arreglar solo una de las dos deja el dato
 saliendo a veces sí y a veces no, que es peor que no tenerlo.
 
+## Los nombres se aprenden solos
+
+**No hay tabla de nombres, y no hace falta.** Cada venta cobrada con nombre
+lo deja escrito en `ordenes.nombre_cliente`, y de ahí salen dos cosas:
+
+- **Los chips del kiosko** (`fn_nombres_pedido_frecuentes`): los más usados
+  primero, y predictivos al teclear —"adri" encuentra "Adrián"—. Solo
+  aparecen en **modo cajero**, que es quien teclea decenas de nombres al
+  día. Se filtran los que no parecen nombre (largo entre 2 y 20, solo
+  letras) para que un "asdf" no se vuelva un atajo.
+- **Admin → Nombres** (`fn_nombres_registro`): quién repite, cuánto lleva
+  gastado y cuándo vino la última vez.
+
+Van por funciones distintas a propósito. La de los chips la llama el
+kiosko, que puede estar como `anon`; la de Admin **enseña dinero**, así que
+exige `fn_es_jefe()`. Y el registro cuenta **solo lo cobrado**: una orden
+que quedó colgada sin pagar no es un cliente, es un intento.
+
+Esto no es la lista de clientes de Rewards. Ahí hay cuenta, correo y
+mancuernas; aquí solo nombres sueltos de mostrador — sirven para reconocer
+a quien repite, no para contactarlo.
+
 ## Un extra nunca viaja huérfano
 
 `categorias.va_a_pantalla` decide qué renglones llegan a las estaciones. Un
