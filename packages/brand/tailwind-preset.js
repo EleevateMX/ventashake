@@ -27,6 +27,17 @@ export default {
         mono:    ['"DM Mono"', '"JetBrains Mono"', 'ui-monospace', 'monospace'],
         sans:    ['"DM Sans"', '"Inter"', 'system-ui', 'sans-serif'],
       },
+      keyframes: {
+        // Mas marcado que `animate-pulse`, que baja a 0.5 de opacidad y
+        // desde lejos casi no se nota. Esto llega a 0.25 y vuelve.
+        parpadeo: {
+          '0%, 100%': { opacity: '1' },
+          '50%': { opacity: '0.25' },
+        },
+      },
+      animation: {
+        parpadeo: 'parpadeo 1s ease-in-out infinite',
+      },
       boxShadow: {
         sa: '0 20px 60px -20px rgba(20, 36, 29, 0.35)',
         'sa-sm': '0 6px 16px -8px rgba(20, 36, 29, 0.25)',

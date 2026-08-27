@@ -51,7 +51,7 @@ export async function crearOrden(
   sb: ShakeClient,
   // `nombre_cliente` va aparte del tipo generado: es "a nombre de quién va
   // el pedido" (para gritar/etiquetar), independiente de la ficha de lealtad.
-  orden: OrdenInsert & { nombre_cliente?: string | null },
+  orden: OrdenInsert & { nombre_cliente?: string | null; para_llevar?: boolean | null },
   items: NuevaOrdenItem[],
 ): Promise<Orden> {
   return rpc<Orden>(sb, 'fn_crear_orden', {
@@ -71,6 +71,8 @@ export async function crearOrden(
     p_descuento: orden.descuento ?? 0,
     p_es_demo: orden.es_demo ?? false,
     p_nombre_cliente: orden.nombre_cliente ?? null,
+    // null = no se preguntó. No es lo mismo que 'para comer aquí'.
+    p_para_llevar: orden.para_llevar ?? null,
   })
 }
 

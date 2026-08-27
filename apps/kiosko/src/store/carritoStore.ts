@@ -57,6 +57,12 @@ interface CarritoStore {
   nombrePedido: string
   setNombrePedido: (n: string) => void
   /**
+   * Para llevar o para comer aquí. `null` mientras no se pregunte: el
+   * vaso, la tapa y la bolsa no son los mismos, y adivinar sale caro.
+   */
+  paraLlevar: boolean | null
+  setParaLlevar: (v: boolean | null) => void
+  /**
    * Se mantiene entre pedidos a propósito: el cajero abre turno una vez y
    * levanta pedidos toda su jornada. `limpiar()` vacía el carrito y al
    * cliente, pero NO cierra el turno.
@@ -123,6 +129,8 @@ export const useCarrito = create<CarritoStore>((set, get) => ({
   usuario: null,
   nombrePedido: '',
   setNombrePedido: (nombrePedido) => set({ nombrePedido }),
+  paraLlevar: null,
+  setParaLlevar: (paraLlevar) => set({ paraLlevar }),
   cajero: null,
 
   agregar: (item) => {
@@ -215,7 +223,7 @@ export const useCarrito = create<CarritoStore>((set, get) => ({
   extrasDe: (linea) => get().items.filter((i) => i.padreLinea === linea),
 
   limpiar: () => {
-    set({ items: [], usuario: null, nombrePedido: '' })
+    set({ items: [], usuario: null, nombrePedido: '', paraLlevar: null })
     displayCartCleared()
   },
 

@@ -83,6 +83,23 @@ alguna.
 
 Los campos vacíos no se imprimen y la etiqueta se acorta sola.
 
+### Aquí o para llevar
+
+Va **pegado al `n de N`**, no en renglón propio: la etiqueta es de 25 mm y
+cada línea nueva acerca el desbordamiento. `PARA LLEVAR` sale además en
+negativo (`REVERSE`), porque es el caso que cambia vaso y tapa; `AQUI` sale
+normal.
+
+```
+2 de 5  PARA LLEVAR      <- en negativo
+2 de 5  AQUI
+2 de 5                   <- nadie lo eligió: no se dice nada
+```
+
+Cuando el dato no viene (`para_llevar` nulo, ventas anteriores a la
+opción) la etiqueta no lo menciona. Afirmar "aquí" por omisión sería peor
+que callar.
+
 ### El nombre
 
 Es lo más grande de la etiqueta, porque es con lo que se reparte en barra.

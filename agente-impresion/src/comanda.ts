@@ -89,6 +89,12 @@ export function escribirComanda(printer: ThermalPrinter, trabajo: TrabajoImpresi
   printer.println(`Tipo: ${CANAL_LEGIBLE[p.canal ?? ''] ?? (p.canal ?? '—').toUpperCase()}`)
   if (p.cajero) printer.println(`Cajero/dispositivo: ${p.cajero}`)
   if (p.cliente) printer.println(`Cliente: ${p.cliente}`)
+  // En negritas y en renglon propio: decide el vaso, no es un adorno.
+  if (p.para_llevar === true || p.para_llevar === false) {
+    printer.bold(true)
+    printer.println(p.para_llevar ? 'PARA LLEVAR' : 'PARA COMER AQUI')
+    printer.bold(false)
+  }
   printer.drawLine()
   printer.newLine()
 

@@ -1330,6 +1330,7 @@ export type Database = {
           metodo_pago: Database["public"]["Enums"]["metodo_pago"] | null
           nombre_cliente: string | null
           pagado: boolean
+          para_llevar: boolean | null
           sucursal_id: string | null
           total: number
           updated_at: string
@@ -1353,6 +1354,7 @@ export type Database = {
           metodo_pago?: Database["public"]["Enums"]["metodo_pago"] | null
           nombre_cliente?: string | null
           pagado?: boolean
+          para_llevar?: boolean | null
           sucursal_id?: string | null
           total?: number
           updated_at?: string
@@ -1376,6 +1378,7 @@ export type Database = {
           metodo_pago?: Database["public"]["Enums"]["metodo_pago"] | null
           nombre_cliente?: string | null
           pagado?: boolean
+          para_llevar?: boolean | null
           sucursal_id?: string | null
           total?: number
           updated_at?: string
