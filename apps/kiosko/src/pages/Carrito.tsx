@@ -5,6 +5,7 @@ import type { ModoPagoKiosko } from '@shake/types'
 import { useCarrito } from '@/store/carritoStore'
 import { resolverModoKiosko } from '@/lib/modoKiosko'
 import { ModalCliente } from '@/components/ModalCliente'
+import { usePromos } from '@/lib/usePromos'
 import { sb } from '@/lib/sb'
 
 export function Carrito() {
@@ -15,6 +16,10 @@ export function Carrito() {
   // misma agrupación que sale en la comanda, así que lo que ve el cajero es
   // lo que va a ver quien prepara.
   const lineasPrincipales = items.filter((i) => !i.padreLinea)
+  // Las promos automáticas: se enseñan aquí para que el cliente entienda
+  // por qué el total no es la suma de los precios de lista. El descuento
+  // de verdad lo calcula el servidor al crear la orden.
+  const { aplicadas, descuento } = usePromos(items)
   const [modo, setModo] = useState<ModoPagoKiosko | null>(null)
   const [pidiendoCliente, setPidiendoCliente] = useState(false)
 
@@ -190,6 +195,19 @@ export function Carrito() {
           )
         )}
 
+        {/* La promo, con su nombre. "Ahorraste $5" sin decir por que suena
+            a error; con el nombre se entiende y se vuelve a pedir. */}
+        {aplicadas.map((a) => (
+          <div key={a.promo.id} className="flex items-center justify-between mb-3 bg-sa-banana/15 rounded-sa px-4 py-2.5">
+            <span className="font-mono text-[11px] uppercase tracking-wide text-sa-banana truncate">
+              {a.promo.nombre}
+            </span>
+            <span className="font-display text-xl text-sa-banana shrink-0 ml-3">
+              -${a.descuento.toFixed(2)}
+            </span>
+          </div>
+        ))}
+
         <div className="flex items-end justify-between mb-5">
           <div>
             <p className="font-mono text-xs uppercase tracking-[0.25em] text-sa-banana">
@@ -199,9 +217,16 @@ export function Carrito() {
               {totalItems()} {totalItems() === 1 ? 'cosa' : 'cosas'} · MXN
             </p>
           </div>
-          <span className="font-display text-5xl leading-none text-sa-cream">
-            ${total().toFixed(2)}
-          </span>
+          <div className="text-right">
+            {descuento > 0 && (
+              <p className="font-mono text-sm text-sa-cream/50 line-through leading-none">
+                ${total().toFixed(2)}
+              </p>
+            )}
+            <span className="font-display text-5xl leading-none text-sa-cream">
+              ${Math.max(0, total() - descuento).toFixed(2)}
+            </span>
+          </div>
         </div>
         <button
           onClick={irAPagar}

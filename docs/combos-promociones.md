@@ -4,6 +4,61 @@ Cómo funcionan los combos, por qué se diseñaron así, y su relación con
 "Promociones" (que ya existía de una ronda anterior y es algo distinto).
 Migración: `supabase/migrations/costeo_combos_productos.sql`.
 
+## Las promos que cobran, y las que solo se sugieren (27/08/26)
+
+Durante meses, `promociones` la leía **una sola** función,
+`fn_promos_cliente`, que sirve para sugerirle algo a un cliente en
+Rewards. El camino del dinero — `fn_crear_orden` — jamás la miró. Por eso
+capturar "Cookie Duo" en Admin no cambiaba ni un peso: no había nada que
+lo hiciera.
+
+Y no bastaba con "conectarla". La tabla no decía **a qué** aplicaba: una
+fila `descuento_monto = 25` enchufada tal cual habría quitado $25 de
+**toda** orden entre las 6 y las 18 h. Faltaba el alcance.
+
+Hoy hay dos cosas, y se llaman distinto:
+
+| | Promo **que cobra** | **Sugerencia** |
+|---|---|---|
+| `automatica` | `true` | `false` |
+| Baja el total | sí, en caja y en kiosko | no |
+| Necesita `productos[]` | sí (lo exige un CHECK) | no |
+| Tipos | `n_x_precio`, `descuento_pct` | los de siempre |
+| Segmenta por cliente | no (el mostrador no sabe quién está enfrente) | sí |
+
+Un CHECK impide guardar una promo automática que no podría cobrar nada
+—sin productos, sin N, de un tipo que el motor no sabe leer. Es la parte
+que importa: **mejor que Admin no la deje capturar, a que la guarde y
+mienta.**
+
+### Cómo se calcula
+
+`fn_descuento_promos(p_lineas)` recibe las líneas con su precio unitario
+ya resuelto y devuelve una fila por promo con su descuento.
+
+Para `n_x_precio` las unidades alcanzadas se ordenan de **más cara a más
+barata** y se agrupan de N en N. Cada grupo completo paga `valor`; uno
+incompleto no descuenta —tres cookies en un 2x25 son un paquete y una
+suelta. Las caras entran primero, que es lo que esperaría cualquiera que
+lea "2 x 25" en un pizarrón. Nunca sale negativo: un "2 x 40" sobre
+cookies de $15 descuenta 0, no cobra de más.
+
+La misma regla vive dos veces a propósito: en SQL
+(`fn_descuento_promos`) y en `packages/utils/src/promos.ts`. **El dinero
+lo decide siempre el servidor**; la copia del navegador solo previsualiza,
+porque el cajero tiene que ver el número real *antes* de pedir el dinero —
+si la calculadora de cambio dijera $30 y la orden se cobrara en $25, el
+cajón cerraría descuadrado todos los días. Las dos están probadas contra
+los mismos casos.
+
+Se aplica en las **dos** puertas que crean órdenes (`fn_crear_orden` y
+`fn_crear_orden_kiosko_caja`): arreglar solo una daría dos precios
+distintos para la misma promo según por dónde entró el pedido.
+
+Las promos automáticas **no gastan** el throttle de 15 días de las promos
+personales: comprar dos cookies en oferta no debería dejar al cliente sin
+sus sugerencias por dos semanas.
+
 ## Combos vs. Promociones — no son lo mismo
 
 - **Promociones** (`promociones`/`promocion_aplicaciones`, ya en

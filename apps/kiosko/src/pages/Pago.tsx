@@ -14,6 +14,7 @@ import { resolverModoKiosko } from '@/lib/modoKiosko'
 import { canjearMancuernas, canjearSellos } from '@shake/supabase'
 import { PanelRewards, SIN_REWARDS, type DecisionRewards } from '@/components/PanelRewards'
 import { CobroEfectivo } from '@/components/CobroEfectivo'
+import { usePromos } from '@/lib/usePromos'
 import { mensajeDeError } from '@shake/utils'
 
 type EstadoPago = 'cargando' | 'eligiendo' | 'procesando' | 'no_disponible'
@@ -103,14 +104,15 @@ export function Pago() {
    * el servidor al cobrar — pero el cajero tiene que ver el número real
    * ANTES de pedir el dinero, no después.
    */
+  const { aplicadas: promosAplicadas, descuento: descuentoPromo } = usePromos(items)
   const totalConCanjes = useMemo(() => {
-    const bruto = total()
+    const bruto = Math.max(0, total() - descuentoPromo)
     const gratis = rewards.sello
       ? items.find((i) => i.producto_id === rewards.sello!.productoId)?.precio ?? 0
       : 0
     const conSello = Math.max(0, bruto - gratis)
     return Math.max(0, conSello - rewards.mancuernas / 10)
-  }, [items, total, rewards])
+  }, [items, total, rewards, descuentoPromo])
   const [estado, setEstado] = useState<EstadoPago>('cargando')
   const [modo, setModo] = useState<ModoPagoKiosko | null>(null)
   const [almacen, setAlmacen] = useState<Almacen | null>(null)
@@ -470,7 +472,7 @@ export function Pago() {
   }
 
   if (estado === 'procesando') {
-    return <ProcesandoOverlay monto={total()} />
+    return <ProcesandoOverlay monto={totalConCanjes} />
   }
 
   if (estado === 'no_disponible') {
@@ -622,9 +624,21 @@ export function Pago() {
           <p className="font-mono text-xs uppercase tracking-[0.25em] text-sa-green/70">
             Total a soltar
           </p>
+          {/* Con promo, el precio de lista se queda tachado arriba: el
+              cajero tiene que poder explicar el numero si preguntan. */}
+          {descuentoPromo > 0 && (
+            <p className="font-mono text-lg text-sa-green-ink/40 line-through mt-2">
+              ${total().toFixed(2)}
+            </p>
+          )}
           <p className="font-display text-7xl text-sa-green-ink leading-none mt-2">
-            ${total().toFixed(2)}
+            ${Math.max(0, total() - descuentoPromo).toFixed(2)}
           </p>
+          {promosAplicadas.map((a) => (
+            <p key={a.promo.id} className="font-mono text-xs uppercase tracking-wider text-sa-strawberry mt-2">
+              {a.promo.nombre} · -${a.descuento.toFixed(2)}
+            </p>
+          ))}
           <p className="font-mono text-sm text-sa-green-ink/60 mt-2">MXN</p>
         </div>
 
@@ -679,7 +693,7 @@ export function Pago() {
                 <PanelRewards
                   clienteId={usuario.clienteId}
                   items={items}
-                  total={total()}
+                  total={Math.max(0, total() - descuentoPromo)}
                   decision={rewards}
                   onCambiar={setRewards}
                 />

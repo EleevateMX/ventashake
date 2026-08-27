@@ -1,4 +1,5 @@
 import type { Promocion } from '@shake/types'
+import type { PromoVigente } from '@shake/utils'
 import type { ShakeClient } from '../client'
 
 export type PromocionInsert = Omit<Promocion, 'id' | 'created_at'>
@@ -28,6 +29,26 @@ export function descuentoPromo(
     ? items.filter((i) => i.categoria === promo.categoria_gratis)
     : items
   return eleg.length ? Math.max(...eleg.map((i) => i.precio)) : 0
+}
+
+/**
+ * Las promos automáticas vigentes AHORA (hora de Mérida).
+ *
+ * Sirven para PREVISUALIZAR el descuento en el carrito y en la calculadora
+ * de cambio. El total que se cobra lo recalcula el servidor al crear la
+ * orden: esto solo evita que el cajero pida el dinero equivocado.
+ */
+export async function promosVigentes(sb: ShakeClient): Promise<PromoVigente[]> {
+  const { data, error } = await sb.rpc('fn_promos_vigentes')
+  if (error) throw error
+  return ((data ?? []) as Promocion[]).map((p) => ({
+    id: p.id,
+    nombre: p.nombre,
+    tipo: p.tipo,
+    valor: Number(p.valor),
+    cantidad: p.cantidad,
+    productos: p.productos,
+  }))
 }
 
 /** Registra que una promo se aplicó a un cliente (throttle + reporte). */
