@@ -214,6 +214,7 @@ export function etiquetasDeTrabajo(trabajo: TrabajoImpresion, numeroDeCopia = 1)
         producto: nombreProducto,
         fecha,
         copia: Math.max(numeroDeCopia, trabajo.numero_copia ?? 1),
+        paraLlevar: p.para_llevar ?? null,
         ...campos,
         tamano: campos.tamano ?? producto.tamano,
       })

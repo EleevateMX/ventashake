@@ -226,6 +226,21 @@ export interface EtiquetaComanda {
   frase?: string | null
   /** Marca la etiqueta como reimpresión. */
   copia?: number
+  /**
+   * true = para llevar, false = para comer aquí, null/undefined = nadie lo
+   * eligió. La diferencia importa: sin dato no se imprime nada, en vez de
+   * afirmar "aquí" por omisión y que barra sirva en vaso de vidrio algo
+   * que se va a la calle.
+   */
+  paraLlevar?: boolean | null
+}
+
+/** `1 de 3` y, si se eligió, cómo se lo lleva. */
+export function lineaConteo(e: EtiquetaComanda): string {
+  const conteo = `${e.item} de ${e.deTotal}`
+  if (e.paraLlevar === true) return `${conteo}  PARA LLEVAR`.slice(0, caracteresPorLinea('1'))
+  if (e.paraLlevar === false) return `${conteo}  AQUI`.slice(0, caracteresPorLinea('1'))
+  return conteo
 }
 
 /** Las líneas de SPEC, en el orden en que se imprimen. */
@@ -294,7 +309,12 @@ export function generarTSPL(e: EtiquetaComanda): string {
 
   // --- Encabezado ---------------------------------------------------------
   l.escribir(mayus(`${e.destino} #${e.ticket}`).slice(0, anchoF1), '1', 0)
-  l.escribir(`${e.item} de ${e.deTotal}`, '1', 2)
+  // El consumo viaja pegado al "n de N" y no en renglón propio: la etiqueta
+  // es de 25 mm y cada línea nueva acerca el desbordamiento. "PARA LLEVAR"
+  // va ademas en negativo, porque es el caso que cambia vaso y tapa.
+  const conteo = lineaConteo(e)
+  l.escribir(conteo, '1', 2)
+  if (e.paraLlevar === true) l.recuadrar(conteo, '1')
   if (e.copia && e.copia > 1) l.escribir(`** REIMPRESION ${e.copia} **`.slice(0, anchoF1), '1', 2)
 
   // --- Quién y qué --------------------------------------------------------
@@ -361,7 +381,7 @@ export function vistaPrevia(e: EtiquetaComanda): string {
   const fila = (t = '') => filas.push(t.slice(0, ancho))
 
   fila(mayus(`${e.destino} #${e.ticket}`))
-  fila(`${e.item} de ${e.deTotal}`)
+  fila(lineaConteo(e))
   if (e.copia && e.copia > 1) fila(`** REIMPRESION ${e.copia} **`)
   fila()
   for (const t of partir(mayus(e.nombre), caracteresPorLinea('3'))) fila(t)

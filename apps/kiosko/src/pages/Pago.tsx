@@ -55,6 +55,20 @@ const IconCard = () => (
   </svg>
 )
 
+/* Mesa y bolsa: se leen de lejos y no dependen del idioma. */
+const IconMesa = () => (
+  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 9h18M6 9v11M18 9v11M12 3v6" />
+  </svg>
+)
+
+const IconBolsa = () => (
+  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M5 8h14l-1.2 12H6.2L5 8Z" />
+    <path d="M9 8V6a3 3 0 0 1 6 0v2" />
+  </svg>
+)
+
 const IconCounter = () => (
   <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6" />
@@ -76,7 +90,8 @@ function ProcesandoOverlay({ monto }: { monto: number }) {
 
 export function Pago() {
   const navigate = useNavigate()
-  const { items, total, usuario, cajero, nombrePedido, setNombrePedido, limpiar } = useCarrito()
+  const { items, total, usuario, cajero, nombrePedido, setNombrePedido,
+          paraLlevar, setParaLlevar, limpiar } = useCarrito()
   const [rewards, setRewards] = useState<DecisionRewards>(SIN_REWARDS)
   // Efectivo pasa por la calculadora de cambio antes de cobrar.
   const [enEfectivo, setEnEfectivo] = useState(false)
@@ -174,6 +189,7 @@ export function Pago() {
           almacenId: almacen.id,
           clienteId: usuario?.clienteId ?? null,
           nombreCliente: nombrePedido.trim() || usuario?.nombre?.split(' ')[0] || null,
+          paraLlevar,
         },
         items.map(lineaParaOrden),
       )
@@ -299,6 +315,7 @@ export function Pago() {
           corte_id: corte?.id ?? null,
           cliente_id: usuario?.clienteId ?? null,
           nombre_cliente: nombrePedido.trim() || usuario?.nombre?.split(' ')[0] || null,
+          para_llevar: paraLlevar,
         },
         items.map(lineaParaOrden),
       )
@@ -371,6 +388,7 @@ export function Pago() {
           cliente_id: usuario?.clienteId ?? null,
           descuento: 0,
           nombre_cliente: nombrePedido.trim() || usuario?.nombre?.split(' ')[0] || null,
+          para_llevar: paraLlevar,
         },
         items.map(lineaParaOrden),
       )
@@ -408,6 +426,7 @@ export function Pago() {
           descuento: 0,
           es_demo: true,
           nombre_cliente: nombrePedido.trim() || usuario?.nombre?.split(' ')[0] || null,
+          para_llevar: paraLlevar,
         },
         items.map(lineaParaOrden),
       )
@@ -564,6 +583,39 @@ export function Pago() {
               <TecladoNombre valor={nombrePedido} onCambio={setNombrePedido} />
             </div>
           )}
+        </div>
+
+        {/* Aqui o para llevar: barra lo necesita ANTES de preparar, no al
+            entregar (el vaso, la tapa y el popote cambian). Nace en null y
+            no se toca solo: si nadie elige, la comanda dice "sin definir"
+            en vez de mentir con un valor por omision. */}
+        <div className="w-full max-w-md">
+          <label className="font-mono text-xs uppercase tracking-[0.25em] text-sa-green/70 block mb-2">
+            ¿Cómo se lo lleva?
+          </label>
+          <div className="grid grid-cols-2 gap-3">
+            {([
+              { valor: false, titulo: 'Para comer aquí', icono: <IconMesa /> },
+              { valor: true, titulo: 'Para llevar', icono: <IconBolsa /> },
+            ] as const).map((op) => {
+              const activo = paraLlevar === op.valor
+              return (
+                <button
+                  key={op.titulo}
+                  type="button"
+                  onClick={() => setParaLlevar(activo ? null : op.valor)}
+                  className={`flex flex-col items-center gap-2 px-4 py-5 rounded-sa-lg border-2 transition-all active:scale-95 ${
+                    activo
+                      ? 'border-sa-green bg-sa-green text-sa-cream shadow-sa-sm'
+                      : 'border-sa-green-ink/15 bg-white text-sa-green-ink hover:border-sa-green/50'
+                  }`}
+                >
+                  <span className={activo ? 'text-sa-cream' : 'text-sa-green-ink/70'}>{op.icono}</span>
+                  <span className="font-display text-xl leading-tight">{op.titulo}</span>
+                </button>
+              )
+            })}
+          </div>
         </div>
 
         <div className="text-center">

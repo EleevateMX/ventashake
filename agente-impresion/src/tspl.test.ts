@@ -7,6 +7,7 @@ import {
   frasePara,
   generarTSPL,
   limpiar,
+  lineaConteo,
   partir,
   vistaPrevia,
   type EtiquetaComanda,
@@ -196,6 +197,45 @@ describe('repartir la personalización de texto libre', () => {
 
   it('aguanta vacío', () => {
     expect(repartirPersonalizacion(null).extras).toEqual([])
+  })
+})
+
+describe('aqui o para llevar', () => {
+  it('no dice nada cuando nadie lo eligio', () => {
+    expect(lineaConteo(EJEMPLO)).toBe('2 de 5')
+    expect(generarTSPL(EJEMPLO)).not.toContain('PARA LLEVAR')
+    expect(generarTSPL(EJEMPLO)).not.toContain('AQUI')
+  })
+
+  it('lo dice pegado al conteo, sin renglon nuevo', () => {
+    expect(lineaConteo({ ...EJEMPLO, paraLlevar: true })).toBe('2 de 5  PARA LLEVAR')
+    expect(lineaConteo({ ...EJEMPLO, paraLlevar: false })).toBe('2 de 5  AQUI')
+
+    const lineas = generarTSPL({ ...EJEMPLO, paraLlevar: true }).split('\r\n')
+    const conteo = lineas.filter((l) => l.startsWith('TEXT'))
+    // Mismas coordenadas que sin el dato: la etiqueta no se corre.
+    expect(conteo[1]).toBe('TEXT 562,16,"1",90,1,1,"2 de 5  PARA LLEVAR"')
+    expect(conteo[2]).toBe('TEXT 528,16,"3",90,1,1,"JAVIER"')
+  })
+
+  it('imprime "para llevar" en negativo, y "aqui" no', () => {
+    expect(generarTSPL({ ...EJEMPLO, paraLlevar: true })).toContain('REVERSE')
+    expect(generarTSPL({ ...EJEMPLO, paraLlevar: false })).not.toContain('REVERSE')
+  })
+
+  it('viaja del payload a la etiqueta sin inventar valor', () => {
+    const base = {
+      id: 't9', orden_id: null, pedido_id: null, estacion_id: null, printer_id: null,
+      tipo_documento: 'comanda' as const,
+      estado: 'claimed' as const, intentos: 0, max_intentos: 5, numero_copia: 1,
+      created_at: '2026-08-27T18:58:00',
+      payload: { folio: 7, estacion: 'Bebidas', items: [{ cantidad: 1, nombre: 'Shake Oreo' }] },
+    }
+    expect(etiquetasDeTrabajo(base).at(0)?.paraLlevar).toBeNull()
+    const llevar = { ...base, payload: { ...base.payload, para_llevar: true } }
+    expect(etiquetasDeTrabajo(llevar).at(0)?.paraLlevar).toBe(true)
+    const aqui = { ...base, payload: { ...base.payload, para_llevar: false } }
+    expect(etiquetasDeTrabajo(aqui).at(0)?.paraLlevar).toBe(false)
   })
 })
 

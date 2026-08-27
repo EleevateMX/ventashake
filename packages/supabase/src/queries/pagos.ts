@@ -110,6 +110,8 @@ export async function crearOrdenKioskoCaja(
     descuento?: number
     /** A nombre de quién va el pedido (para la etiqueta y para gritar). */
     nombreCliente?: string | null
+    /** true = para llevar, false = para comer aquí, null = no se preguntó. */
+    paraLlevar?: boolean | null
   },
   items: NuevaOrdenItemCaja[],
 ): Promise<Orden> {
@@ -126,6 +128,7 @@ export async function crearOrdenKioskoCaja(
     p_cliente_id: datos.clienteId ?? null,
     p_descuento: datos.descuento ?? 0,
     p_nombre_cliente: datos.nombreCliente ?? null,
+    p_para_llevar: datos.paraLlevar ?? null,
   })
 }
 

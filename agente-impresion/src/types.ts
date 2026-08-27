@@ -94,6 +94,8 @@ export interface PayloadComanda {
   cliente?: string | null
   /** Nombre a rotular, si no es el del cliente registrado. */
   nombre?: string | null
+  /** true = para llevar, false = para comer aquí, ausente = no se preguntó. */
+  para_llevar?: boolean | null
   items?: ItemComanda[]
   prueba?: boolean
   impresora?: string

@@ -8,7 +8,7 @@ import {
 } from '@shake/supabase'
 import type { PedidoConItems } from '@shake/supabase'
 import type { EstadoCocina, TrabajoImpresion } from '@shake/types'
-import { mensajeDeError } from '@shake/utils'
+import { mensajeDeError, urgenciaComanda, UMBRAL_MINUTOS } from '@shake/utils'
 
 // Indicador de estado de impresión de la comanda de este pedido.
 function EstadoImpresion({ trabajo, onReimprimir }: { trabajo: TrabajoImpresion | undefined; onReimprimir: () => void }) {
@@ -50,11 +50,21 @@ const ETIQUETA_ESTADO: Record<string, string> = {
   listo: 'Listo',
 }
 
-// Franja de acento superior de la tarjeta según estado.
-const ACENTO_ESTADO: Record<string, string> = {
-  pendiente: 'bg-sa-strawberry animate-pulse',
-  en_preparacion: 'bg-sa-banana',
-  listo: 'bg-sa-mint',
+/**
+ * La franja de arriba de la tarjeta, que es lo que se ve de reojo.
+ *
+ * Verde parpadeando = llegó y nadie la ha tomado.
+ * Ámbar quieto = alguien la está preparando, dentro de tiempo.
+ * Rojo parpadeando = lleva demasiado en preparación (ver UMBRAL_MINUTOS).
+ *
+ * El estado por sí solo no alcanza para elegir el color: hace falta
+ * también cuánto lleva, por eso esto es una función y no un mapa.
+ */
+function acentoDe(estado: string, actualizadoEn: string | null | undefined, ahora: number): string {
+  const urgencia = urgenciaComanda(estado, actualizadoEn, ahora, UMBRAL_MINUTOS.alimentos)
+  if (urgencia === 'nueva') return 'bg-sa-mint animate-parpadeo'
+  if (urgencia === 'tarde') return 'bg-sa-strawberry animate-parpadeo'
+  return estado === 'listo' ? 'bg-sa-mint' : 'bg-sa-banana'
 }
 
 // Badge de estado (fondo + texto).
@@ -249,7 +259,7 @@ export default function App() {
                   className="bg-sa-cream rounded-sa-lg shadow-sa overflow-hidden flex flex-col"
                 >
                   {/* Franja de acento por estado */}
-                  <div className={`h-1.5 w-full ${ACENTO_ESTADO[pedido.estado] ?? 'bg-sa-mint'}`} />
+                  <div className={`h-1.5 w-full ${acentoDe(pedido.estado, pedido.updated_at, ahora)}`} />
 
                   {/* Cabecera: folio + canal */}
                   <div className="flex items-start justify-between px-5 pt-4">
@@ -268,11 +278,28 @@ export default function App() {
                         </span>
                       )}
                     </div>
-                    {pedido.ordenes?.canal && (
-                      <span className="inline-flex items-center px-3 py-1 rounded-sa font-mono text-[11px] uppercase tracking-wider bg-sa-green text-sa-cream">
-                        {pedido.ordenes.canal}
-                      </span>
-                    )}
+                    <div className="flex flex-col items-end gap-1.5">
+                      {pedido.ordenes?.canal && (
+                        <span className="inline-flex items-center px-3 py-1 rounded-sa font-mono text-[11px] uppercase tracking-wider bg-sa-green text-sa-cream">
+                          {pedido.ordenes.canal}
+                        </span>
+                      )}
+                      {/* Aqui o para llevar cambia el vaso, la tapa y el
+                          popote, asi que se decide ANTES de preparar, no al
+                          entregar. "Para llevar" grita; "Aqui" susurra —
+                          es el caso comun y no hay que revisarlo. Si nadie
+                          eligio (null) no se inventa nada: no sale chip. */}
+                      {pedido.ordenes?.para_llevar === true && (
+                        <span className="inline-flex items-center px-3 py-1 rounded-sa font-mono text-[11px] uppercase tracking-wider bg-sa-strawberry text-sa-cream">
+                          Para llevar
+                        </span>
+                      )}
+                      {pedido.ordenes?.para_llevar === false && (
+                        <span className="inline-flex items-center px-3 py-1 rounded-sa font-mono text-[11px] uppercase tracking-wider bg-sa-green-ink/10 text-sa-green-ink/70">
+                          Aquí
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   {/* Tiempo + estado */}
