@@ -3,6 +3,7 @@ import { useState, type ReactElement } from 'react'
 import Dashboard from './pages/Dashboard'
 import EnVivo from './pages/EnVivo'
 import Diagnostico from './pages/Diagnostico'
+import Descargas from './pages/Descargas'
 import Nombres from './pages/Nombres'
 import Metas from './pages/Metas'
 import Rewards from './pages/Rewards'
@@ -18,7 +19,7 @@ import Empleados from './pages/Empleados'
 import Impresoras from './pages/Impresoras'
 import Sistema from './pages/Sistema'
 
-type Tab = 'dashboard' | 'envivo' | 'diagnostico' | 'menu' | 'categorias' | 'combos' | 'extras' | 'inventario' | 'promos' | 'ventas' | 'clientes' | 'nombres' | 'metas' | 'rewards' | 'empleados' | 'impresoras' | 'sistema'
+type Tab = 'dashboard' | 'envivo' | 'diagnostico' | 'menu' | 'categorias' | 'combos' | 'extras' | 'inventario' | 'promos' | 'ventas' | 'clientes' | 'nombres' | 'metas' | 'rewards' | 'empleados' | 'impresoras' | 'descargas' | 'sistema'
 
 const w = 18
 
@@ -103,6 +104,14 @@ const IconRewards = () => (
 )
 
 /* Una etiqueta con su nombre: es literalmente de donde salen estos datos. */
+/* Una flecha hacia abajo sobre una bandeja: descargar. */
+const IconDescargas = () => (
+  <svg width={w} height={w} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 3v12M8 11l4 4 4-4" />
+    <path d="M4 19h16" />
+  </svg>
+)
+
 const IconNombres = () => (
   <svg width={w} height={w} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <rect x="3" y="5" width="18" height="14" rx="2" />
@@ -133,6 +142,7 @@ const navItems: { id: Tab; label: string; Icon: () => ReactElement }[] = [
   { id: 'rewards', label: 'Rewards', Icon: IconRewards },
   { id: 'empleados', label: 'Empleados', Icon: IconEmpleados },
   { id: 'impresoras', label: 'Impresoras', Icon: IconImpresoras },
+  { id: 'descargas', label: 'Descargas', Icon: IconDescargas },
   { id: 'sistema', label: 'Sistema', Icon: IconSistema },
 ]
 
@@ -187,6 +197,7 @@ export default function App() {
         {tab === 'nombres' && <Nombres />}
         {tab === 'empleados' && <Empleados />}
         {tab === 'impresoras' && <Impresoras />}
+        {tab === 'descargas' && <Descargas />}
         {tab === 'sistema' && <Sistema />}
       </main>
     </div>

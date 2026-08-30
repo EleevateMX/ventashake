@@ -1,0 +1,207 @@
+import { useEffect, useState } from 'react'
+import { sb } from '../lib/sb'
+import { listarImpresoras, type ImpresoraAdmin } from '@shake/supabase'
+import { mensajeDeError } from '@shake/utils'
+import { PageHeader, Loading, ErrorMsg, Panel, cx } from '../ui'
+
+/**
+ * Los instaladores de la PC de la tienda, servidos desde este mismo dominio.
+ *
+ * Los archivos NO están versionados aquí: `scripts/copiar-descargas.mjs` los
+ * copia desde `scripts/` en cada build. Dos copias del mismo `.bat` en el
+ * repo se separan en cuanto alguien toca una, y entonces Admin repartiría un
+ * instalador viejo sin que nadie se entere.
+ *
+ * `version.json` sale del mismo copiado, así que dice la versión del agente
+ * que trae ESTE despliegue — y comparada contra la que reportan las
+ * impresoras en su latido, contesta la única pregunta que importa aquí:
+ * ¿la PC de la tienda está al día o hay que ir a instalarle algo?
+ */
+
+interface Descarga {
+  archivo: string
+  titulo: string
+  cuando: string
+  detalle: string
+  principal?: boolean
+}
+
+const DESCARGAS: Descarga[] = [
+  {
+    archivo: 'instalar-todo.bat',
+    titulo: 'Instalar todo',
+    cuando: 'Una vez por computadora nueva',
+    detalle:
+      'Deja el agente de impresión, los accesos directos y el arranque automático. ' +
+      'Es lo único que hay que bajar: los demás archivos los descarga él solo. ' +
+      'Windows va a pedir permiso de administrador una vez.',
+    principal: true,
+  },
+  {
+    archivo: 'instalar-agente-impresion.bat',
+    titulo: 'Solo el agente de impresión',
+    cuando: 'Si la PC ya está armada y solo falta actualizar el agente',
+    detalle:
+      'Normalmente no hace falta: el agente se actualiza solo al abrir la tienda. ' +
+      'Esto sirve para forzarlo hoy sin esperar a mañana.',
+  },
+  {
+    archivo: 'abrir-shakeaholic.bat',
+    titulo: 'Abrir la tienda',
+    cuando: 'Si alguien borró el acceso directo del escritorio',
+    detalle:
+      'Espera internet, arranca el agente, acomoda las tres pantallas en sus ' +
+      'monitores y al final busca actualización. Es el que corre solo al prender.',
+  },
+  {
+    archivo: 'abrir-caja-y-admin.bat',
+    titulo: 'Abrir Caja y Admin',
+    cuando: 'Cuando se necesitan esas dos ventanas',
+    detalle: 'No van en el arranque a propósito: se usan a ratos, no todo el día.',
+  },
+  {
+    archivo: 'escanear-equipo.ps1',
+    titulo: 'Escanear el equipo',
+    cuando: 'Para saber qué hay en la red antes de configurar',
+    detalle: 'Lista impresoras, IPs y monitores. No cambia nada, solo mira.',
+  },
+]
+
+/** "1.2.0" → [1,2,0], para comparar sin sorpresas de orden alfabético. */
+function versionA(v: string | null | undefined): number[] {
+  return (v ?? '0').split('.').map((n) => parseInt(n, 10) || 0)
+}
+function estaAlDia(instalada: string | null | undefined, publicada: string): boolean {
+  const a = versionA(instalada)
+  const b = versionA(publicada)
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    if ((a[i] ?? 0) !== (b[i] ?? 0)) return (a[i] ?? 0) > (b[i] ?? 0)
+  }
+  return true
+}
+
+export default function Descargas() {
+  const [impresoras, setImpresoras] = useState<ImpresoraAdmin[] | null>(null)
+  const [publicada, setPublicada] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    listarImpresoras(sb)
+      .then((l) => setImpresoras(l.filter((i) => i.activa)))
+      .catch((e) => setError(mensajeDeError(e)))
+    // Mismo origen: es el archivo que dejó el build de esta misma app.
+    fetch('/descargas/version.json', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((j) => setPublicada(j.agente))
+      .catch(() => setPublicada(null))
+  }, [])
+
+  return (
+    <div>
+      <PageHeader
+        title="Descargas"
+        subtitle="Los instaladores de la PC de la tienda, siempre en su última versión"
+      />
+
+      {error && <ErrorMsg>{error}</ErrorMsg>}
+
+      <div className="space-y-6">
+        <Panel title="¿La PC está al día?">
+          {!impresoras && !error && <Loading>Consultando…</Loading>}
+          {impresoras?.length === 0 && (
+            <p className={cx.muted}>No hay impresoras activas configuradas.</p>
+          )}
+          <div className="space-y-3">
+            {impresoras?.map((i) => {
+              const alDia = publicada ? estaAlDia(i.agente_version, publicada) : true
+              return (
+                <div
+                  key={i.id}
+                  className="flex flex-wrap items-center justify-between gap-3 bg-white rounded-sa px-4 py-3 border border-sa-green-ink/10"
+                >
+                  <div>
+                    <p className="font-medium text-sa-green-ink">{i.nombre}</p>
+                    <p className="font-mono text-xs text-sa-green-ink/55 mt-0.5">
+                      {i.conectada ? 'reportándose' : 'sin señal — el agente no está corriendo'}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="font-mono text-xs text-sa-green-ink/60">
+                      agente {i.agente_version ?? '—'}
+                    </span>
+                    <span
+                      className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                        alDia
+                          ? 'bg-sa-mint/30 text-sa-green-ink'
+                          : 'bg-sa-banana/40 text-sa-coffee'
+                      }`}
+                    >
+                      {alDia ? 'Al día' : `Falta ${publicada}`}
+                    </span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+          <p className="text-xs text-sa-green-ink/60 mt-4 leading-relaxed">
+            La versión publicada aquí es <strong>{publicada ?? '—'}</strong>.
+            El agente <strong>se actualiza solo</strong> al abrir la tienda al día
+            siguiente, así que casi nunca hay que bajar nada. Si dice “falta” y no
+            se puede esperar, baja <em>Instalar todo</em> y córrelo en esa PC.
+          </p>
+        </Panel>
+
+        {DESCARGAS.map((d) => (
+          <Panel key={d.archivo}>
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="min-w-0 flex-1">
+                <p className={`${d.principal ? 'text-xl' : 'text-lg'} font-medium text-sa-green-ink`}>
+                  {d.titulo}
+                </p>
+                <p className="font-mono text-[11px] uppercase tracking-wide text-sa-green-ink/50 mt-1">
+                  {d.cuando}
+                </p>
+                <p className="text-sm text-sa-green-ink/70 mt-2 leading-relaxed">{d.detalle}</p>
+                <p className="font-mono text-xs text-sa-green-ink/40 mt-2">{d.archivo}</p>
+              </div>
+              {/* Descarga directa del mismo dominio: `download` fuerza el
+                  guardado y el _headers pone Content-Disposition, así ningún
+                  navegador se pone a mostrar el .bat como texto. */}
+              <a
+                href={`/descargas/${d.archivo}`}
+                download={d.archivo}
+                className={
+                  d.principal
+                    ? 'shrink-0 bg-sa-strawberry text-white px-6 py-3 rounded-full font-medium hover:brightness-110 transition-all'
+                    : 'shrink-0 border border-sa-green-ink/20 text-sa-green-ink px-5 py-2.5 rounded-full text-sm hover:border-sa-green transition-colors'
+                }
+              >
+                Descargar
+              </a>
+            </div>
+          </Panel>
+        ))}
+
+        <Panel title="Al correrlo, Windows va a desconfiar">
+          <p className="text-sm text-sa-green-ink/75 leading-relaxed">
+            Es normal y no significa que el archivo esté mal: Windows avisa de
+            cualquier <code className="font-mono text-xs">.bat</code> bajado de
+            internet.
+          </p>
+          <ol className="text-sm text-sa-green-ink/75 mt-3 space-y-1.5 list-decimal pl-5 leading-relaxed">
+            <li>Si sale la pantalla azul de <strong>Windows protegió tu PC</strong>:
+              <strong> Más información → Ejecutar de todas formas</strong>.</li>
+            <li>Si Chrome dice que el archivo <strong>no es común</strong>:
+              <strong> Conservar</strong>.</li>
+            <li>El instalador pide <strong>permiso de administrador</strong> una vez.
+              Hay que aceptarlo o no puede dejar el agente instalado.</li>
+          </ol>
+          <p className="text-xs text-sa-green-ink/55 mt-4 leading-relaxed">
+            El archivo se baja de este mismo dominio y va siempre en la versión
+            del último despliegue — no hay copias viejas dando vueltas.
+          </p>
+        </Panel>
+      </div>
+    </div>
+  )
+}
