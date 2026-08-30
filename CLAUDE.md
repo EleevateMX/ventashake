@@ -108,6 +108,12 @@ pantallas muestran comandas pero **no sale papel**.
   se imprime**: vive solo en pantalla.
 - Si el agente "acepta datos y no imprime", el problema es físico
   (papel/tapa/sensor): el autotest con FEED al encender lo confirma.
+- **Al cambiar el rollo hay que calibrar**, o las comandas salen corridas:
+  la etiquetadora mide la luz que pasa por el hueco entre etiquetas y ese
+  umbral depende del papel cargado. Se hace desde POS → **"Cambié el
+  rollo"**, sin ir a la PC. Gasta dos o tres etiquetas y saca una de prueba
+  al final — si esa sale derecha, quedó. Pide agente **1.2.0**; con uno
+  viejo el botón lo dice en vez de fallar en silencio.
 
 ### 2.5 La identidad es una sola, y vive en `packages/brand`
 

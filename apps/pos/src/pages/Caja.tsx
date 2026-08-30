@@ -153,6 +153,14 @@ export function Caja() {
           >
             Corte de caja
           </button>
+          {/* Cambiar el rollo pasa con las manos ocupadas y la fila
+              esperando: el acceso va en la barra superior, no escondido. */}
+          <button
+            onClick={() => navigate('/impresoras')}
+            className="font-mono text-xs uppercase tracking-wide bg-sa-cream-warm/10 hover:bg-sa-cream-warm/20 text-sa-cream px-4 py-2 rounded-full transition-colors border border-sa-cream/20"
+          >
+            Cambié el rollo
+          </button>
           <button
             onClick={() => { limpiarOrden(); cerrarSesion(); navigate('/login') }}
             className="font-mono text-xs uppercase tracking-wide bg-sa-strawberry/15 hover:bg-sa-strawberry/30 text-sa-strawberry px-4 py-2 rounded-full transition-colors border border-sa-strawberry/30"

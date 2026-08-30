@@ -92,6 +92,18 @@ export async function rotarTokenImpresora(sb: ShakeClient, id: string): Promise<
   return rpc<string>(sb, 'fn_rotar_token_impresora', { p_id: id })
 }
 
+/**
+ * Calibra el sensor de separación de una etiquetadora — lo que hay que
+ * hacer después de cambiar el rollo.
+ *
+ * Encola un trabajo normal, así que lo recoge el agente de esa impresora
+ * y queda registrado como cualquier comanda: si falla, se ve en Admin.
+ * Pide sesión de personal; el token del agente no viaja.
+ */
+export async function calibrarImpresora(sb: ShakeClient, impresoraId: string): Promise<void> {
+  await rpc(sb, 'fn_imprimir_calibrar', { p_impresora_id: impresoraId })
+}
+
 /** Estaciones disponibles para asignar impresora (mismo catálogo que Cocina/Barra). */
 export async function listarCocinasParaImpresoras(sb: ShakeClient): Promise<Cocina[]> {
   const { data, error } = await sb.from('cocinas').select('*').order('nombre')

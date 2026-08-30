@@ -98,6 +98,11 @@ export interface PayloadComanda {
   para_llevar?: boolean | null
   items?: ItemComanda[]
   prueba?: boolean
+  /**
+   * Trabajo de calibracion del sensor, no de impresion. Se manda al cambiar
+   * el rollo. Solo aplica a etiquetadoras (TSPL).
+   */
+  calibrar?: boolean
   impresora?: string
   hora?: string
 }
