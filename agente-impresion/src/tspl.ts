@@ -357,15 +357,55 @@ export function generarTSPL(e: EtiquetaComanda): string {
   }
 
   return [
-    'SIZE 80 mm,25 mm',
-    'GAP 4 mm,0 mm',
-    'DIRECTION 0',
-    'REFERENCE 0,0',
-    'DENSITY 8',
-    'SPEED 4',
+    ...CABECERA_PAPEL,
     'CLS',
     ...l.resultado(),
     'PRINT 1,1',
+    '',
+  ].join('\r\n')
+}
+
+/**
+ * La cabecera que define el papel. Es idéntica en la etiqueta y en la
+ * calibración **a propósito**: calibrar con una medida y luego imprimir con
+ * otra deja el sensor ajustado para un rollo que no es el que se usa.
+ */
+export const CABECERA_PAPEL = [
+  'SIZE 80 mm,25 mm',
+  'GAP 4 mm,0 mm',
+  'DIRECTION 0',
+  'REFERENCE 0,0',
+  'DENSITY 8',
+  'SPEED 4',
+]
+
+/**
+ * Calibración del sensor de separación, para después de cambiar el rollo.
+ *
+ * Al poner un rollo nuevo la etiquetadora no sabe dónde termina una
+ * etiqueta y empieza la siguiente: mide la luz que pasa por el hueco entre
+ * ellas, y ese umbral depende del papel concreto que está cargado. Si no se
+ * vuelve a medir, el texto sale corrido —media etiqueta en una y media en
+ * la de abajo— o la impresora escupe etiquetas en blanco buscando un hueco
+ * que cree que no llega.
+ *
+ * `GAPDETECT` es la orden de TSPL que hace esa medición: avanza un par de
+ * etiquetas leyendo el sensor y guarda el umbral. `FORMFEED` deja el papel
+ * parado justo al inicio de la siguiente, que es donde tiene que quedar
+ * para que la primera comanda salga bien.
+ *
+ * Se gastan dos o tres etiquetas cada vez. Es el costo de la operación y no
+ * hay forma de evitarlo: el sensor necesita ver huecos reales para medirlos.
+ */
+export function tsplCalibracion(): string {
+  return [
+    // Deja la impresora en un estado conocido: si quedó a media etiqueta de
+    // un trabajo anterior, calibrar sobre esa basura mide cualquier cosa.
+    'INITIALPRINTER',
+    ...CABECERA_PAPEL,
+    'CLS',
+    'GAPDETECT',
+    'FORMFEED',
     '',
   ].join('\r\n')
 }

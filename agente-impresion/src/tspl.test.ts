@@ -5,9 +5,11 @@ import {
   compactarSpec,
   FRASES,
   frasePara,
+  CABECERA_PAPEL,
   generarTSPL,
   limpiar,
   lineaConteo,
+  tsplCalibracion,
   partir,
   vistaPrevia,
   type EtiquetaComanda,
@@ -197,6 +199,44 @@ describe('repartir la personalización de texto libre', () => {
 
   it('aguanta vacío', () => {
     expect(repartirPersonalizacion(null).extras).toEqual([])
+  })
+})
+
+describe('calibracion del rollo', () => {
+  const lineas = () => tsplCalibracion().split('\r\n')
+
+  it('mide el hueco y deja el papel al inicio de la siguiente', () => {
+    const l = lineas()
+    expect(l).toContain('GAPDETECT')
+    // El orden importa: medir y DESPUES posicionar. Al reves, el FORMFEED
+    // avanza con el umbral viejo y la etiqueta siguiente sale corrida.
+    expect(l.indexOf('GAPDETECT')).toBeLessThan(l.indexOf('FORMFEED'))
+  })
+
+  it('arranca de un estado conocido', () => {
+    // Si quedo papel a medias de un trabajo anterior, calibrar sobre esa
+    // basura mide cualquier cosa.
+    expect(lineas()[0]).toBe('INITIALPRINTER')
+  })
+
+  it('calibra con la MISMA medida con la que se imprime', () => {
+    // Calibrar con 80x25 y luego imprimir con otra cosa deja el sensor
+    // ajustado para un rollo que no es el que se usa.
+    const cal = lineas()
+    const etiqueta = generarTSPL(EJEMPLO).split('\r\n')
+    for (const orden of CABECERA_PAPEL) {
+      expect(cal).toContain(orden)
+      expect(etiqueta).toContain(orden)
+    }
+  })
+
+  it('no imprime nada por su cuenta', () => {
+    // La muestra la manda el agente aparte; si la calibracion trajera un
+    // PRINT saldrian dos etiquetas y una estaria en blanco.
+    // Se compara por renglon, no por subcadena: "INITIALPRINTER" lleva
+    // PRINT dentro y haria pasar una prueba que no probaria nada.
+    expect(lineas().some((l) => /^PRINT\b/.test(l))).toBe(false)
+    expect(lineas().some((l) => /^TEXT\b/.test(l))).toBe(false)
   })
 })
 

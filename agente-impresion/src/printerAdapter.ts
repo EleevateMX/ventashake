@@ -1,7 +1,7 @@
 import type { printer as ThermalPrinter } from 'node-thermal-printer'
 import { crearImpresora, escribirComanda } from './comanda.js'
 import { etiquetasDeTrabajo } from './etiquetas.js'
-import { generarTSPL } from './tspl.js'
+import { generarTSPL, tsplCalibracion } from './tspl.js'
 import { enviarTSPL, estaViva, parsearDestino } from './tsplSocket.js'
 import type { PrinterConfig, TrabajoImpresion } from './types.js'
 import { log } from './log.js'
@@ -36,6 +36,21 @@ async function imprimirEtiquetas(cfg: PrinterConfig, trabajo: TrabajoImpresion):
     )
   }
 
+  // Calibracion: no es una comanda, es ajustar el sensor despues de cambiar
+  // el rollo. Va primero la medicion y despues UNA etiqueta de prueba, para
+  // que quien cambio el rollo vea con sus ojos si quedo derecha. Sin esa
+  // etiqueta, calibrar es apretar un boton y esperar a que la proxima venta
+  // diga si sirvio.
+  if (trabajo.payload.calibrar) {
+    await enviarTSPL(tsplCalibracion(), destino)
+    const [muestra] = etiquetasDeTrabajo(
+      { ...trabajo, payload: { ...trabajo.payload, calibrar: false, prueba: true } },
+    )
+    if (muestra) await enviarTSPL(generarTSPL(muestra), destino)
+    log.info(`Calibrada la etiquetadora ${cfg.id} (trabajo ${trabajo.id})`, cfg.id)
+    return
+  }
+
   const copias = Math.max(1, cfg.copias || 1)
   for (let copia = 1; copia <= copias; copia++) {
     const etiquetas = etiquetasDeTrabajo(trabajo, copia)
@@ -62,6 +77,15 @@ async function imprimirEtiquetas(cfg: PrinterConfig, trabajo: TrabajoImpresion):
 
 /** Impresoras de recibos ESC/POS: una comanda larga con todos los productos. */
 async function imprimirRecibo(cfg: PrinterConfig, trabajo: TrabajoImpresion): Promise<void> {
+  // Calibrar el sensor de separacion solo tiene sentido en una etiquetadora:
+  // una impresora de recibos usa rollo continuo, no tiene huecos que medir.
+  // Se falla con el motivo dicho, en vez de imprimir un recibo sorpresa.
+  if (trabajo.payload.calibrar) {
+    throw new Error(
+      `"${cfg.id}" es una impresora de recibos (rollo continuo): no hay separacion que calibrar.`,
+    )
+  }
+
   const printer: ThermalPrinter = crearImpresora(cfg)
 
   const conectada = await printer.isPrinterConnected().catch(() => false)

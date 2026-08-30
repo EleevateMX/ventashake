@@ -72,3 +72,64 @@ criterio mínimo para considerar una impresora lista para producción — no
 siempre es una divergencia entre `printers.config.json` y lo que dice Admin,
 fácil de corregir antes de que cause un problema real en horario de
 servicio.
+
+---
+
+## Cambiar el rollo: calibrar el sensor
+
+**El síntoma.** Se cambia el rollo y a partir de ahí las comandas salen
+corridas —media etiqueta arriba y media abajo— o la impresora escupe
+etiquetas en blanco.
+
+**La causa.** La etiquetadora no cuenta etiquetas: mide la luz que pasa por
+el hueco entre una y la siguiente, y ese umbral depende del papel que está
+cargado. Con un rollo nuevo el umbral viejo ya no sirve, y la máquina se
+equivoca al decidir dónde empieza cada etiqueta.
+
+**La solución, desde la barra.** POS → **"Cambié el rollo"** → *Calibrar*.
+No hay que ir a la PC de la tienda.
+
+Qué pasa al darle:
+
+1. `INITIALPRINTER` deja la impresora en un estado conocido — si quedó papel
+   a medias de un trabajo anterior, calibrar sobre esa basura mide cualquier
+   cosa.
+2. La misma cabecera de papel que usan las etiquetas de verdad
+   (`CABECERA_PAPEL` en `tspl.ts`: 80 × 25 mm, gap 4 mm). Calibrar con una
+   medida e imprimir con otra deja el sensor ajustado para un rollo que no
+   es el que se usa.
+3. `GAPDETECT` hace la medición: avanza dos o tres etiquetas leyendo el
+   sensor y guarda el umbral.
+4. `FORMFEED` deja el papel parado al inicio de la siguiente etiqueta, que
+   es donde tiene que quedar para que la primera comanda salga bien.
+5. El agente manda **una etiqueta de prueba**. Sin eso, calibrar sería
+   apretar un botón y esperar a que la próxima venta diga si sirvió.
+
+Se gastan dos o tres etiquetas cada vez. Es el costo de la operación: el
+sensor necesita ver huecos reales para medirlos.
+
+### Lo que hay que saber antes de tocarlo
+
+- **Pide agente 1.2.0 o más.** Un agente viejo tomaría el trabajo como una
+  comanda sin productos y fallaría cinco veces en silencio. `fn_imprimir_calibrar`
+  lo comprueba contra la versión que llega en el latido y contesta *"la PC
+  todavía trae el agente 1.1.0"* en vez de dejar que falle. La PC se
+  actualiza sola al abrir el día siguiente.
+- **Pide sesión de personal**, cualquiera — cambiar el rollo es trabajo de
+  barra, no de gerencia. El token del agente no viaja a ningún lado: la
+  función va por id de impresora.
+- **Solo aplica a etiquetadoras.** Una impresora de recibos usa rollo
+  continuo y no tiene separación que medir; el agente falla con ese motivo
+  dicho en vez de imprimir un recibo sorpresa.
+
+### Si aun calibrando imprime mal
+
+El problema ya no es el umbral, es físico:
+
+- El rollo tiene que ir **centrado**, con las guías pegadas al papel. Si
+  baila, el sensor no ve los huecos parejo.
+- La tapa tiene que **cerrar hasta el clic**. Media tapa acepta datos y no
+  imprime nada — es la avería del §2.4 de `CLAUDE.md`.
+- Si el rollo nuevo es de **otra medida**, no hay calibración que lo salve:
+  las etiquetas están diseñadas para 80 × 25 mm con gap de 4 mm, y esas
+  medidas viven en `CABECERA_PAPEL`.

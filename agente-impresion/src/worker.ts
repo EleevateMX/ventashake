@@ -8,7 +8,7 @@ import { log } from './log.js'
  * lo que Admin muestra para saber si la tienda ya corre el agente nuevo.
  * Subela cuando cambie algo que se note en el papel.
  */
-const VERSION_AGENTE = '1.1.0'
+const VERSION_AGENTE = '1.2.0'
 
 export interface EstadoWorker {
   printerId: string

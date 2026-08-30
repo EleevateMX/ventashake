@@ -4,6 +4,7 @@ import { Login } from './pages/Login'
 import { Caja } from './pages/Caja'
 import { Cobro } from './pages/Cobro'
 import { CorteCaja } from './pages/CorteCaja'
+import { Impresoras } from './pages/Impresoras'
 import { PedidosPendientes } from './pages/PedidosPendientes'
 import { usePosStore } from './store/posStore'
 
@@ -21,6 +22,7 @@ export default function App() {
       <Route path="/cobro" element={<RequireAuth><Cobro /></RequireAuth>} />
       <Route path="/pendientes" element={<RequireAuth><PedidosPendientes /></RequireAuth>} />
       <Route path="/corte" element={<RequireAuth><CorteCaja /></RequireAuth>} />
+      <Route path="/impresoras" element={<RequireAuth><Impresoras /></RequireAuth>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
