@@ -7,9 +7,10 @@
 #  Es de SOLO LECTURA: no instala, no configura y no cambia nada. Al terminar
 #  deja un archivo de texto en el Escritorio para copiar y pegar.
 #
-#  Como correrlo: clic derecho en el archivo -> "Ejecutar con PowerShell".
-#  Si Windows bloquea el script, abre PowerShell y pega:
-#      Set-ExecutionPolicy -Scope Process Bypass -Force; .\escanear-equipo.ps1
+#  Como correrlo: NO se abre este archivo. Se usa escanear-equipo.bat, que
+#  esta al lado y lo corre con permiso solo para esa ejecucion. Un .ps1
+#  bajado del navegador da "la ejecucion de scripts esta deshabilitada en
+#  este sistema", y la salida no es cambiarle la politica al equipo.
 # ============================================================================
 
 $ErrorActionPreference = 'SilentlyContinue'

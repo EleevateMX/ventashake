@@ -27,6 +27,13 @@ setlocal EnableDelayedExpansion
 title Shakeaholic - dejar la PC lista
 color 0A
 
+
+REM  Quitarse la marca de "venido de internet" a uno mismo. Windows se la
+REM  pone a todo lo que baja el navegador, y con ella puesta el archivo
+REM  arrastra avisos en cada ejecucion. Esto NO pide permisos ni cambia
+REM  ninguna politica del equipo: solo borra ese rastro de este archivo.
+powershell -NoProfile -Command "try{Unblock-File -LiteralPath '%~f0'}catch{}" >nul 2>&1
+
 set "BASE=C:\Shakeaholic"
 set "CRUDO=https://raw.githubusercontent.com/EleevateMX/ventashake/main"
 
@@ -136,6 +143,12 @@ call :bajar "scripts/pantallas.ps1"          "%BASE%\pantallas.ps1"
 call :bajar "scripts/instalar-inicio.ps1"    "%BASE%\instalar-inicio.ps1"
 call :bajar "scripts/shakeaholic.ico"        "%BASE%\shakeaholic.ico"
 call :bajar "scripts/shakeaholic-logo.png"   "%BASE%\shakeaholic-logo.png"
+
+REM  Lo bajado con Invoke-WebRequest no trae la marca, pero si alguien
+REM  copio estos archivos a mano desde una USB o el navegador, si. Se limpia
+REM  la carpeta entera de una vez: es gratis y evita un "esta deshabilitado"
+REM  la primera manana que nadie sepa explicar.
+powershell -NoProfile -Command "try{Get-ChildItem -LiteralPath '%BASE%' -File ^| Unblock-File}catch{}" >nul 2>&1
 
 if not exist "%BASE%\abrir-shakeaholic.bat" (
   echo   [X] No se pudo bajar el lanzador. Revisa el internet de esta PC.

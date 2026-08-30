@@ -176,6 +176,15 @@ empaquetador y se desvían solas:
   Cada arranque deja su bitácora en `C:\Shakeaholic\ultimo-arranque.log`.
 - `scripts/abrir-caja-y-admin.bat` — POS y Admin, que ya no van en el
   arranque (el turno se abre desde el kiosko).
+- **Nunca se reparte un `.ps1` para descargar.** Un `.ps1` bajado del
+  navegador no abre de doble clic: Windows lo marca como venido de internet
+  y PowerShell contesta *"la ejecución de scripts está deshabilitada en este
+  sistema"*, que suena a PC rota cuando es la política de siempre. La salida
+  **no** es cambiarle la política al equipo — eso sí sería bajarle la
+  guardia — sino repartir un `.bat` que corre el script con `-ExecutionPolicy
+  Bypass`, o sea permiso solo para esa ejecución. Cada `.bat` descargable se
+  quita además la marca a sí mismo con `Unblock-File` al arrancar. El único
+  permiso que debe aparecer es el UAC del instalador, una vez.
 - Los `.bat`/`.ps1` deben ser **ASCII puro**:
   `node scripts/verificar-scripts-ascii.mjs` lo verifica.
 
