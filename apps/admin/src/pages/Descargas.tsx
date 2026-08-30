@@ -60,10 +60,12 @@ const DESCARGAS: Descarga[] = [
     detalle: 'No van en el arranque a propósito: se usan a ratos, no todo el día.',
   },
   {
-    archivo: 'escanear-equipo.ps1',
+    archivo: 'escanear-equipo.bat',
     titulo: 'Escanear el equipo',
     cuando: 'Para saber qué hay en la red antes de configurar',
-    detalle: 'Lista impresoras, IPs y monitores. No cambia nada, solo mira.',
+    detalle:
+      'Lista impresoras, IPs y monitores, y deja un .txt en el Escritorio. ' +
+      'No instala ni cambia nada, y no pide permisos: solo mira.',
   },
 ]
 
@@ -182,23 +184,37 @@ export default function Descargas() {
           </Panel>
         ))}
 
-        <Panel title="Al correrlo, Windows va a desconfiar">
+        <Panel title="El único permiso que debe pedirte">
           <p className="text-sm text-sa-green-ink/75 leading-relaxed">
-            Es normal y no significa que el archivo esté mal: Windows avisa de
-            cualquier <code className="font-mono text-xs">.bat</code> bajado de
-            internet.
+            <strong className="text-sa-green-ink">El de administrador, una sola
+            vez</strong>, y solo el instalador. Nada más.
           </p>
-          <ol className="text-sm text-sa-green-ink/75 mt-3 space-y-1.5 list-decimal pl-5 leading-relaxed">
-            <li>Si sale la pantalla azul de <strong>Windows protegió tu PC</strong>:
+          <p className="text-sm text-sa-green-ink/75 mt-3 leading-relaxed">
+            Si alguna vez viste <em>“no se puede cargar el archivo… la ejecución
+            de scripts está deshabilitada en este sistema”</em>, era por bajar un
+            archivo <code className="font-mono text-xs">.ps1</code>. Ya no se
+            reparte ninguno: aquí todo es <code className="font-mono text-xs">.bat</code>,
+            y cada uno corre lo que necesita con permiso solo para esa vez.
+            <strong className="text-sa-green-ink"> No hay que cambiarle ninguna
+            política de seguridad a la computadora</strong> — eso sí sería
+            bajarle la guardia.
+          </p>
+          <p className="text-sm text-sa-green-ink/75 mt-4 leading-relaxed">
+            Lo que sí puede salir la primera vez, porque Windows avisa de todo lo
+            que viene de internet:
+          </p>
+          <ol className="text-sm text-sa-green-ink/75 mt-2 space-y-1.5 list-decimal pl-5 leading-relaxed">
+            <li>Pantalla azul <strong>“Windows protegió tu PC”</strong> →
               <strong> Más información → Ejecutar de todas formas</strong>.</li>
-            <li>Si Chrome dice que el archivo <strong>no es común</strong>:
+            <li>Chrome dice que el archivo <strong>no es común</strong> →
               <strong> Conservar</strong>.</li>
-            <li>El instalador pide <strong>permiso de administrador</strong> una vez.
-              Hay que aceptarlo o no puede dejar el agente instalado.</li>
           </ol>
           <p className="text-xs text-sa-green-ink/55 mt-4 leading-relaxed">
-            El archivo se baja de este mismo dominio y va siempre en la versión
-            del último despliegue — no hay copias viejas dando vueltas.
+            Los dos avisos son de la <strong>primera</strong> vez: cada archivo se
+            quita solo la marca de “venido de internet” al arrancar, así que a
+            partir de ahí abre limpio. Y siempre se baja de este mismo dominio,
+            en la versión del último despliegue — no hay copias viejas dando
+            vueltas.
           </p>
         </Panel>
       </div>

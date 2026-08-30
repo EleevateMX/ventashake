@@ -18,6 +18,12 @@ setlocal
 title Shakeaholic - instalar agente de impresion
 color 0A
 
+REM  Quitarse la marca de "venido de internet" a uno mismo. Windows se la
+REM  pone a todo lo que baja el navegador, y con ella puesta el archivo
+REM  arrastra avisos en cada ejecucion. Esto NO pide permisos ni cambia
+REM  ninguna politica del equipo: solo borra ese rastro de este archivo.
+powershell -NoProfile -Command "try{Unblock-File -LiteralPath '%~f0'}catch{}" >nul 2>&1
+
 echo.
 echo   SHAKEAHOLIC - agente de impresion
 echo   =================================

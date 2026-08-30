@@ -65,11 +65,14 @@ la red, y si el equipo alcanza Supabase:
 
 | Sistema | Cómo |
 |---|---|
-| Windows | Clic derecho en `scripts/escanear-equipo.ps1` → *Ejecutar con PowerShell*. Deja `shakeaholic-escaneo.txt` en el Escritorio. |
+| Windows | Admin → **Descargas** → *Escanear el equipo* → doble clic. Deja `shakeaholic-escaneo.txt` en el Escritorio. |
 | Linux / macOS | `bash scripts/escanear-equipo.sh \| tee ~/shakeaholic-escaneo.txt` |
 
-Si Windows bloquea el script, abre PowerShell en esa carpeta y pega:
-`Set-ExecutionPolicy -Scope Process Bypass -Force; .\escanear-equipo.ps1`
+**No abras el `.ps1` directamente.** Un `.ps1` bajado del navegador contesta
+*"la ejecución de scripts está deshabilitada en este sistema"*, que suena a
+PC rota cuando es la política de siempre. El `.bat` de Descargas lo corre con
+permiso solo para esa ejecución, sin tocarle ninguna política al equipo y sin
+pedir permisos de administrador — el escaneo solo mira.
 
 > Esto hace falta porque el hardware **solo lo ve la máquina que lo tiene
 > enchufado**. Desde fuera no hay forma de detectar una impresora USB ni de

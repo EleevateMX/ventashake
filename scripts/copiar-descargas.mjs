@@ -12,22 +12,37 @@
  * dos razones: no hay que explicar como se baja un archivo crudo de GitHub,
  * y la tienda ya confia en ese dominio.
  */
-import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { copyFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..')
 const DESTINO = join(RAIZ, 'apps/admin/public/descargas')
 
-/** Lo que se ofrece para descargar. El resto lo baja `instalar-todo.bat` solo. */
+/**
+ * Lo que se ofrece para descargar. El resto lo baja `instalar-todo.bat` solo.
+ *
+ * SOLO `.bat`, nunca un `.ps1`. Un `.ps1` bajado del navegador no se puede
+ * abrir de doble clic: Windows lo marca como venido de internet y PowerShell
+ * contesta "la ejecucion de scripts esta deshabilitada en este sistema", que
+ * suena a PC rota cuando es la politica de siempre. La salida no es pedirle a
+ * nadie que cambie esa politica -eso si seria bajarle la guardia al equipo-
+ * sino repartir un `.bat` que corre el script con permiso solo para ESA
+ * ejecucion.
+ */
 const ARCHIVOS = [
   'instalar-todo.bat',
   'abrir-shakeaholic.bat',
   'abrir-caja-y-admin.bat',
   'instalar-agente-impresion.bat',
-  'escanear-equipo.ps1',
+  'escanear-equipo.bat',
 ]
 
+// Se borra antes de copiar. Sin esto, un archivo que se retira de la lista
+// se queda ahi para siempre y Admin lo sigue ofreciendo: paso al cambiar
+// escanear-equipo.ps1 por su .bat -- el .ps1 viejo seguia servido, que era
+// justo el que no se podia abrir.
+rmSync(DESTINO, { recursive: true, force: true })
 mkdirSync(DESTINO, { recursive: true })
 for (const nombre of ARCHIVOS) {
   copyFileSync(join(RAIZ, 'scripts', nombre), join(DESTINO, nombre))
