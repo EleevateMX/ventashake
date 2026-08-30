@@ -86,8 +86,18 @@ el hueco entre una y la siguiente, y ese umbral depende del papel que está
 cargado. Con un rollo nuevo el umbral viejo ya no sirve, y la máquina se
 equivoca al decidir dónde empieza cada etiqueta.
 
-**La solución, desde la barra.** POS → **"Cambié el rollo"** → *Calibrar*.
-No hay que ir a la PC de la tienda.
+**La solución, desde la barra.** Está en dos lugares a propósito:
+
+- **Kiosko** → 5 toques a Milo → PIN → *"¿Cambiaste el rollo de etiquetas?"*.
+  **Este es el camino normal**: en la PC de la tienda el kiosko está abierto
+  todo el día, el POS no (lo abre `abrir-caja-y-admin.bat` cuando hace
+  falta). Quien cambia el rollo no debería tener que abrir otro programa
+  para arreglar lo que acaba de tocar.
+- **POS** (`caja.shakeaholic.mx`) → barra de arriba → *"Cambié el rollo"*.
+  Para cuando ya se está ahí, o desde el celular.
+
+En los dos casos queda detrás del PIN del personal: no es algo que un
+cliente deba poder disparar desde el menú.
 
 Qué pasa al darle:
 

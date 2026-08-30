@@ -110,8 +110,9 @@ pantallas muestran comandas pero **no sale papel**.
   (papel/tapa/sensor): el autotest con FEED al encender lo confirma.
 - **Al cambiar el rollo hay que calibrar**, o las comandas salen corridas:
   la etiquetadora mide la luz que pasa por el hueco entre etiquetas y ese
-  umbral depende del papel cargado. Se hace desde POS → **"Cambié el
-  rollo"**, sin ir a la PC. Gasta dos o tres etiquetas y saca una de prueba
+  umbral depende del papel cargado. Se hace desde el **kiosko** (5 toques a
+  Milo → PIN → "¿Cambiaste el rollo?") o desde el POS, sin ir a la PC. En el
+  kiosko es lo normal: el POS no queda abierto en esa máquina. Gasta dos o tres etiquetas y saca una de prueba
   al final — si esa sale derecha, quedó. Pide agente **1.2.0**; con uno
   viejo el botón lo dice en vez de fallar en silencio.
 
@@ -182,6 +183,7 @@ empaquetador y se desvían solas:
 | Ver la tienda a distancia | Admin → **En vivo** |
 | Algo se siente raro | Admin → **Diagnóstico** |
 | Actualizar el agente de impresión | Solo, al abrir el día siguiente |
+| Cambiar el rollo de etiquetas | Kiosko → 5 toques a Milo → PIN → "¿Cambiaste el rollo?" → Calibrar |
 
 ---
 
