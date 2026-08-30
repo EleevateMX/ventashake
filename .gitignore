@@ -24,3 +24,8 @@ respaldo-costosshake-*.json
 # perderlo en el siguiente `cap sync`, sin ningun error que lo delate.
 apps/cliente-pwa/ios/
 apps/cliente-pwa/android/
+
+# Los instaladores que Admin sirve se COPIAN en cada build desde scripts/.
+# Versionarlos aqui seria tener dos copias del mismo .bat, y en cuanto
+# alguien tocara una, Admin repartiria un instalador viejo sin enterarse.
+apps/admin/public/descargas/

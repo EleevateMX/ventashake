@@ -144,7 +144,15 @@ empaquetador y se desvían solas:
 
 ### 2.6 La PC de la tienda se mantiene sola
 
-- `scripts/instalar-todo.bat` — una vez por PC. Va **partido en dos
+- **Admin → Descargas** sirve los instaladores desde
+  `admin.shakeaholic.mx/descargas/`, y dice si el agente de cada PC está al
+  día comparando la versión del latido contra la del despliegue. Los
+  archivos **no están versionados ahí**: `scripts/copiar-descargas.mjs` los
+  copia desde `scripts/` en cada build (la carpeta está en `.gitignore`).
+  Dos copias del mismo `.bat` en el repo se separan en cuanto alguien toca
+  una, y entonces Admin repartiría un instalador viejo sin enterarse.
+- `scripts/instalar-todo.bat` — una vez por PC. Es lo único que hay que
+  bajar: los demás archivos los descarga él solo de GitHub. Va **partido en dos
   mitades a propósito**: la que instala corre elevada, la que deja el
   arranque y el escritorio corre como el usuario de la caja. Al elevarse,
   Windows puede cambiar de usuario y `%APPDATA%` apunta a otro perfil —
@@ -183,6 +191,7 @@ empaquetador y se desvían solas:
 | Ver la tienda a distancia | Admin → **En vivo** |
 | Algo se siente raro | Admin → **Diagnóstico** |
 | Actualizar el agente de impresión | Solo, al abrir el día siguiente |
+| Instalar en una PC nueva | Admin → **Descargas** → "Instalar todo" |
 | Cambiar el rollo de etiquetas | Kiosko → 5 toques a Milo → PIN → "¿Cambiaste el rollo?" → Calibrar |
 
 ---
