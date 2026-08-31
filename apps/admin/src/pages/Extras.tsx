@@ -13,6 +13,7 @@ import {
   vincularExtraBebida,
   precioExtraEnProducto,
   grupoExtraEnProducto,
+  defectoExtraEnProducto,
   listarObservacionesAdmin,
   guardarObservacion,
   activarObservacion,
@@ -210,6 +211,41 @@ export default function Extras() {
           : `${prod.nombre}: se elige junto con los demás del grupo "${limpio}".`,
       )
       setTimeout(() => setOk(null), 3500)
+    } catch (e) {
+      setError(mensajeDeError(e))
+    } finally {
+      setCambiandoVinculo(null)
+    }
+  }
+
+  /**
+   * "La de casa": con cuál sale el producto si el cliente no toca nada.
+   *
+   * Hasta hoy lo decidía una expresion regular en el kiosko ("entera", si no
+   * "deslactosada"), y cambiarla era un despliegue. El personal la venía
+   * corrigiendo a mano en cada venta: en diez días la deslactosada le ganó a
+   * la entera por más del doble.
+   *
+   * El servidor apaga primero a las hermanas de la misma clase en ese
+   * producto, así que marcar una desmarca la anterior sola. Como la lista de
+   * aquí son PRODUCTOS de un mismo extra, la que se apaga es otro extra que
+   * no se ve en pantalla: por eso el aviso lo dice.
+   */
+  async function cambiarDefectoVinculo(extraId: string, prod: ProductoDeExtra) {
+    const nuevo = !prod.por_defecto
+    setCambiandoVinculo(prod.producto_id)
+    setError(null)
+    try {
+      await defectoExtraEnProducto(sb, extraId, prod.producto_id, nuevo)
+      setProductosDelExtra((prev) =>
+        prev.map((p) => (p.producto_id === prod.producto_id ? { ...p, por_defecto: nuevo } : p)),
+      )
+      setOk(
+        nuevo
+          ? `${prod.nombre}: sale con esta opción de entrada (la que estaba quedó desmarcada).`
+          : `${prod.nombre}: ya no es la opción de entrada.`,
+      )
+      setTimeout(() => setOk(null), 4000)
     } catch (e) {
       setError(mensajeDeError(e))
     } finally {
@@ -535,6 +571,8 @@ export default function Extras() {
                                 <span className={`${cx.muted} text-xs`}>
                                   Palomita = se ofrece en ese producto — bebidas Y alimentos.
                                   Un producto nuevo de costeo aparece aquí solo.
+                                  La <b>estrella</b> es la opción con la que sale de entrada:
+                                  marcarla desmarca la que estaba.
                                 </span>
                               </div>
                               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5">
@@ -577,6 +615,31 @@ export default function Extras() {
                                           onBlur={(ev) => void cambiarPrecioVinculo(e.id, pr, ev.target.value)}
                                           className="w-16 shrink-0 px-2 py-1 border border-sa-green-ink/15 rounded text-right font-mono text-xs bg-sa-cream-soft/40"
                                         />
+                                      )}
+                                      {/* "La de casa": con cuál sale el producto si el
+                                          cliente no toca nada. Solo tiene sentido donde se
+                                          elige una entre varias (leches, proteínas, o un
+                                          grupo escrito): en un adicional suelto el servidor
+                                          la rechaza y lo dice. */}
+                                      {pr.ofrecido && (
+                                        <button
+                                          type="button"
+                                          title={
+                                            pr.por_defecto
+                                              ? `Es la opción de entrada en ${pr.nombre}. Toca para quitarla.`
+                                              : `Hacer que ${pr.nombre} salga con esta opción de entrada.`
+                                          }
+                                          aria-pressed={pr.por_defecto}
+                                          disabled={cambiandoVinculo === pr.producto_id}
+                                          onClick={() => void cambiarDefectoVinculo(e.id, pr)}
+                                          className={`w-7 h-7 shrink-0 rounded-full text-sm leading-none transition-colors ${
+                                            pr.por_defecto
+                                              ? 'bg-sa-banana text-sa-coffee'
+                                              : 'bg-white border border-sa-green-ink/15 text-sa-green-ink/25 hover:text-sa-green-ink/60'
+                                          }`}
+                                        >
+                                          ★
+                                        </button>
                                       )}
                                       {/* Grupo: los extras con el mismo texto aquí se
                                           ofrecen como "elige uno". Es lo que convierte

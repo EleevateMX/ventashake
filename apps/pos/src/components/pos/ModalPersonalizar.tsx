@@ -1,5 +1,7 @@
-import React, { useState } from 'react'
-import { mxn } from '@shake/utils'
+import React, { useMemo, useState } from 'react'
+import {
+  mxn, esBase, ordenarBases, baseDeCasa, notaDeBase, baseCobrada,
+} from '@shake/utils'
 import type { ProductoVenta, ExtraDeProducto } from '@shake/supabase'
 import { nombreParaOrdenar } from '@shake/supabase'
 
@@ -12,18 +14,36 @@ interface Props {
 }
 
 /**
- * Al tocar un alimento en el catálogo: elegir extras de su receta
- * (guacamole, aderezos…) para agregarlos al ticket.
- * Los extras se agregan como líneas propias del ticket: así cuestan,
- * cobran y descuentan inventario igual que cualquier producto, y la cocina
- * los ve listados en la comanda.
+ * Al tocar un producto en el catálogo de caja: elegir con qué se prepara y
+ * qué extras lleva.
+ *
+ * Dos comportamientos distintos, igual que en el kiosko:
+ *   · Base (leche/agua) → una sola, como radio, y viaja en la comanda.
+ *     Cambiar de leche no es sumar otra leche.
+ *   · Extras            → cantidad, con + y −. Sí se acumulan, y entran
+ *     como líneas propias del ticket: así cuestan, cobran y descuentan
+ *     inventario igual que cualquier producto.
+ *
+ * La base la traía solo el kiosko. Aquí no existía, así que un shake cobrado
+ * en caja salía a barra sin decir con qué prepararlo: 47 de 522 en diez
+ * días. Barra tenía que preguntar o adivinar. Las reglas —cuál es la de
+ * casa, cuál se escribe y cuál se cobra— viven en @shake/utils justo para
+ * que las dos puertas no puedan divergir.
  */
 export function ModalPersonalizar({ producto, extras, onCerrar, onAgregar }: Props) {
   const [elegidos, setElegidos] = useState<Record<string, number>>({})
+  const [base, setBase] = useState<string | null>(null)
+
+  const bases = useMemo(() => ordenarBases(extras.filter((e) => esBase(e.nombre))), [extras])
+  const adicionales = useMemo(() => extras.filter((e) => !esBase(e.nombre)), [extras])
 
   if (!producto) return null
 
-  const totalExtras = extras.reduce((s, e) => s + e.precio * (elegidos[e.extra_id] ?? 0), 0)
+  const baseElegida = bases.find((b) => b.extra_id === base) ?? baseDeCasa(bases)
+  const cobrada = baseCobrada(baseElegida)
+  const totalExtras =
+    (cobrada?.precio ?? 0) +
+    adicionales.reduce((s, e) => s + e.precio * (elegidos[e.extra_id] ?? 0), 0)
   const total = producto.precio + totalExtras
 
   function cambiar(extraId: string, delta: number) {
@@ -37,15 +57,23 @@ export function ModalPersonalizar({ producto, extras, onCerrar, onAgregar }: Pro
   }
 
   function confirmar() {
-    const elegidosExpandidos = extras.flatMap((e) =>
-      Array.from({ length: elegidos[e.extra_id] ?? 0 }, () => e),
-    )
-    onAgregar(null, elegidosExpandidos)
+    const elegidosExpandidos = [
+      // Una base con precio (agua mineral +$10) va como línea cobrada; la
+      // gratis viaja en la nota. Regalar los $10 en silencio es el tipo de
+      // fuga que nadie detecta hasta el corte.
+      ...(cobrada ? [cobrada] : []),
+      ...adicionales.flatMap((e) =>
+        Array.from({ length: elegidos[e.extra_id] ?? 0 }, () => e),
+      ),
+    ]
+    onAgregar(notaDeBase(baseElegida), elegidosExpandidos)
     setElegidos({})
+    setBase(null)
   }
 
   function cerrar() {
     setElegidos({})
+    setBase(null)
     onCerrar()
   }
 
@@ -59,13 +87,45 @@ export function ModalPersonalizar({ producto, extras, onCerrar, onAgregar }: Pro
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
-          {extras.length > 0 && (
+          {bases.length > 0 && (
+            <div>
+              <p className="font-mono text-xs uppercase tracking-wide text-sa-green-ink/60 mb-2">
+                {bases.some((b) => /^agua\b/i.test(b.nombre)) ? '¿Con qué se prepara?' : 'Tipo de leche'}
+                <span className="ml-2 normal-case tracking-normal text-sa-green-ink/40">
+                  sale en la comanda
+                </span>
+              </p>
+              <div className="grid grid-cols-2 gap-1.5">
+                {bases.map((b) => {
+                  const activa = baseElegida?.extra_id === b.extra_id
+                  return (
+                    <button
+                      key={b.extra_id}
+                      onClick={() => setBase(b.extra_id)}
+                      className={`px-3 py-2.5 rounded-sa text-left text-sm border transition-colors ${
+                        activa
+                          ? 'bg-sa-green text-sa-cream border-sa-green'
+                          : 'bg-white border-sa-green-ink/10 text-sa-green-ink hover:border-sa-green/40'
+                      }`}
+                    >
+                      <span className="block leading-tight">{b.nombre}</span>
+                      {b.precio > 0 && (
+                        <span className="font-mono text-[11px] opacity-70">+{mxn(b.precio)}</span>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {adicionales.length > 0 && (
             <div>
               <p className="font-mono text-xs uppercase tracking-wide text-sa-green-ink/60 mb-2">
                 Extras
               </p>
               <div className="space-y-2">
-                {extras.map((e) => {
+                {adicionales.map((e) => {
                   const n = elegidos[e.extra_id] ?? 0
                   return (
                     <div

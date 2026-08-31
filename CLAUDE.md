@@ -277,6 +277,18 @@ empaquetador y se desvían solas:
   (fue el rojo del login de Rewards).
 - En el kiosko, las imágenes van como fondo CSS y el menú contextual está
   apagado: si no, mantener el dedo sobre Milo abre "buscar imagen".
+- **Kiosko y POS son dos puertas a la misma venta, y se separan solas.** El
+  kiosko sabía elegir la leche de casa y escribirla en la comanda; el POS
+  no, así que un shake cobrado en caja salía a barra sin decir con qué
+  prepararlo — 47 de 522 en diez días, y nadie lo notó porque cada pantalla
+  por separado se veía bien. Lo que decide qué se elige solo, qué se
+  escribe en la comanda y qué se cobra aparte vive ahora en
+  `packages/utils/src/extras.ts`, importado por las dos. Su espejo en la
+  base es `fn_clase_extra`. **Al tocar una, revisa la otra.**
+- La opción por defecto de cada grupo (la leche de casa, la proteína, el
+  frío/caliente) ya no es una expresión regular en el código: es la
+  estrella de Admin → Extras, guardada por vínculo producto↔extra. Las
+  reglas viejas siguen ahí de respaldo mientras nadie marque nada.
 
 **Permisos de la base**
 

@@ -297,6 +297,12 @@ export interface ExtraDeProducto {
    * igual y adivinarlo por texto los confundiría.
    */
   marca: string | null
+  /**
+   * La opción con la que sale el producto si nadie toca nada, marcada en
+   * Admin. Solo una por clase (base, proteína, o grupo escrito); ver
+   * `claseExtra` en @shake/utils y `fn_clase_extra` en la base.
+   */
+  por_defecto: boolean
   activo: boolean
 }
 
@@ -437,6 +443,7 @@ export interface ProductoDeExtra {
   /** El precio normal del extra, para mostrarlo como referencia. */
   precio_base: number
   grupo: string | null
+  por_defecto: boolean
 }
 
 /**
@@ -485,6 +492,27 @@ export async function precioExtraEnProducto(
     p_extra_id: extraId,
     p_producto_id: productoId,
     p_precio: precio,
+  })
+  if (error) throw error
+}
+
+/**
+ * Marca este extra como el que sale de entrada en ese producto.
+ *
+ * El servidor apaga primero a sus hermanas de la misma clase: dos marcadas
+ * dejarían al kiosko eligiendo por orden de lectura, que es exactamente el
+ * comportamiento que esto viene a quitar.
+ */
+export async function defectoExtraEnProducto(
+  sb: ShakeClient,
+  extraId: string,
+  productoId: string,
+  porDefecto: boolean,
+): Promise<void> {
+  const { error } = await (sb.rpc as unknown as RpcCatalogo)('fn_extra_bebida_defecto', {
+    p_extra_id: extraId,
+    p_producto_id: productoId,
+    p_por_defecto: porDefecto,
   })
   if (error) throw error
 }
