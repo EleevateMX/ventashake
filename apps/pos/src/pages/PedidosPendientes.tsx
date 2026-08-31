@@ -3,12 +3,15 @@ import { useNavigate } from 'react-router-dom'
 import { usePosStore } from '@/store/posStore'
 import { sb } from '../lib/sb'
 import {
-  listarOrdenesPendientesCajaConItems, cobrarOrden, suscribirOrdenesPendientesCaja,
-  type OrdenConItems,
+  listarOrdenesPendientesCajaConItems, cobrarOrden, cobrarOrdenDividido,
+  suscribirOrdenesPendientesCaja, type OrdenConItems,
 } from '@shake/supabase'
 import { imprimirTicket, type TicketData } from '@shake/ui'
 import { mxn, mensajeDeError } from '@shake/utils'
 import type { MetodoPago } from '@shake/types'
+import {
+  PagoDividido, DIVISION_INICIAL, partesDeDivision, type Division,
+} from '@/components/pos/PagoDividido'
 
 const METODOS: { key: MetodoPago; label: string; icon: string }[] = [
   { key: 'efectivo', label: 'Efectivo', icon: '💵' },
@@ -35,6 +38,9 @@ export function PedidosPendientes() {
   const [ordenSeleccionada, setOrdenSeleccionada] = useState<OrdenConItems | null>(null)
   const [metodo, setMetodo] = useState<MetodoPago>('efectivo')
   const [cobrando, setCobrando] = useState(false)
+  /** El mismo pago dividido de la venta de caja: dos puertas, un solo cobro. */
+  const [dividido, setDividido] = useState(false)
+  const [division, setDivision] = useState<Division>(DIVISION_INICIAL)
 
   async function cargar() {
     try {
@@ -57,13 +63,22 @@ export function PedidosPendientes() {
 
   async function confirmarCobro() {
     if (!ordenSeleccionada || !empleado) return
+    const { partes } = partesDeDivision(division, ordenSeleccionada.total)
+    if (dividido && !partes) return
     setCobrando(true)
     setError(null)
     try {
-      await cobrarOrden(sb, ordenSeleccionada.id, metodo, ordenSeleccionada.total, {
-        autorizadoPor: empleado.id,
-        idempotencyKey: crypto.randomUUID(),
-      })
+      if (dividido && partes) {
+        await cobrarOrdenDividido(sb, ordenSeleccionada.id, partes, {
+          autorizadoPor: empleado.id,
+          idempotencyKey: crypto.randomUUID(),
+        })
+      } else {
+        await cobrarOrden(sb, ordenSeleccionada.id, metodo, ordenSeleccionada.total, {
+          autorizadoPor: empleado.id,
+          idempotencyKey: crypto.randomUUID(),
+        })
+      }
 
       const ticket: TicketData = {
         folio: ordenSeleccionada.folio,
@@ -75,11 +90,15 @@ export function PedidosPendientes() {
           nombre: i.productos?.nombre ?? '—',
           precioUnitario: i.precio_unitario,
         })),
-        metodoPago: METODOS.find((m) => m.key === metodo)?.label ?? metodo,
+        metodoPago: dividido && partes
+          ? partes.map((p) => `${METODOS.find((m) => m.key === p.metodo)?.label ?? p.metodo} ${mxn(p.monto)}`).join(' + ')
+          : METODOS.find((m) => m.key === metodo)?.label ?? metodo,
       }
       imprimirTicket(ticket)
 
       setOrdenSeleccionada(null)
+      setDividido(false)
+      setDivision(DIVISION_INICIAL)
       await cargar()
     } catch (e) {
       setError(mensajeDeError(e))
@@ -133,7 +152,12 @@ export function PedidosPendientes() {
             {ordenes.map((o) => (
               <button
                 key={o.id}
-                onClick={() => { setOrdenSeleccionada(o); setMetodo('efectivo') }}
+                onClick={() => {
+                  setOrdenSeleccionada(o)
+                  setMetodo('efectivo')
+                  setDividido(false)
+                  setDivision(DIVISION_INICIAL)
+                }}
                 className="text-left bg-white rounded-sa-lg shadow-sa-sm p-5 hover:shadow-sa hover:-translate-y-0.5 transition-all border border-sa-green-ink/5"
               >
                 <div className="flex items-start justify-between mb-2">
@@ -176,20 +200,54 @@ export function PedidosPendientes() {
               <span className="font-display text-3xl text-sa-green-ink">{mxn(ordenSeleccionada.total)}</span>
             </div>
 
-            <div className="grid grid-cols-4 gap-2 mb-5">
-              {METODOS.map((m) => (
+            <div className="flex gap-2 mb-4">
+              {([false, true] as const).map((v) => (
                 <button
-                  key={m.key}
-                  onClick={() => setMetodo(m.key)}
-                  className={`flex flex-col items-center gap-1 py-3 rounded-sa bg-sa-cream-soft transition-all ${
-                    metodo === m.key ? 'ring-2 ring-sa-green' : 'hover:bg-sa-cream-warm'
+                  key={String(v)}
+                  onClick={() => setDividido(v)}
+                  className={`flex-1 py-2.5 rounded-sa font-mono text-[11px] uppercase tracking-wide transition-all ${
+                    dividido === v
+                      ? 'bg-sa-green-ink text-sa-cream'
+                      : 'bg-sa-cream-soft text-sa-green-ink/60 hover:bg-sa-cream-warm'
                   }`}
                 >
-                  <span className="text-xl">{m.icon}</span>
-                  <span className="font-mono text-[10px] text-sa-green-ink">{m.label}</span>
+                  {v ? 'Pago dividido' : 'Una forma'}
                 </button>
               ))}
             </div>
+
+            {dividido ? (
+              <div className="mb-4 max-h-[45vh] overflow-y-auto">
+                <PagoDividido
+                  total={ordenSeleccionada.total}
+                  valor={division}
+                  onCambio={setDivision}
+                />
+              </div>
+            ) : (
+              <div className="grid grid-cols-4 gap-2 mb-5">
+                {METODOS.map((m) => (
+                  <button
+                    key={m.key}
+                    onClick={() => setMetodo(m.key)}
+                    className={`flex flex-col items-center gap-1 py-3 rounded-sa bg-sa-cream-soft transition-all ${
+                      metodo === m.key ? 'ring-2 ring-sa-green' : 'hover:bg-sa-cream-warm'
+                    }`}
+                  >
+                    <span className="text-xl">{m.icon}</span>
+                    <span className="font-mono text-[10px] text-sa-green-ink">{m.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {dividido && partesDeDivision(division, ordenSeleccionada.total).error && (
+              <div className="bg-sa-banana/25 border border-sa-banana rounded-sa px-3 py-2 mb-4">
+                <p className="font-mono text-xs text-sa-coffee">
+                  {partesDeDivision(division, ordenSeleccionada.total).error}
+                </p>
+              </div>
+            )}
 
             <div className="flex gap-2">
               <button
@@ -200,7 +258,10 @@ export function PedidosPendientes() {
               </button>
               <button
                 onClick={() => void confirmarCobro()}
-                disabled={cobrando}
+                disabled={
+                  cobrando ||
+                  (dividido && partesDeDivision(division, ordenSeleccionada.total).partes === null)
+                }
                 className="flex-1 bg-sa-strawberry disabled:opacity-40 text-white py-3 rounded-sa font-display text-lg"
               >
                 {cobrando ? 'Cobrando…' : 'Confirmar cobro'}

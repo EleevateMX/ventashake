@@ -2,10 +2,15 @@ import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { usePosStore } from '@/store/posStore'
 import { sb } from '../lib/sb'
-import { crearOrden, cobrarOrden, canjearCupon, registrarAplicacionPromo } from '@shake/supabase'
+import {
+  crearOrden, cobrarOrden, cobrarOrdenDividido, canjearCupon, registrarAplicacionPromo,
+} from '@shake/supabase'
 import { imprimirTicket, type TicketData } from '@shake/ui'
 import { mxn, mensajeDeError } from '@shake/utils'
 import type { MetodoPago } from '@shake/types'
+import {
+  PagoDividido, DIVISION_INICIAL, partesDeDivision, type Division,
+} from '@/components/pos/PagoDividido'
 
 const METODOS: { key: MetodoPago; label: string; icon: string; pideRef?: boolean }[] = [
   { key: 'efectivo', label: 'Efectivo', icon: '💵' },
@@ -30,6 +35,9 @@ export function Cobro() {
   const [recibido, setRecibido] = useState('')
   const [procesando, setProcesando] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  /** "Me das $100 en efectivo y el resto con tarjeta" (petición del 29/08/26). */
+  const [dividido, setDividido] = useState(false)
+  const [division, setDivision] = useState<Division>(DIVISION_INICIAL)
 
   // Guarda: sin corte o sin ítems no hay nada que cobrar.
   if (!corte || !almacen || items.length === 0) {
@@ -41,8 +49,16 @@ export function Cobro() {
   const metodoSel = METODOS.find((m) => m.key === metodo)!
   const recibidoNum = parseFloat(recibido) || 0
   const cambio = recibidoNum - totalNeto
-  const listo =
-    metodo !== 'efectivo' || totalNeto <= 0 || recibidoNum >= totalNeto
+  const { partes, error: errorDivision } = partesDeDivision(division, totalNeto)
+  const listo = dividido
+    ? partes !== null
+    : metodo !== 'efectivo' || totalNeto <= 0 || recibidoNum >= totalNeto
+  /** Lo que se imprime en el ticket como forma de pago. */
+  const etiquetaPago = dividido && partes
+    ? partes
+        .map((p) => `${METODOS.find((m) => m.key === p.metodo)?.label ?? p.metodo} ${mxn(p.monto)}`)
+        .join(' + ')
+    : metodoSel.label
 
   async function confirmarPago() {
     if (procesando) return
@@ -74,10 +90,19 @@ export function Cobro() {
       // Cobro inmediato aprobado → el trigger descuenta inventario y manda a cocina.
       // idempotencyKey: si esta llamada se reintenta (timeout de red, doble
       // tap) la base devuelve el mismo pago en vez de crear uno duplicado.
-      await cobrarOrden(sb, orden.id, metodo, totalNeto, {
-        referencia: referencia.trim() || undefined,
-        idempotencyKey: crypto.randomUUID(),
-      })
+      // El servidor valida que las partes sumen el total ANTES de insertar
+      // ninguna: no existe la orden cobrada a medias.
+      if (dividido && partes) {
+        await cobrarOrdenDividido(sb, orden.id, partes, {
+          autorizadoPor: empleado?.id,
+          idempotencyKey: crypto.randomUUID(),
+        })
+      } else {
+        await cobrarOrden(sb, orden.id, metodo, totalNeto, {
+          referencia: referencia.trim() || undefined,
+          idempotencyKey: crypto.randomUUID(),
+        })
+      }
 
       const gana = cliente ? Math.min(100, Math.floor(totalNeto / 10)) : 0
       const ticket: TicketData = {
@@ -91,9 +116,9 @@ export function Cobro() {
           precioUnitario: l.producto.precio,
         })),
         descuento: descuentoTotal(),
-        metodoPago: metodoSel.label,
-        referenciaPago: referencia.trim() || null,
-        recibido: metodo === 'efectivo' && recibidoNum > 0 ? recibidoNum : undefined,
+        metodoPago: etiquetaPago,
+        referenciaPago: dividido ? null : referencia.trim() || null,
+        recibido: !dividido && metodo === 'efectivo' && recibidoNum > 0 ? recibidoNum : undefined,
         clienteNombre: cliente?.nombre ?? null,
         mancuernasGanadas: cliente ? gana : undefined,
         mancuernasSaldo: cliente ? cliente.mancuernas + gana : undefined,
@@ -143,7 +168,29 @@ export function Cobro() {
       <div className="flex-1 flex overflow-hidden">
         {/* Izquierda: método de pago */}
         <div className="flex-1 p-6 overflow-y-auto">
-          <div className="grid grid-cols-5 gap-3 mb-5">
+          {/* Un solo interruptor. Dividir es la excepción, no un método más:
+              meterlo entre los cinco iconos haría que se tocara por error. */}
+          <div className="flex gap-2 mb-4">
+            {([false, true] as const).map((v) => (
+              <button
+                key={String(v)}
+                onClick={() => setDividido(v)}
+                className={`flex-1 py-3 rounded-sa font-mono text-xs uppercase tracking-wide transition-all ${
+                  dividido === v
+                    ? 'bg-sa-green-ink text-sa-cream'
+                    : 'bg-sa-cream-soft text-sa-green-ink/60 hover:bg-sa-cream-warm'
+                }`}
+              >
+                {v ? 'Pago dividido' : 'Una sola forma de pago'}
+              </button>
+            ))}
+          </div>
+
+          {dividido && (
+            <PagoDividido total={totalNeto} valor={division} onCambio={setDivision} />
+          )}
+
+          <div className={`grid grid-cols-5 gap-3 mb-5 ${dividido ? 'hidden' : ''}`}>
             {METODOS.map((m) => (
               <button
                 key={m.key}
@@ -159,7 +206,7 @@ export function Cobro() {
           </div>
 
           {/* Efectivo: recibido + cambio */}
-          {metodo === 'efectivo' && totalNeto > 0 && (
+          {!dividido && metodo === 'efectivo' && totalNeto > 0 && (
             <div className="bg-white rounded-sa p-5 shadow-sa-sm mb-4">
               <label className="block font-mono text-xs uppercase tracking-wide text-sa-green-ink/60 mb-2">
                 Recibido
@@ -201,7 +248,7 @@ export function Cobro() {
           )}
 
           {/* Referencia para Clip / Otro */}
-          {metodoSel.pideRef && (
+          {!dividido && metodoSel.pideRef && (
             <div className="bg-white rounded-sa p-5 shadow-sa-sm mb-4">
               <label className="block font-mono text-xs uppercase tracking-wide text-sa-green-ink/60 mb-2">
                 {metodo === 'clip' ? 'Referencia / folio del voucher Clip' : 'Referencia'}
@@ -228,6 +275,14 @@ export function Cobro() {
               <p className="font-mono text-xs text-sa-green-ink leading-tight">
                 🏋️ {cliente.nombre} ganará ~{Math.min(100, Math.floor(totalNeto / 10))} mancuernas con esta compra
               </p>
+            </div>
+          )}
+
+          {/* Lo que falta para poder cobrar dividido, dicho antes de tocar
+              el botón — no después, con el cliente esperando. */}
+          {dividido && errorDivision && !error && (
+            <div className="bg-sa-banana/25 border border-sa-banana rounded-sa px-4 py-3 mb-4">
+              <p className="font-mono text-sm text-sa-coffee">{errorDivision}</p>
             </div>
           )}
 
@@ -275,7 +330,11 @@ export function Cobro() {
             disabled={!listo || procesando}
             className="w-full bg-sa-strawberry disabled:opacity-40 hover:brightness-110 active:scale-[0.98] text-white py-4 rounded-sa-lg font-display text-xl shadow-sa-sm transition-all"
           >
-            {procesando ? 'Agitando…' : `Confirmar pago ${mxn(totalNeto)}`}
+            {procesando
+              ? 'Agitando…'
+              : dividido
+                ? `Cobrar en dos ${mxn(totalNeto)}`
+                : `Confirmar pago ${mxn(totalNeto)}`}
           </button>
         </div>
       </div>

@@ -8,17 +8,20 @@ import { ModalDescuento } from './ModalDescuento'
 import { ModalCliente } from './ModalCliente'
 import { ModalAutorizacion } from './ModalAutorizacion'
 import { SugerenciaVenta } from './SugerenciaVenta'
-import type { ProductoVenta } from '@shake/supabase'
+import { ModalEditarLinea } from './ModalEditarLinea'
+import type { ProductoVenta, ExtraDeProducto } from '@shake/supabase'
 
 interface Props {
   onCobrar: () => void
   /** Catálogo activo, para sugerir venta cruzada al cajero. */
   productos: ProductoVenta[]
+  /** Extras del catálogo: al corregir un renglón, para poder cambiar la base. */
+  extras?: ExtraDeProducto[]
 }
 
-export function OrdenPanel({ onCobrar, productos }: Props) {
+export function OrdenPanel({ onCobrar, productos, extras = [] }: Props) {
   const {
-    items, incrementar, decrementar, quitarItem, limpiarOrden,
+    items, incrementar, decrementar, quitarItem, editarItem, apartarVenta, limpiarOrden,
     cliente, cupon, promo, promosDisp,
     setCupon, setPromo, setCliente, setPromosDisp,
     descuentoManual, setDescuentoManual,
@@ -32,6 +35,9 @@ export function OrdenPanel({ onCobrar, productos }: Props) {
   const [cuponMsg, setCuponMsg] = useState<string | null>(null)
   // Cupón escaneado a mano: válido, pero esperando el PIN de gerente/admin.
   const [cuponPendiente, setCuponPendiente] = useState<Cupon | null>(null)
+  /** Renglón que se está corrigiendo (petición del 29/08/26). */
+  const [editando, setEditando] = useState<string | null>(null)
+  const lineaEditando = items.find((l) => l.lineaId === editando) ?? null
 
   function aplicarCupon(cup: Cupon) {
     setCuponMsg(null)
@@ -75,12 +81,22 @@ export function OrdenPanel({ onCobrar, productos }: Props) {
           )}
         </div>
         {items.length > 0 && (
-          <button
-            onClick={() => { limpiarOrden(); setCuponMsg(null) }}
-            className="font-mono text-xs uppercase tracking-wide text-sa-strawberry hover:brightness-110"
-          >
-            Cancelar
-          </button>
+          <div className="flex items-center gap-3">
+            {/* Apartar: "déjame la mía y cóbrale a él, que va con prisa".
+                No cobra ni crea orden — solo guarda el carrito. */}
+            <button
+              onClick={() => { apartarVenta(); setCuponMsg(null) }}
+              className="font-mono text-xs uppercase tracking-wide text-sa-green hover:brightness-110"
+            >
+              Esperar
+            </button>
+            <button
+              onClick={() => { limpiarOrden(); setCuponMsg(null) }}
+              className="font-mono text-xs uppercase tracking-wide text-sa-strawberry hover:brightness-110"
+            >
+              Cancelar
+            </button>
+          </div>
         )}
       </div>
 
@@ -100,15 +116,23 @@ export function OrdenPanel({ onCobrar, productos }: Props) {
           <div className="px-3 py-3 space-y-2">
             {items.map((l) => (
               <div key={l.lineaId} className="flex items-center gap-2 bg-sa-cream-soft rounded-sa px-3 py-2.5">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-sa-green-ink truncate">{l.producto.nombre}</p>
+                {/* Tocar el renglón lo corrige. Antes había que borrarlo y
+                    volverlo a capturar por un "mejor deslactosada". */}
+                <button
+                  onClick={() => setEditando(l.lineaId)}
+                  className="flex-1 min-w-0 text-left group"
+                  title="Corregir este renglón"
+                >
+                  <p className="text-sm font-medium text-sa-green-ink truncate group-hover:text-sa-green">
+                    {l.producto.nombre}
+                  </p>
                   <p className="font-mono text-xs text-sa-green-ink/50">{mxn(l.producto.precio)} c/u</p>
                   {l.personalizacion && (
                     <p className="font-mono text-xs text-sa-strawberry mt-0.5 leading-snug">
                       📝 {l.personalizacion}
                     </p>
                   )}
-                </div>
+                </button>
                 <div className="flex items-center gap-1.5 flex-shrink-0">
                   <button
                     onClick={() => decrementar(l.lineaId)}
@@ -319,6 +343,19 @@ export function OrdenPanel({ onCobrar, productos }: Props) {
         onClose={() => setModalCliente(false)}
         onCliente={(c, promos) => { setCliente(c); setPromosDisp(promos); setCupon(null); setPromo(null) }}
         onQuitar={() => { setCliente(null); setPromosDisp([]); setCupon(null); setPromo(null) }}
+      />
+      <ModalEditarLinea
+        linea={lineaEditando}
+        extras={lineaEditando ? extras.filter((e) => e.producto_id === lineaEditando.producto.id) : []}
+        onCerrar={() => setEditando(null)}
+        onGuardar={(cantidad, personalizacion) => {
+          if (editando) editarItem(editando, { cantidad, personalizacion })
+          setEditando(null)
+        }}
+        onQuitar={() => {
+          if (editando) quitarItem(editando)
+          setEditando(null)
+        }}
       />
       <ModalAutorizacion
         open={cuponPendiente !== null}

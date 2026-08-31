@@ -303,6 +303,54 @@ const FICHAS: Ficha[] = [
     llamar: 'Siempre. Un doble cobro se avisa aunque ya lo hayas resuelto.',
   },
   {
+    id: 'pago-dividido',
+    grupo: 'Dinero',
+    sintoma: 'Quiere pagar una parte en efectivo y el resto con tarjeta',
+    palabras: ['dividir el pago', 'pago dividido', 'mitad efectivo', 'mitad tarjeta', 'dos formas de pago', 'entre dos'],
+    porque:
+      'La pantalla de cobro trae un interruptor para eso. El cajero teclea UN monto ' +
+      '(lo que da con la primera forma) y el resto lo calcula la caja sola.',
+    pasos: [
+      <>En <strong>Caja → Cobrar</strong>, arriba de los iconos, toca <strong>“Pago dividido”</strong>.</>,
+      <>Elige la primera forma y escribe <strong>cuánto paga con ella</strong>. El botón <strong>“Mitad y mitad”</strong> lo llena solo.</>,
+      <>Elige con qué va el resto. <strong>Ese número no se teclea</strong>: la caja lo pone y muestra la suma.</>,
+      <>Funciona igual al cobrar un folio del kiosko, desde <strong>Pedidos de kiosko</strong>.</>,
+      <>En el corte, cada parte cae en su renglón: los $100 en <strong>efectivo</strong> y los $25 en <strong>tarjeta</strong>. La caja cuadra igual que siempre.</>,
+      <>Si dice que falta algo (“escribe cuánto paga con la primera forma”), es que todavía no suma el total. El botón de cobrar no se activa hasta que cuadra.</>,
+    ],
+  },
+  {
+    id: 'venta-en-espera',
+    grupo: 'Dinero',
+    sintoma: 'Hay que atender a otro cliente sin perder la venta que ya capturé',
+    palabras: ['venta en espera', 'apartar', 'dejar pendiente', 'atender a otro', 'se fue por dinero', 'pausar venta'],
+    porque:
+      'Pasa a diario: alguien pide, se acuerda de que dejó la cartera en el coche, y ' +
+      'atrás hay tres personas. Apartar la venta guarda el carrito y deja la caja libre.',
+    pasos: [
+      <>Con el ticket capturado, toca <strong>“Esperar”</strong> arriba del panel de la orden (junto a Cancelar).</>,
+      <>La caja queda vacía para el siguiente. Arriba aparece <strong>“En espera · 1”</strong>.</>,
+      <>Para retomarla, toca ese botón y elige cuál. Si ya había algo capturado, <strong>eso se aparta solo</strong> antes de traer la otra — no se pierde.</>,
+      <><strong>No es un cobro ni una orden</strong>: nada llegó a barra ni a cocina. Es solo el carrito guardado.</>,
+      <>Vive en <strong>esa</strong> computadora: si se cierra el navegador, se pierde. Y se limpia sola a las 12 horas.</>,
+    ],
+  },
+  {
+    id: 'corregir-renglon',
+    grupo: 'Dinero',
+    sintoma: 'Me equivoqué de leche (o de cantidad) en algo que ya está en el ticket',
+    palabras: ['corregir', 'modificar el pedido', 'me equivoque', 'cambiar la leche', 'editar el carrito', 'sin borrarlo'],
+    porque:
+      'Antes había que borrar el renglón y capturarlo otra vez, con extras y todo, ' +
+      'por un “ay, mejor deslactosada”.',
+    pasos: [
+      <>En el panel de la orden, <strong>toca el nombre del producto</strong> (no el + ni el −).</>,
+      <>Ahí se cambia la <strong>cantidad</strong>, con qué se prepara, y las indicaciones para la estación.</>,
+      <>Abajo dice exactamente <strong>cómo va a salir en la comanda</strong> antes de guardar.</>,
+      <>Los extras son <strong>renglones aparte</strong> del ticket (así cobran y descuentan inventario): esos se quitan con su propia ✕.</>,
+    ],
+  },
+  {
     id: 'caja-no-cuadra',
     grupo: 'Dinero',
     sintoma: 'La caja no cuadra al cerrar el turno',

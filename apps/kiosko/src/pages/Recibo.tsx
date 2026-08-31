@@ -27,6 +27,11 @@ const METODOS: Record<string, string> = {
   efectivo: 'Efectivo',
   tarjeta: 'Tarjeta',
   clip: 'Clip',
+  cortesia: 'Cortesía',
+  otro: 'Otro',
+  // Lo que queda escrito cuando se pagó en partes (ver
+  // fn_cobrar_orden_dividido). El desglose vive en `pagos`, no aquí.
+  mixto: 'En dos formas de pago',
 }
 
 export function Recibo() {
