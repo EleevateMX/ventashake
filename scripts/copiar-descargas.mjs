@@ -36,6 +36,7 @@ const ARCHIVOS = [
   'abrir-caja-y-admin.bat',
   'instalar-agente-impresion.bat',
   'escanear-equipo.bat',
+  'diagnostico-agente.bat',
 ]
 
 // Se borra antes de copiar. Sin esto, un archivo que se retira de la lista

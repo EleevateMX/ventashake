@@ -60,6 +60,15 @@ const DESCARGAS: Descarga[] = [
     detalle: 'No van en el arranque a propósito: se usan a ratos, no todo el día.',
   },
   {
+    archivo: 'diagnostico-agente.bat',
+    titulo: 'Diagnóstico del agente',
+    cuando: 'Si Admin marca una versión que no coincide, o el agente no actualiza',
+    detalle:
+      'Dice qué agente está corriendo y desde qué carpeta, si hay más de una ' +
+      'copia instalada y si alguna quedó como servicio de Windows. Solo mira: ' +
+      'no detiene ni borra nada, y no pide permisos.',
+  },
+  {
     archivo: 'escanear-equipo.bat',
     titulo: 'Escanear el equipo',
     cuando: 'Para saber qué hay en la red antes de configurar',

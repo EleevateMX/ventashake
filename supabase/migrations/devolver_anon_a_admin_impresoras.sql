@@ -1,0 +1,22 @@
+-- REVERSION. Le quite `anon` a fn_admin_impresoras para tapar una fuga (la
+-- funcion devuelve la IP y el puerto de cada etiquetadora, o sea el mapa de
+-- la red interna, y estaba abierta con la llave publica).
+--
+-- Lo que no vi: es la MISMA funcion que usa scripts/instalar-agente-impresion.ps1
+-- para saber que impresoras hay que configurar. Ese instalador corre en una
+-- PC recien formateada, donde lo unico que hay es la llave publica -- no hay
+-- sesion de personal que ofrecer. Al cerrarla, la instalacion muere en el
+-- primer paso con "(401) No autorizado", y el mensaje manda a revisar la
+-- llave, que estaba bien. Dejo la tienda sin poder reinstalar el agente.
+--
+-- Se devuelve el permiso. Entre una fuga de IPs privadas -que desde internet
+-- no se pueden alcanzar- y no poder instalar el agente de impresion, la
+-- segunda es peor: sin agente no salen comandas.
+--
+-- El arreglo de verdad es que el instalador se identifique con un PIN de
+-- personal (staff-login -> sesion real) en vez de ir como anon. Eso se hace
+-- con calma y probandolo, no a la 1 de la manana con la tienda bloqueada.
+-- Mientras tanto queda anotado que el riesgo real de esta puerta no son las
+-- IPs sino fn_rotar_token_impresora, que tambien es anon-callable y permite
+-- invalidar los tokens de las impresoras.
+grant execute on function public.fn_admin_impresoras() to anon;
