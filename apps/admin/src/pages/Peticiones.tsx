@@ -1,37 +1,42 @@
 import { useEffect, useMemo, useState } from 'react'
 import { sb } from '../lib/sb'
 import {
-  reportesSoporte, reportarSoporte, priorizarReporte, cerrarReporte,
-  type ReporteSoporte, type TipoReporte,
+  reportesSoporte, reportarSoporte, type ReporteSoporte, type TipoReporte,
 } from '@shake/supabase'
 import { mensajeDeError } from '@shake/utils'
 import { PageHeader, Loading, ErrorMsg, Panel, cx } from '../ui'
 
 /**
- * La cola de lo que la tienda pide y de lo que se rompió.
+ * Pedir algo, y ver en qué quedó.
  *
  * Antes esto vivía en WhatsApp. Un mensaje traía siete cosas, se contestaban
  * dos, y a la semana nadie recordaba cuáles quedaron — ni quién lo había
  * pedido, ni si ya estaba hecho. La lista del 29/08 es el ejemplo exacto.
  *
- * Aquí cada petición tiene dueño, fecha, prioridad y una marca: **entra en
- * la próxima sesión de trabajo**. Esa marca es la agenda; lo demás es
- * inventario. Y quien pidió algo ve en qué quedó, que es lo único que hace
- * que la gente vuelva a pedir por aquí en vez de por mensaje.
+ * Esta pantalla es la de **quien pide**: escribe, y después ve el estado y
+ * la respuesta. Lo que NO trae es la cola: priorizar, meter algo a la
+ * próxima sesión de trabajo y darlo por resuelto vive en **Soporte**, que
+ * solo abre desarrollo.
+ *
+ * No es desconfianza, es que son dos trabajos distintos. Una cola donde
+ * quien pide también decide la prioridad deja de ser una agenda y pasa a
+ * ser una lista donde todo es urgente — y entonces no sirve para planear
+ * nada. El candado real está en la base (`fn_priorizar_reporte` y
+ * `fn_cerrar_reporte` exigen `fn_es_soporte()`); aquí solo se dejan de
+ * pintar botones que de todos modos no funcionarían.
  */
 
-const PRIORIDADES: { valor: number; label: string; clase: string }[] = [
-  { valor: 1, label: 'Ahora', clase: 'bg-sa-strawberry text-white' },
-  { valor: 2, label: 'Pronto', clase: 'bg-sa-banana text-sa-coffee' },
-  { valor: 3, label: 'Algún día', clase: 'bg-sa-cream-warm text-sa-green-ink/70' },
-]
+const PRIORIDADES: Record<number, { label: string; clase: string }> = {
+  1: { label: 'Ahora', clase: 'bg-sa-strawberry text-white' },
+  2: { label: 'Pronto', clase: 'bg-sa-banana text-sa-coffee' },
+  3: { label: 'Algún día', clase: 'bg-sa-cream-warm text-sa-green-ink/70' },
+}
 
-type Filtro = 'sesion' | 'peticion' | 'falla' | 'cerrado'
+type Filtro = 'abierto' | 'sesion' | 'cerrado'
 
 const FILTROS: { id: Filtro; label: string }[] = [
-  { id: 'sesion', label: 'Para la próxima sesión' },
-  { id: 'peticion', label: 'Peticiones' },
-  { id: 'falla', label: 'Fallas' },
+  { id: 'abierto', label: 'Pendientes' },
+  { id: 'sesion', label: 'En la próxima sesión' },
   { id: 'cerrado', label: 'Ya resueltas' },
 ]
 
@@ -41,12 +46,10 @@ const fecha = (iso: string) =>
 export default function Peticiones() {
   const [lista, setLista] = useState<ReporteSoporte[] | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [filtro, setFiltro] = useState<Filtro>('sesion')
+  const [filtro, setFiltro] = useState<Filtro>('abierto')
   const [texto, setTexto] = useState('')
   const [tipoNuevo, setTipoNuevo] = useState<TipoReporte>('peticion')
   const [ocupado, setOcupado] = useState<string | null>(null)
-  const [cerrando, setCerrando] = useState<string | null>(null)
-  const [respuesta, setRespuesta] = useState('')
 
   async function cargar() {
     try {
@@ -62,16 +65,14 @@ export default function Peticiones() {
     const l = lista ?? []
     if (filtro === 'cerrado') return l.filter((r) => r.estado === 'cerrado')
     const abiertas = l.filter((r) => r.estado !== 'cerrado')
-    if (filtro === 'sesion') return abiertas.filter((r) => r.para_sesion)
-    return abiertas.filter((r) => r.tipo === filtro)
+    return filtro === 'sesion' ? abiertas.filter((r) => r.para_sesion) : abiertas
   }, [lista, filtro])
 
   const cuantas = useMemo(() => {
-    const l = (lista ?? []).filter((r) => r.estado !== 'cerrado')
+    const abiertas = (lista ?? []).filter((r) => r.estado !== 'cerrado')
     return {
-      sesion: l.filter((r) => r.para_sesion).length,
-      peticion: l.filter((r) => r.tipo === 'peticion').length,
-      falla: l.filter((r) => r.tipo === 'falla').length,
+      abierto: abiertas.length,
+      sesion: abiertas.filter((r) => r.para_sesion).length,
       cerrado: (lista ?? []).filter((r) => r.estado === 'cerrado').length,
     }
   }, [lista])
@@ -88,7 +89,7 @@ export default function Peticiones() {
     <div>
       <PageHeader
         title="Peticiones"
-        subtitle="Lo que la tienda pide y lo que se rompió, en una sola cola"
+        subtitle="Pide lo que haga falta, y aquí mismo ves en qué quedó"
       />
 
       {error && <ErrorMsg>{error}</ErrorMsg>}
@@ -97,6 +98,7 @@ export default function Peticiones() {
         <p className="text-sm text-sa-green-ink/70 leading-relaxed">
           Lo que te llegue por WhatsApp o de viva voz, déjalo aquí. Lo que no se
           escribe se pierde, y lo que se pierde se vuelve a pedir dentro de un mes.
+          Escríbelo como lo dirías: no hace falta saber cómo se arregla.
         </p>
         <div className="flex gap-2 mt-3">
           {(['peticion', 'falla'] as TipoReporte[]).map((t) => (
@@ -171,73 +173,31 @@ export default function Peticiones() {
                   </p>
                 )}
               </div>
-              {r.estado === 'cerrado' && (
-                <span className="shrink-0 px-3 py-1 rounded-full text-xs font-semibold bg-sa-mint/30 text-sa-green-ink">
-                  Resuelta
-                </span>
-              )}
+              {/* Estado, de solo lectura. Quién decide la prioridad y cuándo
+                  se da por resuelto vive en Soporte — ver el comentario de
+                  arriba. Aquí se ve en qué quedó, que es lo que importa a
+                  quien lo pidió. */}
+              <div className="flex flex-col items-end gap-1.5 shrink-0">
+                {r.estado === 'cerrado' ? (
+                  <span className="px-3 py-1 rounded-full text-xs font-semibold bg-sa-mint/30 text-sa-green-ink">
+                    Resuelta
+                  </span>
+                ) : r.para_sesion ? (
+                  <span className="px-3 py-1 rounded-full text-xs font-semibold bg-sa-green text-sa-cream">
+                    En la próxima sesión
+                  </span>
+                ) : (
+                  <span className="px-3 py-1 rounded-full text-xs font-semibold bg-white border border-sa-green-ink/15 text-sa-green-ink/50">
+                    Anotada
+                  </span>
+                )}
+                {r.estado !== 'cerrado' && r.prioridad != null && PRIORIDADES[r.prioridad] && (
+                  <span className={`px-3 py-1 rounded-full text-[11px] font-semibold ${PRIORIDADES[r.prioridad].clase}`}>
+                    {PRIORIDADES[r.prioridad].label}
+                  </span>
+                )}
+              </div>
             </div>
-
-            {r.estado !== 'cerrado' && (
-              <div className="flex flex-wrap items-center gap-2 mt-4 pt-4 border-t border-sa-green-ink/10">
-                {PRIORIDADES.map((p) => (
-                  <button
-                    key={p.valor}
-                    disabled={ocupado === r.id}
-                    onClick={() => void tocar(r.id, () =>
-                      priorizarReporte(sb, r.id, { prioridad: p.valor }))}
-                    className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
-                      r.prioridad === p.valor
-                        ? p.clase
-                        : 'bg-white border border-sa-green-ink/15 text-sa-green-ink/50 hover:border-sa-green-ink/35'
-                    }`}
-                  >
-                    {p.label}
-                  </button>
-                ))}
-
-                <button
-                  disabled={ocupado === r.id}
-                  onClick={() => void tocar(r.id, () =>
-                    priorizarReporte(sb, r.id, { paraSesion: !r.para_sesion }))}
-                  className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
-                    r.para_sesion
-                      ? 'bg-sa-green text-sa-cream'
-                      : 'bg-white border border-sa-green-ink/15 text-sa-green-ink/50 hover:border-sa-green'
-                  }`}
-                >
-                  {r.para_sesion ? '✓ En la próxima sesión' : 'Meter a la sesión'}
-                </button>
-
-                <button
-                  onClick={() => { setCerrando(cerrando === r.id ? null : r.id); setRespuesta('') }}
-                  className="ml-auto font-mono text-[11px] uppercase tracking-wider text-sa-green-ink/45 hover:text-sa-green-ink"
-                >
-                  Marcar resuelta
-                </button>
-              </div>
-            )}
-
-            {cerrando === r.id && (
-              <div className="mt-3">
-                <textarea
-                  className={`${cx.input} min-h-[70px]`}
-                  placeholder="Qué se hizo. Lo lee quien lo pidió — decir “listo” no le sirve de nada."
-                  value={respuesta}
-                  onChange={(e) => setRespuesta(e.target.value)}
-                />
-                <button
-                  className={`${cx.btnPrimary} mt-2`}
-                  disabled={ocupado === r.id || respuesta.trim().length < 5}
-                  onClick={() => void tocar(r.id, async () => {
-                    await cerrarReporte(sb, r.id, respuesta.trim())
-                    setCerrando(null); setRespuesta('')
-                  })}
-                >
-                  Cerrar con esta respuesta
-                </button>
-              </div>
-            )}
           </Panel>
         ))}
 
@@ -245,8 +205,10 @@ export default function Peticiones() {
           <Panel>
             <p className={cx.muted}>
               {filtro === 'sesion'
-                ? 'Nada marcado para la próxima sesión todavía. Márcalo desde “Peticiones”.'
-                : 'Nada por aquí.'}
+                ? 'Todavía nada marcado para la próxima sesión de trabajo.'
+                : filtro === 'cerrado'
+                  ? 'Aún no hay peticiones resueltas.'
+                  : 'Nada pendiente. Si algo hace falta, anótalo arriba.'}
             </p>
           </Panel>
         )}

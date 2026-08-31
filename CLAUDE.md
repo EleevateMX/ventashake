@@ -331,6 +331,29 @@ empaquetador y se desvían solas:
 
 **Permisos de la base**
 
+- **`SECURITY DEFINER` + `grant ... to anon` sin comprobar nada adentro es
+  una puerta abierta, y había varias.** Encontradas el 31/08:
+  `fn_staff_vincular_auth` hacía un `update empleados set auth_user_id`
+  pelado — cualquiera se registraba en Rewards y apuntaba su cuenta a la
+  fila del Gerente; y `fn_crear_empleado` dejaba darse de alta con rol
+  `gerente` y el PIN que uno quisiera. Sin PIN, sin sesión, sin rastro.
+  Cerradas. **Quedan ~60 funciones más con `anon` y sin control interno**
+  (`fn_clientes_admin`, `fn_expediente_cliente`, `fn_rewards_admin`,
+  `fn_cliente_desactivar`, `fn_actualizar_impresora`…). Muchas son
+  públicas a propósito (el kiosko es `anon`: `fn_crear_orden`,
+  `fn_recibo_publico`, `fn_promos_vigentes`). Hay que ir una por una:
+  cerrar de golpe es cómo rompí el instalador.
+- La consulta que las lista: funciones `prosecdef` con `anon=X` en
+  `proacl` cuyo cuerpo no menciona `fn_es_jefe|fn_es_soporte|fn_rol_staff|
+  auth.uid|agente_token`.
+- **Quien pide no es quien prioriza.** El rol **`desarrollo`** está por
+  encima de gerencia: es el único que abre Admin → **Soporte**, prioriza,
+  mete algo a la sesión, cierra un reporte y ve las notas internas
+  (`fn_es_soporte()`). Gerencia —los dueños— pide y consulta. Y `desarrollo`
+  no se reparte desde Admin: `fn_crear_empleado` / `fn_actualizar_empleado`
+  lo rechazan salvo que ya seas desarrollo, y esa cuenta no se puede editar
+  desde ahí (si no, gerencia le cambiaría el PIN y entraría por ella).
+
 - **Antes de cerrarle una función a `anon`, busca quién la llama fuera del
   navegador.** Le quité `anon` a `fn_admin_impresoras` para tapar una fuga
   de IPs, sin ver que es la misma que usa
