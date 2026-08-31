@@ -1,5 +1,8 @@
 import React, { useState } from 'react'
-import { mxn } from '@shake/utils'
+import {
+  mxn, esBase, esGalleta, esProteina, esDobleScoop,
+  ordenarBases, baseDeCasa, opcionDeCasa, notaDeBase, baseCobrada,
+} from '@shake/utils'
 import type { ProductoVenta, ExtraDeProducto } from '@shake/supabase'
 
 interface Props {
@@ -12,90 +15,15 @@ interface Props {
 }
 
 /**
- * La base SUSTITUYE la líquida de la receta, así que se elige una sola.
- * Incluye el agua: en El Clásico "¿con qué lo preparamos?" admite agua, y
- * viaja igual que una leche — pegada al shake, no como línea aparte.
- */
-const esBase = (nombre: string) => /^(leche\b|agua\b|sin leche)/i.test(nombre.trim())
-
-/**
- * Orden en que la sucursal quiere ver las bases (pedido del 20/08/26).
+ * La de casa la marca gerencia en Admin -> Extras. Estos respaldos solo
+ * corren mientras nadie la haya marcado: son la regla que vivía escrita
+ * aquí, conservada para que nada cambie de golpe el día del despliegue.
  *
- * Alfabético no servía: dejaba "Leche de almendras" antes que la
- * deslactosada, que es la que más se pide después de la entera. El agua va
- * al inicio donde ya estaba, y "Sin leche" al final —solo la traen los
- * cafés, donde es el estado natural y no hay que ir a buscarla.
- *
- * Lo que no esté en esta lista se va al final en alfabético: una leche
- * nueva dada de alta en Admin aparece sola, sin tocar código.
+ * A diferencia de la leche, la proteína SÍ entra como línea del ticket
+ * aunque cueste $0: es el ingrediente principal y su scoop tiene que salir
+ * del inventario. Si viajara pegada al shake como la leche, el bote nunca
+ * se descontaría.
  */
-const ORDEN_BASES = [
-  'agua',
-  'agua mineral',
-  'leche entera',
-  'leche deslactosada',
-  'leche deslactosada light',
-  'leche de almendras',
-  'leche de avena',
-  'leche de coco',
-  'sin leche',
-]
-
-const clavesBase = (nombre: string) => nombre.trim().toLowerCase()
-
-function ordenarBases(bases: ExtraDeProducto[]): ExtraDeProducto[] {
-  return [...bases].sort((a, b) => {
-    const ia = ORDEN_BASES.indexOf(clavesBase(a.nombre))
-    const ib = ORDEN_BASES.indexOf(clavesBase(b.nombre))
-    return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib) || a.nombre.localeCompare(b.nombre)
-  })
-}
-
-/**
- * Las galletas son una promoción: +$5 por 2 piezas, una vez por shake. Se
- * eligen como grupo de opción única (ninguna / chocolate / vainilla) en vez
- * de con cantidad, porque no se puede pedir la promo dos veces ni combinar
- * los dos sabores en el mismo shake.
- */
-const esGalleta = (nombre: string) => /galleta/i.test(nombre.trim())
-
-/**
- * Al tocar "+" en un shake: elegir tipo de leche, adicionales (creatina,
- * matcha, otro scoop…) y escribir alguna indicación.
- *
- * Dos comportamientos distintos a propósito:
- *   · Leche  → una sola, como radio. Cambiar de leche no es sumar otra leche.
- *   · Extras → cantidad, con + y −. Sí se acumulan.
- *
- * Los extras en $0 se muestran igual: el tipo de leche es información que la
- * cocina necesita en la comanda aunque no cueste. Cuando el negocio les ponga
- * precio en Admin → Extras, empiezan a cobrar solos sin tocar nada aquí.
- */
-/**
- * La de casa cambió: ahora es leche entera (pedido de la sucursal,
- * 12/08/26). "Deslactosada" ya no sirve de respaldo por regex simple:
- * también le pega a "deslactosada light", así que el respaldo la excluye.
- */
-const LECHE_DEFAULT = /entera/i
-const LECHE_RESPALDO = (n: string) => /deslactosada/i.test(n) && !/light/i.test(n)
-
-/**
- * Si el producto ofrece "Sin leche", ESA es su default por encima de todo:
- * solo la llevan bebidas que naturalmente van sin leche (americano, cold
- * brew). Con Entera de default, cada americano saldría a barra con
- * "+ENTERA" y le pondrían leche a un café solo.
- */
-const SIN_LECHE = /^sin leche/i
-
-/**
- * Proteína a elegir: solo la traen los shakes que se arman a gusto (El
- * Clásico), cuya receta no incluye proteína — la pone el cliente.
- *
- * A diferencia de la leche, esta SÍ entra como línea del ticket aunque cueste
- * $0: es el ingrediente principal y su scoop tiene que salir del inventario.
- * Si viajara pegada al shake como la leche, el bote nunca se descontaría.
- */
-const esProteina = (nombre: string) => /^prote[ií]na/i.test(nombre.trim())
 // La de casa es la Gold Standard de Optimum en cualquier sabor: los shakes
 // de chocolate solo ofrecen chocolates y los de vainilla puras vainillas,
 // así que con la marca basta (en El Clásico, que trae ambas, el orden
@@ -130,16 +58,6 @@ const OBSERVACIONES_RESPALDO: Record<string, string[]> = {
 }
 
 /**
- * El extra que pide doble scoop de proteína.
- *
- * Se maneja aparte de la lista de adicionales porque su lugar natural es
- * junto a la proteína, no perdido entre creatina y colágeno — y porque
- * aplica igual a los shakes que no dejan elegir proteína (un Blueberry
- * Bloom lleva la suya, pero el cliente puede querer doble).
- */
-const esDobleScoop = (nombre: string) => /doble\s+scoop/i.test(nombre.trim())
-
-/**
  * "Proteína BIRDMAN - Fitmingo Blueberry" → marca BIRDMAN, sabor "Fitmingo
  * Blueberry". La marca sale del NOMBRE, no de una lista fija: cuando Admin dé
  * de alta una marca nueva (GHOST, ISO 100…), su botón aparece solo.
@@ -150,6 +68,18 @@ function marcaYSabor(nombre: string): { marca: string; sabor: string } {
   return { marca: 'OTRAS', sabor: nombre.replace(/^prote[ií]na\s*/i, '') }
 }
 
+/**
+ * Al tocar "+" en un shake: elegir tipo de leche, adicionales (creatina,
+ * matcha, otro scoop…) y escribir alguna indicación.
+ *
+ * Dos comportamientos distintos a propósito:
+ *   · Leche  → una sola, como radio. Cambiar de leche no es sumar otra leche.
+ *   · Extras → cantidad, con + y −. Sí se acumulan.
+ *
+ * Los extras en $0 se muestran igual: el tipo de leche es información que la
+ * cocina necesita en la comanda aunque no cueste. Cuando el negocio les ponga
+ * precio en Admin → Extras, empiezan a cobrar solos sin tocar nada aquí.
+ */
 export function ModalExtras({ producto, extras, observaciones: catalogoObs, onCerrar, onAgregar }: Props) {
   const [leche, setLeche] = useState<string | null>(null)
   const [verLeches, setVerLeches] = useState(false)
@@ -208,15 +138,13 @@ export function ModalExtras({ producto, extras, observaciones: catalogoObs, onCe
 
   // La de casa viene marcada y es la única visible hasta que el cliente pide
   // otra. Así el caso común es cero toques.
-  const lecheDefault =
-    leches.find((l) => SIN_LECHE.test(l.nombre)) ??
-    leches.find((l) => LECHE_DEFAULT.test(l.nombre)) ??
-    leches.find((l) => LECHE_RESPALDO(l.nombre)) ??
-    leches[0] ?? null
+  const lecheDefault = baseDeCasa(leches)
   const lecheElegida = leches.find((l) => l.extra_id === leche) ?? lecheDefault
   const galletaElegida = galletas.find((g) => g.extra_id === galleta) ?? null
   const proteinaDefault =
-    proteinas.find((p) => PROTEINA_DEFAULT.test(p.nombre)) ?? proteinas[0] ?? null
+    proteinas.find((p) => p.por_defecto) ??
+    proteinas.find((p) => PROTEINA_DEFAULT.test(p.nombre)) ??
+    proteinas[0] ?? null
   const proteinaElegida = proteinas.find((p) => p.extra_id === proteina) ?? proteinaDefault
   /**
    * El doble scoop de ESTA proteína.
@@ -243,7 +171,7 @@ export function ModalExtras({ producto, extras, observaciones: catalogoObs, onCe
   const elegidosDeGrupo = gruposConfigurados
     .map((g) => {
       const opciones = extras.filter((e) => e.grupo === g)
-      return opciones.find((e) => e.extra_id === porGrupo[g]) ?? opciones[0] ?? null
+      return opciones.find((e) => e.extra_id === porGrupo[g]) ?? opcionDeCasa(opciones)
     })
     .filter((e): e is ExtraDeProducto => e !== null)
   const totalExtras =
@@ -272,22 +200,16 @@ export function ModalExtras({ producto, extras, observaciones: catalogoObs, onCe
 
   function confirmar() {
     // La base gratis viaja pegada al shake como nota (verla suelta en la
-    // comanda confundía de cuál vaso era). Dos excepciones con motivo:
-    //   · "Sin leche" no deja nota — es el estado natural del americano y
-    //     escribirlo en cada etiqueta sería ruido.
-    //   · Una base CON precio (agua mineral +$10) va como línea hija
-    //     cobrada: la nota no cobra, y regalar los $10 en silencio es el
-    //     tipo de fuga que nadie detecta hasta el corte.
-    const baseCobrada = lecheElegida && lecheElegida.precio > 0 ? lecheElegida : null
-    const notaBase =
-      lecheElegida && !baseCobrada && !SIN_LECHE.test(lecheElegida.nombre)
-        ? lecheElegida.nombre
-        : null
+    // comanda confundía de cuál vaso era); una base con precio va como línea
+    // hija cobrada. Las reglas viven en @shake/utils porque el POS usa las
+    // mismas: si divergieran, la misma venta saldría distinta según por
+    // dónde se cobró.
+    const cobrada = baseCobrada(lecheElegida)
     // Base y observaciones viajan juntas, separadas por coma: la etiqueta ya
     // parte por coma y abrevia cada fragmento por su cuenta.
-    const nota = [notaBase, ...observaciones].filter(Boolean).join(', ') || null
+    const nota = [notaDeBase(lecheElegida), ...observaciones].filter(Boolean).join(', ') || null
     const elegidos = [
-      ...(baseCobrada ? [baseCobrada] : []),
+      ...(cobrada ? [cobrada] : []),
       ...(proteinaElegida ? [proteinaElegida] : []),
       ...(dobleScoop && doble ? [doble] : []),
       ...(galletaElegida ? [galletaElegida] : []),
@@ -467,7 +389,7 @@ export function ModalExtras({ producto, extras, observaciones: catalogoObs, onCe
           {gruposConfigurados.map((g) => {
             const opciones = extras.filter((e) => e.grupo === g)
             if (opciones.length === 0) return null
-            const elegido = porGrupo[g] ?? opciones[0].extra_id
+            const elegido = porGrupo[g] ?? opcionDeCasa(opciones)?.extra_id
             return (
               <section key={g}>
                 <h3 className="font-display text-xl text-sa-green-ink">{g}</h3>
