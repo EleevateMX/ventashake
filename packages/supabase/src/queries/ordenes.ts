@@ -152,6 +152,46 @@ export async function cobrarOrdenDividido(
   })
 }
 
+/**
+ * Arranca un cobro mixto contra la terminal: una parte en efectivo y el
+ * resto con tarjeta.
+ *
+ * **La tarjeta va primero, y esa es toda la idea.** Esto NO cobra el
+ * efectivo: lo deja apuntado como pago pendiente, que no cuenta en el
+ * corte ni marca la orden pagada. Después se manda el resto a la terminal;
+ * cuando Clip autoriza, el efectivo se aprueba en la misma transacción.
+ *
+ * Si el efectivo se cobrara antes y la tarjeta fallara, quedaría dinero en
+ * el cajón y una venta a medias. Así, mientras la terminal no autorice no
+ * hay nada comprometido: cancelar es gratis.
+ *
+ * Devuelve el monto que le toca a la tarjeta (el servidor lo recalcula
+ * igual al mandar el cobro; esto es para poder mostrarlo).
+ */
+export async function iniciarCobroMixto(
+  sb: ShakeClient,
+  ordenId: string,
+  efectivo: number,
+  tarjeta: number,
+): Promise<number> {
+  return rpc<number>(sb, 'fn_cobrar_mixto_iniciar', {
+    p_orden_id: ordenId,
+    p_efectivo: efectivo,
+    p_tarjeta: tarjeta,
+  })
+}
+
+/**
+ * Borra el efectivo apuntado. Se llama en CUALQUIER salida que no sea
+ * "la terminal autorizó": rechazo, cancelación, tiempo agotado o error.
+ *
+ * Rebota si ya hay un cobro aprobado — a esas alturas ya no es cancelar,
+ * es devolver, y eso no se hace desde aquí.
+ */
+export async function cancelarCobroMixto(sb: ShakeClient, ordenId: string): Promise<void> {
+  await rpc(sb, 'fn_cobrar_mixto_cancelar', { p_orden_id: ordenId })
+}
+
 export async function cancelarOrden(sb: ShakeClient, ordenId: string): Promise<void> {
   const { error } = await sb.from('ordenes').update({ estado: 'cancelada' }).eq('id', ordenId)
   if (error) throw error

@@ -83,6 +83,32 @@ Deno.serve(async (req: Request) => {
     })
   }
 
+  // Cobro mixto: si la caja ya apunto una parte en efectivo, a la terminal
+  // solo le toca el RESTO. Ese resto se calcula AQUI, del lado del
+  // servidor, por la misma razon por la que el total tampoco se confia del
+  // body: quien pide el cobro no decide cuanto se cobra.
+  //
+  // Si no hay nada apuntado —el 100% de los cobros normales— la suma es 0
+  // y esto vale exactamente `orden.total`, como siempre.
+  const { data: apuntado } = await sb
+    .from('pagos')
+    .select('monto')
+    .eq('orden_id', orden.id)
+    .eq('estado', 'pendiente')
+    .eq('proveedor', 'mixto_efectivo')
+  const enEfectivo = (apuntado ?? []).reduce((s, p) => s + Number(p.monto), 0)
+  const montoTerminal = Number((Number(orden.total) - enEfectivo).toFixed(2))
+
+  if (montoTerminal < 0.01) {
+    return json(409, {
+      ok: false,
+      error: {
+        codigo: 'monto_invalido',
+        mensaje: 'La parte en efectivo ya cubre el total: no hay nada que cobrar en la terminal.',
+      },
+    })
+  }
+
   // Terminal destino: configurada por sucursal (Admin) o, como respaldo,
   // en el secret CLIP_SERIAL_POS. Es el serial_number_pos de la API.
   const { data: config } = await sb
@@ -134,7 +160,7 @@ Deno.serve(async (req: Request) => {
     .insert({
       orden_id: orden.id,
       metodo: 'clip',
-      monto: orden.total,
+      monto: montoTerminal,
       estado: 'pendiente',
       estado_transaccion: 'created',
       proveedor: 'clip',
@@ -172,7 +198,7 @@ Deno.serve(async (req: Request) => {
   const referencia = nombre ? `Folio-${orden.folio}-${nombre}` : `Folio-${orden.folio}`
 
   const payloadClip = {
-    amount: Number(orden.total).toFixed(2),
+    amount: montoTerminal.toFixed(2),
     // Clip corta la referencia si es muy larga; un nombre kilométrico no debe
     // empujar al folio fuera de la pantalla, así que el folio va primero.
     reference: referencia.slice(0, 60),
