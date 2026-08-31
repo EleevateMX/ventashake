@@ -117,6 +117,22 @@ export async function probarImpresora(sb: ShakeClient, impresoraId: string): Pro
   await rpc(sb, 'fn_imprimir_prueba_staff', { p_impresora_id: impresoraId })
 }
 
+/**
+ * Manda la MISMA etiqueta con tres cabeceras de papel distintas, rotuladas
+ * A, B y C.
+ *
+ * Es para cuando se van etiquetas en blanco en **cada** comanda (no solo al
+ * calibrar). La sospecha es la cabecera que declara el papel, que viaja
+ * delante de cada etiqueta: varias etiquetadoras TSPL reacomodan el rollo al
+ * recibirla. Quitarla a ciegas con la tienda vendiendo sería apostar; esto
+ * deja que el papel conteste cuál sale sola y derecha.
+ *
+ * Gasta unas seis etiquetas, una vez. Pide agente 1.3.0.
+ */
+export async function diagnosticarImpresora(sb: ShakeClient, impresoraId: string): Promise<void> {
+  await rpc(sb, 'fn_imprimir_diagnostico_staff', { p_impresora_id: impresoraId })
+}
+
 /** Estaciones disponibles para asignar impresora (mismo catálogo que Cocina/Barra). */
 export async function listarCocinasParaImpresoras(sb: ShakeClient): Promise<Cocina[]> {
   const { data, error } = await sb.from('cocinas').select('*').order('nombre')

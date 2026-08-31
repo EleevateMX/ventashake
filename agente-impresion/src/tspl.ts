@@ -305,8 +305,12 @@ class Lienzo {
  *
  * Los espaciados no son decorativos: reproducen exactamente el diseño que
  * ya se validó contra la impresora física (ver CONFIGURACION-POS.md §6).
+ *
+ * `cabecera` existe solo para el diagnóstico del rollo: deja mandar la
+ * misma etiqueta con distintas cabeceras de papel y ver cuál sale limpia.
+ * En una comanda normal no se pasa.
  */
-export function generarTSPL(e: EtiquetaComanda): string {
+export function generarTSPL(e: EtiquetaComanda, cabecera: string[] = CABECERA_PAPEL): string {
   const l = new Lienzo()
   const anchoF1 = caracteresPorLinea('1')
   const anchoF2 = caracteresPorLinea('2')
@@ -362,7 +366,7 @@ export function generarTSPL(e: EtiquetaComanda): string {
   }
 
   return [
-    ...CABECERA_PAPEL,
+    ...cabecera,
     'CLS',
     ...l.resultado(),
     'PRINT 1,1',
@@ -383,6 +387,46 @@ export const CABECERA_PAPEL = [
   'DENSITY 8',
   'SPEED 4',
 ]
+
+/**
+ * Las tres formas de mandar la misma etiqueta, para averiguar por qué se
+ * van etiquetas en blanco en CADA comanda.
+ *
+ * La sospecha: la cabecera que declara el papel (`SIZE`, `GAP`) viaja
+ * delante de cada etiqueta desde la primera versión, y en varias
+ * etiquetadoras TSPL redeclarar el papel hace que la impresora reacomode el
+ * rollo — o sea, que avance una etiqueta— antes de imprimir. Tres órdenes
+ * que reacomodan, tres etiquetas perdidas por comanda.
+ *
+ * No se puede quitar a ciegas: si resulta que la cabecera es lo que hace
+ * que salga derecha, quitarla deja a la tienda imprimiendo basura en plena
+ * venta. Así que se mandan las tres seguidas, rotuladas, y el papel
+ * contesta: la que salga sola y derecha es la buena.
+ */
+export const VARIANTES_CABECERA: { id: string; que: string; lineas: string[] }[] = [
+  // Como hoy. Es la referencia: si esta gasta 3 en blanco, el problema es
+  // la cabecera; si esta sale limpia, el problema es otro.
+  { id: 'A', que: 'COMO HOY', lineas: CABECERA_PAPEL },
+  // Sin declarar papel: la impresora usa lo que le quedó de la calibración.
+  { id: 'B', que: 'SIN CABECERA', lineas: [] },
+  // Con el tamaño pero sin GAP, que es la orden que más se sospecha.
+  { id: 'C', que: 'SIN GAP', lineas: CABECERA_PAPEL.filter((l) => !l.startsWith('GAP')) },
+]
+
+/** La etiqueta rotulada de cada variante del diagnóstico. */
+export function etiquetaDeVariante(id: string, que: string, impresora: string): EtiquetaComanda {
+  return {
+    destino: 'PRUEBA',
+    ticket: id,
+    item: 1,
+    deTotal: 1,
+    nombre: id,
+    producto: que,
+    notas: impresora,
+    fecha: 'DIAGNOSTICO',
+    frase: 'Cual salio sola y derecha',
+  }
+}
 
 /**
  * Calibración del sensor de separación, para después de cambiar el rollo.

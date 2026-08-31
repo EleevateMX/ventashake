@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { sb } from '../lib/sb'
 import {
-  listarImpresoras, calibrarImpresora, probarImpresora, type ImpresoraAdmin,
+  listarImpresoras, calibrarImpresora, probarImpresora, diagnosticarImpresora,
+  type ImpresoraAdmin,
 } from '@shake/supabase'
 import { mensajeDeError } from '@shake/utils'
 
@@ -25,7 +26,7 @@ const ESTILO_BOTON =
 
 type Estado = {
   id: string
-  fase: 'enviando' | 'listo' | 'probando' | 'probada' | 'error'
+  fase: 'enviando' | 'listo' | 'probando' | 'probada' | 'diagnosticando' | 'diagnosticada' | 'error'
   mensaje?: string
 }
 
@@ -58,6 +59,23 @@ export function Impresoras() {
     try {
       await probarImpresora(sb, i.id)
       setEstado({ id: i.id, fase: 'probada' })
+      void cargar()
+    } catch (e) {
+      setEstado({ id: i.id, fase: 'error', mensaje: mensajeDeError(e) })
+    }
+  }
+
+  /**
+   * La misma etiqueta con tres cabeceras distintas, rotuladas A, B y C.
+   *
+   * Para cuando se van blancas en CADA comanda. Quitar la cabecera a ciegas
+   * con la tienda vendiendo sería apostar; esto deja que el papel conteste.
+   */
+  async function diagnosticar(i: ImpresoraAdmin) {
+    setEstado({ id: i.id, fase: 'diagnosticando' })
+    try {
+      await diagnosticarImpresora(sb, i.id)
+      setEstado({ id: i.id, fase: 'diagnosticada' })
       void cargar()
     } catch (e) {
       setEstado({ id: i.id, fase: 'error', mensaje: mensajeDeError(e) })
@@ -172,6 +190,25 @@ export function Impresoras() {
                 {e?.fase === 'enviando' ? 'Mandando…' : 'Calibrar · gasta 3'}
               </button>
 
+              {/* Solo cuando el problema es en CADA comanda. Va al final y
+                  discreto: gasta seis etiquetas y casi nadie lo necesita. */}
+              <button
+                onClick={() => void diagnosticar(i)}
+                disabled={!!e && e.fase !== 'error'}
+                className="w-full mt-3 font-mono text-[11px] uppercase tracking-wider text-sa-green-ink/50 hover:text-sa-green-ink underline underline-offset-4 disabled:opacity-40"
+              >
+                {e?.fase === 'diagnosticando'
+                  ? 'Mandando…'
+                  : '¿Se van blancas en cada comanda? · Diagnóstico (gasta 6)'}
+              </button>
+
+              {e?.fase === 'diagnosticada' && (
+                <p className="font-mono text-sm text-sa-green mt-4 leading-relaxed">
+                  Mandado. Van a salir <strong>tres etiquetas rotuladas A, B y C</strong>,
+                  con blancas entre ellas o no. <strong>Guarda la tira</strong> y dime
+                  cuál de las tres salió sola y derecha: esa es la buena y la dejo fija.
+                </p>
+              )}
               {e?.fase === 'probada' && (
                 <p className="font-mono text-sm text-sa-green mt-4 leading-relaxed">
                   Mandada. Debe salir <strong>UNA sola etiqueta</strong> que dice

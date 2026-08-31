@@ -125,13 +125,21 @@ pantallas muestran comandas pero **no sale papel**.
   kiosko es lo normal: el POS no queda abierto en esa máquina. Gasta dos o tres etiquetas y saca una de prueba
   al final — si esa sale derecha, quedó. Pide agente **1.2.0**; con uno
   viejo el botón lo dice en vez de fallar en silencio.
-- **"Se gastan 3 y sale 1" casi siempre es la calibración funcionando**, no
-  una avería: `GAPDETECT` avanza dos o tres leyendo el sensor y `FORMFEED`
-  deja el papel en su sitio. Pero es TAMBIÉN el síntoma de un sensor mal
-  medido, que escupe blancos en *cada* comanda. Para distinguirlos sin
-  estar en la tienda está **"Probar · gasta 1"** (junto a Calibrar, en el
-  kiosko y en el POS): manda una etiqueta sola. Si sale una y derecha, lo
-  normal está bien.
+- **"Se gastan 3 y sale 1" tiene dos lecturas y hay que separarlas antes de
+  tocar nada.** Al **calibrar** es lo correcto: `GAPDETECT` avanza dos o
+  tres leyendo el sensor y `FORMFEED` deja el papel en su sitio. En **cada
+  comanda** es una avería. Para distinguirlo sin estar en la tienda está
+  **"Probar · gasta 1"** (junto a Calibrar, en el kiosko y en el POS): si
+  sale una sola y derecha, lo normal está bien.
+- **Abierto (31/08): se van 3 blancas en cada comanda**, y la buena sale
+  ligeramente descuadrada. Sospecha principal: `CABECERA_PAPEL` (`SIZE`,
+  `GAP`…) viaja delante de **cada** etiqueta desde la primera versión
+  (`045348d`), y varias etiquetadoras TSPL reacomodan el rollo al que se
+  les redeclara el papel. **No se quita a ciegas**: si esa cabecera es lo
+  que hace que salga derecha, quitarla deja a barra imprimiendo basura en
+  plena venta. El botón **"Diagnóstico (gasta 6)"** manda la misma etiqueta
+  con tres cabeceras rotuladas A/B/C (agente **1.3.0**) y el papel
+  contesta cuál sirve.
 
 ### 2.5 La identidad es una sola, y vive en `packages/brand`
 

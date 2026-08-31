@@ -1,7 +1,9 @@
 import type { printer as ThermalPrinter } from 'node-thermal-printer'
 import { crearImpresora, escribirComanda } from './comanda.js'
 import { etiquetasDeTrabajo } from './etiquetas.js'
-import { generarTSPL, tsplCalibracion } from './tspl.js'
+import {
+  generarTSPL, tsplCalibracion, VARIANTES_CABECERA, etiquetaDeVariante,
+} from './tspl.js'
 import { enviarTSPL, estaViva, parsearDestino } from './tsplSocket.js'
 import type { PrinterConfig, TrabajoImpresion } from './types.js'
 import { log } from './log.js'
@@ -41,6 +43,21 @@ async function imprimirEtiquetas(cfg: PrinterConfig, trabajo: TrabajoImpresion):
   // que quien cambio el rollo vea con sus ojos si quedo derecha. Sin esa
   // etiqueta, calibrar es apretar un boton y esperar a que la proxima venta
   // diga si sirvio.
+  // Diagnostico del rollo: la MISMA etiqueta mandada de tres formas, para
+  // averiguar por que se van blancas en cada comanda. Va antes que todo lo
+  // demas porque no imprime una comanda: imprime evidencia.
+  if (trabajo.payload.diagnostico) {
+    for (const v of VARIANTES_CABECERA) {
+      const etiqueta = etiquetaDeVariante(v.id, v.que, trabajo.payload.impresora ?? cfg.id)
+      await enviarTSPL(generarTSPL(etiqueta, v.lineas), destino)
+    }
+    log.info(
+      `Diagnostico del rollo en ${cfg.id}: ${VARIANTES_CABECERA.length} variantes (trabajo ${trabajo.id})`,
+      cfg.id,
+    )
+    return
+  }
+
   if (trabajo.payload.calibrar) {
     await enviarTSPL(tsplCalibracion(), destino)
     const [muestra] = etiquetasDeTrabajo(
@@ -80,9 +97,9 @@ async function imprimirRecibo(cfg: PrinterConfig, trabajo: TrabajoImpresion): Pr
   // Calibrar el sensor de separacion solo tiene sentido en una etiquetadora:
   // una impresora de recibos usa rollo continuo, no tiene huecos que medir.
   // Se falla con el motivo dicho, en vez de imprimir un recibo sorpresa.
-  if (trabajo.payload.calibrar) {
+  if (trabajo.payload.calibrar || trabajo.payload.diagnostico) {
     throw new Error(
-      `"${cfg.id}" es una impresora de recibos (rollo continuo): no hay separacion que calibrar.`,
+      `"${cfg.id}" es una impresora de recibos (rollo continuo): no hay separacion que medir.`,
     )
   }
 

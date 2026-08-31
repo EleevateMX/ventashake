@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import {
-  listarImpresoras, calibrarImpresora, probarImpresora, type ImpresoraAdmin,
+  listarImpresoras, calibrarImpresora, probarImpresora, diagnosticarImpresora,
+  type ImpresoraAdmin,
 } from '@shake/supabase'
 import { mensajeDeError } from '@shake/utils'
 import { sb } from '@/lib/sb'
@@ -23,6 +24,7 @@ export function CalibrarRollo() {
   const [ocupada, setOcupada] = useState<string | null>(null)
   const [hecho, setHecho] = useState<string | null>(null)
   const [probada, setProbada] = useState<string | null>(null)
+  const [diag, setDiag] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -32,9 +34,23 @@ export function CalibrarRollo() {
       .catch((e) => setError(mensajeDeError(e)))
   }, [abierto, impresoras])
 
+  /** La misma etiqueta con tres cabeceras, rotuladas A, B y C. */
+  async function diagnosticar(i: ImpresoraAdmin) {
+    setOcupada(i.id)
+    setHecho(null); setProbada(null); setDiag(null); setError(null)
+    try {
+      await diagnosticarImpresora(sb, i.id)
+      setDiag(i.nombre)
+    } catch (e) {
+      setError(mensajeDeError(e))
+    } finally {
+      setOcupada(null)
+    }
+  }
+
   async function calibrar(i: ImpresoraAdmin) {
     setOcupada(i.id)
-    setHecho(null); setProbada(null); setError(null)
+    setHecho(null); setProbada(null); setDiag(null); setError(null)
     try {
       await calibrarImpresora(sb, i.id)
       setHecho(i.nombre)
@@ -54,7 +70,7 @@ export function CalibrarRollo() {
    */
   async function probar(i: ImpresoraAdmin) {
     setOcupada(i.id)
-    setHecho(null); setProbada(null); setError(null)
+    setHecho(null); setProbada(null); setDiag(null); setError(null)
     try {
       await probarImpresora(sb, i.id)
       setProbada(i.nombre)
@@ -110,6 +126,12 @@ export function CalibrarRollo() {
           Si salen blancas antes, o sale corrida, ahí sí calibra.
         </p>
       )}
+      {diag && (
+        <p className="font-mono text-xs text-sa-green bg-sa-mint/25 rounded-sa px-3 py-2 mt-3 leading-relaxed">
+          Mandado a {diag}. Salen tres etiquetas rotuladas A, B y C.
+          GUARDA LA TIRA y avisa cuál salió sola y derecha.
+        </p>
+      )}
 
       <div className="flex flex-col gap-2 mt-3">
         {impresoras?.map((i) => (
@@ -142,6 +164,15 @@ export function CalibrarRollo() {
                 {ocupada === i.id ? 'Mandando…' : 'Calibrar · gasta 3'}
               </button>
             </div>
+            {/* Solo si se van blancas en CADA comanda. Discreto: gasta seis
+                etiquetas y casi nunca hace falta. */}
+            <button
+              onClick={() => void diagnosticar(i)}
+              disabled={ocupada === i.id}
+              className="w-full mt-2 font-mono text-[9px] uppercase tracking-wider text-sa-green-ink/45 underline underline-offset-4 disabled:opacity-40"
+            >
+              ¿Blancas en cada comanda? · Diagnóstico (gasta 6)
+            </button>
           </div>
         ))}
         {impresoras?.length === 0 && (
