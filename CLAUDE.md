@@ -346,6 +346,23 @@ empaquetador y se desvían solas:
 - La consulta que las lista: funciones `prosecdef` con `anon=X` en
   `proacl` cuyo cuerpo no menciona `fn_es_jefe|fn_es_soporte|fn_rol_staff|
   auth.uid|agente_token`.
+- **Una politica `using (true)` mas un `grant` a `anon` es una puerta
+  abierta, aunque el dinero se calcule en el servidor.** `fn_crear_orden`
+  LEE `productos.precio`: si el precio se puede tocar desde fuera,
+  calcularlo en el servidor no protege nada. El 31/08 se cerraron
+  `productos`, `categorias`, `insumos`, `recetas`, `combo_items`,
+  `promociones`, `parametros`, `inventario_stock`, `lotes`,
+  `transferencias` y `caja_cortes`: escribir exige `fn_es_staff()`, y
+  `anon` ya no tiene el permiso de tabla. La condicion es `fn_es_staff()`
+  y **no `authenticated`**, porque todo cliente de Rewards lo es.
+- **Costeos no usa Supabase Auth**, tiene su propio login (`app_users`).
+  Validaba bien la contrasena pero **no dejaba sesion**: seguia hablando
+  como `anon`, asi que se rodeaba llamando a `app_data` directo — y ahi
+  estan los costos, margenes y proveedores. Ahora `fn_costos_login`
+  devuelve un token con caducidad y el documento va por `fn_costos_leer` /
+  `fn_costos_guardar`. El aviso de "otro guardo" viaja por
+  `app_data_senales` (solo quien y cuando): Realtime respeta RLS, y mandar
+  el documento entero por ese canal era la misma fuga por otra puerta.
 - **Quien pide no es quien prioriza.** El rol **`desarrollo`** está por
   encima de gerencia: es el único que abre Admin → **Soporte**, prioriza,
   mete algo a la sesión, cierra un reporte y ve las notas internas
