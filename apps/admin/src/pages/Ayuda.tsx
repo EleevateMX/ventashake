@@ -3,7 +3,9 @@ import { sb } from '../lib/sb'
 import {
   obtenerSaludSistema, listarImpresoras, calibrarImpresora,
   reconciliarPagos, expirarOrdenesKiosko,
+  autopruebaPos, revisarSistema, reintentarImpresiones,
   type SaludSistema, type ImpresoraAdmin,
+  type PasoAutoprueba, type RevisionSistema,
 } from '@shake/supabase'
 import { mensajeDeError } from '@shake/utils'
 import { PageHeader, Loading, ErrorMsg, Panel, cx } from '../ui'
@@ -49,7 +51,7 @@ interface Ficha {
   senal?: (c: Contexto) => { tono: Tono; texto: string }
   porque: string
   pasos: ReactNode[]
-  acciones?: 'calibrar' | 'pantallas' | 'reconciliar' | 'expirar'
+  acciones?: 'calibrar' | 'pantallas' | 'reconciliar' | 'expirar' | 'reintentar'
   /** Cuándo dejar de intentar y marcarle a gerencia. */
   llamar?: string
 }
@@ -196,7 +198,9 @@ const FICHAS: Ficha[] = [
     pasos: [
       <>Se reimprime desde <strong>Impresoras</strong> aquí en Admin, o desde la pantalla de la estación.</>,
       <>Si son varias seguidas, primero revisa arriba si el agente se está reportando: puede ser lo mismo que “no sale papel”.</>,
+      <>Para revivir de un jalón todas las que fallaron hoy, usa el botón de abajo.</>,
     ],
+    acciones: 'reintentar',
   },
   {
     id: 'producto-doble',
@@ -384,6 +388,9 @@ export default function Ayuda() {
   const [ctx, setCtx] = useState<Contexto | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busca, setBusca] = useState('')
+  const [prueba, setPrueba] = useState<PasoAutoprueba[] | null>(null)
+  const [revision, setRevision] = useState<RevisionSistema[] | null>(null)
+  const [corriendo, setCorriendo] = useState<'prueba' | 'revision' | null>(null)
   const [grupo, setGrupo] = useState<Grupo | null>(null)
   const [abierta, setAbierta] = useState<string | null>(null)
   const [ocupado, setOcupado] = useState<string | null>(null)
@@ -440,6 +447,91 @@ export default function Ayuda() {
       {hecho && (
         <p className="font-mono text-sm text-sa-green bg-sa-mint/25 rounded-sa px-4 py-3 mb-4">{hecho}</p>
       )}
+
+      {/* Lo primero: comprobarlo en vez de suponerlo. Las dos pruebas son
+          seguras -la venta se deshace sola, la revision solo mira- asi que
+          cualquiera del personal puede darles sin miedo. */}
+      <Panel title="¿Está funcionando el sistema?">
+        <p className="text-sm text-sa-green-ink/70 leading-relaxed">
+          Dos botones para dejar de suponer. Los dos son seguros: se pueden
+          apretar con la tienda abierta y no cambian nada.
+        </p>
+
+        <div className="flex flex-wrap gap-3 mt-4">
+          <button
+            disabled={corriendo !== null}
+            onClick={() => void (async () => {
+              setCorriendo('prueba'); setPrueba(null); setError(null)
+              try { setPrueba(await autopruebaPos(sb)) }
+              catch (e) { setError(mensajeDeError(e)) }
+              finally { setCorriendo(null) }
+            })()}
+            className={cx.btnPrimary}
+          >
+            {corriendo === 'prueba' ? 'Vendiendo de mentira…' : 'Probar una venta completa'}
+          </button>
+          <button
+            disabled={corriendo !== null}
+            onClick={() => void (async () => {
+              setCorriendo('revision'); setRevision(null); setError(null)
+              try { setRevision(await revisarSistema(sb)) }
+              catch (e) { setError(mensajeDeError(e)) }
+              finally { setCorriendo(null) }
+            })()}
+            className="border border-sa-green-ink/20 text-sa-green-ink px-5 py-2.5 rounded-full text-sm hover:border-sa-green transition-colors"
+          >
+            {corriendo === 'revision' ? 'Revisando…' : 'Revisar la configuración'}
+          </button>
+        </div>
+
+        <p className="text-xs text-sa-green-ink/55 mt-3 leading-relaxed">
+          <strong>Probar una venta</strong> crea un pedido, lo cobra y comprueba que
+          salgan la comanda, la etiqueta y el descuento de inventario — y después
+          <strong> lo deshace todo</strong>: no queda ninguna venta falsa en el corte.
+          Eso sí, como se deshace, <strong>no sale papel</strong>: la impresora se
+          prueba con el botón de calibrar.
+        </p>
+
+        {prueba && (
+          <div className="mt-5 space-y-1.5">
+            <p className="font-mono text-[10px] uppercase tracking-widest text-sa-green-ink/45">
+              Venta de prueba
+            </p>
+            {prueba.map((p, i) => (
+              <div key={i} className="flex items-start gap-3 text-sm">
+                <span className={p.ok ? 'text-sa-green' : 'text-sa-strawberry'}>{p.ok ? '✓' : '✕'}</span>
+                <span className="text-sa-green-ink flex-1">{p.paso}</span>
+                <span className="font-mono text-xs text-sa-green-ink/50 text-right">{p.detalle}</span>
+              </div>
+            ))}
+            <p className={`text-sm mt-3 font-medium ${prueba.every((p) => p.ok) ? 'text-sa-green' : 'text-sa-strawberry'}`}>
+              {prueba.every((p) => p.ok)
+                ? 'El POS cobra y manda comandas correctamente.'
+                : 'Algo falló. Manda esta pantalla a gerencia.'}
+            </p>
+          </div>
+        )}
+
+        {revision && (
+          <div className="mt-5 space-y-2">
+            <p className="font-mono text-[10px] uppercase tracking-widest text-sa-green-ink/45">
+              Configuración
+            </p>
+            {revision.map((v, i) => (
+              <div key={i} className="flex items-start gap-3 text-sm">
+                <span className={v.ok ? 'text-sa-green' : 'text-sa-strawberry'}>{v.ok ? '✓' : '✕'}</span>
+                <span className="flex-1">
+                  <span className="text-sa-green-ink">{v.area}</span>
+                  <span className="text-sa-green-ink/50"> — {v.detalle}</span>
+                  {!v.ok && (
+                    <span className="block text-sa-coffee text-xs mt-0.5">{v.que_hacer}</span>
+                  )}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </Panel>
 
       {/* Lo que resuelve casi todo, antes de que nadie tenga que buscar. */}
       <Panel title="Primeros auxilios — casi siempre es una de estas tres">
@@ -559,6 +651,21 @@ export default function Ayuda() {
                       className={`${cx.btnPrimary} mt-5`}
                     >
                       {ocupado === f.id ? 'Revisando…' : 'Reconciliar pagos'}
+                    </button>
+                  )}
+
+                  {f.acciones === 'reintentar' && (
+                    <button
+                      disabled={ocupado === f.id}
+                      onClick={() => void accion(f.id, async () => {
+                        const n = await reintentarImpresiones(sb)
+                        return n === 0
+                          ? 'No había ninguna comanda fallida en las últimas 24 h.'
+                          : `${n} comanda(s) devueltas a la cola. Si el agente está corriendo, salen en segundos.`
+                      })}
+                      className={`${cx.btnPrimary} mt-5`}
+                    >
+                      {ocupado === f.id ? 'Reencolando…' : 'Reintentar las comandas fallidas'}
                     </button>
                   )}
 

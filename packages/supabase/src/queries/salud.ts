@@ -36,6 +36,50 @@ export async function obtenerSaludSistema(sb: ShakeClient): Promise<SaludSistema
   }
 }
 
+// ------------------ autoprueba y revisión (Ayuda) --------------------
+
+export interface PasoAutoprueba {
+  paso: string
+  ok: boolean
+  detalle: string
+}
+
+/**
+ * Corre una venta COMPLETA de mentira y comprueba que todo lo que debe
+ * dispararse se disparó: comanda, etiqueta en cola, inventario, corte.
+ *
+ * Cobra de verdad —un `select` no prueba nada del camino del dinero— y
+ * después lo deshace todo dentro de la misma transacción, así que no queda
+ * ninguna orden ni venta falsa. Lo que NO prueba es la impresora física:
+ * como nunca se confirma la transacción, el agente no ve esa comanda.
+ */
+export async function autopruebaPos(sb: ShakeClient): Promise<PasoAutoprueba[]> {
+  const { data, error } = await sb.rpc('fn_autoprueba_pos')
+  if (error) throw error
+  return (data ?? []) as PasoAutoprueba[]
+}
+
+export interface RevisionSistema {
+  area: string
+  ok: boolean
+  detalle: string
+  que_hacer: string
+}
+
+/** Revisión de configuración: lo que no rompe una venta hoy pero muerde mañana. */
+export async function revisarSistema(sb: ShakeClient): Promise<RevisionSistema[]> {
+  const { data, error } = await sb.rpc('fn_revision_sistema')
+  if (error) throw error
+  return (data ?? []) as RevisionSistema[]
+}
+
+/** Vuelve a encolar las comandas que agotaron reintentos (solo las de 24 h). */
+export async function reintentarImpresiones(sb: ShakeClient): Promise<number> {
+  const { data, error } = await sb.rpc('fn_reintentar_impresiones')
+  if (error) throw error
+  return (data as number) ?? 0
+}
+
 // --------------------------- diagnóstico -----------------------------
 
 export interface HallazgoDiagnostico {

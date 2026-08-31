@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.17"
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
@@ -3153,6 +3153,14 @@ export type Database = {
           ultima_impresion: string
         }[]
       }
+      fn_autoprueba_pos: {
+        Args: never
+        Returns: {
+          detalle: string
+          ok: boolean
+          paso: string
+        }[]
+      }
       fn_canjear_cupon: {
         Args: { p_cupon_id: string; p_orden_id?: string }
         Returns: {
@@ -3771,6 +3779,39 @@ export type Database = {
         }
       }
       fn_historial_pedidos: { Args: { p_limite?: number }; Returns: Json }
+      fn_imprimir_calibrar: {
+        Args: { p_impresora_id: string }
+        Returns: {
+          claim_expires_at: string | null
+          claimed_by: string | null
+          copia_de: string | null
+          created_at: string
+          error_ultimo: string | null
+          estacion_id: string | null
+          estado: Database["public"]["Enums"]["estado_trabajo_impresion"]
+          failed_at: string | null
+          id: string
+          idempotency_key: string | null
+          intentos: number
+          max_intentos: number
+          next_retry_at: string | null
+          numero_copia: number
+          orden_id: string | null
+          payload: Json
+          pedido_id: string | null
+          printed_at: string | null
+          printer_id: string | null
+          processing_at: string | null
+          queued_at: string
+          tipo_documento: Database["public"]["Enums"]["tipo_documento_impresion"]
+        }
+        SetofOptions: {
+          from: "*"
+          to: "trabajos_impresion"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       fn_imprimir_confirmar: {
         Args: { p_token: string; p_trabajo_id: string }
         Returns: undefined
@@ -3964,6 +4005,17 @@ export type Database = {
           veces: number
         }[]
       }
+      fn_nombres_registro: {
+        Args: { p_dias?: number; p_limite?: number }
+        Returns: {
+          nombre: string
+          primera_vez: string
+          ticket: number
+          total: number
+          ultima_vez: string
+          veces: number
+        }[]
+      }
       fn_observacion_activar: {
         Args: { p_activa: boolean; p_id: string }
         Returns: undefined
@@ -4096,6 +4148,7 @@ export type Database = {
           orden_id: string
         }[]
       }
+      fn_reintentar_impresiones: { Args: never; Returns: number }
       fn_respaldar_costosshake: {
         Args: { p_nota?: string; p_origen?: string }
         Returns: number
@@ -4103,6 +4156,15 @@ export type Database = {
       fn_restaurar_costosshake: {
         Args: { p_respaldo_id: number }
         Returns: undefined
+      }
+      fn_revision_sistema: {
+        Args: never
+        Returns: {
+          area: string
+          detalle: string
+          ok: boolean
+          que_hacer: string
+        }[]
       }
       fn_rewards_admin: { Args: never; Returns: Json }
       fn_rewards_para_caja: { Args: { p_cliente_id: string }; Returns: Json }
