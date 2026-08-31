@@ -4,8 +4,9 @@ import {
   obtenerSaludSistema, listarImpresoras, calibrarImpresora,
   reconciliarPagos, expirarOrdenesKiosko,
   autopruebaPos, revisarSistema, reintentarImpresiones,
+  reportarSoporte, reportesSoporte,
   type SaludSistema, type ImpresoraAdmin,
-  type PasoAutoprueba, type RevisionSistema,
+  type PasoAutoprueba, type RevisionSistema, type ReporteSoporte,
 } from '@shake/supabase'
 import { mensajeDeError } from '@shake/utils'
 import { PageHeader, Loading, ErrorMsg, Panel, cx } from '../ui'
@@ -391,6 +392,9 @@ export default function Ayuda() {
   const [prueba, setPrueba] = useState<PasoAutoprueba[] | null>(null)
   const [revision, setRevision] = useState<RevisionSistema[] | null>(null)
   const [corriendo, setCorriendo] = useState<'prueba' | 'revision' | null>(null)
+  const [reportes, setReportes] = useState<ReporteSoporte[]>([])
+  const [texto, setTexto] = useState('')
+  const [enviando, setEnviando] = useState(false)
   const [grupo, setGrupo] = useState<Grupo | null>(null)
   const [abierta, setAbierta] = useState<string | null>(null)
   const [ocupado, setOcupado] = useState<string | null>(null)
@@ -398,8 +402,11 @@ export default function Ayuda() {
 
   async function cargar() {
     try {
-      const [salud, impresoras] = await Promise.all([obtenerSaludSistema(sb), listarImpresoras(sb)])
+      const [salud, impresoras, reps] = await Promise.all([
+        obtenerSaludSistema(sb), listarImpresoras(sb), reportesSoporte(sb, 8),
+      ])
       setCtx({ salud, impresoras: impresoras.filter((i) => i.activa) })
+      setReportes(reps)
       setError(null)
     } catch (e) {
       setError(mensajeDeError(e))
@@ -611,6 +618,16 @@ export default function Ayuda() {
                     {f.pasos.map((p, i) => <li key={i}>{p}</li>)}
                   </ol>
 
+                  <button
+                    onClick={() => {
+                      setTexto(`${f.sintoma}: `)
+                      document.getElementById('reportar')?.scrollIntoView({ behavior: 'smooth' })
+                    }}
+                    className="mt-4 font-mono text-[11px] uppercase tracking-wider text-sa-green-ink/50 hover:text-sa-green-ink underline underline-offset-4"
+                  >
+                    No se resolvió — reportarlo
+                  </button>
+
                   {f.llamar && (
                     <p className="text-sm text-sa-coffee bg-sa-banana/25 rounded-sa px-4 py-3 mt-4 leading-relaxed">
                       <strong>Marca a gerencia:</strong> {f.llamar}
@@ -698,6 +715,83 @@ export default function Ayuda() {
       </div>
 
       <div className="mt-8 space-y-6">
+        <Panel title="Reportar un problema">
+          <div id="reportar" />
+          <p className="text-sm text-sa-green-ink/70 leading-relaxed">
+            Escríbelo <strong>como pasó</strong>, sin tecnicismos. El reporte se guarda
+            junto con una foto de cómo estaba el sistema en ese momento —las diez
+            revisiones y el estado de las impresoras— así que no hace falta que
+            adjuntes nada más.
+          </p>
+          <textarea
+            className={`${cx.input} mt-3 min-h-[90px]`}
+            placeholder='Ej.: "A las 2 le di cobrar y se quedó pensando, la etiqueta nunca salió y el cliente ya se había ido."'
+            value={texto}
+            onChange={(e) => setTexto(e.target.value)}
+          />
+          <button
+            disabled={enviando || texto.trim().length < 10}
+            onClick={() => void (async () => {
+              setEnviando(true); setError(null)
+              try {
+                await reportarSoporte(sb, texto.trim(), null, {
+                  pantalla: 'Ayuda',
+                  navegador: navigator.userAgent,
+                })
+                setTexto('')
+                setHecho('Reportado. Queda guardado con todo el contexto de este momento.')
+                void cargar()
+              } catch (e) { setError(mensajeDeError(e)) }
+              finally { setEnviando(false) }
+            })()}
+            className={`${cx.btnPrimary} mt-3`}
+          >
+            {enviando ? 'Enviando…' : 'Reportar'}
+          </button>
+          {texto.trim().length > 0 && texto.trim().length < 10 && (
+            <p className="text-xs text-sa-green-ink/50 mt-2">
+              Un poco más de detalle: “no sirve” no alcanza para arreglarlo.
+            </p>
+          )}
+          <p className="text-xs text-sa-green-ink/55 mt-3 leading-relaxed">
+            <strong>Si es urgente, además marca por teléfono.</strong> Esto no suena
+            en el celular de nadie: sirve para que quien lo atienda ya tenga la
+            respuesta en la mano, no para avisar.
+          </p>
+
+          {reportes.length > 0 && (
+            <div className="mt-6 space-y-2">
+              <p className="font-mono text-[10px] uppercase tracking-widest text-sa-green-ink/45">
+                Reportado últimamente
+              </p>
+              {reportes.map((r) => (
+                <div key={r.id} className="bg-white rounded-sa px-4 py-3 border border-sa-green-ink/10">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="font-mono text-[11px] text-sa-green-ink/50">
+                      {new Date(r.creado_en).toLocaleString('es-MX', {
+                        day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
+                      })} · {r.quien}
+                    </span>
+                    <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${
+                      r.estado === 'cerrado'
+                        ? 'bg-sa-mint/30 text-sa-green-ink'
+                        : 'bg-sa-banana/40 text-sa-coffee'
+                    }`}>
+                      {r.estado === 'cerrado' ? 'Resuelto' : 'Abierto'}
+                    </span>
+                  </div>
+                  <p className="text-sm text-sa-green-ink mt-1.5">{r.sintoma}</p>
+                  {r.respuesta && (
+                    <p className="text-sm text-sa-green-ink/65 mt-1.5 border-l-2 border-sa-green/30 pl-3">
+                      {r.respuesta}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </Panel>
+
         <Panel title="Lo que NUNCA hay que hacer">
           <ul className="text-sm text-sa-green-ink/80 space-y-2.5 list-disc pl-5 leading-relaxed">
             <li>
@@ -738,6 +832,10 @@ export default function Ayuda() {
               Si es de impresión: corre <strong>Diagnóstico del agente</strong> desde{' '}
               <strong>Descargas</strong> y manda el <code className="font-mono text-xs">.txt</code>{' '}
               que deja en el Escritorio.
+            </li>
+            <li>
+              Y deja el <strong>reporte</strong> aquí arriba: guarda solo el estado del
+              sistema en ese momento, que es lo que después ya no se puede recuperar.
             </li>
           </ol>
           <p className="text-sm text-sa-green-ink/70 mt-4 leading-relaxed">

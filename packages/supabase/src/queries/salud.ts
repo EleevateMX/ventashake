@@ -80,6 +80,54 @@ export async function reintentarImpresiones(sb: ShakeClient): Promise<number> {
   return (data as number) ?? 0
 }
 
+// ------------------------ reportes de soporte ------------------------
+
+export interface ReporteSoporte {
+  id: string
+  creado_en: string
+  quien: string
+  sintoma: string
+  ficha: string | null
+  estado: 'abierto' | 'atendido' | 'cerrado'
+  respuesta: string | null
+  contexto: Record<string, unknown>
+}
+
+/**
+ * Levanta un reporte con la foto del sistema adentro.
+ *
+ * La foto la toma el SERVIDOR, no el navegador: así el reporte sirve
+ * aunque la pantalla que falló sea justo la que no cargó bien. Lo que
+ * escribe la persona va tal cual — es el dato más valioso y el que más se
+ * pierde, porque nadie vuelve a acordarse de cómo lo dijo.
+ */
+export async function reportarSoporte(
+  sb: ShakeClient,
+  sintoma: string,
+  ficha?: string | null,
+  extra: Record<string, unknown> = {},
+): Promise<void> {
+  const { error } = await sb.rpc('fn_reportar_soporte', {
+    p_sintoma: sintoma,
+    p_ficha: ficha ?? undefined,
+    p_extra: extra as never,
+  })
+  if (error) throw error
+}
+
+/** Los reportes recientes — que se vean evita cinco reportes del mismo problema. */
+export async function reportesSoporte(sb: ShakeClient, limite = 20): Promise<ReporteSoporte[]> {
+  const { data, error } = await sb.rpc('fn_reportes_soporte', { p_limite: limite })
+  if (error) throw error
+  return (data ?? []) as ReporteSoporte[]
+}
+
+/** Cierra un reporte con la respuesta. Solo gerencia. */
+export async function cerrarReporte(sb: ShakeClient, id: string, respuesta: string): Promise<void> {
+  const { error } = await sb.rpc('fn_cerrar_reporte', { p_id: id, p_respuesta: respuesta })
+  if (error) throw error
+}
+
 // --------------------------- diagnóstico -----------------------------
 
 export interface HallazgoDiagnostico {

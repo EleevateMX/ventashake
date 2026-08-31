@@ -2380,6 +2380,60 @@ export type Database = {
           },
         ]
       }
+      reportes_soporte: {
+        Row: {
+          atendido_en: string | null
+          atendido_por: string | null
+          contexto: Json
+          creado_en: string
+          empleado_id: string | null
+          estado: string
+          ficha: string | null
+          id: string
+          respuesta: string | null
+          sintoma: string
+        }
+        Insert: {
+          atendido_en?: string | null
+          atendido_por?: string | null
+          contexto?: Json
+          creado_en?: string
+          empleado_id?: string | null
+          estado?: string
+          ficha?: string | null
+          id?: string
+          respuesta?: string | null
+          sintoma: string
+        }
+        Update: {
+          atendido_en?: string | null
+          atendido_por?: string | null
+          contexto?: Json
+          creado_en?: string
+          empleado_id?: string | null
+          estado?: string
+          ficha?: string | null
+          id?: string
+          respuesta?: string | null
+          sintoma?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reportes_soporte_atendido_por_fkey"
+            columns: ["atendido_por"]
+            isOneToOne: false
+            referencedRelation: "empleados"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reportes_soporte_empleado_id_fkey"
+            columns: ["empleado_id"]
+            isOneToOne: false
+            referencedRelation: "empleados"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       roles: {
         Row: {
           id: string
@@ -3214,6 +3268,10 @@ export type Database = {
           productos_activos: number
           va_a_pantalla: boolean
         }[]
+      }
+      fn_cerrar_reporte: {
+        Args: { p_id: string; p_respuesta: string }
+        Returns: undefined
       }
       fn_cliente_actualizar: {
         Args: {
@@ -4149,6 +4207,40 @@ export type Database = {
         }[]
       }
       fn_reintentar_impresiones: { Args: never; Returns: number }
+      fn_reportar_soporte: {
+        Args: { p_extra?: Json; p_ficha?: string; p_sintoma: string }
+        Returns: {
+          atendido_en: string | null
+          atendido_por: string | null
+          contexto: Json
+          creado_en: string
+          empleado_id: string | null
+          estado: string
+          ficha: string | null
+          id: string
+          respuesta: string | null
+          sintoma: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "reportes_soporte"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      fn_reportes_soporte: {
+        Args: { p_limite?: number }
+        Returns: {
+          contexto: Json
+          creado_en: string
+          estado: string
+          ficha: string
+          id: string
+          quien: string
+          respuesta: string
+          sintoma: string
+        }[]
+      }
       fn_respaldar_costosshake: {
         Args: { p_nota?: string; p_origen?: string }
         Returns: number
