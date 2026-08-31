@@ -198,7 +198,8 @@ empaquetador y se desvían solas:
 | Abrir/cerrar caja o cambiar turno | **5 toques a Milo** en el kiosko → PIN |
 | Cambiar precios o productos | Costeos → **Guardar**, y cuando esté listo → **"Mostrar en el kiosko"** (enseña qué va a cambiar antes de confirmar) |
 | Ver la tienda a distancia | Admin → **En vivo** |
-| Algo se siente raro | Admin → **Diagnóstico** |
+| Algo se siente raro | Admin → **¿Qué hago si…?** → *Probar una venta completa* |
+| Saber si el POS está sano | Admin → **¿Qué hago si…?** — cobra de mentira y lo deshace |
 | Actualizar el agente de impresión | Solo, al abrir el día siguiente |
 | Instalar en una PC nueva | Admin → **Descargas** → "Instalar todo" |
 | Cambiar el rollo de etiquetas | Kiosko → 5 toques a Milo → PIN → "¿Cambiaste el rollo?" → Calibrar |
