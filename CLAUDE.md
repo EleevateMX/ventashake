@@ -67,7 +67,17 @@ Consecuencias que hay que respetar:
 `fn_crear_orden` recalcula precios y total desde `productos.precio`;
 `fn_cobrar_orden` valida el monto contra ese total y es idempotente. El
 cliente no manda precios. Nunca abras un camino que permita aprobar un
-pago por INSERT directo.
+pago por INSERT directo (RLS lo prohíbe: `ins_pagos` rechaza cualquier
+inserción con `estado = 'aprobado'`).
+
+**Pago dividido.** `fn_cobrar_orden_dividido` cobra en 2–4 partes y valida
+que sumen el total **antes de insertar ninguna**: no existe la orden
+cobrada a medias. El candado contra el doble cobro sigue puesto, solo que
+ahora es `(orden_id, parte)` en vez de `(orden_id)` — un segundo cobro
+entero vuelve a chocar con la parte 1. `ordenes.metodo_pago` queda en
+`'mixto'`; el desglose vive en `pagos`, que es de donde `vw_corte_resumen`
+y `fn_panel_en_vivo` ya sacaban sus totales por método. Por eso el corte
+cuadra solo: cada parte cae en su renglón.
 
 ### 2.3 Clip: la verdad se pregunta, no se escucha
 
@@ -289,6 +299,13 @@ empaquetador y se desvían solas:
   frío/caliente) ya no es una expresión regular en el código: es la
   estrella de Admin → Extras, guardada por vínculo producto↔extra. Las
   reglas viejas siguen ahí de respaldo mientras nadie marque nada.
+- **Las ventas apartadas viven en el navegador de esa caja**, no en la
+  base (`apps/pos/src/store/espera.ts`). Meterlas a la base significaría
+  una orden a medio crear que la reconciliación tendría que aprender a
+  distinguir de una venta perdida: ensuciar el camino del dinero por algo
+  que dura tres minutos. Al retomarlas se refrescan los precios contra el
+  catálogo vivo, porque el servidor cobra el de hoy y un total en pantalla
+  que no es el que se cobra es peor que no tener la función.
 
 **Permisos de la base**
 

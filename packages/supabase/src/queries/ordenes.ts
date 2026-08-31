@@ -115,6 +115,43 @@ export async function cobrarOrden(
   })
 }
 
+/** Una parte de un cobro dividido: con qué se paga y cuánto. */
+export interface PartePago {
+  metodo: MetodoPago
+  monto: number
+  referencia?: string | null
+}
+
+/**
+ * Cobrar una orden en partes ("$100 en efectivo y el resto con tarjeta").
+ *
+ * El servidor valida que las partes SUMEN el total antes de insertar
+ * ninguna: una orden a medio cobrar es peor que una sin cobrar. Y el
+ * candado contra el doble cobro sigue puesto — solo que ahora es por
+ * (orden, parte) en vez de por orden, así que un segundo cobro entero
+ * choca igual que siempre.
+ *
+ * `idempotencyKey`: un solo UUID para todo el intento; el servidor deriva
+ * el de cada parte. Reenviar el mismo intento devuelve los mismos pagos.
+ */
+export async function cobrarOrdenDividido(
+  sb: ShakeClient,
+  ordenId: string,
+  partes: PartePago[],
+  opts: { autorizadoPor?: string; idempotencyKey?: string } = {},
+): Promise<Pago[]> {
+  return rpc<Pago[]>(sb, 'fn_cobrar_orden_dividido', {
+    p_orden_id: ordenId,
+    p_partes: partes.map((p) => ({
+      metodo: p.metodo,
+      monto: p.monto,
+      referencia: p.referencia ?? null,
+    })),
+    p_autorizado_por: opts.autorizadoPor ?? null,
+    p_idempotency_key: opts.idempotencyKey ?? null,
+  })
+}
+
 export async function cancelarOrden(sb: ShakeClient, ordenId: string): Promise<void> {
   const { error } = await sb.from('ordenes').update({ estado: 'cancelada' }).eq('id', ordenId)
   if (error) throw error

@@ -1741,6 +1741,7 @@ export type Database = {
           metodo: Database["public"]["Enums"]["metodo_pago"]
           monto: number
           orden_id: string
+          parte: number
           proveedor: string
           proveedor_error: string | null
           proveedor_payment_id: string | null
@@ -1760,6 +1761,7 @@ export type Database = {
           metodo: Database["public"]["Enums"]["metodo_pago"]
           monto: number
           orden_id: string
+          parte?: number
           proveedor?: string
           proveedor_error?: string | null
           proveedor_payment_id?: string | null
@@ -1779,6 +1781,7 @@ export type Database = {
           metodo?: Database["public"]["Enums"]["metodo_pago"]
           monto?: number
           orden_id?: string
+          parte?: number
           proveedor?: string
           proveedor_error?: string | null
           proveedor_payment_id?: string | null
@@ -4424,7 +4427,13 @@ export type Database = {
         | "unknown"
         | "refunded_partial"
         | "refunded_full"
-      metodo_pago: "clip" | "efectivo" | "tarjeta" | "cortesia" | "otro"
+      metodo_pago:
+        | "clip"
+        | "efectivo"
+        | "tarjeta"
+        | "cortesia"
+        | "otro"
+        | "mixto"
       modo_pago_kiosko: "clip" | "pagar_en_caja" | "demo" | "cajero"
       tipo_almacen: "bodega" | "kiosko"
       tipo_conexion_impresora: "usb" | "red"
@@ -4617,7 +4626,7 @@ export const Constants = {
         "refunded_partial",
         "refunded_full",
       ],
-      metodo_pago: ["clip", "efectivo", "tarjeta", "cortesia", "otro"],
+      metodo_pago: ["clip", "efectivo", "tarjeta", "cortesia", "otro", "mixto"],
       modo_pago_kiosko: ["clip", "pagar_en_caja", "demo", "cajero"],
       tipo_almacen: ["bodega", "kiosko"],
       tipo_conexion_impresora: ["usb", "red"],

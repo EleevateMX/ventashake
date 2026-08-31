@@ -3,6 +3,9 @@ import { descuentoPromo as calcDescuentoPromo } from '@shake/supabase'
 import type { ProductoVenta, ClienteConLealtad } from '@shake/supabase'
 import type { Empleado } from '@shake/supabase'
 import type { Almacen, Caja, CajaCorte, Cupon, Promocion } from '@shake/types'
+import {
+  leerEspera, guardarEspera, etiquetaDeVenta, type VentaEnEspera,
+} from './espera'
 
 /**
  * Línea del ticket: producto real del catálogo + cantidad.
@@ -49,6 +52,8 @@ interface PosStore {
   descuentoManual: DescuentoManual | null
 
   agregarItem: (p: ProductoVenta, personalizacion?: string | null) => void
+  /** Corregir un renglón sin borrarlo y volverlo a capturar. */
+  editarItem: (lineaId: string, cambios: { cantidad?: number; personalizacion?: string | null }) => void
   incrementar: (lineaId: string) => void
   decrementar: (lineaId: string) => void
   quitarItem: (lineaId: string) => void
@@ -58,6 +63,12 @@ interface PosStore {
   setPromosDisp: (promos: Promocion[]) => void
   setDescuentoManual: (d: DescuentoManual | null) => void
   limpiarOrden: () => void
+
+  // --- Ventas apartadas (esta caja, este navegador) ---
+  enEspera: VentaEnEspera[]
+  apartarVenta: () => void
+  retomarVenta: (id: string, catalogo?: ProductoVenta[]) => void
+  descartarVenta: (id: string) => void
 
   // --- Cálculos (reglas de negocio reales) ---
   subtotal: () => number
@@ -124,6 +135,30 @@ export const usePosStore = create<PosStore>((set, get) => ({
       }
     }),
 
+  /**
+   * Corregir un renglón: la cantidad, o con qué se prepara.
+   *
+   * Antes había que borrarlo y volverlo a capturar — con extras y todo — solo
+   * porque el cliente dijo "ay, mejor deslactosada". Una cantidad de cero
+   * borra la línea, igual que bajarle con el menos.
+   */
+  editarItem: (lineaId, cambios) =>
+    set((state) => ({
+      items: state.items
+        .map((l) => {
+          if (l.lineaId !== lineaId) return l
+          return {
+            ...l,
+            cantidad: cambios.cantidad ?? l.cantidad,
+            personalizacion:
+              cambios.personalizacion === undefined
+                ? l.personalizacion
+                : cambios.personalizacion?.trim() || null,
+          }
+        })
+        .filter((l) => l.cantidad > 0),
+    })),
+
   incrementar: (lineaId) =>
     set((state) => ({
       items: state.items.map((l) =>
@@ -155,6 +190,74 @@ export const usePosStore = create<PosStore>((set, get) => ({
       promo: null,
       promosDisp: [],
       descuentoManual: null,
+    }),
+
+  enEspera: leerEspera(),
+
+  /**
+   * Aparta la venta actual y deja la caja lista para el siguiente cliente.
+   * No cobra, no crea orden: solo guarda el carrito.
+   */
+  apartarVenta: () =>
+    set((state) => {
+      if (state.items.length === 0) return {}
+      const venta: VentaEnEspera = {
+        id: nuevaLineaId(),
+        guardadaEn: new Date().toISOString(),
+        etiqueta: etiquetaDeVenta(state.items, state.cliente),
+        items: state.items,
+        cliente: state.cliente,
+        cupon: state.cupon,
+        promo: state.promo,
+        promosDisp: state.promosDisp,
+        descuentoManual: state.descuentoManual,
+      }
+      const enEspera = [...state.enEspera, venta]
+      guardarEspera(enEspera)
+      return {
+        enEspera,
+        items: [], cliente: null, cupon: null, promo: null,
+        promosDisp: [], descuentoManual: null,
+      }
+    }),
+
+  /**
+   * Retoma una venta apartada. Si se le pasa el catálogo vivo, los precios
+   * se refrescan: el servidor cobra el precio de HOY, así que mostrar el de
+   * hace rato haría que el total en pantalla y el cobrado no coincidieran.
+   * Un producto que ya no existe se cae del carrito — cobrarlo tampoco se
+   * podría.
+   */
+  retomarVenta: (id, catalogo) =>
+    set((state) => {
+      const venta = state.enEspera.find((v) => v.id === id)
+      if (!venta) return {}
+      const items = catalogo
+        ? venta.items
+            .map((l) => {
+              const vivo = catalogo.find((p) => p.id === l.producto.id)
+              return vivo ? { ...l, producto: vivo } : null
+            })
+            .filter((l): l is typeof venta.items[number] => l !== null)
+        : venta.items
+      const enEspera = state.enEspera.filter((v) => v.id !== id)
+      guardarEspera(enEspera)
+      return {
+        enEspera,
+        items,
+        cliente: venta.cliente,
+        cupon: venta.cupon,
+        promo: venta.promo,
+        promosDisp: venta.promosDisp,
+        descuentoManual: venta.descuentoManual,
+      }
+    }),
+
+  descartarVenta: (id) =>
+    set((state) => {
+      const enEspera = state.enEspera.filter((v) => v.id !== id)
+      guardarEspera(enEspera)
+      return { enEspera }
     }),
 
   subtotal: () => get().items.reduce((s, l) => s + l.producto.precio * l.cantidad, 0),

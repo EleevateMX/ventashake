@@ -6,12 +6,14 @@ import { listarAlmacenes, listarCajas, corteAbierto, abrirCaja } from '@shake/su
 import { CatalogoBusqueda } from '@/components/pos/CatalogoBusqueda'
 import { OrdenPanel } from '@/components/pos/OrdenPanel'
 import { useProductosPOS } from '@/hooks/useProductosPOS'
-import { mensajeDeError } from '@shake/utils'
+import { mensajeDeError, mxn } from '@shake/utils'
 
 export function Caja() {
   const navigate = useNavigate()
-  const { empleado, almacen, caja, corte, setContexto, setCorte, cerrarSesion, limpiarOrden } =
-    usePosStore()
+  const {
+    empleado, almacen, caja, corte, setContexto, setCorte, cerrarSesion, limpiarOrden,
+    items, enEspera, apartarVenta, retomarVenta, descartarVenta,
+  } = usePosStore()
   const { productos, productosExtra, extras, categorias, loading } = useProductosPOS()
 
   const [horaActual, setHoraActual] = useState(new Date())
@@ -19,6 +21,7 @@ export function Caja() {
   const [error, setError] = useState<string | null>(null)
   const [fondo, setFondo] = useState('0')
   const [abriendo, setAbriendo] = useState(false)
+  const [verEspera, setVerEspera] = useState(false)
 
   useEffect(() => {
     const interval = setInterval(() => setHoraActual(new Date()), 30000)
@@ -141,6 +144,17 @@ export function Caja() {
           <span className="font-display text-lg text-sa-cream">
             {empleado?.nombre.split(' ')[0]}
           </span>
+          {/* Ventas apartadas de ESTA caja. Solo aparece cuando hay alguna:
+              un botón que casi siempre dice cero es un botón que se deja de
+              ver. */}
+          {enEspera.length > 0 && (
+            <button
+              onClick={() => setVerEspera(true)}
+              className="font-mono text-xs uppercase tracking-wide bg-sa-banana/25 hover:bg-sa-banana/40 text-sa-banana px-4 py-2 rounded-full transition-colors border border-sa-banana/40"
+            >
+              En espera · {enEspera.length}
+            </button>
+          )}
           <button
             onClick={() => navigate('/pendientes')}
             className="font-mono text-xs uppercase tracking-wide bg-sa-cream-warm/10 hover:bg-sa-cream-warm/20 text-sa-cream px-4 py-2 rounded-full transition-colors border border-sa-cream/20"
@@ -182,9 +196,68 @@ export function Caja() {
         </div>
 
         <div className="w-96 flex-shrink-0 flex flex-col bg-white rounded-sa shadow-sa-sm overflow-hidden">
-          <OrdenPanel onCobrar={() => navigate('/cobro')} productos={productos} />
+          <OrdenPanel
+            onCobrar={() => navigate('/cobro')}
+            productos={productos}
+            extras={extras}
+          />
         </div>
       </div>
+
+      {verEspera && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-sa-green-deep/60" onClick={() => setVerEspera(false)} />
+          <div className="relative bg-sa-cream-soft rounded-sa-lg shadow-sa w-full max-w-md max-h-[80vh] flex flex-col">
+            <div className="px-5 py-4 border-b border-sa-green-ink/10">
+              <h3 className="font-display text-2xl text-sa-green-ink leading-tight">Ventas en espera</h3>
+              <p className="font-mono text-xs text-sa-green-ink/50 mt-0.5">
+                De esta caja. Se pierden si se cierra el navegador.
+              </p>
+            </div>
+            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-2">
+              {enEspera.map((v) => (
+                <div
+                  key={v.id}
+                  className="flex items-center gap-3 bg-white rounded-sa px-4 py-3 border border-sa-green-ink/10"
+                >
+                  <button
+                    onClick={() => {
+                      // Si ya hay algo capturado, se aparta primero: retomar
+                      // encima borraria la venta del cliente que esta enfrente.
+                      if (items.length > 0) apartarVenta()
+                      retomarVenta(v.id, productos)
+                      setVerEspera(false)
+                    }}
+                    className="flex-1 min-w-0 text-left"
+                  >
+                    <p className="text-sa-green-ink truncate">{v.etiqueta}</p>
+                    <p className="font-mono text-xs text-sa-green-ink/50 mt-0.5">
+                      {v.items.reduce((n, l) => n + l.cantidad, 0)} pza ·{' '}
+                      {mxn(v.items.reduce((t, l) => t + l.producto.precio * l.cantidad, 0))} ·{' '}
+                      {new Date(v.guardadaEn).toLocaleTimeString('es-MX', { hour: 'numeric', minute: '2-digit' })}
+                    </p>
+                  </button>
+                  <button
+                    onClick={() => descartarVenta(v.id)}
+                    className="text-sa-green-ink/30 hover:text-sa-strawberry transition-colors flex-shrink-0"
+                    title="Descartar"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+            <div className="px-5 py-4 border-t border-sa-green-ink/10">
+              <button
+                onClick={() => setVerEspera(false)}
+                className="w-full py-2.5 border border-sa-green-ink/15 bg-white text-sa-green-ink/70 rounded-full font-mono text-xs uppercase tracking-wide"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
