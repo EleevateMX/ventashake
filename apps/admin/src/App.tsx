@@ -191,7 +191,11 @@ export default function App() {
     void empleadoDeLaSesion(sb).then((e) => setRol(e?.rol ?? null))
   }, [])
 
-  const esSoporte = rol === 'admin' || rol === 'administrador'
+  // `desarrollo` y nada más. Gerencia —los dueños— no ve esta pestaña a
+  // propósito: aquí se decide qué se hace y en qué orden, y eso es de quien
+  // lo va a hacer. El candado de verdad está en la base (fn_es_soporte);
+  // esto solo evita enseñar una puerta que de todos modos no abre.
+  const esSoporte = rol === 'desarrollo'
   const visibles = navItems.filter((n) => !n.soloSoporte || esSoporte)
 
   return (

@@ -23,7 +23,11 @@ import { sb } from './lib/sb'
 // pasaba el candado: entraba con su PIN correcto y el panel le contestaba
 // que no era para su puesto. No exploto nunca porque nadie lo tenia. Se
 // aceptan los dos nombres para que no vuelva a depender de la ortografia.
-const ROLES_QUE_PASAN = ['admin', 'administrador', 'gerente']
+/**
+ * Quién puede abrir este panel. `desarrollo` es el rol de quien mantiene el
+ * sistema: pasa por aquí como gerencia, y además ve lo que gerencia no.
+ */
+const ROLES_QUE_PASAN = ['admin', 'administrador', 'gerente', 'desarrollo']
 
 export function CandadoAdmin({ children }: { children: ReactNode }) {
   const [empleado, setEmpleado] = useState<EmpleadoSesion | null>(null)
