@@ -1,10 +1,13 @@
 import logo from '@shake/brand/logo.png'
-import { useState, type ReactElement } from 'react'
+import { useEffect, useState, type ReactElement } from 'react'
+import { empleadoDeLaSesion } from '@shake/supabase'
+import { sb } from './lib/sb'
 import Dashboard from './pages/Dashboard'
 import EnVivo from './pages/EnVivo'
 import Diagnostico from './pages/Diagnostico'
 import Ayuda from './pages/Ayuda'
 import Peticiones from './pages/Peticiones'
+import Soporte from './pages/Soporte'
 import Descargas from './pages/Descargas'
 import Nombres from './pages/Nombres'
 import Metas from './pages/Metas'
@@ -21,7 +24,7 @@ import Empleados from './pages/Empleados'
 import Impresoras from './pages/Impresoras'
 import Sistema from './pages/Sistema'
 
-type Tab = 'dashboard' | 'envivo' | 'diagnostico' | 'menu' | 'categorias' | 'combos' | 'extras' | 'inventario' | 'promos' | 'ventas' | 'clientes' | 'nombres' | 'metas' | 'rewards' | 'empleados' | 'impresoras' | 'descargas' | 'ayuda' | 'peticiones' | 'sistema'
+type Tab = 'dashboard' | 'envivo' | 'diagnostico' | 'menu' | 'categorias' | 'combos' | 'extras' | 'inventario' | 'promos' | 'ventas' | 'clientes' | 'nombres' | 'metas' | 'rewards' | 'empleados' | 'impresoras' | 'descargas' | 'ayuda' | 'peticiones' | 'soporte' | 'sistema'
 
 const w = 18
 
@@ -116,6 +119,14 @@ const IconAyuda = () => (
 )
 
 /* Una lista con palomitas: la cola de lo que falta por hacer. */
+/* Una llave inglesa: esto es mantenimiento, no operacion de la tienda. */
+const IconSoporte = () => (
+  <svg width={w} height={w} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M14.7 6.3a4 4 0 0 0 5 5L21 12l-9 9-3-3 9-9 .3-1.3a4 4 0 0 0-3.6-1.4Z" />
+    <path d="M6 18h.01" />
+  </svg>
+)
+
 const IconPeticiones = () => (
   <svg width={w} height={w} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <path d="M9 6h11M9 12h11M9 18h11" />
@@ -143,7 +154,7 @@ const IconMetas = () => (
   </svg>
 )
 
-const navItems: { id: Tab; label: string; Icon: () => ReactElement }[] = [
+const navItems: { id: Tab; label: string; Icon: () => ReactElement; soloSoporte?: boolean }[] = [
   { id: 'dashboard', label: 'Dashboard', Icon: IconDashboard },
   { id: 'envivo', label: 'En vivo', Icon: IconEnVivo },
   { id: 'diagnostico', label: 'Diagnóstico', Icon: IconDiagnostico },
@@ -163,11 +174,25 @@ const navItems: { id: Tab; label: string; Icon: () => ReactElement }[] = [
   { id: 'descargas', label: 'Descargas', Icon: IconDescargas },
   { id: 'ayuda', label: '¿Qué hago si…?', Icon: IconAyuda },
   { id: 'peticiones', label: 'Peticiones', Icon: IconPeticiones },
+  // Solo para quien mantiene el sistema. Se filtra abajo por rol: la
+  // gerencia -que es la duena del negocio- ni la ve en el menu.
+  { id: 'soporte', label: 'Soporte', Icon: IconSoporte, soloSoporte: true },
   { id: 'sistema', label: 'Sistema', Icon: IconSistema },
 ]
 
 export default function App() {
   const [tab, setTab] = useState<Tab>('dashboard')
+  // Quien esta del otro lado. Solo se usa para esconder "Soporte": el
+  // candado de verdad esta en la base -- fn_es_soporte() en cada funcion-,
+  // porque esconder un boton no protege nada.
+  const [rol, setRol] = useState<string | null>(null)
+
+  useEffect(() => {
+    void empleadoDeLaSesion(sb).then((e) => setRol(e?.rol ?? null))
+  }, [])
+
+  const esSoporte = rol === 'admin' || rol === 'administrador'
+  const visibles = navItems.filter((n) => !n.soloSoporte || esSoporte)
 
   return (
     <div className="flex flex-col md:flex-row min-h-screen bg-sa-cream-paper">
@@ -177,7 +202,7 @@ export default function App() {
           <img src={logo} alt="Shakeaholic" className="w-[112px] md:w-[140px] h-auto select-none" draggable={false} />
         </div>
         <nav className="flex md:flex-col gap-1 px-3 pb-3 md:pb-0 md:flex-1 overflow-x-auto">
-          {navItems.map(({ id, label, Icon }) => (
+          {visibles.map(({ id, label, Icon }) => (
             <button
               key={id}
               onClick={() => setTab(id)}
@@ -220,6 +245,7 @@ export default function App() {
         {tab === 'descargas' && <Descargas />}
         {tab === 'ayuda' && <Ayuda />}
         {tab === 'peticiones' && <Peticiones />}
+        {tab === 'soporte' && <Soporte />}
         {tab === 'sistema' && <Sistema />}
       </main>
     </div>

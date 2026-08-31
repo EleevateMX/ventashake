@@ -18,7 +18,12 @@ import { sb } from './lib/sb'
  * Solo pasan administrador y gerente: la cajera tiene su PIN para caja, pero
  * no tiene por qué poder cambiar precios ni tocar al personal.
  */
-const ROLES_QUE_PASAN = ['administrador', 'gerente']
+// OJO: en la tabla `roles` el slug es 'admin', no 'administrador'. Estuvo
+// mal escrito aqui y en fn_es_jefe() desde el principio, asi que ese rol no
+// pasaba el candado: entraba con su PIN correcto y el panel le contestaba
+// que no era para su puesto. No exploto nunca porque nadie lo tenia. Se
+// aceptan los dos nombres para que no vuelva a depender de la ortografia.
+const ROLES_QUE_PASAN = ['admin', 'administrador', 'gerente']
 
 export function CandadoAdmin({ children }: { children: ReactNode }) {
   const [empleado, setEmpleado] = useState<EmpleadoSesion | null>(null)
