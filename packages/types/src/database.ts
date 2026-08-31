@@ -2390,8 +2390,11 @@ export type Database = {
           estado: string
           ficha: string | null
           id: string
+          para_sesion: boolean
+          prioridad: number | null
           respuesta: string | null
           sintoma: string
+          tipo: string
         }
         Insert: {
           atendido_en?: string | null
@@ -2402,8 +2405,11 @@ export type Database = {
           estado?: string
           ficha?: string | null
           id?: string
+          para_sesion?: boolean
+          prioridad?: number | null
           respuesta?: string | null
           sintoma: string
+          tipo?: string
         }
         Update: {
           atendido_en?: string | null
@@ -2414,8 +2420,11 @@ export type Database = {
           estado?: string
           ficha?: string | null
           id?: string
+          para_sesion?: boolean
+          prioridad?: number | null
           respuesta?: string | null
           sintoma?: string
+          tipo?: string
         }
         Relationships: [
           {
@@ -4132,6 +4141,10 @@ export type Database = {
         Args: { p_padre_producto_id: string; p_producto_id: string }
         Returns: number
       }
+      fn_priorizar_reporte: {
+        Args: { p_id: string; p_para_sesion?: boolean; p_prioridad?: number }
+        Returns: undefined
+      }
       fn_producto_mover_categoria: {
         Args: { p_categoria_id: string; p_producto_id: string }
         Returns: undefined
@@ -4207,40 +4220,90 @@ export type Database = {
         }[]
       }
       fn_reintentar_impresiones: { Args: never; Returns: number }
-      fn_reportar_soporte: {
-        Args: { p_extra?: Json; p_ficha?: string; p_sintoma: string }
-        Returns: {
-          atendido_en: string | null
-          atendido_por: string | null
-          contexto: Json
-          creado_en: string
-          empleado_id: string | null
-          estado: string
-          ficha: string | null
-          id: string
-          respuesta: string | null
-          sintoma: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "reportes_soporte"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
-      fn_reportes_soporte: {
-        Args: { p_limite?: number }
-        Returns: {
-          contexto: Json
-          creado_en: string
-          estado: string
-          ficha: string
-          id: string
-          quien: string
-          respuesta: string
-          sintoma: string
-        }[]
-      }
+      fn_reportar_soporte:
+        | {
+            Args: { p_extra?: Json; p_ficha?: string; p_sintoma: string }
+            Returns: {
+              atendido_en: string | null
+              atendido_por: string | null
+              contexto: Json
+              creado_en: string
+              empleado_id: string | null
+              estado: string
+              ficha: string | null
+              id: string
+              para_sesion: boolean
+              prioridad: number | null
+              respuesta: string | null
+              sintoma: string
+              tipo: string
+            }
+            SetofOptions: {
+              from: "*"
+              to: "reportes_soporte"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
+        | {
+            Args: {
+              p_extra?: Json
+              p_ficha?: string
+              p_sintoma: string
+              p_tipo?: string
+            }
+            Returns: {
+              atendido_en: string | null
+              atendido_por: string | null
+              contexto: Json
+              creado_en: string
+              empleado_id: string | null
+              estado: string
+              ficha: string | null
+              id: string
+              para_sesion: boolean
+              prioridad: number | null
+              respuesta: string | null
+              sintoma: string
+              tipo: string
+            }
+            SetofOptions: {
+              from: "*"
+              to: "reportes_soporte"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
+      fn_reportes_soporte:
+        | {
+            Args: { p_limite?: number }
+            Returns: {
+              contexto: Json
+              creado_en: string
+              estado: string
+              ficha: string
+              id: string
+              quien: string
+              respuesta: string
+              sintoma: string
+            }[]
+          }
+        | {
+            Args: { p_limite?: number; p_tipo?: string }
+            Returns: {
+              contexto: Json
+              creado_en: string
+              estado: string
+              ficha: string
+              id: string
+              para_sesion: boolean
+              prioridad: number
+              quien: string
+              respuesta: string
+              sintoma: string
+              tipo: string
+            }[]
+          }
       fn_respaldar_costosshake: {
         Args: { p_nota?: string; p_origen?: string }
         Returns: number

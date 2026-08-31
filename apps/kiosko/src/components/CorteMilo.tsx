@@ -7,6 +7,7 @@ import type { EmpleadoSesion } from '@shake/supabase'
 import type { Caja, CajaCorte, CorteResumen } from '@shake/types'
 import { mxn, mensajeDeError } from '@shake/utils'
 import { CalibrarRollo } from '@/components/CalibrarRollo'
+import { PedirCambio } from '@/components/PedirCambio'
 import { sb } from '@/lib/sb'
 
 interface Props {
@@ -274,6 +275,7 @@ export function CorteMilo({ abierto, onCerrar }: Props) {
                 {guardando ? 'Abriendo…' : `Abrir caja con ${mxn(Number(fondo) || 0)}`}
               </button>
               <CalibrarRollo />
+              <PedirCambio />
             </div>
           )}
 
@@ -315,6 +317,7 @@ export function CorteMilo({ abierto, onCerrar }: Props) {
                 Para cambio de turno: cierra y en seguida abre el nuevo
               </p>
               <CalibrarRollo />
+              <PedirCambio />
             </div>
           )}
 

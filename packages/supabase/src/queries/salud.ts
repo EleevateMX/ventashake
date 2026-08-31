@@ -82,13 +82,20 @@ export async function reintentarImpresiones(sb: ShakeClient): Promise<number> {
 
 // ------------------------ reportes de soporte ------------------------
 
+export type TipoReporte = 'falla' | 'peticion'
+
 export interface ReporteSoporte {
   id: string
   creado_en: string
   quien: string
   sintoma: string
   ficha: string | null
+  tipo: TipoReporte
   estado: 'abierto' | 'atendido' | 'cerrado'
+  /** 1 = ahora, 2 = pronto, 3 = algún día. null = sin clasificar. */
+  prioridad: number | null
+  /** Marcado por gerencia: entra en la próxima sesión de trabajo. */
+  para_sesion: boolean
   respuesta: string | null
   contexto: Record<string, unknown>
 }
@@ -106,20 +113,43 @@ export async function reportarSoporte(
   sintoma: string,
   ficha?: string | null,
   extra: Record<string, unknown> = {},
+  tipo: TipoReporte = 'falla',
 ): Promise<void> {
   const { error } = await sb.rpc('fn_reportar_soporte', {
     p_sintoma: sintoma,
     p_ficha: ficha ?? undefined,
     p_extra: extra as never,
+    p_tipo: tipo,
   })
   if (error) throw error
 }
 
 /** Los reportes recientes — que se vean evita cinco reportes del mismo problema. */
-export async function reportesSoporte(sb: ShakeClient, limite = 20): Promise<ReporteSoporte[]> {
-  const { data, error } = await sb.rpc('fn_reportes_soporte', { p_limite: limite })
+export async function reportesSoporte(
+  sb: ShakeClient,
+  limite = 20,
+  tipo?: TipoReporte,
+): Promise<ReporteSoporte[]> {
+  const { data, error } = await sb.rpc('fn_reportes_soporte', {
+    p_limite: limite,
+    p_tipo: tipo ?? undefined,
+  })
   if (error) throw error
   return (data ?? []) as ReporteSoporte[]
+}
+
+/** Clasifica: qué tan urgente, y si entra en la próxima sesión. Solo gerencia. */
+export async function priorizarReporte(
+  sb: ShakeClient,
+  id: string,
+  cambios: { prioridad?: number | null; paraSesion?: boolean },
+): Promise<void> {
+  const { error } = await sb.rpc('fn_priorizar_reporte', {
+    p_id: id,
+    p_prioridad: cambios.prioridad ?? undefined,
+    p_para_sesion: cambios.paraSesion ?? undefined,
+  })
+  if (error) throw error
 }
 
 /** Cierra un reporte con la respuesta. Solo gerencia. */
