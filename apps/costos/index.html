@@ -277,6 +277,12 @@ const SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZ
 const DOC_ID="shakeaholic", SESS="shakeaholic_session_v1", CACHE="shakeaholic_cache_v2";
 const sb=(window.supabase&&window.supabase.createClient)?window.supabase.createClient(SB_URL,SB_KEY):null;
 let currentUser=null;
+/* El token que devuelve fn_costos_login. Sin el no se lee ni se guarda el
+   costeo: `app_data` ya no esta abierta a la llave publica. Antes el login
+   validaba bien pero no dejaba sesion, asi que se podia rodear llamando a
+   la tabla directo — un login que no deja sesion es un letrero, no una
+   puerta. */
+let sessToken=null;
 /* ===== Auto-actualización (sin borrar caché a mano) ===== */
 const APP_VERSION="2026-07-19-02";
 async function checkForUpdate(){try{
@@ -327,7 +333,7 @@ async function doLogin(){const user=document.getElementById("li_user").value.tri
   const r=await sb.rpc('fn_costos_login',{p_usuario:user,p_contrasena:pass});
   if(r.error){authMsg("Error de conexión. Revisa tu internet.","err");return;}
   const res=Array.isArray(r.data)?r.data[0]:r.data;
-  if(res&&res.ok){lsSet(SESS,{user:user});showApp(user);}
+  if(res&&res.ok){lsSet(SESS,{user:user,token:res.token});sessToken=res.token;showApp(user);}
   else authMsg((res&&res.mensaje)||"Usuario o contraseña incorrectos.","err");}
 async function doRegister(){const user=document.getElementById("rg_user").value.trim(),p1=document.getElementById("rg_pass").value,p2=document.getElementById("rg_pass2").value;
   if(!user||!p1){authMsg("Completa los campos.","err");return;} if(p1!==p2){authMsg("Las contraseñas no coinciden.","err");return;}
@@ -344,7 +350,11 @@ function wireAuth(){
   document.getElementById("toLogin").onclick=()=>{document.getElementById("regForm").style.display="none";document.getElementById("loginForm").style.display="block";authMsg("","");};
   document.getElementById("li_pass").addEventListener("keydown",e=>{if(e.key==="Enter")doLogin();});
   document.getElementById("rg_pass2").addEventListener("keydown",e=>{if(e.key==="Enter")doRegister();});}
-function logout(){localStorage.removeItem(SESS);location.reload();}
+function logout(){
+  /* Se avisa a la base para que el token deje de valer ahi tambien: si solo
+     se borra del navegador, el token sigue vivo 12 horas. */
+  if(sb&&sessToken){try{sb.rpc('fn_costos_salir',{p_token:sessToken});}catch(e){}}
+  localStorage.removeItem(SESS);location.reload();}
 
 /* ---------------- ESTADO ---------------- */
 let state=null,saveTimer=null;
@@ -427,9 +437,9 @@ let lastLocalSave=0, realtimeReady=false;
 async function load(){
   if(!sb){let c=lsGet(CACHE);state=(c&&c.params)?migrate(c):defaultState();return;}
   try{
-    const r=await sb.from('app_data').select('data').eq('id',DOC_ID).maybeSingle();
+    const r=await sb.rpc('fn_costos_leer',{p_token:sessToken});
     if(r.error)throw r.error;
-    const d=r.data&&r.data.data;
+    const d=r.data;
     if(d&&d.params){state=migrate(d);}else{state=defaultState();await dbWrite();}
     lsSet(CACHE,state);
   }catch(e){let c=lsGet(CACHE);state=(c&&c.params)?migrate(c):defaultState();setSaved("⚠ Sin conexión (local)");}
@@ -454,7 +464,11 @@ async function dbWrite(){
   lsSet(CACHE,state);
   if(!sb){setSaved("⚠ Guardado local");return;}
   lastLocalSave=Date.now();
-  const r=await sb.from('app_data').update({data:state,updated_at:new Date().toISOString(),updated_by:currentUser}).eq('id',DOC_ID);
+  const r=await sb.rpc('fn_costos_guardar',{p_token:sessToken,p_data:state});
+  /* Si el token caduco hay que decirlo con esas palabras: "error al
+     guardar" mandaria a alguien a revisar su internet cuando lo unico que
+     pasa es que lleva 12 horas sin entrar. */
+  if(r.error&&/caduc/i.test(r.error.message||"")){setSaved("⚠ Tu sesion caduco — vuelve a entrar");return;}
   setSaved(r.error?"⚠ Error al guardar":"Guardado ✓");
 }
 function persist(){dbWrite();}
@@ -1744,19 +1758,27 @@ async function showApp(user){
 }
 function subscribeRealtime(){
   if(!sb||realtimeReady)return; realtimeReady=true;
-  sb.channel('app_data_rt').on('postgres_changes',{event:'UPDATE',schema:'public',table:'app_data'},payload=>{
-    const nd=payload.new&&payload.new.data;
-    if(!nd||!nd.params)return;
-    if(payload.new.updated_by===currentUser && (Date.now()-lastLocalSave<4000))return;
+  /* El aviso viaja por `app_data_senales` y solo trae quien y cuando: el
+     documento entero ya no sale a la llave publica. Al recibirlo se relee
+     por fn_costos_leer, que si pide token. */
+  sb.channel('app_data_rt').on('postgres_changes',{event:'INSERT',schema:'public',table:'app_data_senales'},async payload=>{
+    const quien=payload.new&&payload.new.updated_by;
+    if(quien===currentUser && (Date.now()-lastLocalSave<4000))return;
     const ae=document.activeElement;
     if(ae&&(ae.tagName==="INPUT"||ae.tagName==="SELECT"||ae.tagName==="TEXTAREA"))return;
+    const r=await sb.rpc('fn_costos_leer',{p_token:sessToken});
+    const nd=r&&r.data;
+    if(r.error||!nd||!nd.params)return;
     state=migrate(nd);lsSet(CACHE,state);render();setSaved("Actualizado desde otro dispositivo ✓");
   }).subscribe();
 }
 (async function(){
   await wireAuth();
   const sess=lsGet(SESS);
-  if(sess&&sess.user)showApp(sess.user);
+  /* Una sesion vieja sin token es de antes de este cambio: se pide entrar
+     otra vez en vez de dejar la pantalla en blanco sin explicar por que. */
+  if(sess&&sess.user&&sess.token){sessToken=sess.token;showApp(sess.user);}
+  else if(sess&&sess.user){localStorage.removeItem(SESS);authMsg("Vuelve a entrar: ahora la sesion se valida en el servidor.","ok");}
 })();
 </script>
 </body>
