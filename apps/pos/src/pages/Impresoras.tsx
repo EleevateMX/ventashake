@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { sb } from '../lib/sb'
-import { listarImpresoras, calibrarImpresora, type ImpresoraAdmin } from '@shake/supabase'
+import {
+  listarImpresoras, calibrarImpresora, probarImpresora, type ImpresoraAdmin,
+} from '@shake/supabase'
 import { mensajeDeError } from '@shake/utils'
 
 /**
@@ -21,7 +23,11 @@ import { mensajeDeError } from '@shake/utils'
 const ESTILO_BOTON =
   'w-full font-display text-2xl px-6 py-5 rounded-sa-lg transition-transform active:scale-[0.98] disabled:opacity-40 disabled:active:scale-100'
 
-type Estado = { id: string; fase: 'enviando' | 'listo' | 'error'; mensaje?: string }
+type Estado = {
+  id: string
+  fase: 'enviando' | 'listo' | 'probando' | 'probada' | 'error'
+  mensaje?: string
+}
 
 export function Impresoras() {
   const navigate = useNavigate()
@@ -38,6 +44,25 @@ export function Impresoras() {
     }
   }
   useEffect(() => { void cargar() }, [])
+
+  /**
+   * Una sola etiqueta, sin calibrar.
+   *
+   * Es lo que contesta "¿por qué se gastan tres?". Calibrar gasta dos o
+   * tres a propósito; una impresora mal medida las escupe en CADA comanda.
+   * Con este botón se distingue sin adivinar: si sale una sola, lo normal
+   * está bien y las tres eran de la calibración.
+   */
+  async function probar(i: ImpresoraAdmin) {
+    setEstado({ id: i.id, fase: 'probando' })
+    try {
+      await probarImpresora(sb, i.id)
+      setEstado({ id: i.id, fase: 'probada' })
+      void cargar()
+    } catch (e) {
+      setEstado({ id: i.id, fase: 'error', mensaje: mensajeDeError(e) })
+    }
+  }
 
   async function calibrar(i: ImpresoraAdmin) {
     setEstado({ id: i.id, fase: 'enviando' })
@@ -129,14 +154,32 @@ export function Impresoras() {
                 </p>
               )}
 
+              {/* Probar va primero y en secundario: gasta UNA etiqueta, no
+                  tres, y casi siempre es lo único que hacía falta. */}
               <button
-                onClick={() => void calibrar(i)}
-                disabled={e?.fase === 'enviando'}
-                className={`${ESTILO_BOTON} bg-sa-strawberry text-white shadow-sa-sm`}
+                onClick={() => void probar(i)}
+                disabled={e?.fase === 'probando' || e?.fase === 'enviando'}
+                className={`${ESTILO_BOTON} bg-white border-2 border-sa-green text-sa-green-ink mb-3`}
               >
-                {e?.fase === 'enviando' ? 'Mandando…' : 'Calibrar'}
+                {e?.fase === 'probando' ? 'Mandando…' : 'Sacar una de prueba'}
               </button>
 
+              <button
+                onClick={() => void calibrar(i)}
+                disabled={e?.fase === 'enviando' || e?.fase === 'probando'}
+                className={`${ESTILO_BOTON} bg-sa-strawberry text-white shadow-sa-sm`}
+              >
+                {e?.fase === 'enviando' ? 'Mandando…' : 'Calibrar · gasta 3'}
+              </button>
+
+              {e?.fase === 'probada' && (
+                <p className="font-mono text-sm text-sa-green mt-4 leading-relaxed">
+                  Mandada. Debe salir <strong>UNA sola etiqueta</strong> que dice
+                  “PRUEBA”. Si sale una y derecha, la impresión normal está bien
+                  y no hace falta calibrar. Si antes escupe blancas, o sale
+                  corrida, entonces sí: calibra.
+                </p>
+              )}
               {e?.fase === 'listo' && (
                 <p className="font-mono text-sm text-sa-green mt-4 leading-relaxed">
                   Mandada. En unos segundos la impresora va a avanzar papel y
