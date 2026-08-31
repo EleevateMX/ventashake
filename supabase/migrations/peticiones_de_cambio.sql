@@ -140,3 +140,14 @@ revoke all on function fn_priorizar_reporte(uuid, integer, boolean) from public,
 grant execute on function fn_reportar_soporte(text, text, jsonb, text) to authenticated;
 grant execute on function fn_reportes_soporte(integer, text) to authenticated;
 grant execute on function fn_priorizar_reporte(uuid, integer, boolean) to authenticated;
+
+-- La trampa de siempre, otra vez: cambiar la firma de una funcion NO la
+-- reemplaza, la duplica. Al agregarle `p_tipo` a las dos quedaron ambas
+-- versiones conviviendo, y llamarlas da "function is not unique".
+--
+-- Peor que el error: PostgREST elige por nombre de parametro, asi que un
+-- dia podria resolver a la version vieja -la que no sabe de peticiones- y
+-- todo lo capturado desde el kiosko entraria como falla sin que nadie lo
+-- note.
+drop function if exists public.fn_reportar_soporte(text, text, jsonb);
+drop function if exists public.fn_reportes_soporte(integer);
