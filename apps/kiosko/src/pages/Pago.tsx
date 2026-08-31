@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   crearOrden, crearOrdenKioskoCaja, cobrarOrden, listarAlmacenes,
   listarCajas, corteAbierto, nombresPedidoFrecuentes,
-  iniciarCobroMixto, cancelarCobroMixto,
+  iniciarCobroMixto, cancelarCobroMixto, cobrarOrdenDividido,
 } from '@shake/supabase'
 import { obtenerPaymentProvider } from '@shake/payments'
 import type { Almacen, CajaCorte, MetodoPago } from '@shake/types'
@@ -15,7 +15,7 @@ import { resolverModoKiosko } from '@/lib/modoKiosko'
 import { canjearMancuernas, canjearSellos } from '@shake/supabase'
 import { PanelRewards, SIN_REWARDS, type DecisionRewards } from '@/components/PanelRewards'
 import { CobroEfectivo } from '@/components/CobroEfectivo'
-import { CobroMixto } from '@/components/CobroMixto'
+import { CobroMixto, type TerminalTarjeta } from '@/components/CobroMixto'
 import { usePromos } from '@/lib/usePromos'
 import { mensajeDeError, mxn } from '@shake/utils'
 
@@ -340,7 +340,7 @@ export function Pago() {
    * si el reparto no cuadra con el total real, el servidor lo rebota en vez
    * de cobrar mal.
    */
-  async function confirmarMixto(montoTarjeta: number) {
+  async function confirmarMixto(montoTarjeta: number, terminal: TerminalTarjeta) {
     if (!almacen || !cajero) return
     setEstado('procesando')
     setError(null)
@@ -378,9 +378,41 @@ export function Pago() {
       if (efectivo < 0.01) {
         setError(
           `Con los canjes el total quedó en ${mxn(totalAPagar)}: eso ya lo cubre la tarjeta. ` +
-            'Cóbralo todo con Clip.',
+            'Cóbralo todo con la terminal.',
         )
         setEstado('eligiendo')
+        return
+      }
+
+      // La terminal del banco no tiene integración: el cajero ya cobró
+      // allá y esto solo lo registra. Por eso NO se apunta el efectivo ni
+      // se espera a nadie — las dos partes se cobran de una, y el servidor
+      // valida que sumen el total ANTES de insertar ninguna.
+      if (terminal === 'banco') {
+        await cobrarOrdenDividido(
+          sb,
+          orden.id,
+          [
+            { metodo: 'tarjeta', monto: montoTarjeta },
+            { metodo: 'efectivo', monto: efectivo },
+          ],
+          { autorizadoPor: cajero.id, idempotencyKey: crypto.randomUUID() },
+        )
+        const itemsSnapshot = [...items]
+        const usuarioSnapshot = usuario ? { ...usuario } : null
+        setEnMixto(false)
+        limpiar()
+        navigate('/confirmacion', {
+          state: {
+            folio: String(orden.folio),
+            ordenId: orden.id,
+            total: totalAPagar,
+            metodo: 'terminal',
+            items: itemsSnapshot,
+            usuario: usuarioSnapshot,
+            demo: false,
+          },
+        })
         return
       }
 
@@ -773,7 +805,7 @@ export function Pago() {
               total={totalConCanjes}
               procesando={false}
               onCancelar={() => setEnMixto(false)}
-              onCobrar={(montoTarjeta) => void confirmarMixto(montoTarjeta)}
+              onCobrar={(montoTarjeta, terminal) => void confirmarMixto(montoTarjeta, terminal)}
             />
           )}
 
@@ -808,11 +840,15 @@ export function Pago() {
                   venta no entrará al corte del día.
                 </p>
               )}
+              {/* Tres conceptos, no cuatro métodos. La terminal del banco
+                  no es un concepto distinto: es la MISMA tarjeta cobrada en
+                  la otra máquina, y va abajo como registro. Ponerla aquí
+                  arriba la volvía tan fácil de tocar como la Clip, y son
+                  cosas distintas: una cobra, la otra solo anota. */}
               {([
                 { metodo: 'efectivo', titulo: 'Efectivo', sub: 'Cobro en el cajón' },
-                { metodo: 'tarjeta',  titulo: 'Tarjeta',  sub: 'Terminal bancaria' },
-                { metodo: 'clip',     titulo: 'Clip',     sub: 'El monto aparece en la terminal' },
-                { metodo: 'mixto',    titulo: 'Mixto',    sub: 'Una parte con tarjeta y el resto en efectivo' },
+                { metodo: 'clip',     titulo: 'Terminal', sub: 'Clip · el monto viaja solo' },
+                { metodo: 'mixto',    titulo: 'Mixto',    sub: 'Efectivo + terminal' },
               ] as const).map((m) => (
                 <button
                   key={m.metodo}
@@ -834,6 +870,25 @@ export function Pago() {
                   </div>
                 </button>
               ))}
+              {/* La otra terminal. Se usa a diario (unas 8 de cada 100
+                  tarjetas), casi siempre cuando la Clip no responde, asi
+                  que tiene que quedar a un toque — pero se ve distinta
+                  porque NO cobra: registra algo que ya se cobro allá. */}
+              <button
+                onClick={() => void confirmarCajero('tarjeta')}
+                className="flex items-center gap-4 px-5 py-4 rounded-sa border border-sa-green-ink/15 bg-transparent hover:bg-sa-cream-soft transition-colors text-left"
+              >
+                <span className="text-sa-green-ink/40"><IconCard /></span>
+                <div>
+                  <p className="font-display text-lg text-sa-green-ink/80 leading-tight">
+                    Terminal del banco
+                  </p>
+                  <p className="font-mono text-[10px] uppercase tracking-wider text-sa-green-ink/50 mt-0.5">
+                    Ya la cobraste allá · esto solo la registra
+                  </p>
+                </div>
+              </button>
+
               <p className="font-mono text-[11px] uppercase tracking-wide text-sa-green-ink/40 text-center">
                 Al cobrar, la comanda sale a cocina de inmediato
               </p>
