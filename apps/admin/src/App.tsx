@@ -3,6 +3,7 @@ import { useState, type ReactElement } from 'react'
 import Dashboard from './pages/Dashboard'
 import EnVivo from './pages/EnVivo'
 import Diagnostico from './pages/Diagnostico'
+import Ayuda from './pages/Ayuda'
 import Descargas from './pages/Descargas'
 import Nombres from './pages/Nombres'
 import Metas from './pages/Metas'
@@ -19,7 +20,7 @@ import Empleados from './pages/Empleados'
 import Impresoras from './pages/Impresoras'
 import Sistema from './pages/Sistema'
 
-type Tab = 'dashboard' | 'envivo' | 'diagnostico' | 'menu' | 'categorias' | 'combos' | 'extras' | 'inventario' | 'promos' | 'ventas' | 'clientes' | 'nombres' | 'metas' | 'rewards' | 'empleados' | 'impresoras' | 'descargas' | 'sistema'
+type Tab = 'dashboard' | 'envivo' | 'diagnostico' | 'menu' | 'categorias' | 'combos' | 'extras' | 'inventario' | 'promos' | 'ventas' | 'clientes' | 'nombres' | 'metas' | 'rewards' | 'empleados' | 'impresoras' | 'descargas' | 'ayuda' | 'sistema'
 
 const w = 18
 
@@ -105,6 +106,14 @@ const IconRewards = () => (
 
 /* Una etiqueta con su nombre: es literalmente de donde salen estos datos. */
 /* Una flecha hacia abajo sobre una bandeja: descargar. */
+/* Un salvavidas: esto es a donde se corre cuando algo se rompe. */
+const IconAyuda = () => (
+  <svg width={w} height={w} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="4" />
+    <path d="M5.6 5.6l3.2 3.2M15.2 15.2l3.2 3.2M18.4 5.6l-3.2 3.2M8.8 15.2l-3.2 3.2" />
+  </svg>
+)
+
 const IconDescargas = () => (
   <svg width={w} height={w} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <path d="M12 3v12M8 11l4 4 4-4" />
@@ -143,6 +152,7 @@ const navItems: { id: Tab; label: string; Icon: () => ReactElement }[] = [
   { id: 'empleados', label: 'Empleados', Icon: IconEmpleados },
   { id: 'impresoras', label: 'Impresoras', Icon: IconImpresoras },
   { id: 'descargas', label: 'Descargas', Icon: IconDescargas },
+  { id: 'ayuda', label: '¿Qué hago si…?', Icon: IconAyuda },
   { id: 'sistema', label: 'Sistema', Icon: IconSistema },
 ]
 
@@ -198,6 +208,7 @@ export default function App() {
         {tab === 'empleados' && <Empleados />}
         {tab === 'impresoras' && <Impresoras />}
         {tab === 'descargas' && <Descargas />}
+        {tab === 'ayuda' && <Ayuda />}
         {tab === 'sistema' && <Sistema />}
       </main>
     </div>
