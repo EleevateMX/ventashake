@@ -4,6 +4,7 @@ import Dashboard from './pages/Dashboard'
 import EnVivo from './pages/EnVivo'
 import Diagnostico from './pages/Diagnostico'
 import Ayuda from './pages/Ayuda'
+import Peticiones from './pages/Peticiones'
 import Descargas from './pages/Descargas'
 import Nombres from './pages/Nombres'
 import Metas from './pages/Metas'
@@ -20,7 +21,7 @@ import Empleados from './pages/Empleados'
 import Impresoras from './pages/Impresoras'
 import Sistema from './pages/Sistema'
 
-type Tab = 'dashboard' | 'envivo' | 'diagnostico' | 'menu' | 'categorias' | 'combos' | 'extras' | 'inventario' | 'promos' | 'ventas' | 'clientes' | 'nombres' | 'metas' | 'rewards' | 'empleados' | 'impresoras' | 'descargas' | 'ayuda' | 'sistema'
+type Tab = 'dashboard' | 'envivo' | 'diagnostico' | 'menu' | 'categorias' | 'combos' | 'extras' | 'inventario' | 'promos' | 'ventas' | 'clientes' | 'nombres' | 'metas' | 'rewards' | 'empleados' | 'impresoras' | 'descargas' | 'ayuda' | 'peticiones' | 'sistema'
 
 const w = 18
 
@@ -114,6 +115,14 @@ const IconAyuda = () => (
   </svg>
 )
 
+/* Una lista con palomitas: la cola de lo que falta por hacer. */
+const IconPeticiones = () => (
+  <svg width={w} height={w} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M9 6h11M9 12h11M9 18h11" />
+    <path d="M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2" />
+  </svg>
+)
+
 const IconDescargas = () => (
   <svg width={w} height={w} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <path d="M12 3v12M8 11l4 4 4-4" />
@@ -153,6 +162,7 @@ const navItems: { id: Tab; label: string; Icon: () => ReactElement }[] = [
   { id: 'impresoras', label: 'Impresoras', Icon: IconImpresoras },
   { id: 'descargas', label: 'Descargas', Icon: IconDescargas },
   { id: 'ayuda', label: '¿Qué hago si…?', Icon: IconAyuda },
+  { id: 'peticiones', label: 'Peticiones', Icon: IconPeticiones },
   { id: 'sistema', label: 'Sistema', Icon: IconSistema },
 ]
 
@@ -209,6 +219,7 @@ export default function App() {
         {tab === 'impresoras' && <Impresoras />}
         {tab === 'descargas' && <Descargas />}
         {tab === 'ayuda' && <Ayuda />}
+        {tab === 'peticiones' && <Peticiones />}
         {tab === 'sistema' && <Sistema />}
       </main>
     </div>
