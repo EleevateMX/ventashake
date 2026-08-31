@@ -36,20 +36,29 @@ interface Contexto {
   impresoras: ImpresoraAdmin[]
 }
 
+type Grupo = 'Impresión' | 'Pantallas y PC' | 'Dinero' | 'Menú' | 'Personal' | 'Cortes de servicio'
+
 interface Ficha {
   id: string
+  grupo: Grupo
   sintoma: string
   /** Cómo lo diría quien tiene el problema — alimenta el buscador. */
   palabras: string[]
+  /** true = la tienda no puede vender mientras dure. Va marcado y primero. */
+  urgente?: boolean
   senal?: (c: Contexto) => { tono: Tono; texto: string }
   porque: string
   pasos: ReactNode[]
   acciones?: 'calibrar' | 'pantallas' | 'reconciliar' | 'expirar'
+  /** Cuándo dejar de intentar y marcarle a gerencia. */
+  llamar?: string
 }
 
 const FICHAS: Ficha[] = [
   {
     id: 'sin-papel',
+    grupo: 'Impresión',
+    urgente: true,
     sintoma: 'No sale papel — no salen las comandas',
     palabras: ['no imprime', 'no sale papel', 'sin comandas', 'impresora muerta', 'no llega a barra'],
     senal: ({ salud }) =>
@@ -69,6 +78,7 @@ const FICHAS: Ficha[] = [
   },
   {
     id: 'corridas',
+    grupo: 'Impresión',
     sintoma: 'Las etiquetas salen corridas o en blanco',
     palabras: ['corrida', 'chueca', 'en blanco', 'cambié el rollo', 'rollo nuevo', 'se desfasó'],
     porque:
@@ -85,6 +95,8 @@ const FICHAS: Ficha[] = [
   },
   {
     id: 'se-cerro',
+    grupo: 'Pantallas y PC',
+    urgente: true,
     sintoma: 'Se cerró la aplicación (kiosko, barra o cocina)',
     palabras: ['se cerró', 'se cerro la aplicacion', 'desapareció la pantalla', 'se salió', 'pantalla negra'],
     porque:
@@ -99,6 +111,8 @@ const FICHAS: Ficha[] = [
   },
   {
     id: 'no-abrio',
+    grupo: 'Pantallas y PC',
+    urgente: true,
     sintoma: 'Prendimos la PC y no abrió nada',
     palabras: ['no abrió', 'no abre', 'se prendió y nada', 'arranque', 'no arrancó'],
     porque:
@@ -112,6 +126,7 @@ const FICHAS: Ficha[] = [
   },
   {
     id: 'precio-viejo',
+    grupo: 'Menú',
     sintoma: 'Cambié un precio o un producto y el kiosko sigue igual',
     palabras: ['precio viejo', 'no se actualiza', 'cambié precio', 'no aparece el producto', 'costeos'],
     porque:
@@ -126,6 +141,8 @@ const FICHAS: Ficha[] = [
   },
   {
     id: 'cobro-colgado',
+    grupo: 'Dinero',
+    urgente: true,
     sintoma: 'Un cobro se quedó “esperando confirmación”',
     palabras: ['esperando confirmacion', 'no confirma', 'clip', 'terminal', 'se quedó pensando'],
     senal: ({ salud }) => {
@@ -146,6 +163,7 @@ const FICHAS: Ficha[] = [
   },
   {
     id: 'folios-abandonados',
+    grupo: 'Dinero',
     sintoma: 'Hay folios de kiosko que nadie vino a pagar',
     palabras: ['folios pendientes', 'no vinieron a pagar', 'ordenes viejas', 'esperando caja'],
     senal: ({ salud }) =>
@@ -163,6 +181,7 @@ const FICHAS: Ficha[] = [
   },
   {
     id: 'comanda-perdida',
+    grupo: 'Impresión',
     sintoma: 'Una comanda no llegó a la estación',
     palabras: ['no llegó la comanda', 'falta comanda', 'no imprimió esa', 'se perdió el pedido'],
     senal: ({ salud }) => {
@@ -181,6 +200,7 @@ const FICHAS: Ficha[] = [
   },
   {
     id: 'producto-doble',
+    grupo: 'Menú',
     sintoma: 'Un producto aparece dos veces, o desapareció',
     palabras: ['duplicado', 'dos veces', 'desapareció', 'se borró el producto', 'perdió sus extras'],
     porque:
@@ -194,6 +214,7 @@ const FICHAS: Ficha[] = [
   },
   {
     id: 'version',
+    grupo: 'Pantallas y PC',
     sintoma: 'No sé si la PC está al día',
     palabras: ['version', 'actualizar', 'agente viejo', 'esta al dia'],
     senal: ({ impresoras }) => {
@@ -208,6 +229,145 @@ const FICHAS: Ficha[] = [
       <>En <strong>Descargas</strong> se ve la versión de cada PC contra la publicada, y dice si falta.</>,
       <>Para forzarlo hoy: <strong>“Solo el agente de impresión”</strong> desde Descargas.</>,
     ],
+  },
+  {
+    id: 'sin-internet',
+    grupo: 'Cortes de servicio',
+    urgente: true,
+    sintoma: 'Se fue el internet',
+    palabras: ['sin internet', 'no hay wifi', 'se cayo la red', 'no carga', 'sin conexion'],
+    porque:
+      'Todo el sistema vive en la nube: el kiosko, la caja y las pantallas son ' +
+      'ventanas de internet. Sin red no se puede cobrar. No hay modo sin conexión, ' +
+      'y es a propósito: una venta guardada en una PC que después no sincroniza es ' +
+      'peor que una venta que no se hizo.',
+    pasos: [
+      <>Revisa el módem. Si hay señal en el celular pero no en la PC, prueba compartir datos por USB o Wi-Fi desde un teléfono: la PC vuelve a vender en cuanto haya red.</>,
+      <><strong>Cobra en papel mientras tanto</strong> —anota producto, monto y método— y captúralo después en el POS con la caja abierta. Que quede a nombre de alguien para no perder el rastro.</>,
+      <>Las comandas de lo que ya se cobró antes del corte <strong>no se pierden</strong>: salen todas cuando vuelva la red.</>,
+    ],
+    llamar: 'Si vuelve el internet y las pantallas siguen en blanco.',
+  },
+  {
+    id: 'sin-luz',
+    grupo: 'Cortes de servicio',
+    sintoma: 'Se fue la luz',
+    palabras: ['sin luz', 'apagon', 'se apago todo', 'corte de energia'],
+    porque:
+      'La PC está configurada para levantarse sola: al volver la corriente arranca, ' +
+      'espera internet y abre las tres pantallas y el agente de impresión.',
+    pasos: [
+      <>No toques nada por un minuto. Debe abrir solo.</>,
+      <>Si no abrió, doble clic en <strong>“Shakeaholic”</strong> del escritorio.</>,
+      <>Revisa que las dos etiquetadoras estén encendidas: no arrancan solas si su switch quedó apagado.</>,
+      <><strong>El turno de caja sigue abierto</strong> donde estaba. No hay que volver a abrirlo.</>,
+    ],
+  },
+  {
+    id: 'terminal-clip',
+    grupo: 'Dinero',
+    urgente: true,
+    sintoma: 'La terminal Clip no responde o no le llega el cobro',
+    palabras: ['clip', 'terminal', 'no llega el cobro', 'pinpad', 'no aparece el monto'],
+    porque:
+      'El monto viaja del sistema a la terminal por internet. Si la terminal está ' +
+      'apagada, sin batería o sin señal, el cobro no le llega.',
+    pasos: [
+      <>Revisa que la terminal esté encendida, con batería y con su señal.</>,
+      <>Cancela el cobro desde el sistema antes de reintentar. <strong>Si queda uno vivo en la terminal, el siguiente cliente paga lo del anterior.</strong></>,
+      <>Si sigue sin llegar, cobra por otro método (efectivo o la terminal del banco) y sigue vendiendo. No dejes la fila parada por esto.</>,
+    ],
+    llamar: 'Si la terminal cobró al cliente y el sistema dice que no.',
+  },
+  {
+    id: 'cobre-dos-veces',
+    grupo: 'Dinero',
+    urgente: true,
+    sintoma: 'Creo que le cobré dos veces a un cliente',
+    palabras: ['cobre dos veces', 'doble cobro', 'se cobro dos', 'devolver', 'reembolso'],
+    porque:
+      'Pasa cuando un cobro se queda “esperando confirmación” y se vuelve a intentar. ' +
+      'El sistema es idempotente y evita casi todos los dobles, pero la terminal es ' +
+      'un aparato aparte.',
+    pasos: [
+      <><strong>No prometas nada todavía.</strong> Anota el folio y la hora.</>,
+      <>Búscalo en <strong>En vivo</strong> o en <strong>Ventas</strong>: si solo hay una venta, no se cobró dos veces aunque la terminal haya parpadeado.</>,
+      <>Si de verdad hay dos, la devolución se hace <strong>desde la app de Clip</strong>, no desde aquí.</>,
+      <>Avísale al cliente que se le regresa el mismo día y pídele su contacto.</>,
+    ],
+    llamar: 'Siempre. Un doble cobro se avisa aunque ya lo hayas resuelto.',
+  },
+  {
+    id: 'caja-no-cuadra',
+    grupo: 'Dinero',
+    sintoma: 'La caja no cuadra al cerrar el turno',
+    palabras: ['no cuadra', 'falta dinero', 'sobra dinero', 'corte', 'diferencia'],
+    porque:
+      'El conteo es por denominación justo para esto: el total lo hace la máquina, ' +
+      'así que una diferencia ya no puede ser una suma mal hecha.',
+    pasos: [
+      <><strong>Vuelve a contar</strong> antes de cerrar, denominación por denominación. Es el error más común.</>,
+      <>Revisa si hubo un cobro en efectivo que se registró como tarjeta, o al revés.</>,
+      <><strong>Cierra con el número real</strong>, aunque no cuadre, y escribe en las notas qué crees que pasó. Cerrar con un número inventado hace imposible encontrar el problema mañana.</>,
+      <>Una diferencia de monedas es normal. De billetes, se avisa.</>,
+    ],
+    llamar: 'Si falta un billete o la diferencia se repite dos días seguidos.',
+  },
+  {
+    id: 'pin',
+    grupo: 'Personal',
+    sintoma: 'No puedo entrar con mi PIN / entró alguien nuevo',
+    palabras: ['pin', 'no me deja entrar', 'olvide el pin', 'empleado nuevo', 'contrasena'],
+    porque:
+      'Cada quien entra con su PIN, y el turno queda registrado a su nombre. Por eso ' +
+      'no se comparten: si dos usan el mismo, el corte no dice quién cobró.',
+    pasos: [
+      <>El PIN es de 4 a 6 dígitos. Después de varios intentos fallidos se bloquea un rato.</>,
+      <>Para dar de alta a alguien o cambiar un PIN: <strong>Admin → Empleados</strong>.</>,
+      <>Si alguien se va del negocio, <strong>desactívalo ahí mismo</strong> el mismo día.</>,
+    ],
+  },
+  {
+    id: 'reimprimir',
+    grupo: 'Impresión',
+    sintoma: 'Necesito reimprimir una comanda',
+    palabras: ['reimprimir', 'otra vez la etiqueta', 'se perdio la etiqueta', 'volver a imprimir'],
+    porque:
+      'Se puede reimprimir cualquier comanda. Sale marcada como REIMPRESIÓN para que ' +
+      'en barra nadie prepare dos veces lo mismo.',
+    pasos: [
+      <>Desde la pantalla de la estación (barra o cocina), en la tarjeta del pedido.</>,
+      <>O desde <strong>Admin → Impresoras</strong>, en la cola de trabajos.</>,
+    ],
+  },
+  {
+    id: 'monitores',
+    grupo: 'Pantallas y PC',
+    sintoma: 'El kiosko abrió en el monitor equivocado',
+    palabras: ['monitor', 'pantalla cambiada', 'kiosko en la de bebidas', 'se cambiaron las pantallas'],
+    porque:
+      'El arranque le pregunta a Windows dónde están los monitores y reparte por ' +
+      'tamaño: el grande es del cliente, los dos chicos son las estaciones. Si se ' +
+      'cambió un cable, el reparto cambia.',
+    pasos: [
+      <>Cierra las tres ventanas y vuelve a dar doble clic en <strong>“Shakeaholic”</strong>: reparte de nuevo.</>,
+      <>Si siempre queda mal, se puede fijar a mano. Avísame y te digo qué escribir en el archivo de configuración de la PC.</>,
+    ],
+    llamar: 'Si después de reabrir sigue quedando mal.',
+  },
+  {
+    id: 'rewards',
+    grupo: 'Personal',
+    sintoma: 'Al cliente no le llegaron sus mancuernas',
+    palabras: ['mancuernas', 'rewards', 'puntos', 'no le sumo', 'sellos'],
+    porque:
+      'Las mancuernas se suman a la venta **solo si el cliente se identificó antes de ' +
+      'cobrar**. Si se cobró sin identificarlo, la venta ya no se le puede asignar sola.',
+    pasos: [
+      <>Identifica al cliente <strong>antes</strong> de cobrar, no después.</>,
+      <>Si ya se cobró sin identificar, anota el folio y el correo del cliente: se le puede abonar a mano.</>,
+    ],
+    llamar: 'Con el folio y el correo, para abonárselas.',
   },
 ]
 
@@ -224,6 +384,7 @@ export default function Ayuda() {
   const [ctx, setCtx] = useState<Contexto | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busca, setBusca] = useState('')
+  const [grupo, setGrupo] = useState<Grupo | null>(null)
   const [abierta, setAbierta] = useState<string | null>(null)
   const [ocupado, setOcupado] = useState<string | null>(null)
   const [hecho, setHecho] = useState<string | null>(null)
@@ -241,11 +402,18 @@ export default function Ayuda() {
 
   const vistas = useMemo(() => {
     const q = sin(busca.trim())
-    if (!q) return FICHAS
-    return FICHAS.filter((f) =>
-      sin(f.sintoma).includes(q) || f.palabras.some((p) => sin(p).includes(q)),
-    )
-  }, [busca])
+    let l = FICHAS
+    if (grupo) l = l.filter((f) => f.grupo === grupo)
+    if (q) {
+      l = l.filter((f) =>
+        sin(f.sintoma).includes(q) ||
+        sin(f.grupo).includes(q) ||
+        f.palabras.some((p) => sin(p).includes(q)),
+      )
+    }
+    // Lo urgente primero: si la tienda no puede vender, eso va arriba.
+    return [...l].sort((a, b) => Number(!!b.urgente) - Number(!!a.urgente))
+  }, [busca, grupo])
 
   async function accion(id: string, fn: () => Promise<string>) {
     setOcupado(id)
@@ -273,12 +441,41 @@ export default function Ayuda() {
         <p className="font-mono text-sm text-sa-green bg-sa-mint/25 rounded-sa px-4 py-3 mb-4">{hecho}</p>
       )}
 
+      {/* Lo que resuelve casi todo, antes de que nadie tenga que buscar. */}
+      <Panel title="Primeros auxilios — casi siempre es una de estas tres">
+        <ol className="text-sm text-sa-green-ink/80 space-y-2 list-decimal pl-5 leading-relaxed">
+          <li><strong>No sale papel</strong> → abre la ventana negra del agente en la PC (“Agente de impresión” del escritorio).</li>
+          <li><strong>Se cerró una pantalla</strong> → doble clic en “Shakeaholic” del escritorio: reabre las tres.</li>
+          <li><strong>Las etiquetas salen mal</strong> → calibrar, aquí abajo o desde el kiosko (5 toques a Milo).</li>
+        </ol>
+        <p className="text-sm text-sa-green-ink/70 mt-4 leading-relaxed">
+          <strong className="text-sa-green-ink">Nada de esto pierde ventas ni pedidos.</strong> Todo
+          vive en la nube: las pantallas y el papel son la ventana, no la memoria.
+        </p>
+      </Panel>
+
       <input
-        className={`${cx.input} mb-6`}
-        placeholder='Escribe el problema: "no sale papel", "se cerró", "precio viejo"…'
+        className={`${cx.input} mt-6`}
+        placeholder='Escribe el problema: "no sale papel", "se cerró", "no cuadra"…'
         value={busca}
         onChange={(e) => setBusca(e.target.value)}
       />
+
+      <div className="flex flex-wrap gap-2 mt-3 mb-6">
+        {([null, 'Impresión', 'Pantallas y PC', 'Dinero', 'Menú', 'Personal', 'Cortes de servicio'] as (Grupo | null)[]).map((g) => (
+          <button
+            key={g ?? 'todo'}
+            onClick={() => setGrupo(g)}
+            className={`px-3.5 py-1.5 rounded-full text-sm font-medium transition-colors ${
+              grupo === g
+                ? 'bg-sa-green-ink text-sa-cream'
+                : 'bg-white text-sa-green-ink/70 border border-sa-green-ink/15 hover:border-sa-green-ink/30'
+            }`}
+          >
+            {g ?? 'Todo'}
+          </button>
+        ))}
+      </div>
 
       {!ctx && !error && <Loading>Revisando cómo está la tienda…</Loading>}
 
@@ -292,7 +489,19 @@ export default function Ayuda() {
                 onClick={() => setAbierta(activa ? null : f.id)}
                 className="w-full flex flex-wrap items-center justify-between gap-3 text-left"
               >
-                <span className="text-lg font-medium text-sa-green-ink">{f.sintoma}</span>
+                <span className="min-w-0">
+                  <span className="block text-lg font-medium text-sa-green-ink">
+                    {f.urgente && (
+                      <span className="mr-2 align-middle inline-block px-2 py-0.5 rounded-full bg-sa-strawberry text-white text-[10px] font-mono uppercase tracking-wider">
+                        Urgente
+                      </span>
+                    )}
+                    {f.sintoma}
+                  </span>
+                  <span className="block font-mono text-[10px] uppercase tracking-wider text-sa-green-ink/40 mt-1">
+                    {f.grupo}
+                  </span>
+                </span>
                 <span className="flex items-center gap-3 shrink-0">
                   {senal && (
                     <span className={`px-3 py-1 rounded-full text-xs font-semibold ${TONOS[senal.tono]}`}>
@@ -309,6 +518,12 @@ export default function Ayuda() {
                   <ol className="text-sm text-sa-green-ink/80 mt-4 space-y-2 list-decimal pl-5 leading-relaxed">
                     {f.pasos.map((p, i) => <li key={i}>{p}</li>)}
                   </ol>
+
+                  {f.llamar && (
+                    <p className="text-sm text-sa-coffee bg-sa-banana/25 rounded-sa px-4 py-3 mt-4 leading-relaxed">
+                      <strong>Marca a gerencia:</strong> {f.llamar}
+                    </p>
+                  )}
 
                   {f.acciones === 'pantallas' && (
                     <div className="mt-5"><BotonActualizarPantallas compacto /></div>
@@ -373,6 +588,58 @@ export default function Ayuda() {
             </p>
           </Panel>
         )}
+      </div>
+
+      <div className="mt-8 space-y-6">
+        <Panel title="Lo que NUNCA hay que hacer">
+          <ul className="text-sm text-sa-green-ink/80 space-y-2.5 list-disc pl-5 leading-relaxed">
+            <li>
+              <strong>Cobrar dos veces</strong> porque “no confirmó”. Espera dos minutos
+              y revisa: el cobro puede estar bueno y sin confirmar.
+            </li>
+            <li>
+              <strong>Cerrar el turno con un número inventado</strong> para que cuadre.
+              Cierra con lo que hay y escribe qué crees que pasó — un número falso hace
+              imposible encontrar el error mañana.
+            </li>
+            <li>
+              <strong>Renombrar o borrar productos desde Admin</strong> si vienen de
+              Costeos: el siguiente guardado lo revierte y el producto se parte en dos.
+            </li>
+            <li>
+              <strong>Apagar la PC a media venta</strong> o cerrar la ventana negra del
+              agente “porque estorba”. Sin ella no sale papel.
+            </li>
+            <li>
+              <strong>Cambiarle configuraciones de seguridad a Windows</strong> para que
+              abra un archivo. Si algo pide eso, está mal bajado — avisa.
+            </li>
+          </ul>
+        </Panel>
+
+        <Panel title="Si nada de esto lo resuelve">
+          <p className="text-sm text-sa-green-ink/75 leading-relaxed">
+            Marca a gerencia, y manda estas cuatro cosas. Con ellas se resuelve a
+            distancia casi siempre; sin ellas, la primera respuesta va a ser
+            preguntártelas.
+          </p>
+          <ol className="text-sm text-sa-green-ink/80 mt-3 space-y-2 list-decimal pl-5 leading-relaxed">
+            <li><strong>Qué pasó</strong>, en tus palabras, y <strong>a qué hora</strong>.</li>
+            <li>El <strong>folio</strong> del pedido, si hay uno.</li>
+            <li>Una <strong>foto de la pantalla</strong> con el error completo, sin recortar.</li>
+            <li>
+              Si es de impresión: corre <strong>Diagnóstico del agente</strong> desde{' '}
+              <strong>Descargas</strong> y manda el <code className="font-mono text-xs">.txt</code>{' '}
+              que deja en el Escritorio.
+            </li>
+          </ol>
+          <p className="text-sm text-sa-green-ink/70 mt-4 leading-relaxed">
+            <strong className="text-sa-green-ink">Mientras tanto, sigue vendiendo.</strong>{' '}
+            Casi todo lo de esta lista tiene una salida que no detiene la fila: cobrar
+            por otro método, anotar en papel, entregar sin etiqueta gritando el nombre.
+            Detener la venta es siempre la opción más cara.
+          </p>
+        </Panel>
       </div>
 
       <button
