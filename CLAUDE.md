@@ -295,6 +295,13 @@ empaquetador y se desvían solas:
   escribe en la comanda y qué se cobra aparte vive ahora en
   `packages/utils/src/extras.ts`, importado por las dos. Su espejo en la
   base es `fn_clase_extra`. **Al tocar una, revisa la otra.**
+- La comanda muestra cada producto **con sus extras colgando**, no plana:
+  `orden_items.padre_item_id` dice de cuál shake es la creatina, y con dos
+  bebidas en el mismo folio esa es la única forma de saberlo. Lo agrupa
+  `agruparItemsComanda`, espejo de `fn_items_comanda` (la que arma la
+  etiqueta impresa). Regla que hay que conservar en las dos: si el padre no
+  está en esa pantalla, el extra **sube a renglón propio** en vez de
+  desaparecer — un extra que no se ve es un extra que no se prepara.
 - La opción por defecto de cada grupo (la leche de casa, la proteína, el
   frío/caliente) ya no es una expresión regular en el código: es la
   estrella de Admin → Extras, guardada por vínculo producto↔extra. Las

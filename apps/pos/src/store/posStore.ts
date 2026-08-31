@@ -18,10 +18,33 @@ export interface LineaCarrito {
   producto: ProductoVenta
   cantidad: number
   personalizacion: string | null
+  /**
+   * Si esta línea es un extra, la del producto al que acompaña.
+   *
+   * Es lo que hace que en barra la creatina se vea colgando de SU shake y
+   * no suelta arriba. Sin esto, con dos shakes en la comanda no hay forma
+   * de saber a cuál le va — y el kiosko sí lo mandaba, así que las dos
+   * puertas decían cosas distintas de la misma venta.
+   */
+  padreLinea?: string | null
 }
 
 function nuevaLineaId(): string {
   return globalThis.crypto?.randomUUID?.() ?? `l-${Date.now()}-${Math.random().toString(36).slice(2)}`
+}
+
+/** Quita una línea y todo lo que colgaba de ella. */
+function sinLinea(items: LineaCarrito[], lineaId: string): LineaCarrito[] {
+  return items.filter((l) => l.lineaId !== lineaId && l.padreLinea !== lineaId)
+}
+
+/** Sube o baja una línea; si llega a cero, se va con sus extras. */
+function sinVacias(items: LineaCarrito[], lineaId: string, delta: number): LineaCarrito[] {
+  const movidos = items.map((l) =>
+    l.lineaId === lineaId ? { ...l, cantidad: l.cantidad + delta } : l,
+  )
+  const enCero = movidos.find((l) => l.lineaId === lineaId && l.cantidad <= 0)
+  return enCero ? sinLinea(movidos, lineaId) : movidos
 }
 
 /** Descuento manual (autorización de caja) — se suma al `descuento` de la orden. */
@@ -52,6 +75,12 @@ interface PosStore {
   descuentoManual: DescuentoManual | null
 
   agregarItem: (p: ProductoVenta, personalizacion?: string | null) => void
+  /** El producto y sus extras en un solo movimiento, ya ligados entre sí. */
+  agregarConExtras: (
+    p: ProductoVenta,
+    personalizacion: string | null,
+    extras: ProductoVenta[],
+  ) => void
   /** Corregir un renglón sin borrarlo y volverlo a capturar. */
   editarItem: (lineaId: string, cambios: { cantidad?: number; personalizacion?: string | null }) => void
   incrementar: (lineaId: string) => void
@@ -143,21 +172,45 @@ export const usePosStore = create<PosStore>((set, get) => ({
    * borra la línea, igual que bajarle con el menos.
    */
   editarItem: (lineaId, cambios) =>
-    set((state) => ({
-      items: state.items
-        .map((l) => {
-          if (l.lineaId !== lineaId) return l
-          return {
-            ...l,
-            cantidad: cambios.cantidad ?? l.cantidad,
-            personalizacion:
-              cambios.personalizacion === undefined
-                ? l.personalizacion
-                : cambios.personalizacion?.trim() || null,
-          }
-        })
-        .filter((l) => l.cantidad > 0),
-    })),
+    set((state) => {
+      const items = state.items.map((l) => {
+        if (l.lineaId !== lineaId) return l
+        return {
+          ...l,
+          cantidad: cambios.cantidad ?? l.cantidad,
+          personalizacion:
+            cambios.personalizacion === undefined
+              ? l.personalizacion
+              : cambios.personalizacion?.trim() || null,
+        }
+      })
+      const enCero = items.find((l) => l.lineaId === lineaId && l.cantidad <= 0)
+      return { items: enCero ? sinLinea(items, lineaId) : items }
+    }),
+
+  agregarConExtras: (p, personalizacion, extras) =>
+    set((state) => {
+      const padre = nuevaLineaId()
+      return {
+        items: [
+          ...state.items,
+          {
+            lineaId: padre,
+            producto: p,
+            cantidad: 1,
+            personalizacion: personalizacion?.trim() || null,
+            padreLinea: null,
+          },
+          ...extras.map((e) => ({
+            lineaId: nuevaLineaId(),
+            producto: e,
+            cantidad: 1,
+            personalizacion: null,
+            padreLinea: padre,
+          })),
+        ],
+      }
+    }),
 
   incrementar: (lineaId) =>
     set((state) => ({
@@ -167,14 +220,12 @@ export const usePosStore = create<PosStore>((set, get) => ({
     })),
 
   decrementar: (lineaId) =>
-    set((state) => ({
-      items: state.items
-        .map((l) => (l.lineaId === lineaId ? { ...l, cantidad: l.cantidad - 1 } : l))
-        .filter((l) => l.cantidad > 0),
-    })),
+    set((state) => ({ items: sinVacias(state.items, lineaId, -1) })),
 
+  // Quitar un producto se lleva sus extras: un extra huérfano se seguiría
+  // cobrando sin nada a qué acompañar, y saldría solo en la comanda.
   quitarItem: (lineaId) =>
-    set((state) => ({ items: state.items.filter((l) => l.lineaId !== lineaId) })),
+    set((state) => ({ items: sinLinea(state.items, lineaId) })),
 
   setCliente: (cliente) => set({ cliente }),
   setCupon: (cupon) => set({ cupon }),
@@ -232,14 +283,19 @@ export const usePosStore = create<PosStore>((set, get) => ({
     set((state) => {
       const venta = state.enEspera.find((v) => v.id === id)
       if (!venta) return {}
-      const items = catalogo
-        ? venta.items
-            .map((l) => {
-              const vivo = catalogo.find((p) => p.id === l.producto.id)
-              return vivo ? { ...l, producto: vivo } : null
-            })
-            .filter((l): l is typeof venta.items[number] => l !== null)
-        : venta.items
+      let items = venta.items
+      if (catalogo) {
+        items = venta.items
+          .map((l) => {
+            const vivo = catalogo.find((p) => p.id === l.producto.id)
+            return vivo ? { ...l, producto: vivo } : null
+          })
+          .filter((l): l is typeof venta.items[number] => l !== null)
+        // Si el producto se cayó del catálogo, sus extras se van con él:
+        // cobrar una creatina sin el shake no es lo que nadie pidió.
+        const vivos = new Set(items.map((l) => l.lineaId))
+        items = items.filter((l) => !l.padreLinea || vivos.has(l.padreLinea))
+      }
       const enEspera = state.enEspera.filter((v) => v.id !== id)
       guardarEspera(enEspera)
       return {

@@ -76,11 +76,16 @@ export function Cobro() {
           empleado_id: empleado?.id ?? null,
           descuento: descuentoTotal(),
         },
+        // `linea`/`padre_linea` ligan cada extra a su producto. Sin eso la
+        // comanda de barra los muestra sueltos y, con dos shakes, nadie
+        // sabe a cuál le va la creatina.
         items.map((l) => ({
           producto_id: l.producto.id,
           cantidad: l.cantidad,
           precio_unitario: l.producto.precio,
           personalizacion: l.personalizacion,
+          linea: l.lineaId,
+          padre_linea: l.padreLinea ?? null,
         })),
       )
       // Cupón: canjear (marca usado + liga a la orden) antes de cobrar.
