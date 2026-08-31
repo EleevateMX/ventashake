@@ -171,3 +171,16 @@ terminal y comprobar que le llega **exactamente la parte de la tarjeta**
 (no el total) y que cancelar no deja nada apuntado -- eso no necesita
 plastico. Pero insertar una tarjeta y que Clip autorice de verdad lo tiene
 que hacer alguien en la barra.
+
+## Otro pendiente, mucho menor (encontrado el 31/08)
+
+`senales_pantallas` -- el timbre de "actualizar pantallas" -- tiene
+`grant INSERT/UPDATE/DELETE/TRUNCATE` a `anon`. Cualquiera con la llave
+publicable puede tocarle el timbre a las pantallas de la tienda.
+
+**No es urgente y no se toca a la ligera**, por dos razones: el kiosko
+solo recarga cuando esta en el menu y sin carrito (o sea, lo peor que
+puede pasar es una recarga molesta, nunca una venta perdida), y **cerrar
+esta tabla mata el canal de Realtime en silencio** -- Realtime respeta
+RLS, y sin la politica de lectura el timbre deja de sonar del todo. La
+lectura (`senales_leer`) se queda como esta; lo que sobra es la escritura.
