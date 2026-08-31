@@ -16,6 +16,7 @@ interface Props {
 
 export function CatalogoBusqueda({ productos, categorias, extras, productosExtra }: Props) {
   const agregarItem = usePosStore((s) => s.agregarItem)
+  const agregarConExtras = usePosStore((s) => s.agregarConExtras)
   const [busqueda, setBusqueda] = useState('')
   const [categoriaActiva, setCategoriaActiva] = useState<string | null>(null)
   const [marcaActiva, setMarcaActiva] = useState<string | null>(null)
@@ -198,13 +199,14 @@ export function CatalogoBusqueda({ productos, categorias, extras, productosExtra
         onCerrar={() => setPersonalizando(null)}
         onAgregar={(nota, extrasElegidos) => {
           if (personalizando) {
-            agregarItem(personalizando, nota)
-            // Cada extra entra como su propia línea: cuesta, cobra y
-            // descuenta inventario como cualquier producto.
-            for (const e of extrasElegidos) {
-              const prodExtra = productosExtra.find((p) => p.id === e.extra_id)
-              if (prodExtra) agregarItem(prodExtra)
-            }
+            // Cada extra entra como su propia línea —así cuesta, cobra y
+            // descuenta inventario como cualquier producto— pero LIGADA a
+            // su producto, para que en barra se vea colgando de él y no
+            // suelta arriba. El kiosko ya lo mandaba así.
+            const productos = extrasElegidos
+              .map((e) => productosExtra.find((p) => p.id === e.extra_id))
+              .filter((p): p is ProductoVenta => p !== undefined)
+            agregarConExtras(personalizando, nota, productos)
           }
           setPersonalizando(null)
         }}

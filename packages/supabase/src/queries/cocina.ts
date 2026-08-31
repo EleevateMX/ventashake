@@ -12,6 +12,93 @@ export interface CocinaItemConProducto extends CocinaItem {
      */
     categorias: { nombre: string; nombre_singular?: string | null } | null
   } | null
+  /**
+   * De qué línea del ticket cuelga esta. Es lo que dice que la creatina es
+   * DE ESE shake y no del otro. Opcional por la misma razón de arriba: si
+   * la consulta no lo trae, todo se pinta plano como antes.
+   */
+  orden_items?: { padre_item_id: string | null } | null
+}
+
+/** Un producto de la comanda con lo que se le agregó colgando. */
+export interface ItemDeComanda<T> {
+  item: T
+  /** Extras de ESTE producto, ya ordenados como salen en la etiqueta. */
+  extras: T[]
+}
+
+/**
+ * Agrupa los renglones de una comanda: cada producto con SUS extras.
+ *
+ * En barra se veían planos —"1x Creatina", "1x Proteína", "1x #16 Vanilla
+ * Bliss"— como si fueran tres cosas sueltas. Con un shake se adivina; con
+ * dos, no hay forma de saber a cuál le va la creatina.
+ *
+ * Espejo exacto de `fn_items_comanda`, que es lo que ya arma la etiqueta
+ * impresa. Incluida la regla que importa: si el padre NO está en esta
+ * pantalla (un extra de alimentos colgando de una bebida), el extra sube a
+ * renglón propio en vez de desaparecer. Un extra que no se ve es un extra
+ * que no se prepara.
+ */
+export function agruparItemsComanda<T extends CocinaItemConProducto>(
+  items: T[],
+): ItemDeComanda<T>[] {
+  const porOrdenItem = new Map<string, T>()
+  for (const it of items) {
+    if (it.orden_item_id) porOrdenItem.set(it.orden_item_id, it)
+  }
+
+  /**
+   * El ancestro visible más alto. Se sube por la cadena y no un solo nivel
+   * porque nada impide que un extra cuelgue de otro; sin esto, ese nieto
+   * se caería de la pantalla.
+   */
+  function raizDe(it: T): T | null {
+    let actual = it
+    const vistos = new Set<string>()
+    for (;;) {
+      const padreId = actual.orden_items?.padre_item_id ?? null
+      if (!padreId) return actual === it ? null : actual
+      const padre = porOrdenItem.get(padreId)
+      // El padre está en otra estación: este item se queda como raíz.
+      if (!padre) return actual === it ? null : actual
+      if (padre.id === actual.id || vistos.has(padre.id)) return actual
+      vistos.add(actual.id)
+      actual = padre
+    }
+  }
+
+  const grupos: ItemDeComanda<T>[] = []
+  const porRaiz = new Map<string, ItemDeComanda<T>>()
+  const colocados = new Set<string>()
+
+  const nuevoGrupo = (it: T) => {
+    const grupo: ItemDeComanda<T> = { item: it, extras: [] }
+    grupos.push(grupo)
+    porRaiz.set(it.id, grupo)
+    colocados.add(it.id)
+  }
+
+  for (const it of items) if (!raizDe(it)) nuevoGrupo(it)
+  for (const it of items) {
+    const raiz = raizDe(it)
+    if (!raiz) continue
+    const grupo = porRaiz.get(raiz.id)
+    if (grupo) { grupo.extras.push(it); colocados.add(it.id) }
+  }
+
+  // Red de seguridad: lo que no encontró dónde colgarse se queda como
+  // renglón propio. Un dato raro puede hacer que un extra no encuentre a su
+  // padre; que salga solo es feo, que desaparezca de la pantalla es una
+  // bebida que nadie prepara.
+  for (const it of items) if (!colocados.has(it.id)) nuevoGrupo(it)
+
+  for (const g of grupos) {
+    g.extras.sort((a, b) =>
+      (a.productos?.nombre ?? '').localeCompare(b.productos?.nombre ?? ''),
+    )
+  }
+  return grupos
 }
 
 /**
@@ -56,7 +143,7 @@ export async function listarPedidosCocina(
 
   const { data, error } = await sb
     .from('pedidos_cocina')
-    .select('*, cocina_items(*, productos(nombre, onzas, categorias(*))), ordenes(folio, canal, nombre_cliente, para_llevar)')
+    .select('*, cocina_items(*, orden_items(padre_item_id), productos(nombre, onzas, categorias(*))), ordenes(folio, canal, nombre_cliente, para_llevar)')
     .eq('cocina_id', cocina.id)
     .in('estado', ['pendiente', 'en_preparacion', 'listo'])
     .order('created_at')
@@ -68,7 +155,7 @@ export async function listarPedidosCocina(
 export async function listarPedidosActivos(sb: ShakeClient): Promise<PedidoConItems[]> {
   const { data, error } = await sb
     .from('pedidos_cocina')
-    .select('*, cocina_items(*, productos(nombre, onzas, categorias(*))), ordenes(folio, canal, nombre_cliente, para_llevar)')
+    .select('*, cocina_items(*, orden_items(padre_item_id), productos(nombre, onzas, categorias(*))), ordenes(folio, canal, nombre_cliente, para_llevar)')
     .in('estado', ['pendiente', 'en_preparacion', 'listo'])
     .order('created_at')
   if (error) throw error

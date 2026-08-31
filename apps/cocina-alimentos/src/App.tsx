@@ -4,7 +4,7 @@ import { sb } from './lib/sb'
 import {
   listarPedidosCocina, suscribirPedidosCocina, cambiarEstadoPedido,
   trabajosDeVariosPedidos, suscribirTrabajosImpresion, reimprimirTrabajo,
-  etiquetaItem,
+  etiquetaItem, agruparItemsComanda,
 } from '@shake/supabase'
 import type { PedidoConItems } from '@shake/supabase'
 import type { EstadoCocina, TrabajoImpresion } from '@shake/types'
@@ -325,13 +325,16 @@ export default function App() {
 
                   <div className="mx-5 my-1 h-px bg-sa-green-ink/10" />
 
-                  {/* Items */}
+                  {/* Items. Cada producto con SUS extras colgando: plano,
+                      con dos shakes en la comanda no hay forma de saber a
+                      cuál le va la creatina. */}
                   <div className="px-3 py-2 flex-1">
-                    {pedido.cocina_items.map((item) => (
+                    {agruparItemsComanda(pedido.cocina_items).map(({ item, extras }) => (
                       <div
                         key={item.id}
-                        className="flex gap-3 items-start px-2 py-2 rounded-sa hover:bg-sa-cream-soft transition-colors"
+                        className="px-2 py-2 rounded-sa hover:bg-sa-cream-soft transition-colors"
                       >
+                       <div className="flex gap-3 items-start">
                         <span className="font-mono font-medium text-sm bg-sa-green-ink text-sa-cream px-2.5 py-1 rounded-sa min-w-[2.75rem] text-center shrink-0 tabular-nums">
                           {item.cantidad}×
                         </span>
@@ -353,6 +356,28 @@ export default function App() {
                             </p>
                           )}
                         </div>
+                       </div>
+                        {/* Lo que se le agrega, pegado a lo suyo. La raya de
+                            la izquierda es lo que hace que con dos bebidas se
+                            vea de un golpe dónde acaba una y empieza la otra.
+                            El "+" los separa de la base, que sustituye en vez
+                            de sumar — igual que en la etiqueta impresa. */}
+                        {extras.length > 0 && (
+                          <div className="mt-1.5 ml-[3.5rem] border-l-2 border-sa-strawberry/30 pl-3 space-y-1">
+                            {extras.map((extra) => (
+                              <div key={extra.id}>
+                                <p className="font-mono text-[11px] text-sa-strawberry uppercase tracking-wide leading-snug">
+                                  + {extra.cantidad > 1 && `${extra.cantidad}× `}{etiquetaItem(extra)}
+                                </p>
+                                {extra.personalizacion && (
+                                  <p className="font-mono text-[10px] text-sa-strawberry/70 uppercase tracking-wide">
+                                    ↳ {extra.personalizacion}
+                                  </p>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
