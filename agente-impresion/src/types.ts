@@ -103,6 +103,12 @@ export interface PayloadComanda {
    * el rollo. Solo aplica a etiquetadoras (TSPL).
    */
   calibrar?: boolean
+  /**
+   * Manda la misma etiqueta con las tres cabeceras de papel, rotuladas.
+   * Sirve para averiguar por que se van etiquetas en blanco en cada
+   * comanda sin tener que adivinar desde la nube.
+   */
+  diagnostico?: boolean
   impresora?: string
   hora?: string
 }
