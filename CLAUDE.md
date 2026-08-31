@@ -277,6 +277,17 @@ empaquetador y se desvían solas:
 - En el kiosko, las imágenes van como fondo CSS y el menú contextual está
   apagado: si no, mantener el dedo sobre Milo abre "buscar imagen".
 
+**Permisos de la base**
+
+- **Antes de cerrarle una función a `anon`, busca quién la llama fuera del
+  navegador.** Le quité `anon` a `fn_admin_impresoras` para tapar una fuga
+  de IPs, sin ver que es la misma que usa
+  `scripts/instalar-agente-impresion.ps1`. Ese instalador corre en una PC
+  recién formateada, donde lo único que hay es la llave pública: no hay
+  sesión de personal que ofrecer. La instalación murió con *"(401) No
+  autorizado"* y el mensaje mandaba a revisar la llave, que estaba bien.
+  El `grep` que faltaba no era en `apps/`, era en `scripts/`.
+
 **Este entorno**
 
 - Si `git push` falla con *"could not read Username"*: el proxy inyecta la
