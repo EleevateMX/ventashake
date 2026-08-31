@@ -104,6 +104,19 @@ export async function calibrarImpresora(sb: ShakeClient, impresoraId: string): P
   await rpc(sb, 'fn_imprimir_calibrar', { p_impresora_id: impresoraId })
 }
 
+/**
+ * Saca UNA etiqueta de prueba, sin calibrar.
+ *
+ * Es la forma de contestar "¿por qué se gastan tres etiquetas?" sin estar
+ * en la tienda. Calibrar gasta dos o tres **por diseño** (el sensor tiene
+ * que ver huecos reales para medirlos); una impresora mal calibrada las
+ * escupe en **cada** comanda. Con este botón se distinguen: si sale una
+ * sola, lo normal está bien.
+ */
+export async function probarImpresora(sb: ShakeClient, impresoraId: string): Promise<void> {
+  await rpc(sb, 'fn_imprimir_prueba_staff', { p_impresora_id: impresoraId })
+}
+
 /** Estaciones disponibles para asignar impresora (mismo catálogo que Cocina/Barra). */
 export async function listarCocinasParaImpresoras(sb: ShakeClient): Promise<Cocina[]> {
   const { data, error } = await sb.from('cocinas').select('*').order('nombre')

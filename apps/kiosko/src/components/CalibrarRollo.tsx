@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
-import { listarImpresoras, calibrarImpresora, type ImpresoraAdmin } from '@shake/supabase'
+import {
+  listarImpresoras, calibrarImpresora, probarImpresora, type ImpresoraAdmin,
+} from '@shake/supabase'
 import { mensajeDeError } from '@shake/utils'
 import { sb } from '@/lib/sb'
 
@@ -20,6 +22,7 @@ export function CalibrarRollo() {
   const [abierto, setAbierto] = useState(false)
   const [ocupada, setOcupada] = useState<string | null>(null)
   const [hecho, setHecho] = useState<string | null>(null)
+  const [probada, setProbada] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -31,11 +34,30 @@ export function CalibrarRollo() {
 
   async function calibrar(i: ImpresoraAdmin) {
     setOcupada(i.id)
-    setHecho(null)
-    setError(null)
+    setHecho(null); setProbada(null); setError(null)
     try {
       await calibrarImpresora(sb, i.id)
       setHecho(i.nombre)
+    } catch (e) {
+      setError(mensajeDeError(e))
+    } finally {
+      setOcupada(null)
+    }
+  }
+
+  /**
+   * Una sola etiqueta, sin calibrar.
+   *
+   * Contesta la pregunta que de otro modo hay que adivinar: calibrar gasta
+   * dos o tres etiquetas a propósito, y una impresora mal medida las escupe
+   * en CADA comanda. Si esto saca una sola, lo normal está bien.
+   */
+  async function probar(i: ImpresoraAdmin) {
+    setOcupada(i.id)
+    setHecho(null); setProbada(null); setError(null)
+    try {
+      await probarImpresora(sb, i.id)
+      setProbada(i.nombre)
     } catch (e) {
       setError(mensajeDeError(e))
     } finally {
@@ -66,6 +88,11 @@ export function CalibrarRollo() {
         empieza la siguiente. Avanza dos o tres y saca una de prueba:
         <strong className="text-sa-green-ink"> si esa sale derecha, quedó.</strong>
       </p>
+      <p className="text-xs text-sa-green-ink/65 mt-2 leading-relaxed">
+        ¿Solo quieres saber si imprime bien? Dale a <strong className="text-sa-green-ink">
+        Probar</strong>: gasta <strong className="text-sa-green-ink">una</strong>. Si sale
+        una sola y derecha, no hace falta calibrar.
+      </p>
 
       {error && (
         <p className="font-mono text-xs text-sa-strawberry bg-sa-strawberry/10 rounded-sa px-3 py-2 mt-3">
@@ -77,20 +104,45 @@ export function CalibrarRollo() {
           Mandada a {hecho}. En unos segundos avanza el papel.
         </p>
       )}
+      {probada && (
+        <p className="font-mono text-xs text-sa-green bg-sa-mint/25 rounded-sa px-3 py-2 mt-3 leading-relaxed">
+          Mandada a {probada}. Debe salir UNA sola etiqueta que dice “PRUEBA”.
+          Si salen blancas antes, o sale corrida, ahí sí calibra.
+        </p>
+      )}
 
       <div className="flex flex-col gap-2 mt-3">
         {impresoras?.map((i) => (
-          <button
+          <div
             key={i.id}
-            onClick={() => void calibrar(i)}
-            disabled={ocupada === i.id}
-            className="w-full flex items-center justify-between gap-3 bg-white border border-sa-green-ink/15 hover:border-sa-green disabled:opacity-40 text-sa-green-ink px-4 py-3 rounded-sa transition-colors"
+            className="bg-white border border-sa-green-ink/15 rounded-sa px-4 py-3"
           >
-            <span className="font-display text-base truncate">{i.nombre}</span>
-            <span className="font-mono text-[10px] uppercase tracking-wider text-sa-strawberry shrink-0">
-              {ocupada === i.id ? 'Mandando…' : i.conectada ? 'Calibrar' : 'Sin señal'}
-            </span>
-          </button>
+            <div className="flex items-center justify-between gap-3">
+              <span className="font-display text-base truncate text-sa-green-ink">{i.nombre}</span>
+              {!i.conectada && (
+                <span className="font-mono text-[10px] uppercase tracking-wider text-sa-strawberry shrink-0">
+                  Sin señal
+                </span>
+              )}
+            </div>
+            <div className="flex gap-2 mt-2">
+              {/* Probar primero: gasta una etiqueta, no tres. */}
+              <button
+                onClick={() => void probar(i)}
+                disabled={ocupada === i.id}
+                className="flex-1 border border-sa-green text-sa-green-ink disabled:opacity-40 py-2 rounded-sa font-mono text-[10px] uppercase tracking-wider"
+              >
+                {ocupada === i.id ? 'Mandando…' : 'Probar · gasta 1'}
+              </button>
+              <button
+                onClick={() => void calibrar(i)}
+                disabled={ocupada === i.id}
+                className="flex-1 bg-sa-strawberry text-white disabled:opacity-40 py-2 rounded-sa font-mono text-[10px] uppercase tracking-wider"
+              >
+                {ocupada === i.id ? 'Mandando…' : 'Calibrar · gasta 3'}
+              </button>
+            </div>
+          </div>
         ))}
         {impresoras?.length === 0 && (
           <p className="font-mono text-xs text-sa-green-ink/50">

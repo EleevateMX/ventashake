@@ -125,6 +125,13 @@ pantallas muestran comandas pero **no sale papel**.
   kiosko es lo normal: el POS no queda abierto en esa máquina. Gasta dos o tres etiquetas y saca una de prueba
   al final — si esa sale derecha, quedó. Pide agente **1.2.0**; con uno
   viejo el botón lo dice en vez de fallar en silencio.
+- **"Se gastan 3 y sale 1" casi siempre es la calibración funcionando**, no
+  una avería: `GAPDETECT` avanza dos o tres leyendo el sensor y `FORMFEED`
+  deja el papel en su sitio. Pero es TAMBIÉN el síntoma de un sensor mal
+  medido, que escupe blancos en *cada* comanda. Para distinguirlos sin
+  estar en la tienda está **"Probar · gasta 1"** (junto a Calibrar, en el
+  kiosko y en el POS): manda una etiqueta sola. Si sale una y derecha, lo
+  normal está bien.
 
 ### 2.5 La identidad es una sola, y vive en `packages/brand`
 

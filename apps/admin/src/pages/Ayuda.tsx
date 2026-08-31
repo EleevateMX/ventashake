@@ -89,7 +89,9 @@ const FICHAS: Ficha[] = [
       'luz que pasa por el hueco entre una y la siguiente, y ese umbral depende del ' +
       'papel cargado. Con un rollo nuevo hay que volver a medirlo.',
     pasos: [
-      <>Dale a <strong>Calibrar</strong> aquí abajo (o desde el kiosko: 5 toques a Milo → PIN → “¿Cambiaste el rollo?”).</>,
+      <><strong>Primero averigua si de verdad hay problema.</strong> En el kiosko (5 toques a Milo → PIN → “¿Cambiaste el rollo?”) o en Caja → “Cambié el rollo”, dale a <strong>Probar · gasta 1</strong>. Debe salir <strong>una sola</strong> etiqueta que dice “PRUEBA”.</>,
+      <><strong>Si salió una y derecha, no hay nada que arreglar.</strong> Calibrar gasta dos o tres etiquetas <em>a propósito</em> —el sensor necesita ver huecos reales para medirlos— así que “se gastaron 3 y salió 1” después de calibrar es lo normal, no una falla.</>,
+      <>Si antes de la de prueba escupe etiquetas <strong>en blanco</strong>, o la de prueba sale corrida, ahí sí: dale a <strong>Calibrar</strong>.</>,
       <>Va a avanzar dos o tres etiquetas y sacar una de prueba. <strong>Si esa sale derecha, quedó.</strong></>,
       <>Si sigue corrida: el rollo tiene que ir <strong>centrado</strong>, con las guías pegadas al papel, y la tapa cerrada <strong>hasta el clic</strong>.</>,
       <>Si el rollo nuevo es de otra medida, no hay calibración que lo salve: las etiquetas están hechas para 80 × 25 mm.</>,
