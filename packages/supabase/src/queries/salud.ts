@@ -97,6 +97,8 @@ export interface ReporteSoporte {
   /** Marcado por gerencia: entra en la próxima sesión de trabajo. */
   para_sesion: boolean
   respuesta: string | null
+  /** Solo llega si quien pregunta es soporte. La tienda ve `respuesta`. */
+  notas_internas: string | null
   contexto: Record<string, unknown>
 }
 
@@ -136,6 +138,12 @@ export async function reportesSoporte(
   })
   if (error) throw error
   return (data ?? []) as ReporteSoporte[]
+}
+
+/** Notas de trabajo de quien mantiene el sistema. No las ve la tienda. */
+export async function anotarReporte(sb: ShakeClient, id: string, notas: string): Promise<void> {
+  const { error } = await sb.rpc('fn_anotar_reporte', { p_id: id, p_notas: notas })
+  if (error) throw error
 }
 
 /** Clasifica: qué tan urgente, y si entra en la próxima sesión. Solo gerencia. */
