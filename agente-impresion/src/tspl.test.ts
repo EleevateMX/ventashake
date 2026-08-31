@@ -58,7 +58,7 @@ describe('geometría TSPL', () => {
       // El tamano ya NO se imprime (vive solo en pantalla): la SPEC sube.
       'TEXT 440,16,"1",90,1,1,"SPEC"',
       'TEXT 414,16,"1",90,1,1,"+WHEY CHOCOLATE"',
-      'TEXT 397,16,"1",90,1,1,"+DESLACTOSADA"',
+      'TEXT 397,16,"1",90,1,1,"+DESLACTOSADA"',  // el EJEMPLO trae "Deslactosada" a secas
       'TEXT 380,16,"1",90,1,1,"+GALLETA"',
       'TEXT 363,16,"1",90,1,1,"+S/CREMA"',
       'TEXT 322,16,"1",90,1,1,"10/08 18:58"',
@@ -146,8 +146,12 @@ describe('compactar la línea de SPEC', () => {
   it.each([
     ['Proteína OPTIMUM - Chocolate', 'OPTIMUM CHOCOLATE'],
     ['2x Proteína OPTIMUM - Chocolate', '2X OPTIMUM CHOCOLATE'],
-    ['Leche de almendras', 'ALMENDRAS'],
-    ['Leche deslactosada', 'DESLACTOSADA'],
+    // La palabra "leche" se queda: en una barra donde tambien hay coco
+    // rallado y agua de coco, "COCO" a secas no dice que es (pedido de
+    // barra, 31/08/26). Solo se va el "de", que no distingue nada.
+    ['Leche de almendras', 'LECHE ALMENDRAS'],
+    ['Leche de coco', 'LECHE COCO'],
+    ['Leche deslactosada', 'LECHE DESLACTOSADA'],
     ['2 Galletas L&L Cremes (Chocolate)', '2 GALLETAS L&L CREMES CHOCOLATE'],
   ])('%s → %s', (entrada, esperado) => {
     expect(compactarSpec(entrada).toUpperCase()).toBe(esperado)

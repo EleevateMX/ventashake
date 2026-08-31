@@ -136,11 +136,16 @@ export function abreviarExtra(texto: string): string {
  * una leche— y sí importa que quepa lo que distingue: la marca y el sabor.
  *
  *   Proteína OPTIMUM - Chocolate  →  OPTIMUM CHOCOLATE
- *   Leche de almendras            →  ALMENDRAS
+ *   Leche de almendras            →  LECHE ALMENDRAS
  *   2 Galletas L&L Cremes (Choc.) →  2 GALLETAS L&L CREMES CHOC.
  *
  * Nunca quita marca ni sabor: solo la categoría (que ya es evidente), el
  * guión separador y los paréntesis. La cantidad del principio se respeta.
+ *
+ * **La palabra "leche" se queda** (31/08/26, pedido de barra). Antes se
+ * borraba entera y "Leche de coco" llegaba como `COCO` — que en una barra
+ * donde también hay coco rallado y agua de coco no dice qué es. Solo se
+ * quita el "de", que no distingue nada y sí ocupa tres caracteres.
  */
 export function compactarSpec(texto: string): string {
   const t = limpiar(texto)
@@ -150,7 +155,7 @@ export function compactarSpec(texto: string): string {
 
   const compacto = resto
     .replace(/^prote[ií]nas?\s+/i, '')
-    .replace(/^leche\s+(de\s+)?/i, '')
+    .replace(/^leche\s+de\s+/i, 'Leche ')
     .replace(/\s+-\s+/g, ' ')
     .replace(/\s*\(([^)]*)\)\s*/g, ' $1 ')
     .replace(/\s{2,}/g, ' ')
