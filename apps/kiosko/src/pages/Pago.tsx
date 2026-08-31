@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   crearOrden, crearOrdenKioskoCaja, cobrarOrden, listarAlmacenes,
   listarCajas, corteAbierto, nombresPedidoFrecuentes,
+  iniciarCobroMixto, cancelarCobroMixto,
 } from '@shake/supabase'
 import { obtenerPaymentProvider } from '@shake/payments'
 import type { Almacen, CajaCorte, MetodoPago } from '@shake/types'
@@ -14,8 +15,9 @@ import { resolverModoKiosko } from '@/lib/modoKiosko'
 import { canjearMancuernas, canjearSellos } from '@shake/supabase'
 import { PanelRewards, SIN_REWARDS, type DecisionRewards } from '@/components/PanelRewards'
 import { CobroEfectivo } from '@/components/CobroEfectivo'
+import { CobroMixto } from '@/components/CobroMixto'
 import { usePromos } from '@/lib/usePromos'
-import { mensajeDeError } from '@shake/utils'
+import { mensajeDeError, mxn } from '@shake/utils'
 
 type EstadoPago = 'cargando' | 'eligiendo' | 'procesando' | 'no_disponible'
 
@@ -96,6 +98,8 @@ export function Pago() {
   const [rewards, setRewards] = useState<DecisionRewards>(SIN_REWARDS)
   // Efectivo pasa por la calculadora de cambio antes de cobrar.
   const [enEfectivo, setEnEfectivo] = useState(false)
+  /** Cobro mixto: una parte con tarjeta en la terminal, el resto en efectivo. */
+  const [enMixto, setEnMixto] = useState(false)
 
   /**
    * Lo que el cliente va a pagar de verdad, para la calculadora de cambio.
@@ -220,16 +224,33 @@ export function Pago() {
    * LADO SERVIDOR (webhook o sondeo verifican contra Clip); esta pantalla
    * nunca decide que algo se pagó — solo se entera.
    */
-  async function cobrarEnTerminal(orden: { id: string; folio: number; total: number }) {
+  /**
+   * @param montoTarjeta en un cobro mixto, lo que le toca a la terminal.
+   *        Solo cambia lo que se PINTA: el monto real lo recalcula el
+   *        servidor (total menos lo apuntado en efectivo), porque quien
+   *        pide el cobro no decide cuánto se cobra.
+   */
+  async function cobrarEnTerminal(
+    orden: { id: string; folio: number; total: number },
+    montoTarjeta?: number,
+  ) {
+    const esMixto = montoTarjeta !== undefined
+    /** Un cobro mixto que no llega a autorizarse no deja nada apuntado. */
+    const soltarLoApuntado = async () => {
+      if (!esMixto) return
+      try { await cancelarCobroMixto(sb, orden.id) } catch { /* ya no habia nada */ }
+    }
+
     const proveedor = obtenerPaymentProvider('clip', sb)
     const resultado = await proveedor.createPayment({
       ordenId: orden.id,
-      monto: orden.total,
+      monto: montoTarjeta ?? orden.total,
       idempotencyKey: crypto.randomUUID(),
       sucursalId: almacen!.sucursal_id,
     })
 
     if (!resultado.ok || !resultado.proveedorPaymentId) {
+      await soltarLoApuntado()
       const mensaje = resultado.error?.mensaje ?? 'No se pudo mandar el cobro a la terminal.'
       if (modo === 'clip') {
         // Autoservicio: al cliente se le ofrece la salida de "pagar en caja".
@@ -245,7 +266,7 @@ export function Pago() {
 
     cobroCancelado.current = false
     setEstado('eligiendo')
-    setTerminal({ monto: orden.total, proveedorPaymentId: resultado.proveedorPaymentId })
+    setTerminal({ monto: montoTarjeta ?? orden.total, proveedorPaymentId: resultado.proveedorPaymentId })
 
     const inicio = Date.now()
     let final: 'authorized' | 'rechazado' | 'timeout' = 'timeout'
@@ -262,6 +283,7 @@ export function Pago() {
               'Cancélalo desde la terminal antes de volver a cobrar.',
           )
         }
+        await soltarLoApuntado()
         setTerminal(null)
         return
       }
@@ -287,8 +309,10 @@ export function Pago() {
         },
       })
     } else if (final === 'rechazado') {
+      await soltarLoApuntado()
       setError('La terminal rechazó o canceló el pago. Puedes reintentar o cobrar con otro método.')
     } else {
+      await soltarLoApuntado()
       let avisoCancelacion = ''
       try {
         await proveedor.cancelPayment(resultado.proveedorPaymentId)
@@ -299,6 +323,77 @@ export function Pago() {
         'La terminal no confirmó el pago. OJO: si la terminal SÍ cobró, la venta se confirmará sola en unos segundos — verifícalo antes de volver a cobrar.' +
           avisoCancelacion,
       )
+    }
+  }
+
+  /**
+   * Cobro mixto: parte con tarjeta en la terminal, el resto en efectivo.
+   *
+   * El orden importa y es al revés de lo intuitivo: **primero la tarjeta**.
+   * El efectivo solo se APUNTA (pago pendiente, que no cuenta en el corte
+   * ni marca la orden pagada); se aprueba solo cuando Clip autoriza, en la
+   * misma transacción. Si se cobrara el efectivo antes y la tarjeta
+   * fallara, quedaría dinero en el cajón y una venta a medias — devolver,
+   * anotar y explicárselo al de atrás.
+   *
+   * Los canjes de Rewards van antes de repartir, porque cambian el total:
+   * si el reparto no cuadra con el total real, el servidor lo rebota en vez
+   * de cobrar mal.
+   */
+  async function confirmarMixto(montoTarjeta: number) {
+    if (!almacen || !cajero) return
+    setEstado('procesando')
+    setError(null)
+    let ordenCreada: { id: string; folio: number; total: number } | null = null
+    try {
+      const orden = await crearOrden(
+        sb,
+        {
+          sucursal_id: almacen.sucursal_id,
+          almacen_id: almacen.id,
+          canal: 'pos',
+          empleado_id: cajero.id,
+          corte_id: corte?.id ?? null,
+          cliente_id: usuario?.clienteId ?? null,
+          nombre_cliente: nombrePedido.trim() || usuario?.nombre?.split(' ')[0] || null,
+          para_llevar: paraLlevar,
+        },
+        items.map(lineaParaOrden),
+      )
+      ordenCreada = orden
+
+      let totalAPagar = orden.total
+      if (rewards.sello) {
+        const r = await canjearSellos(sb, orden.id, rewards.sello.tipo, rewards.sello.productoId)
+        totalAPagar = r.total_a_pagar
+      }
+      if (rewards.mancuernas > 0) {
+        const r = await canjearMancuernas(sb, orden.id, rewards.mancuernas)
+        totalAPagar = r.total_a_pagar
+      }
+
+      const efectivo = Math.round((totalAPagar - montoTarjeta) * 100) / 100
+      // El servidor valida esto otra vez contra el total real. Aquí se
+      // revisa nada más para dar un mensaje decente en vez de un error.
+      if (efectivo < 0.01) {
+        setError(
+          `Con los canjes el total quedó en ${mxn(totalAPagar)}: eso ya lo cubre la tarjeta. ` +
+            'Cóbralo todo con Clip.',
+        )
+        setEstado('eligiendo')
+        return
+      }
+
+      await iniciarCobroMixto(sb, orden.id, efectivo, montoTarjeta)
+      setEnMixto(false)
+      await cobrarEnTerminal({ ...orden, total: totalAPagar }, montoTarjeta)
+    } catch (e) {
+      // Si algo tronó a medio camino, lo apuntado no se queda colgado.
+      if (ordenCreada) {
+        try { await cancelarCobroMixto(sb, ordenCreada.id) } catch { /* no habia nada */ }
+      }
+      setError(mensajeDeError(e))
+      setEstado('eligiendo')
     }
   }
 
@@ -673,6 +768,15 @@ export function Pago() {
             </button>
           )}
 
+          {modo === 'cajero' && enMixto && (
+            <CobroMixto
+              total={totalConCanjes}
+              procesando={false}
+              onCancelar={() => setEnMixto(false)}
+              onCobrar={(montoTarjeta) => void confirmarMixto(montoTarjeta)}
+            />
+          )}
+
           {modo === 'cajero' && enEfectivo && (
             <CobroEfectivo
               total={totalConCanjes}
@@ -685,7 +789,7 @@ export function Pago() {
             />
           )}
 
-          {modo === 'cajero' && !enEfectivo && (
+          {modo === 'cajero' && !enEfectivo && !enMixto && (
             <>
               {/* El canje va ANTES de los botones de cobro: es una decisión
                   que cambia el monto, no algo que se agrega después. */}
@@ -708,13 +812,16 @@ export function Pago() {
                 { metodo: 'efectivo', titulo: 'Efectivo', sub: 'Cobro en el cajón' },
                 { metodo: 'tarjeta',  titulo: 'Tarjeta',  sub: 'Terminal bancaria' },
                 { metodo: 'clip',     titulo: 'Clip',     sub: 'El monto aparece en la terminal' },
+                { metodo: 'mixto',    titulo: 'Mixto',    sub: 'Una parte con tarjeta y el resto en efectivo' },
               ] as const).map((m) => (
                 <button
                   key={m.metodo}
                   onClick={() =>
                     m.metodo === 'efectivo'
                       ? setEnEfectivo(true)
-                      : void confirmarCajero(m.metodo)
+                      : m.metodo === 'mixto'
+                        ? setEnMixto(true)
+                        : void confirmarCajero(m.metodo)
                   }
                   className="flex items-center gap-5 p-6 rounded-sa-lg bg-sa-cream-soft hover:bg-sa-cream shadow-sa-sm transition-all text-left active:scale-[0.98]"
                 >
