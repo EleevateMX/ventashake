@@ -1,6 +1,43 @@
 # Cerrar el cobro a quien no es personal
 
-**Estado: APLICADO el 02/09/2026 a las 02:18 de Merida**, con la tienda
+**Estado: APLICADO 02:18 y REVERTIDO 07:35 del 02/09/2026. El hueco
+sigue abierto a proposito.** Rompio la caja al abrir, y la tienda
+cobrando manda sobre el blindaje. No se vuelve a poner hasta arreglar la
+causa de abajo.
+
+## Por que se cayo (leer esto ANTES de volver a intentarlo)
+
+**El kiosko en modo cajero cobra como `anon`, no con sesion de personal.**
+El PIN abre una sesion de Supabase Auth de verdad... el dia que se teclea.
+Pero esa pantalla lleva dias encendida, la sesion caduco en algun momento
+y **nadie se entero, porque hasta ahora nada la necesitaba**: el efectivo
+y la tarjeta llaman a `fn_cobrar_orden` directo desde el navegador, y esa
+funcion no preguntaba quien era.
+
+Clip nunca se cayo, y eso despista: va por Edge Function con
+`service_role`, que el candado si dejaba pasar. Asi que la manana se veia
+medio bien --seis cobros con Clip entre 06:24 y 07:27-- mientras el
+efectivo rebotaba. Folios 1914 a 1917: cuatro intentos de la misma venta
+de $12.50 entre 07:28 y 07:31, los cuatro con "Solo el personal puede
+cobrar una orden".
+
+**Y mi verificacion de anoche fue mala.** Saque una sesion nueva con el
+PIN por HTTP y comprobe que pasaba el candado. Cierto, e inutil: probe
+una sesion recien nacida, no la que tiene la caja de verdad despues de
+dias encendida. La leccion es mas dura que la del `session_user`: **no
+basta con probar por la puerta de enfrente, hay que probar con la llave
+que trae puesta quien la usa.**
+
+## Lo que hay que arreglar ANTES de volver a cerrar
+
+1. Que el kiosko sostenga su sesion: comprobar que sigue viva antes de
+   cobrar y, si no, volver a pedir el PIN en silencio en vez de fallar.
+2. Recien entonces, el candado. Y la prueba valida no es una sesion nueva
+   por HTTP: es cobrar desde la caja real, con lo que ya tenga cargado.
+
+---
+
+## Historico: lo que se aplico el 02/09/2026 a las 02:18, con la tienda
 cerrada (cero ventas en los 30 minutos previos, cero cobros en vuelo,
 cero impresiones en cola). Migracion:
 `solo_el_personal_cobra_una_orden`.
