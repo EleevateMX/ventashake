@@ -184,3 +184,30 @@ puede pasar es una recarga molesta, nunca una venta perdida), y **cerrar
 esta tabla mata el canal de Realtime en silencio** -- Realtime respeta
 RLS, y sin la politica de lectura el timbre deja de sonar del todo. La
 lectura (`senales_leer`) se queda como esta; lo que sobra es la escritura.
+
+## Pendiente de fondo: el guardado de Costeos tarda demasiado
+
+El 01/09 Costeos fallaba de forma intermitente ("Error al guardar"). La
+causa medida: `anon` tiene `statement_timeout = 3s` y el guardado completo
+--con `fn_sync_app_data` dentro-- tardaba **3.4 s**. Se pasaba por 400 ms,
+asi que fallaba o no segun la carga del momento.
+
+Tapado con `alter function ... set statement_timeout to '20s'` sobre
+`fn_costos_guardar` y `fn_costos_leer` (migracion
+`costeos_guardar_con_tiempo_suficiente`). Eso le da aire **solo a esas dos
+funciones**, no al rol `anon` entero -- ese limite protege tambien al
+kiosko y no se afloja por comodidad.
+
+**Pero es una curita, no el arreglo.** 3.4 s para guardar un documento de
+36 kB es mucho, y crece con el catalogo. Lo que hay que revisar cuando
+haya calma:
+
+- `fn_sync_app_data` arranca con `drop table if exists _ins` +
+  `create temp table _ins`. El `CLAUDE.md` ya prohibe tablas temporales
+  dentro de funciones que corren desde la app -- ese patron dejo la tienda
+  50 minutos sin cobrar el 27/08. Aqui sigue.
+- Los `update ... from` que empatan por nombre con subconsultas
+  `limit 1` por fila son el otro sospechoso del tiempo.
+
+Mientras tanto, si alguien vuelve a ver "Error al guardar", lo primero que
+hay que medir es el tiempo, no los permisos.
