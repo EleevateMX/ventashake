@@ -11,6 +11,8 @@ import { sb } from '@/lib/sb'
 import { ModalExtras } from '@/components/ModalExtras'
 import { CorteMilo } from '@/components/CorteMilo'
 import { HistorialPedidos } from '@/components/HistorialPedidos'
+import { VentasEnEspera } from '@/components/VentasEnEspera'
+import { leerEspera, quitarDeEspera } from '@/store/espera'
 
 interface Categoria {
   id: string
@@ -21,7 +23,13 @@ interface Categoria {
 
 export function Catalogo() {
   const navigate = useNavigate()
-  const { agregar, agregarConExtras, totalItems } = useCarrito()
+  const { agregar, agregarConExtras, totalItems, restaurar } = useCarrito()
+  /**
+   * Cuantas ventas hay apartadas. Se relee al abrir el panel y al retomar:
+   * es de este navegador, nadie mas la toca.
+   */
+  const [enEspera, setEnEspera] = useState(() => leerEspera().length)
+  const [verEspera, setVerEspera] = useState(false)
   const [productos, setProductos] = useState<ProductoVenta[]>([])
   const [categoriaActiva, setCategoriaActiva] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -194,6 +202,24 @@ export function Catalogo() {
   return (
     <div className="flex flex-col h-screen bg-sa-cream-paper">
       {/* Hero strip */}
+      {verEspera && (
+        <VentasEnEspera
+          catalogo={[...productos, ...productosExtra]}
+          hayCarrito={totalItems() > 0}
+          onCerrar={() => { setEnEspera(leerEspera().length); setVerEspera(false) }}
+          onRetomar={(v, r) => {
+            restaurar({
+              items: r.items,
+              usuario: v.usuario,
+              nombrePedido: v.nombrePedido,
+              paraLlevar: v.paraLlevar,
+            })
+            setEnEspera(quitarDeEspera(v.id).length)
+            setVerEspera(false)
+            navigate('/carrito')
+          }}
+        />
+      )}
       <header className="relative bg-sa-green-deep text-sa-cream px-8 pt-8 pb-10 overflow-hidden">
         {/* Toca a Milo 5 veces: abre el corte de caja (ver CorteMilo).
             Va como fondo CSS y no como <img>: una imagen de verdad, al
@@ -254,6 +280,20 @@ export function Catalogo() {
                   </svg>
                   Historial de pedidos
                 </button>
+                {/* Solo aparece si hay algo apartado: un boton que casi
+                    siempre dice "0" es un boton que se deja de mirar. */}
+                {enEspera > 0 && (
+                  <button
+                    onClick={() => setVerEspera(true)}
+                    className="inline-flex items-center gap-2 bg-sa-banana text-sa-coffee px-4 py-2 rounded-full font-mono text-xs uppercase tracking-wide"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="10" />
+                      <polyline points="12 6 12 12 16 14" />
+                    </svg>
+                    {enEspera} en espera
+                  </button>
+                )}
               </div>
             </div>
           </div>

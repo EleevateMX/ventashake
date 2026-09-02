@@ -86,6 +86,20 @@ interface CarritoStore {
   /** Los extras de una línea, para pintarlos debajo de ella. */
   extrasDe: (linea: string) => ItemCarrito[]
   limpiar: () => void
+  /**
+   * Vuelve a poner en pantalla una venta que se dejo en espera.
+   *
+   * Reemplaza el carrito entero en vez de ir agregando linea por linea:
+   * las lineas ya traen su `linea` y sus `padreLinea`, y volver a
+   * agregarlas generaria identificadores nuevos que romperian el vinculo
+   * entre un shake y su leche.
+   */
+  restaurar: (v: {
+    items: ItemCarrito[]
+    usuario: UsuarioKiosko | null
+    nombrePedido: string
+    paraLlevar: boolean | null
+  }) => void
   setUsuario: (u: UsuarioKiosko | null) => void
   setCajero: (c: CajeroTurno | null) => void
   total: () => number
@@ -225,6 +239,22 @@ export const useCarrito = create<CarritoStore>((set, get) => ({
   limpiar: () => {
     set({ items: [], usuario: null, nombrePedido: '', paraLlevar: null })
     displayCartCleared()
+  },
+
+  restaurar: ({ items, usuario, nombrePedido, paraLlevar }) => {
+    set({ items, usuario, nombrePedido, paraLlevar })
+    // La pantalla del cliente no comparte estado con esta: se le vuelve a
+    // contar el carrito. Primero el borron, porque si no se quedaria
+    // sumando lo apartado a lo que ya tenia.
+    displayCartCleared()
+    const { total, totalItems } = get()
+    for (const i of items) {
+      displayItemAdded(
+        { id: i.producto_id, nombre: i.nombre, cantidad: i.cantidad, precio: i.precio },
+        total(),
+        totalItems(),
+      )
+    }
   },
 
   setUsuario: (usuario) => set({ usuario }),
