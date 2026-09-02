@@ -28,6 +28,29 @@ dias encendida. La leccion es mas dura que la del `session_user`: **no
 basta con probar por la puerta de enfrente, hay que probar con la llave
 que trae puesta quien la usa.**
 
+## Que quedo abierto, exactamente (02/09, 07:50)
+
+Todo el camino del cobro corre sin pedir sesion. Comprobado llamando a
+cada paso como `anon` puro por HTTP: los cinco pasan, y solo fallan por
+la orden inventada que se les mando.
+
+| Funcion | Candado | Que sigue protegiendo |
+|---|---|---|
+| `fn_crear_orden` | ninguno (nunca tuvo) | recalcula precios desde `productos` |
+| `fn_cobrar_orden` | **quitado** | valida el monto contra el total; idempotente |
+| `fn_cobrar_orden_dividido` | **quitado** | las partes deben sumar el total ANTES de insertar |
+| `fn_cobrar_mixto_iniciar` | **quitado** | efectivo + tarjeta = total; rebota si ya esta cobrada |
+| `fn_cobrar_mixto_cancelar` | **quitado** | rebota si ya hay cobro aprobado |
+| `fn_canjear_sellos` | **quitado** | orden sin pagar, sellos suficientes, un canje por orden |
+| `fn_canjear_mancuernas` | **quitado** | igual, mas el bloqueo del saldo |
+| Clip (Edge Functions) | nunca tuvo | corre con `service_role`; el monto lo recalcula el servidor |
+
+Lo que NO se toco, y es lo que de verdad protege el dinero: **el cliente
+nunca manda precios**. El servidor los recalcula desde el catalogo,
+valida que los totales cuadren y rechaza el doble cobro. Un atacante
+puede marcar pagada una orden que el mismo creo, o quemarle los sellos a
+alguien; no puede cambiar lo que cuestan las cosas ni sacar dinero.
+
 ## Lo que hay que arreglar ANTES de volver a cerrar
 
 1. Que el kiosko sostenga su sesion: comprobar que sigue viva antes de
@@ -37,10 +60,16 @@ que trae puesta quien la usa.**
 
 ---
 
-## Historico: lo que se aplico el 02/09/2026 a las 02:18, con la tienda
-cerrada (cero ventas en los 30 minutos previos, cero cobros en vuelo,
-cero impresiones en cola). Migracion:
-`solo_el_personal_cobra_una_orden`.
+## Historico: lo que se aplico, y se revirtio, el 02/09/2026
+
+Se aplico a las 02:18 con la tienda cerrada (cero ventas en los 30
+minutos previos, cero cobros en vuelo, cero impresiones en cola).
+Migracion: `solo_el_personal_cobra_una_orden`. Duro hasta las 07:35.
+
+Lo que sigue es el razonamiento de entonces. Se deja entero **porque casi
+todo sigue siendo valido** -- el metodo del ancla, el `session_user`, la
+lista de quien llama a cada funcion -- y lo unico que fallo fue la
+premisa: dar por hecho que el kiosko trae sesion de personal.
 
 ## Como se verifico, y la trampa que casi me la cuela
 

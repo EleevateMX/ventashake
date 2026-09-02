@@ -1,0 +1,29 @@
+-- Ultimo candado del camino del cobro, y el mas escondido.
+--
+-- fn_canjear_sellos y fn_canjear_mancuernas se llaman ENTRE crear la
+-- orden y cobrarla. Exigian `fn_es_staff() o ser el propio cliente`. Con
+-- la sesion del kiosko caida no se cumple ninguna, asi que cualquier
+-- venta con canje de Rewards se caia entera -- y no en el cobro, sino a
+-- media transaccion, dejando la orden creada y sin pagar. Misma causa que
+-- tumbo el efectivo el 02/09; esta no habia mordido solo porque nadie
+-- habia tocado un canje todavia.
+--
+-- Se quito el candado, no la logica: siguen validando que la orden
+-- exista, que NO este pagada, que haya saldo o sellos suficientes y que
+-- esa orden no haya canjeado ya.
+--
+-- Lo que se acepta a cambio, dicho claro: alguien con la llave publica
+-- podria quemarle los sellos o las mancuernas a un cliente. No se lleva
+-- dinero -- el canje solo descuenta de una orden que igual hay que
+-- pagar -- pero le arruina el saldo a esa persona.
+--
+-- Aplicado con el metodo de ancla: verificar que el bloque aparezca
+-- exactamente una vez, reemplazar, y comprobar que no quedaron restos.
+-- El bloque que se quito, en las dos, era:
+--
+--   if not (coalesce(fn_es_staff(), false) or v_cliente.auth_user_id = auth.uid()) then
+--     raise exception 'No puedes usar el saldo de otra persona';
+--   end if;
+--
+-- Ver docs/pendiente-blindaje-cobro.md para el estado completo de que
+-- quedo abierto y con que se cierra.
