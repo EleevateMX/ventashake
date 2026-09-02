@@ -308,6 +308,18 @@ empaquetador y se desvían solas:
   **Se comprueba por la puerta de enfrente**: HTTP contra PostgREST con la
   llave publicable, desde `pg_net`. Ahí sí contestó lo que debía.
 
+- **Probar por la puerta de enfrente no basta si no traes la llave que
+  trae puesta quien la usa.** Cerré `fn_cobrar_orden` a los que no son
+  personal, lo verifiqué por HTTP con una sesión recién sacada con el
+  PIN, dio verde, y **rompió la caja al abrir** (02/09, 07:28–07:31,
+  cuatro intentos de cobrar $12.50 en efectivo). El kiosko en modo cajero
+  **cobra como `anon`**: el PIN sí abre sesión, pero esa pantalla lleva
+  días encendida y la suya ya había caducado sin que nadie lo notara,
+  porque hasta entonces nada la necesitaba. Clip no se cayó y eso
+  despista: va por Edge Function con `service_role`. Antes de volver a
+  cerrarla, el kiosko tiene que sostener su sesión — y la prueba válida
+  es cobrar desde la caja real, no desde una sesión recién nacida.
+
 - Para parchear una función grande sin reescribirla: leer
   `pg_get_functiondef`, **verificar que el ancla aparece exactamente N
   veces**, reemplazar y `execute`. Si el ancla no cuadra, abortar — así el
