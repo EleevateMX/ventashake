@@ -17,6 +17,7 @@ import Categorias from './pages/Categorias'
 import Combos from './pages/Combos'
 import Extras from './pages/Extras'
 import Ventas from './pages/Ventas'
+import Cortes from './pages/Cortes'
 import Inventario from './pages/Inventario'
 import Promos from './pages/Promos'
 import Clientes from './pages/Clientes'
@@ -24,7 +25,7 @@ import Empleados from './pages/Empleados'
 import Impresoras from './pages/Impresoras'
 import Sistema from './pages/Sistema'
 
-type Tab = 'dashboard' | 'envivo' | 'diagnostico' | 'menu' | 'categorias' | 'combos' | 'extras' | 'inventario' | 'promos' | 'ventas' | 'clientes' | 'nombres' | 'metas' | 'rewards' | 'empleados' | 'impresoras' | 'descargas' | 'ayuda' | 'peticiones' | 'soporte' | 'sistema'
+type Tab = 'dashboard' | 'envivo' | 'diagnostico' | 'menu' | 'categorias' | 'combos' | 'extras' | 'inventario' | 'promos' | 'ventas' | 'cortes' | 'clientes' | 'nombres' | 'metas' | 'rewards' | 'empleados' | 'impresoras' | 'descargas' | 'ayuda' | 'peticiones' | 'soporte' | 'sistema'
 
 const w = 18
 
@@ -76,6 +77,13 @@ const IconPromos = () => (
     <path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z" /><circle cx="7" cy="7" r="1" fill="currentColor" stroke="none" />
   </svg>
 )
+const IconCortes = () => (
+  <svg width={w} height={w} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="2" y="7" width="20" height="12" rx="2" /><path d="M2 11h20" />
+    <circle cx="12" cy="15" r="1.6" /><path d="M7 7V5h10v2" />
+  </svg>
+)
+
 const IconVentas = () => (
   <svg width={w} height={w} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" /><polyline points="16 7 22 7 22 13" />
@@ -165,6 +173,7 @@ const navItems: { id: Tab; label: string; Icon: () => ReactElement; soloSoporte?
   { id: 'inventario', label: 'Inventario', Icon: IconInventario },
   { id: 'promos', label: 'Promos', Icon: IconPromos },
   { id: 'ventas', label: 'Ventas', Icon: IconVentas },
+  { id: 'cortes', label: 'Cortes de caja', Icon: IconCortes },
   { id: 'clientes', label: 'Clientes', Icon: IconClientes },
   { id: 'nombres', label: 'Nombres', Icon: IconNombres },
   { id: 'metas', label: 'Metas', Icon: IconMetas },
@@ -240,6 +249,7 @@ export default function App() {
         {tab === 'combos' && <Combos />}
         {tab === 'extras' && <Extras />}
         {tab === 'ventas' && <Ventas />}
+        {tab === 'cortes' && <Cortes />}
         {tab === 'inventario' && <Inventario />}
         {tab === 'promos' && <Promos />}
         {tab === 'clientes' && <Clientes />}
