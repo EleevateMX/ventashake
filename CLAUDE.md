@@ -280,6 +280,16 @@ empaquetador y se desvían solas:
   `promocion_aplicaciones` → `orden_items` → `ordenes`). Y después mirar
   `ordenes` de la última hora: si hay una fila de `pagado = false`
   consecutivas, la tienda está parada.
+- **`anon` tiene `statement_timeout = 3s`** (y `authenticated`, 8 s). Si
+  algo "a veces guarda y a veces no", mide el tiempo **antes** de revisar
+  permisos. El guardado de Costeos tardaba 3.4 s y fallaba según la carga
+  del segundo; los sospechosos obvios —sesión caducada, permisos, el
+  índice único por nombre— se descartaron uno por uno y ninguno era. Se
+  arregla con `alter function ... set statement_timeout`, que **sí manda
+  sobre el ajuste del rol aunque el statement ya haya arrancado**
+  (comprobado). Se le da aire a la función, nunca al rol entero: ese
+  límite también protege al kiosko.
+
 - Para parchear una función grande sin reescribirla: leer
   `pg_get_functiondef`, **verificar que el ancla aparece exactamente N
   veces**, reemplazar y `execute`. Si el ancla no cuadra, abortar — así el
