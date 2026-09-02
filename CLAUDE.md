@@ -104,6 +104,15 @@ con NFD + quitar acentos + no-alfanumérico → guion.
 Red de seguridad: webhook + sondeo del kiosko + barrido cada 2 minutos
 (`clip-barrer-pendientes`). Un cobro no se pierde.
 
+**El error mas comun de Clip no es del codigo: es la app cerrada.**
+`ERR10_04` = *"STORING PAYMENT - DEVICE UNAVAILABLE: The Clip terminal is
+either offline, powered off, or the Pinpad application is closed"*. Pasó
+**31 veces entre el 21/08 y el 02/09**, 30 de ellas en horario de venta
+—con racimos de 8 en un mismo dia (24/08 y 30/08)— y **ninguna de esas
+ordenes se cobro despues**. Cuando alguien reporte "la terminal no
+responde", esto es lo primero que hay que mirar, no el codigo: la Clip
+Stand se apaga sola o alguien cierra la app del Pinpad.
+
 ### 2.4 La impresión vive fuera de la nube
 
 `agente-impresion/` es un programa Node que corre **en la PC de la tienda**
