@@ -290,6 +290,15 @@ empaquetador y se desvían solas:
   (comprobado). Se le da aire a la función, nunca al rol entero: ese
   límite también protege al kiosko.
 
+- **Desde la conexión de administrador no se puede comprobar un candado
+  que depende del rol.** Simular `anon` con `set_config('role','anon')` y
+  ver que la función "falla" no prueba nada: puede estar fallando por otra
+  razón, o pasando por una puerta que solo existe para el admin. Al cerrar
+  `fn_cobrar_orden` (02/09) la simulación dio verde y el candado no había
+  mordido — el mensaje era "La orden no existe", no "Solo el personal".
+  **Se comprueba por la puerta de enfrente**: HTTP contra PostgREST con la
+  llave publicable, desde `pg_net`. Ahí sí contestó lo que debía.
+
 - Para parchear una función grande sin reescribirla: leer
   `pg_get_functiondef`, **verificar que el ancla aparece exactamente N
   veces**, reemplazar y `execute`. Si el ancla no cuadra, abortar — así el

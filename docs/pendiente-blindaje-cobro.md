@@ -1,8 +1,38 @@
-# Pendiente: cerrar el cobro a quien no es personal
+# Cerrar el cobro a quien no es personal
 
-**Estado: PREPARADO, NO APLICADO.** Se aplica de madrugada (00:00-05:00 de
-Merida, la unica ventana con cero ventas). Si lees esto y sigue sin
-aplicarse, el hueco sigue abierto.
+**Estado: APLICADO el 02/09/2026 a las 02:18 de Merida**, con la tienda
+cerrada (cero ventas en los 30 minutos previos, cero cobros en vuelo,
+cero impresiones en cola). Migracion:
+`solo_el_personal_cobra_una_orden`.
+
+## Como se verifico, y la trampa que casi me la cuela
+
+La primera prueba **dio un falso verde**. Simule `anon` con
+`set_config('role','anon',true)` desde la conexion de administrador y las
+dos funciones "fallaron"... pero con el mensaje *"La orden no existe"*,
+no con *"Solo el personal puede cobrar"*. O sea que el candado NO habia
+mordido: paso de largo por la puerta de `session_user = 'postgres'`, que
+es justo la que deje abierta para reparaciones a mano.
+
+Leccion, y va al lado de la de las tablas temporales: **desde la conexion
+de administrador no se puede comprobar un candado que depende del rol.**
+Hay que salir y volver a entrar por la puerta de enfrente.
+
+La prueba buena fue por HTTP contra PostgREST con la llave publicable,
+via `pg_net`. Las dos contestaron:
+
+    400  {"code":"P0001","message":"Solo el personal puede cobrar una orden"}
+
+Y el personal si cobra, comprobado creando y cobrando de verdad dentro de
+una transaccion revertida (ni orden, ni cobro, ni etiqueta impresa):
+
+  . cobro simple    -- folio de prueba, $20, pagado=true, metodo=efectivo
+  . mixto 2 partes  -- $40, pagado=true, metodo=mixto,
+                       partes = tarjeta $20 + efectivo $20
+
+Antes de aplicarlo se verifico que los tres empleados activos tienen
+`auth_user_id` y PIN: sin eso, el candado habria dejado a la caja sin
+poder cobrar en la mañana.
 
 ## El hueco
 
