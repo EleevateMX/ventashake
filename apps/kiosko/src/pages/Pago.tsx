@@ -16,6 +16,7 @@ import { canjearMancuernas, canjearSellos } from '@shake/supabase'
 import { PanelRewards, SIN_REWARDS, type DecisionRewards } from '@/components/PanelRewards'
 import { CobroEfectivo } from '@/components/CobroEfectivo'
 import { CobroMixto, type TerminalTarjeta } from '@/components/CobroMixto'
+import { apartar } from '@/store/espera'
 import { usePromos } from '@/lib/usePromos'
 import { mensajeDeError, mxn } from '@shake/utils'
 
@@ -427,6 +428,28 @@ export function Pago() {
       setError(mensajeDeError(e))
       setEstado('eligiendo')
     }
+  }
+
+  /**
+   * Aparta la venta tal como esta y deja la pantalla libre.
+   *
+   * No crea ninguna orden: la venta apartada vive solo en este navegador.
+   * Meterla a la base seria dejar una orden a medio crear que la
+   * reconciliacion tendria que aprender a distinguir de una venta
+   * perdida, y eso ensucia el camino del dinero por algo que dura tres
+   * minutos.
+   */
+  function dejarEnEspera() {
+    if (items.length === 0) return
+    apartar({
+      items: [...items],
+      usuario: usuario ? { ...usuario } : null,
+      nombrePedido,
+      paraLlevar,
+      total: totalConCanjes,
+    })
+    limpiar()
+    navigate('/')
   }
 
   async function confirmarCajero(metodo: MetodoPago) {
@@ -887,6 +910,23 @@ export function Pago() {
                     Ya la cobraste allá · esto solo la registra
                   </p>
                 </div>
+              </button>
+
+              {/* La salida cuando el cobro no puede pasar AHORA: la tarjeta
+                  no le pasa al cliente, o pide un minuto. Antes la unica
+                  opcion era borrar la cuenta entera y volver a capturarla
+                  con la fila esperando. Va aqui abajo, en la pantalla de
+                  pago, porque es justo donde aparece el problema. */}
+              <button
+                onClick={dejarEnEspera}
+                className="mt-1 px-5 py-4 rounded-sa border border-dashed border-sa-green-ink/25 bg-transparent hover:bg-sa-cream-soft transition-colors text-center"
+              >
+                <p className="font-display text-lg text-sa-green-ink/80 leading-tight">
+                  Dejar esta venta en espera
+                </p>
+                <p className="font-mono text-[10px] uppercase tracking-wider text-sa-green-ink/50 mt-0.5">
+                  Se guarda tal cual y atiendes al siguiente
+                </p>
               </button>
 
               <p className="font-mono text-[11px] uppercase tracking-wide text-sa-green-ink/40 text-center">
