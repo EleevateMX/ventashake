@@ -41,14 +41,20 @@ export function CorteMilo({ abierto, onCerrar }: Props) {
   const [caja, setCaja] = useState<Caja | null>(null)
   const [corte, setCorte] = useState<CajaCorte | null>(null)
   const [resumen, setResumen] = useState<CorteResumen | null>(null)
-  const [fondo, setFondo] = useState('')
   const [conteo, setConteo] = useState<Conteo>({})
+  /**
+   * El conteo del fondo con el que se abre. Va aparte del de cierre: son
+   * dos momentos distintos y compartir el estado haria que abrir un turno
+   * dejara prellenado el conteo del siguiente cierre con billetes que ya
+   * no estan.
+   */
+  const [conteoApertura, setConteoApertura] = useState<Conteo>({})
   const [guardando, setGuardando] = useState(false)
   const [resultado, setResultado] = useState<'abierto' | 'cerrado' | null>(null)
 
   useEffect(() => {
     if (!abierto) return
-    setPin(''); setError(null); setFondo(''); setConteo({})
+    setPin(''); setError(null); setConteo({}); setConteoApertura({})
     setResultado(null); setResumen(null); setCorte(null)
     setFase('cargando')
     empleadoDeLaSesion(sb)
@@ -128,7 +134,9 @@ export function CorteMilo({ abierto, onCerrar }: Props) {
     setGuardando(true)
     setError(null)
     try {
-      await abrirCaja(sb, caja.id, Number(fondo) || 0, empleado?.id)
+      // El fondo es la suma del conteo, no un numero tecleado aparte:
+      // dos cifras que deberian coincidir siempre terminan sin coincidir.
+      await abrirCaja(sb, caja.id, sumaConteo(conteoApertura), empleado?.id, conteoApertura)
       setResultado('abierto')
       setFase('listo')
     } catch (e) {
@@ -143,7 +151,7 @@ export function CorteMilo({ abierto, onCerrar }: Props) {
     setGuardando(true)
     setError(null)
     try {
-      await cerrarCaja(sb, corte.id, sumaConteo(conteo), empleado?.id)
+      await cerrarCaja(sb, corte.id, sumaConteo(conteo), empleado?.id, undefined, conteo)
       setCorte(null)
       setResultado('cerrado')
       setFase('listo')
@@ -263,16 +271,25 @@ export function CorteMilo({ abierto, onCerrar }: Props) {
           {fase === 'abrir' && (
             <div>
               <p className="font-body text-sa-green-ink/70 text-sm">
-                No hay un corte abierto. Captura el fondo inicial en efectivo
-                para arrancar el turno.
+                No hay un corte abierto. Cuenta el fondo con el que arrancas
+                y el total sale solo.
               </p>
-              <MontoConPad etiqueta="Fondo inicial" valor={fondo} onCambiar={setFondo} />
+              {/* El mismo conteo que el del cierre, a proposito: contar al
+                  abrir con una forma y al cerrar con otra es como se
+                  pierden los faltantes. Y el desglose se guarda, asi que
+                  el dia que falte un billete de 500 se puede ver cuantos
+                  habia al arrancar. */}
+              <ConteoDeCaja conteo={conteoApertura} onCambiar={setConteoApertura} etiqueta="Fondo inicial en caja" />
               <button
                 onClick={() => void abrirTurno()}
-                disabled={guardando}
+                disabled={guardando || sumaConteo(conteoApertura) <= 0}
                 className="w-full mt-5 bg-sa-green hover:brightness-110 disabled:opacity-50 text-sa-cream py-4 rounded-sa-lg font-display text-xl shadow-sa-sm transition-all"
               >
-                {guardando ? 'Abriendo…' : `Abrir caja con ${mxn(Number(fondo) || 0)}`}
+                {guardando
+                  ? 'Abriendo…'
+                  : sumaConteo(conteoApertura) > 0
+                    ? `Abrir caja con ${mxn(sumaConteo(conteoApertura))}`
+                    : 'Cuenta el fondo para abrir'}
               </button>
               <CalibrarRollo />
               <PedirCambio />
@@ -342,7 +359,7 @@ export function CorteMilo({ abierto, onCerrar }: Props) {
               <div className="flex gap-3 mt-6 w-full">
                 {resultado === 'cerrado' && (
                   <button
-                    onClick={() => { setFondo(''); setError(null); setFase('abrir') }}
+                    onClick={() => { setError(null); setFase('abrir') }}
                     className="flex-1 border border-sa-green-ink/15 bg-white text-sa-green-ink py-3.5 rounded-sa-lg font-display text-base hover:bg-sa-cream-soft transition-colors"
                   >
                     Abrir nuevo turno
@@ -374,7 +391,7 @@ export function CorteMilo({ abierto, onCerrar }: Props) {
  * Contando por denominación el total lo hace la máquina, y de paso queda
  * el desglose: si mañana falta un billete de 500, se ve cuántos había.
  */
-const BILLETES = [500, 200, 100, 50, 20]
+const BILLETES = [1000, 500, 200, 100, 50, 20]
 const MONEDAS = [20, 10, 5, 2, 1]
 
 type Conteo = Record<number, number>
@@ -428,15 +445,15 @@ function FilaDenominacion({
 }
 
 function ConteoDeCaja({
-  conteo, onCambiar,
-}: { conteo: Conteo; onCambiar: (c: Conteo) => void }) {
+  conteo, onCambiar, etiqueta = 'Efectivo contado en caja',
+}: { conteo: Conteo; onCambiar: (c: Conteo) => void; etiqueta?: string }) {
   const poner = (den: number, n: number) => onCambiar({ ...conteo, [den]: n })
   const total = sumaConteo(conteo)
 
   return (
     <div className="mt-4">
       <p className="font-mono text-xs uppercase tracking-wide text-sa-green-ink/60 mb-2">
-        Efectivo contado en caja
+        {etiqueta}
       </p>
 
       <div className="bg-white border border-sa-green-ink/10 rounded-sa p-3 space-y-2">
@@ -454,38 +471,6 @@ function ConteoDeCaja({
       <div className="flex items-baseline justify-between gap-3 mt-3 px-1">
         <span className="font-mono text-xs uppercase tracking-wide text-sa-green-ink/60">Total contado</span>
         <span className="font-display text-3xl text-sa-green-ink leading-none">{mxn(total)}</span>
-      </div>
-    </div>
-  )
-}
-
-/**
- * Campo de dinero con su teclado en pantalla: el kiosko es táctil y no hay
- * teclado físico a la mano cuando se abre el turno.
- */
-function MontoConPad({
-  etiqueta, valor, onCambiar,
-}: { etiqueta: string; valor: string; onCambiar: (v: string) => void }) {
-  function tecla(d: string) {
-    if (d === '←') return onCambiar(valor.slice(0, -1))
-    onCambiar((valor + d).replace(/^0+(?=\d)/, '').slice(0, 6))
-  }
-  return (
-    <div className="mt-4">
-      <p className="font-mono text-xs uppercase tracking-wide text-sa-green-ink/60 mb-2">{etiqueta}</p>
-      <div className="bg-white border border-sa-green-ink/10 rounded-sa px-4 py-3 font-mono text-3xl text-sa-green-ink text-right">
-        ${valor === '' ? '0' : valor}
-      </div>
-      <div className="grid grid-cols-3 gap-2 mt-3">
-        {['1', '2', '3', '4', '5', '6', '7', '8', '9', '00', '0', '←'].map((d) => (
-          <button
-            key={d}
-            onClick={() => tecla(d)}
-            className="h-14 rounded-sa bg-sa-cream-soft border border-sa-green-ink/10 font-display text-xl text-sa-green-ink active:scale-95 transition-transform"
-          >
-            {d}
-          </button>
-        ))}
       </div>
     </div>
   )

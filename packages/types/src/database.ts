@@ -156,6 +156,8 @@ export type Database = {
           abierto_en: string
           caja_id: string
           cerrado_en: string | null
+          desglose_apertura: Json | null
+          desglose_cierre: Json | null
           efectivo_contado: number | null
           empleado_apertura_id: string | null
           empleado_cierre_id: string | null
@@ -168,6 +170,8 @@ export type Database = {
           abierto_en?: string
           caja_id: string
           cerrado_en?: string | null
+          desglose_apertura?: Json | null
+          desglose_cierre?: Json | null
           efectivo_contado?: number | null
           empleado_apertura_id?: string | null
           empleado_cierre_id?: string | null
@@ -180,6 +184,8 @@ export type Database = {
           abierto_en?: string
           caja_id?: string
           cerrado_en?: string | null
+          desglose_apertura?: Json | null
+          desglose_cierre?: Json | null
           efectivo_contado?: number | null
           empleado_apertura_id?: string | null
           empleado_cierre_id?: string | null
