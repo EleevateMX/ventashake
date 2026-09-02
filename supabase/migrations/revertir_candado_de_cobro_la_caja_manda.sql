@@ -1,0 +1,21 @@
+-- REVERSA del candado de fn_cobrar_orden / fn_cobrar_orden_dividido, y
+-- relajacion de las dos del mixto por la misma causa.
+--
+-- Ver docs/pendiente-blindaje-cobro.md. Resumen: el kiosko en modo cajero
+-- cobra como `anon`. El PIN si abre sesion de Supabase Auth, pero esa
+-- pantalla lleva dias encendida y la sesion caduca sin que nadie lo note,
+-- porque hasta ahora nada la necesitaba. El candado la volvio necesaria y
+-- la caja dejo de cobrar en efectivo (02/09, 07:28-07:31).
+--
+-- Se aplico con el mismo metodo de ancla, al reves, y ademas se
+-- reescribieron fn_cobrar_mixto_iniciar y fn_cobrar_mixto_cancelar sin su
+-- fn_rol_staff(), que habria fallado igual en cuanto alguien tocara
+-- "Mixto".
+--
+-- Lo que NO se toco es lo que de verdad protege el dinero: el servidor
+-- sigue recalculando el total, sigue validando que las partes sumen
+-- exacto y sigue rebotando el doble cobro.
+--
+-- El hueco queda abierto A PROPOSITO hasta que el kiosko sepa sostener su
+-- sesion. El detalle completo, y la prueba que hay que hacer la proxima
+-- vez, estan en docs/pendiente-blindaje-cobro.md.
