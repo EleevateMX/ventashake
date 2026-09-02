@@ -8,6 +8,12 @@ detalles temáticos viven en `docs/` (42 documentos); esto es el mapa.
 falla: es una fila de gente esperando su shake. Verifica en producción
 antes de decir que algo quedó.
 
+> **Si retomas esto sin contexto, empieza por
+> [`docs/estado-al-2-de-septiembre.md`](docs/estado-al-2-de-septiembre.md).**
+> Ahí está qué quedó vivo, qué quedó abierto y por qué — incluido un hueco
+> de seguridad que está abierto **a propósito** y que tumba la caja si lo
+> cierras sin arreglar antes la causa.
+
 ---
 
 ## 1. Qué es esto
@@ -78,6 +84,45 @@ entero vuelve a chocar con la parte 1. `ordenes.metodo_pago` queda en
 `'mixto'`; el desglose vive en `pagos`, que es de donde `vw_corte_resumen`
 y `fn_panel_en_vivo` ya sacaban sus totales por método. Por eso el corte
 cuadra solo: cada parte cae en su renglón.
+
+**Cobro mixto con la terminal.** La tarjeta va **primero**: el efectivo
+solo se *apunta* (`pagos` pendiente con proveedor `mixto_efectivo`, que no
+cuenta en el corte ni marca la orden pagada) y se aprueba cuando Clip
+autoriza. Si se cobrara el efectivo antes y la tarjeta fallara, quedaría
+dinero en el cajón y una venta a medias. Así, mientras la terminal no
+autorice **no hay nada comprometido y cancelar es gratis**.
+`clip-crear-cobro` manda a la terminal `total − lo apuntado`, no el total.
+Con la **terminal del banco** (la que no está integrada) el camino es
+otro: no hay nada que esperar, se cobra allá y aquí se registra con
+`fn_cobrar_orden_dividido`, que valida las partes antes de insertar
+ninguna.
+
+> **⚠ NINGUNA función del cobro pide sesión, y es a propósito (02/09/26).**
+> `fn_cobrar_orden`, `fn_cobrar_orden_dividido`, las dos del mixto y los
+> dos canjes de Rewards están abiertas a `anon` sin control interno. **No
+> las cierres sin leer `docs/pendiente-blindaje-cobro.md` primero.** Se
+> cerraron una vez y la caja dejó de cobrar en efectivo a los ocho minutos
+> de abrir: **el kiosko en modo cajero cobra como `anon`** — el PIN sí abre
+> sesión, pero esa pantalla lleva días encendida y la sesión caduca sin
+> que nadie lo note, porque hasta ahora nada la necesitaba. Primero hay que
+> hacer que el kiosko sostenga su sesión; el candado va después. Lo que sí
+> protege el dinero mientras tanto sigue en pie: el cliente nunca manda
+> precios.
+
+**Venta en espera.** El kiosko puede apartar una cuenta capturada y
+atender al siguiente (`apps/kiosko/src/store/espera.ts`). Viven en el
+navegador de esa pantalla, no en la base: meterlas ahí sería una orden a
+medio crear que la reconciliación tendría que distinguir de una venta
+perdida. Al retomarlas se refrescan contra el catálogo vivo
+(`refrescarContraCatalogo` en `packages/utils`), porque **el servidor
+cobra el precio de hoy** y un total en pantalla que no es el que se va a
+cobrar es peor que no tener la función.
+
+**El corte guarda el desglose.** `caja_cortes.desglose_apertura` y
+`desglose_cierre` (jsonb, `{"200": 2, "100": 1, …}`). Se cuenta por
+denominación al abrir **y** al cerrar, con la misma pantalla: contar de
+dos formas distintas es como se pierden los faltantes. Se revisa en
+Admin → **Cortes de caja**.
 
 ### 2.3 Clip: la verdad se pregunta, no se escucha
 
@@ -229,7 +274,10 @@ empaquetador y se desvían solas:
 | Situación | Qué hacer |
 |---|---|
 | Abrir la tienda | Nada: la PC arranca todo sola |
-| Abrir/cerrar caja o cambiar turno | **5 toques a Milo** en el kiosko → PIN |
+| Abrir/cerrar caja o cambiar turno | **5 toques a Milo** en el kiosko → PIN. Se cuenta **por denominación** y el total sale solo |
+| Cobrar | **Efectivo** · **Terminal** (Clip) · **Mixto** (efectivo + terminal). Abajo, *Terminal del banco*, que solo registra lo ya cobrado allá |
+| El cliente no puede pagar ahora | Pantalla de pago → **"Dejar esta venta en espera"**. Se retoma desde el chip amarillo del menú |
+| Revisar el arqueo de un turno | Admin → **Cortes de caja** (con el desglose de billetes) |
 | Cambiar precios o productos | Costeos → **Guardar**, y cuando esté listo → **"Mostrar en el kiosko"** (enseña qué va a cambiar antes de confirmar) |
 | Ver la tienda a distancia | Admin → **En vivo** |
 | Algo se siente raro | Admin → **¿Qué hago si…?** → *Probar una venta completa* |
@@ -377,15 +425,19 @@ empaquetador y se desvían solas:
   pelado — cualquiera se registraba en Rewards y apuntaba su cuenta a la
   fila del Gerente; y `fn_crear_empleado` dejaba darse de alta con rol
   `gerente` y el PIN que uno quisiera. Sin PIN, sin sesión, sin rastro.
-  Cerradas. **Quedan ~60 funciones más con `anon` y sin control interno**
+  Cerradas. **Quedan ~115 funciones más con `anon` y sin control interno**
   (`fn_clientes_admin`, `fn_expediente_cliente`, `fn_rewards_admin`,
-  `fn_cliente_desactivar`, `fn_actualizar_impresora`…). Muchas son
-  públicas a propósito (el kiosko es `anon`: `fn_crear_orden`,
-  `fn_recibo_publico`, `fn_promos_vigentes`). Hay que ir una por una:
-  cerrar de golpe es cómo rompí el instalador.
+  `fn_cliente_desactivar`, `fn_actualizar_impresora`…; el número sale de
+  `get_advisors`, que las cuenta una por una). Muchas son públicas a
+  propósito (el kiosko es `anon`: `fn_crear_orden`, `fn_recibo_publico`,
+  `fn_promos_vigentes`), y **todas las del cobro lo son a propósito desde
+  el 02/09** — ver el aviso de la sección 2.2. Hay que ir una por una:
+  cerrar de golpe es cómo rompí el instalador, y cómo tumbé la caja.
 - La consulta que las lista: funciones `prosecdef` con `anon=X` en
   `proacl` cuyo cuerpo no menciona `fn_es_jefe|fn_es_soporte|fn_rol_staff|
-  auth.uid|agente_token`.
+  auth.uid|agente_token`. Más rápido todavía: `get_advisors` del MCP de
+  Supabase las lista con su ruta `/rest/v1/rpc/…`, y de paso marca las
+  vistas que perdieron el `security_invoker`.
 - **Una politica `using (true)` mas un `grant` a `anon` es una puerta
   abierta, aunque el dinero se calcule en el servidor.** `fn_crear_orden`
   LEE `productos.precio`: si el precio se puede tocar desde fuera,
