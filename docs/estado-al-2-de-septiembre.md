@@ -53,6 +53,15 @@ sacar dinero.
 | **Cortes de caja en Admin** — el arqueo dejo de perderse | `apps/admin/src/pages/Cortes.tsx`, `listarCortes` |
 | **Costeos vuelve a guardar** | `alter function fn_costos_guardar set statement_timeout to '20s'` |
 
+## Lo que se agrego el 06/09
+
+| Que | Donde vive |
+|---|---|
+| **Leyenda a pantalla completa** cuando no pasa la tarjeta, separando "rechazado" de "no sabemos" | `apps/kiosko/src/components/CobroNoPaso.tsx` |
+| **El $20 arreglado**: billete y moneda se contaban en la misma casilla | `packages/utils/src/efectivo.ts` (12 pruebas) |
+| **Tickets del turno** para gerencia, con busqueda y detalle | `apps/admin/src/components/TicketsDelTurno.tsx` |
+| **Pulso** minuto a minuto, solo rol `desarrollo` | `apps/admin/src/pages/Pulso.tsx`, `fn_pulso_desarrollo` |
+
 ---
 
 ## 3. Lo que quedo pendiente, en orden de importancia

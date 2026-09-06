@@ -119,10 +119,20 @@ cobra el precio de hoy** y un total en pantalla que no es el que se va a
 cobrar es peor que no tener la función.
 
 **El corte guarda el desglose.** `caja_cortes.desglose_apertura` y
-`desglose_cierre` (jsonb, `{"200": 2, "100": 1, …}`). Se cuenta por
-denominación al abrir **y** al cerrar, con la misma pantalla: contar de
-dos formas distintas es como se pierden los faltantes. Se revisa en
-Admin → **Cortes de caja**.
+`desglose_cierre` (jsonb). Se cuenta por denominación al abrir **y** al
+cerrar, con la misma pantalla: contar de dos formas distintas es como se
+pierden los faltantes. Se revisa en Admin → **Cortes de caja**, junto con
+los tickets de ese turno.
+
+> **El $20 existe como billete Y como moneda.** La primera versión
+> indexaba por denominación (`{20: 15}`) y las dos filas escribían la
+> misma casilla: al contar las monedas se borraban los billetes. La forma
+> buena separa por especie —`{billetes: {...}, monedas: {...}}`— y vive en
+> `packages/utils/src/efectivo.ts`, porque el kiosko la escribe y Admin la
+> lee. **En la base conviven las dos formas**: los diez cortes del 2 al 6
+> de septiembre quedaron planos y ambiguos, y no se reescriben —
+> repartir ese `20` a ojo sería inventar. `leerDesglose` acepta las dos y
+> marca las viejas.
 
 ### 2.3 Clip: la verdad se pregunta, no se escucha
 
@@ -277,7 +287,9 @@ empaquetador y se desvían solas:
 | Abrir/cerrar caja o cambiar turno | **5 toques a Milo** en el kiosko → PIN. Se cuenta **por denominación** y el total sale solo |
 | Cobrar | **Efectivo** · **Terminal** (Clip) · **Mixto** (efectivo + terminal). Abajo, *Terminal del banco*, que solo registra lo ya cobrado allá |
 | El cliente no puede pagar ahora | Pantalla de pago → **"Dejar esta venta en espera"**. Se retoma desde el chip amarillo del menú |
-| Revisar el arqueo de un turno | Admin → **Cortes de caja** (con el desglose de billetes) |
+| Revisar el arqueo de un turno | Admin → **Cortes de caja** (desglose de billetes, y **Tickets** del turno) |
+| Consultar un ticket | Admin → **Cortes de caja** → *Tickets* → buscar por folio o nombre |
+| Ver si algo se está atorando ahora | Admin → **Pulso** (solo rol `desarrollo`) |
 | Cambiar precios o productos | Costeos → **Guardar**, y cuando esté listo → **"Mostrar en el kiosko"** (enseña qué va a cambiar antes de confirmar) |
 | Ver la tienda a distancia | Admin → **En vivo** |
 | Algo se siente raro | Admin → **¿Qué hago si…?** → *Probar una venta completa* |
