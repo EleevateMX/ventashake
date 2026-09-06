@@ -146,3 +146,159 @@ export async function listarCortes(sb: ShakeClient, limite = 60): Promise<CorteC
     }
   })
 }
+
+/** Un ticket del turno, tal como lo busca gerencia: por folio o por nombre. */
+export interface TicketDeCorte {
+  id: string
+  folio: number
+  created_at: string
+  total: number
+  descuento: number | null
+  pagado: boolean
+  estado: string
+  metodo_pago: string | null
+  nombre_cliente: string | null
+  es_demo: boolean
+  cobro: string | null
+}
+
+/**
+ * Los tickets de un turno.
+ *
+ * Se leen de la tabla y no por una funcion nueva a proposito: `ordenes` ya
+ * es legible, asi que esto no abre ninguna superficie nueva ni depende de
+ * una sesion que se pueda caducar. Despues de lo del 02/09, cada funcion
+ * `SECURITY DEFINER` que no hace falta es una que no puede tumbar la caja.
+ *
+ * Trae TODAS las ordenes del turno, tambien las que no se cobraron: un
+ * listado que solo ensena las cobradas esconde justo lo que el gerente
+ * necesita ver cuando el corte no cuadra.
+ */
+export async function ticketsDeCorte(sb: ShakeClient, corteId: string): Promise<TicketDeCorte[]> {
+  const { data, error } = await sb
+    .from('ordenes')
+    .select(`
+      id, folio, created_at, total, descuento, pagado, estado, metodo_pago,
+      nombre_cliente, es_demo,
+      empleados:empleado_id (nombre)
+    `)
+    .eq('corte_id', corteId)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return (data ?? []).map((o) => {
+    const { empleados, ...resto } = o as typeof o & { empleados: { nombre: string } | null }
+    return { ...resto, cobro: empleados?.nombre ?? null } as TicketDeCorte
+  })
+}
+
+/** Un renglon del ticket, con sus extras colgando. */
+export interface RenglonTicket {
+  id: string
+  producto: string
+  cantidad: number
+  precio_unitario: number
+  personalizacion: string | null
+  extras: RenglonTicket[]
+}
+
+export interface ParteCobrada {
+  metodo: string
+  monto: number
+  estado: string
+  parte: number | null
+  proveedor: string | null
+  created_at: string
+}
+
+export interface TicketDetalle {
+  id: string
+  folio: number
+  created_at: string
+  total: number
+  descuento: number | null
+  pagado: boolean
+  estado: string
+  metodo_pago: string | null
+  nombre_cliente: string | null
+  para_llevar: boolean | null
+  es_demo: boolean
+  cobro: string | null
+  renglones: RenglonTicket[]
+  pagos: ParteCobrada[]
+}
+
+/**
+ * Un ticket completo, para consultarlo.
+ *
+ * Los extras van colgando de su producto, igual que en la comanda: con dos
+ * bebidas en el mismo folio, plano no se sabe de cual era la creatina. Y
+ * con la misma red que la comanda -- lo que no encuentra padre sube a
+ * renglon propio en vez de desaparecer, porque un renglon invisible es
+ * dinero que nadie explica.
+ */
+export async function detalleDeTicket(sb: ShakeClient, ordenId: string): Promise<TicketDetalle> {
+  const { data, error } = await sb
+    .from('ordenes')
+    .select(`
+      id, folio, created_at, total, descuento, pagado, estado, metodo_pago,
+      nombre_cliente, para_llevar, es_demo,
+      empleados:empleado_id (nombre),
+      orden_items (id, cantidad, precio_unitario, personalizacion, padre_item_id, productos (nombre)),
+      pagos (metodo, monto, estado, parte, proveedor, created_at)
+    `)
+    .eq('id', ordenId)
+    .single()
+  if (error) throw error
+
+  const o = data as Record<string, unknown>
+  const crudos = (o.orden_items ?? []) as Array<{
+    id: string; cantidad: number; precio_unitario: number
+    personalizacion: string | null; padre_item_id: string | null
+    productos: { nombre: string } | null
+  }>
+
+  const aRenglon = (i: (typeof crudos)[number]): RenglonTicket => ({
+    id: i.id,
+    producto: i.productos?.nombre ?? '(producto borrado)',
+    cantidad: i.cantidad,
+    precio_unitario: i.precio_unitario,
+    personalizacion: i.personalizacion,
+    extras: [],
+  })
+
+  const porId = new Map<string, RenglonTicket>()
+  const renglones: RenglonTicket[] = []
+  for (const i of crudos.filter((x) => !x.padre_item_id)) {
+    const r = aRenglon(i)
+    porId.set(i.id, r)
+    renglones.push(r)
+  }
+  for (const i of crudos.filter((x) => x.padre_item_id)) {
+    const padre = porId.get(i.padre_item_id as string)
+    // Red de seguridad, la misma que la comanda: si el padre no esta, el
+    // extra sube a renglon propio. Que salga solo es feo; que desaparezca
+    // es dinero cobrado que no aparece en ningun lado.
+    if (padre) padre.extras.push(aRenglon(i))
+    else renglones.push(aRenglon(i))
+  }
+
+  const emp = o.empleados as { nombre: string } | null
+  return {
+    id: o.id as string,
+    folio: o.folio as number,
+    created_at: o.created_at as string,
+    total: Number(o.total),
+    descuento: o.descuento == null ? null : Number(o.descuento),
+    pagado: Boolean(o.pagado),
+    estado: String(o.estado),
+    metodo_pago: (o.metodo_pago as string) ?? null,
+    nombre_cliente: (o.nombre_cliente as string) ?? null,
+    para_llevar: (o.para_llevar as boolean) ?? null,
+    es_demo: Boolean(o.es_demo),
+    cobro: emp?.nombre ?? null,
+    renglones,
+    pagos: ((o.pagos ?? []) as ParteCobrada[])
+      .slice()
+      .sort((a, b) => (a.parte ?? 0) - (b.parte ?? 0)),
+  }
+}
