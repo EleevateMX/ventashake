@@ -5,7 +5,11 @@ import {
 } from '@shake/supabase'
 import type { EmpleadoSesion } from '@shake/supabase'
 import type { Caja, CajaCorte, CorteResumen } from '@shake/types'
-import { mxn, mensajeDeError } from '@shake/utils'
+import {
+  mxn, mensajeDeError,
+  BILLETES, MONEDAS, CONTEO_VACIO, sumaConteo, ponerPiezas, piezasDe,
+  type Conteo,
+} from '@shake/utils'
 import { CalibrarRollo } from '@/components/CalibrarRollo'
 import { PedirCambio } from '@/components/PedirCambio'
 import { sb } from '@/lib/sb'
@@ -41,20 +45,20 @@ export function CorteMilo({ abierto, onCerrar }: Props) {
   const [caja, setCaja] = useState<Caja | null>(null)
   const [corte, setCorte] = useState<CajaCorte | null>(null)
   const [resumen, setResumen] = useState<CorteResumen | null>(null)
-  const [conteo, setConteo] = useState<Conteo>({})
+  const [conteo, setConteo] = useState<Conteo>(CONTEO_VACIO)
   /**
    * El conteo del fondo con el que se abre. Va aparte del de cierre: son
    * dos momentos distintos y compartir el estado haria que abrir un turno
    * dejara prellenado el conteo del siguiente cierre con billetes que ya
    * no estan.
    */
-  const [conteoApertura, setConteoApertura] = useState<Conteo>({})
+  const [conteoApertura, setConteoApertura] = useState<Conteo>(CONTEO_VACIO)
   const [guardando, setGuardando] = useState(false)
   const [resultado, setResultado] = useState<'abierto' | 'cerrado' | null>(null)
 
   useEffect(() => {
     if (!abierto) return
-    setPin(''); setError(null); setConteo({}); setConteoApertura({})
+    setPin(''); setError(null); setConteo(CONTEO_VACIO); setConteoApertura(CONTEO_VACIO)
     setResultado(null); setResumen(null); setCorte(null)
     setFase('cargando')
     empleadoDeLaSesion(sb)
@@ -390,16 +394,10 @@ export function CorteMilo({ abierto, onCerrar }: Props) {
  *
  * Contando por denominación el total lo hace la máquina, y de paso queda
  * el desglose: si mañana falta un billete de 500, se ve cuántos había.
+ *
+ * La forma vive en `@shake/utils` porque Admin la lee en Cortes: dos
+ * copias se separan en cuanto alguien toca una.
  */
-const BILLETES = [1000, 500, 200, 100, 50, 20]
-const MONEDAS = [20, 10, 5, 2, 1]
-
-type Conteo = Record<number, number>
-
-function sumaConteo(c: Conteo): number {
-  return Object.entries(c).reduce((t, [den, n]) => t + Number(den) * (n || 0), 0)
-}
-
 function FilaDenominacion({
   den, cuantos, onCambiar, moneda,
 }: { den: number; cuantos: number; onCambiar: (n: number) => void; moneda?: boolean }) {
@@ -447,8 +445,9 @@ function FilaDenominacion({
 function ConteoDeCaja({
   conteo, onCambiar, etiqueta = 'Efectivo contado en caja',
 }: { conteo: Conteo; onCambiar: (c: Conteo) => void; etiqueta?: string }) {
-  const poner = (den: number, n: number) => onCambiar({ ...conteo, [den]: n })
   const total = sumaConteo(conteo)
+  const subtotal = (especie: 'billetes' | 'monedas', lista: readonly number[]) =>
+    lista.reduce((t, d) => t + d * piezasDe(conteo, especie, d), 0)
 
   return (
     <div className="mt-4">
@@ -457,14 +456,39 @@ function ConteoDeCaja({
       </p>
 
       <div className="bg-white border border-sa-green-ink/10 rounded-sa p-3 space-y-2">
-        <p className="font-mono text-[10px] uppercase tracking-wider text-sa-green-ink/45">Billetes</p>
+        {/* Billetes y monedas son listas separadas, y el $20 aparece en las
+            dos. No es un descuido: en México existe de las dos formas, y
+            antes compartían casilla — al contar las monedas se borraban
+            los billetes. Cada fila escribe la suya. */}
+        <div className="flex items-baseline justify-between">
+          <p className="font-mono text-[10px] uppercase tracking-wider text-sa-green-ink/45">Billetes</p>
+          <span className="font-mono text-[10px] text-sa-green-ink/45">
+            {subtotal('billetes', BILLETES) ? mxn(subtotal('billetes', BILLETES)) : ''}
+          </span>
+        </div>
         {BILLETES.map((d) => (
-          <FilaDenominacion key={d} den={d} cuantos={conteo[d] || 0} onCambiar={(n) => poner(d, n)} />
+          <FilaDenominacion
+            key={`b${d}`}
+            den={d}
+            cuantos={piezasDe(conteo, 'billetes', d)}
+            onCambiar={(n) => onCambiar(ponerPiezas(conteo, 'billetes', d, n))}
+          />
         ))}
 
-        <p className="font-mono text-[10px] uppercase tracking-wider text-sa-green-ink/45 pt-2">Monedas</p>
+        <div className="flex items-baseline justify-between pt-2">
+          <p className="font-mono text-[10px] uppercase tracking-wider text-sa-green-ink/45">Monedas</p>
+          <span className="font-mono text-[10px] text-sa-green-ink/45">
+            {subtotal('monedas', MONEDAS) ? mxn(subtotal('monedas', MONEDAS)) : ''}
+          </span>
+        </div>
         {MONEDAS.map((d) => (
-          <FilaDenominacion key={d} den={d} cuantos={conteo[d] || 0} onCambiar={(n) => poner(d, n)} moneda />
+          <FilaDenominacion
+            key={`m${d}`}
+            den={d}
+            cuantos={piezasDe(conteo, 'monedas', d)}
+            onCambiar={(n) => onCambiar(ponerPiezas(conteo, 'monedas', d, n))}
+            moneda
+          />
         ))}
       </div>
 

@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { sb } from '../lib/sb'
-import { listarCortes, sumaDesglose } from '@shake/supabase'
+import { listarCortes } from '@shake/supabase'
 import type { CorteConDetalle } from '@shake/supabase'
-import { mxn, mensajeDeError } from '@shake/utils'
+import { mxn, mensajeDeError, BILLETES, MONEDAS, leerDesglose } from '@shake/utils'
 import { PageHeader, Loading, ErrorMsg, Panel, cx } from '../ui'
+import { TicketsDelTurno } from '../components/TicketsDelTurno'
 
 /**
  * Los cortes de caja, para revisarlos después.
@@ -13,9 +14,6 @@ import { PageHeader, Loading, ErrorMsg, Panel, cx } from '../ui'
  * modal. Aquí queda el historial, con la diferencia y —lo que de verdad
  * sirve para reclamar— **cuántos billetes de cada denominación había**.
  */
-
-const BILLETES = [1000, 500, 200, 100, 50, 20]
-const MONEDAS = [20, 10, 5, 2, 1]
 
 /** Cuánto tuvo abierto un turno, en palabras de gente. */
 function duracion(abierto: string | null, cerrado: string | null): string {
@@ -39,12 +37,10 @@ function fecha(s: string | null): string {
  * tuvieron piezas: una tabla llena de ceros esconde los dos renglones que
  * importan.
  */
-function Desglose({ titulo, d }: { titulo: string; d: Record<number, number> | null }) {
-  const conPiezas = (lista: number[]) => lista.filter((den) => Number(d?.[den] ?? 0) > 0)
-  const billetes = conPiezas(BILLETES)
-  const monedas = conPiezas(MONEDAS)
+function Desglose({ titulo, raw }: { titulo: string; raw: unknown }) {
+  const d = leerDesglose(raw)
 
-  if (!d || (billetes.length === 0 && monedas.length === 0)) {
+  if (!d || d.total === 0) {
     return (
       <div>
         <p className={`${cx.muted} font-mono text-[10px] uppercase tracking-wider mb-1`}>{titulo}</p>
@@ -55,32 +51,50 @@ function Desglose({ titulo, d }: { titulo: string; d: Record<number, number> | n
     )
   }
 
-  const fila = (den: number) => (
-    <div key={den} className="flex items-baseline justify-between gap-3 py-0.5">
-      <span className="font-mono text-xs opacity-70">${den}</span>
-      <span className="font-mono text-xs">× {d[den]}</span>
-      <span className="font-mono text-xs tabular-nums opacity-60">{mxn(den * Number(d[den]))}</span>
-    </div>
-  )
+  const fila = (especie: 'billetes' | 'monedas') => (den: number) => {
+    const piezas = Number(d[especie][den] ?? 0)
+    if (piezas <= 0) return null
+    return (
+      <div key={`${especie}${den}`} className="flex items-baseline justify-between gap-3 py-0.5">
+        <span className="font-mono text-xs opacity-70">${den}</span>
+        <span className="font-mono text-xs">× {piezas}</span>
+        <span className="font-mono text-xs tabular-nums opacity-60">{mxn(den * piezas)}</span>
+      </div>
+    )
+  }
+
+  const filasBilletes = BILLETES.map(fila('billetes')).filter(Boolean)
+  const filasMonedas = MONEDAS.map(fila('monedas')).filter(Boolean)
 
   return (
     <div>
       <p className={`${cx.muted} font-mono text-[10px] uppercase tracking-wider mb-1`}>{titulo}</p>
-      {billetes.length > 0 && (
+
+      {/* Los cortes del 2 al 6 de septiembre se guardaron con el billete y
+          la moneda de $20 en la misma casilla. El total es el que se contó,
+          pero ese renglón no se puede repartir sin inventar. Se dice. */}
+      {d.ambiguo && (
+        <p className="font-mono text-[10px] leading-snug rounded px-2 py-1.5 mb-2 bg-amber-100 text-amber-900 dark:bg-amber-900/30 dark:text-amber-200">
+          El renglón de $20 junta billetes y monedas: así se guardó antes de
+          separarlos. El total sí es el que se contó.
+        </p>
+      )}
+
+      {filasBilletes.length > 0 && (
         <>
           <p className={`${cx.muted} font-mono text-[9px] uppercase tracking-wider mt-1`}>Billetes</p>
-          {billetes.map(fila)}
+          {filasBilletes}
         </>
       )}
-      {monedas.length > 0 && (
+      {filasMonedas.length > 0 && (
         <>
           <p className={`${cx.muted} font-mono text-[9px] uppercase tracking-wider mt-2`}>Monedas</p>
-          {monedas.map(fila)}
+          {filasMonedas}
         </>
       )}
       <div className="flex items-baseline justify-between gap-3 pt-2 mt-1 border-t border-current/10">
         <span className="font-mono text-[10px] uppercase tracking-wider opacity-60">Suma</span>
-        <span className="font-mono text-sm tabular-nums">{mxn(sumaDesglose(d))}</span>
+        <span className="font-mono text-sm tabular-nums">{mxn(d.total)}</span>
       </div>
     </div>
   )
@@ -88,7 +102,8 @@ function Desglose({ titulo, d }: { titulo: string; d: Record<number, number> | n
 
 export default function Cortes() {
   const [cortes, setCortes] = useState<CorteConDetalle[]>([])
-  const [abierto, setAbierto] = useState<string | null>(null)
+  /** Que se esta viendo de cual corte: el desglose o los tickets. */
+  const [abierto, setAbierto] = useState<{ id: string; que: 'desglose' | 'tickets' } | null>(null)
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -151,7 +166,7 @@ export default function Cortes() {
               {cortes.map((c) => {
                 const dif = Number(c.diferencia ?? 0)
                 const cerrado = Boolean(c.cerrado_en)
-                const expandido = abierto === c.corte_id
+                const abiertoAqui = abierto?.id === c.corte_id ? abierto.que : null
                 return (
                   <>
                     <tr key={c.corte_id} className={cx.tr}>
@@ -185,20 +200,40 @@ export default function Cortes() {
                         )}
                       </td>
                       <td className={cx.td}>
-                        <button
-                          onClick={() => setAbierto(expandido ? null : (c.corte_id as string))}
-                          className="font-mono text-[10px] uppercase tracking-wider underline opacity-70 hover:opacity-100"
-                        >
-                          {expandido ? 'Ocultar' : 'Desglose'}
-                        </button>
+                        <div className="flex gap-3 justify-end">
+                          {(['desglose', 'tickets'] as const).map((que) => (
+                            <button
+                              key={que}
+                              onClick={() =>
+                                setAbierto(
+                                  abiertoAqui === que
+                                    ? null
+                                    : { id: c.corte_id as string, que },
+                                )
+                              }
+                              className={`font-mono text-[10px] uppercase tracking-wider underline hover:opacity-100 ${
+                                abiertoAqui === que ? 'opacity-100 font-semibold' : 'opacity-70'
+                              }`}
+                            >
+                              {que === 'desglose' ? 'Desglose' : `Tickets (${c.num_ordenes ?? 0})`}
+                            </button>
+                          ))}
+                        </div>
                       </td>
                     </tr>
-                    {expandido && (
+                    {abiertoAqui === 'tickets' && (
+                      <tr key={`${c.corte_id}-t`}>
+                        <td className={cx.td} colSpan={8}>
+                          <TicketsDelTurno corteId={c.corte_id as string} />
+                        </td>
+                      </tr>
+                    )}
+                    {abiertoAqui === 'desglose' && (
                       <tr key={`${c.corte_id}-d`}>
                         <td className={cx.td} colSpan={8}>
                           <div className="grid gap-6 sm:grid-cols-3 py-2">
-                            <Desglose titulo="Con qué se abrió" d={c.desglose_apertura} />
-                            <Desglose titulo="Con qué se cerró" d={c.desglose_cierre} />
+                            <Desglose titulo="Con qué se abrió" raw={c.desglose_apertura} />
+                            <Desglose titulo="Con qué se cerró" raw={c.desglose_cierre} />
                             <div>
                               <p className={`${cx.muted} font-mono text-[10px] uppercase tracking-wider mb-1`}>
                                 Cobrado por método
