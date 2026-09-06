@@ -1,5 +1,15 @@
 import type { ShakeClient } from '../client'
 
+// Copia local del ayudante, como en ordenes.ts / lealtad.ts / impresion.ts.
+// Son cuatro copias iguales y algun dia deberian ser una; hoy no se toca
+// para no mover cuatro archivos con la tienda vendiendo.
+type RpcFn = (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>
+async function rpc<T>(sb: ShakeClient, fn: string, args: Record<string, unknown>): Promise<T> {
+  const { data, error } = await (sb.rpc as unknown as RpcFn)(fn, args)
+  if (error) throw error
+  return data as T
+}
+
 export interface SaludSistema {
   pagosPendientes: number
   pagosDesconocidos: number
@@ -195,4 +205,48 @@ export async function diagnosticoSistema(sb: ShakeClient): Promise<Diagnostico> 
   )('fn_diagnostico_sistema', {})
   if (error) throw error
   return data as Diagnostico
+}
+
+/** Un minuto de la ultima hora: lo que se levanto, se cobro y se imprimio. */
+export interface MinutoDelPulso {
+  minuto: string
+  etiqueta: string
+  levantadas: number
+  cobradas: number
+  impresas: number
+  fallidas: number
+}
+
+export interface PulsoDesarrollo {
+  ahora: string
+  latido: MinutoDelPulso[]
+  atorado: {
+    ordenes_cobrando: { folio: number; total: number; minutos: number }[]
+    impresion_pendiente: number
+    efectivo_mixto_colgado: number
+    comandas_fallidas_24h: number
+  }
+  fallos_de_clip: {
+    ts: string; hora: string; folio: number; monto: number
+    codigo: string; mensaje: string
+  }[]
+  infra: {
+    impresoras: { nombre: string; version: string | null; hace_segundos: number }[]
+    modo_kiosko: string | null
+    corte_horas: number | null
+    ordenes_sin_pagar_hoy: number
+  }
+}
+
+/**
+ * El pulso de desarrollo (`fn_pulso_desarrollo`).
+ *
+ * No es "En vivo" con otro nombre: En vivo contesta "como va el dia" y
+ * esto contesta "que esta roto ahora". El servidor exige rol `desarrollo`
+ * y **truena** para cualquier otro en vez de devolver datos vacios: una
+ * pantalla de diagnostico que se ve normal cuando no tiene permiso es una
+ * pantalla que miente.
+ */
+export async function pulsoDesarrollo(sb: ShakeClient): Promise<PulsoDesarrollo> {
+  return rpc<PulsoDesarrollo>(sb, 'fn_pulso_desarrollo', {})
 }

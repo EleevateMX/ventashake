@@ -18,6 +18,7 @@ import Combos from './pages/Combos'
 import Extras from './pages/Extras'
 import Ventas from './pages/Ventas'
 import Cortes from './pages/Cortes'
+import Pulso from './pages/Pulso'
 import Inventario from './pages/Inventario'
 import Promos from './pages/Promos'
 import Clientes from './pages/Clientes'
@@ -25,7 +26,7 @@ import Empleados from './pages/Empleados'
 import Impresoras from './pages/Impresoras'
 import Sistema from './pages/Sistema'
 
-type Tab = 'dashboard' | 'envivo' | 'diagnostico' | 'menu' | 'categorias' | 'combos' | 'extras' | 'inventario' | 'promos' | 'ventas' | 'cortes' | 'clientes' | 'nombres' | 'metas' | 'rewards' | 'empleados' | 'impresoras' | 'descargas' | 'ayuda' | 'peticiones' | 'soporte' | 'sistema'
+type Tab = 'dashboard' | 'envivo' | 'diagnostico' | 'menu' | 'categorias' | 'combos' | 'extras' | 'inventario' | 'promos' | 'ventas' | 'cortes' | 'clientes' | 'nombres' | 'metas' | 'rewards' | 'empleados' | 'impresoras' | 'descargas' | 'ayuda' | 'peticiones' | 'soporte' | 'pulso' | 'sistema'
 
 const w = 18
 
@@ -77,6 +78,12 @@ const IconPromos = () => (
     <path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z" /><circle cx="7" cy="7" r="1" fill="currentColor" stroke="none" />
   </svg>
 )
+const IconPulso = () => (
+  <svg width={w} height={w} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M2 12h4l2-7 4 14 3-9 2 2h5" />
+  </svg>
+)
+
 const IconCortes = () => (
   <svg width={w} height={w} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <rect x="2" y="7" width="20" height="12" rx="2" /><path d="M2 11h20" />
@@ -186,6 +193,7 @@ const navItems: { id: Tab; label: string; Icon: () => ReactElement; soloSoporte?
   // Solo para quien mantiene el sistema. Se filtra abajo por rol: la
   // gerencia -que es la duena del negocio- ni la ve en el menu.
   { id: 'soporte', label: 'Soporte', Icon: IconSoporte, soloSoporte: true },
+  { id: 'pulso', label: 'Pulso', Icon: IconPulso, soloSoporte: true },
   { id: 'sistema', label: 'Sistema', Icon: IconSistema },
 ]
 
@@ -250,6 +258,7 @@ export default function App() {
         {tab === 'extras' && <Extras />}
         {tab === 'ventas' && <Ventas />}
         {tab === 'cortes' && <Cortes />}
+        {tab === 'pulso' && <Pulso />}
         {tab === 'inventario' && <Inventario />}
         {tab === 'promos' && <Promos />}
         {tab === 'clientes' && <Clientes />}
