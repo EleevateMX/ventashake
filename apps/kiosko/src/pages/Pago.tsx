@@ -16,6 +16,7 @@ import { canjearMancuernas, canjearSellos } from '@shake/supabase'
 import { PanelRewards, SIN_REWARDS, type DecisionRewards } from '@/components/PanelRewards'
 import { CobroEfectivo } from '@/components/CobroEfectivo'
 import { CobroMixto, type TerminalTarjeta } from '@/components/CobroMixto'
+import { CobroNoPaso } from '@/components/CobroNoPaso'
 import { apartar } from '@/store/espera'
 import { usePromos } from '@/lib/usePromos'
 import { mensajeDeError, mxn } from '@shake/utils'
@@ -126,6 +127,29 @@ export function Pago() {
   const [errorProveedor, setErrorProveedor] = useState<string | null>(null)
   /** Nombres aprendidos de pedidos anteriores, para los chips del cajero. */
   const [nombresGuardados, setNombresGuardados] = useState<string[]>([])
+  /**
+   * El cobro que no paso, en grande. `monto` es lo que se intento cobrar
+   * --en un mixto NO es el total-- para poder reintentar exactamente eso.
+   */
+  const [noPaso, setNoPaso] = useState<
+    {
+      tipo: 'rechazado' | 'incierto'
+      monto: number
+      detalle?: string | null
+      /**
+       * La orden que se estaba cobrando, para reintentar SOBRE ELLA. Si se
+       * creara otra, quedarian dos ordenes por una venta.
+       */
+      orden: { id: string; folio: number; total: number }
+      /**
+       * En un mixto NO se puede reintentar de un toque: al fallar se solto
+       * el efectivo apuntado, asi que un reintento le mandaria el TOTAL a
+       * la tarjeta en vez de su parte. Hay que volver a partirlo.
+       */
+      esMixto: boolean
+    } | null
+  >(null)
+
   /** Cobro vivo en la terminal Clip: monto en pantalla + id para sondear. */
   const [terminal, setTerminal] = useState<{ monto: number; proveedorPaymentId: string } | null>(null)
   const cobroCancelado = useRef(false)
@@ -258,8 +282,12 @@ export function Pago() {
         setErrorProveedor(mensaje)
         setEstado('no_disponible')
       } else {
-        // Cajero: mensaje directo y que elija otro método.
-        setError(mensaje)
+        // Cajero: en grande. Que no se haya podido MANDAR el cobro es
+        // certeza de que no se cobro, asi que va como rechazo.
+        setNoPaso({
+          tipo: 'rechazado', monto: montoTarjeta ?? orden.total, orden, esMixto,
+          detalle: mensaje,
+        })
         setEstado('eligiendo')
       }
       return
@@ -311,19 +339,24 @@ export function Pago() {
       })
     } else if (final === 'rechazado') {
       await soltarLoApuntado()
-      setError('La terminal rechazó o canceló el pago. Puedes reintentar o cobrar con otro método.')
+      setNoPaso({
+        tipo: 'rechazado', monto: montoTarjeta ?? orden.total, orden, esMixto,
+        detalle: 'La terminal rechazó o canceló el cobro.',
+      })
     } else {
       await soltarLoApuntado()
-      let avisoCancelacion = ''
+      let avisoCancelacion: string | null = null
       try {
         await proveedor.cancelPayment(resultado.proveedorPaymentId)
       } catch {
-        avisoCancelacion = ' Tampoco se pudo cancelar el cobro: puede seguir vivo en la terminal.'
+        avisoCancelacion = 'Tampoco se pudo cancelar el cobro: puede seguir vivo en la terminal.'
       }
-      setError(
-        'La terminal no confirmó el pago. OJO: si la terminal SÍ cobró, la venta se confirmará sola en unos segundos — verifícalo antes de volver a cobrar.' +
-          avisoCancelacion,
-      )
+      // Incierto, no rechazado: la terminal pudo haber cobrado. Ver
+      // CobroNoPaso — aqui el boton principal es esperar, no reintentar.
+      setNoPaso({
+        tipo: 'incierto', monto: montoTarjeta ?? orden.total, orden, esMixto,
+        detalle: avisoCancelacion,
+      })
     }
   }
 
@@ -653,6 +686,23 @@ export function Pago() {
 
   return (
     <div className="flex flex-col h-screen bg-sa-cream-paper">
+      {/* El cobro que no paso, a pantalla completa. Va ANTES que la de
+          espera para quedar encima si las dos coincidieran. */}
+      {noPaso && (
+        <CobroNoPaso
+          tipo={noPaso.tipo}
+          monto={noPaso.monto}
+          detalle={noPaso.detalle}
+          onCerrar={() => setNoPaso(null)}
+          onOtroMetodo={() => { setNoPaso(null); setEnMixto(false); setEnEfectivo(false) }}
+          onReintentar={
+            noPaso.esMixto
+              ? null
+              : () => { setNoPaso(null); void cobrarEnTerminal(noPaso.orden) }
+          }
+        />
+      )}
+
       {/* Cobro vivo en la terminal: pantalla de espera con salida de emergencia. */}
       {terminal && (
         <div className="fixed inset-0 z-50 bg-sa-green-deep flex flex-col items-center justify-center gap-5 px-8 text-sa-cream">
