@@ -1,4 +1,5 @@
-import type { Caja, CajaCorte, CorteResumen } from '@shake/types'
+import type { Caja, CajaCorte, CorteResumen, Json } from '@shake/types'
+import type { Conteo } from '@shake/utils'
 import type { ShakeClient } from '../client'
 
 export async function listarCajas(sb: ShakeClient): Promise<Caja[]> {
@@ -21,11 +22,20 @@ export async function corteAbierto(sb: ShakeClient, cajaId: string): Promise<Caj
 
 /** Abre caja. La base garantiza un solo corte abierto por caja. */
 /**
- * Cuantas piezas hay de cada denominacion. Llave = pesos, valor = piezas.
- * `{"200": 2, "100": 1, "20": 15}` son dos billetes de 200, uno de 100 y
- * quince de 20.
+ * El desglose del cajon, separado por especie.
+ *
+ * La forma vive en `@shake/utils` (`Conteo`) porque el kiosko la escribe y
+ * Admin la lee. Va separada porque el $20 existe como billete Y como
+ * moneda: cuando compartian casilla, contar las monedas borraba los
+ * billetes.
+ *
+ * En la base hay tambien filas con la forma vieja y plana
+ * (`{"200": 2, "20": 4}`), de los cortes del 2 al 6 de septiembre. No se
+ * reescriben: en esas, el `20` puede ser billetes, monedas o mezcla, y
+ * adivinarlo seria inventar. `leerDesglose` de `@shake/utils` acepta las
+ * dos formas y marca las viejas como ambiguas.
  */
-export type DesgloseEfectivo = Record<number, number>
+export type DesgloseEfectivo = Conteo
 
 export async function abrirCaja(
   sb: ShakeClient,
@@ -45,7 +55,7 @@ export async function abrirCaja(
       caja_id: cajaId,
       fondo_inicial: fondoInicial,
       empleado_apertura_id: empleadoId ?? null,
-      desglose_apertura: desglose ?? null,
+      desglose_apertura: (desglose ?? null) as Json,
     })
     .select()
     .single()
@@ -69,7 +79,7 @@ export async function cerrarCaja(
       efectivo_contado: efectivoContado,
       empleado_cierre_id: empleadoId ?? null,
       notas: notas ?? null,
-      desglose_cierre: desglose ?? null,
+      desglose_cierre: (desglose ?? null) as Json,
     })
     .eq('id', corteId)
   if (error) throw error
@@ -135,10 +145,4 @@ export async function listarCortes(sb: ShakeClient, limite = 60): Promise<CorteC
       desglose_cierre: (d?.desglose_cierre as DesgloseEfectivo | null) ?? null,
     }
   })
-}
-
-/** Suma un desglose. La misma cuenta que hace la pantalla al contar. */
-export function sumaDesglose(d: DesgloseEfectivo | null | undefined): number {
-  if (!d) return 0
-  return Object.entries(d).reduce((t, [den, n]) => t + Number(den) * (Number(n) || 0), 0)
 }
