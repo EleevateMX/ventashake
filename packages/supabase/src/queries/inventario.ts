@@ -113,3 +113,55 @@ export async function transferir(
     })
   }
 }
+
+// ------------------ los huecos del inventario --------------------
+
+/** Un producto que se vendio y no bajo nada del almacen. */
+export interface ProductoSinReceta {
+  id: string
+  nombre: string
+  categoria: string
+  es_extra: boolean
+  precio: number
+  piezas: number
+  /** Existe otro producto con el mismo nombre que SI tiene receta. */
+  hay_gemelo_con_receta: boolean
+  es_combo_armado: boolean
+}
+
+export interface HuecosDeInventario {
+  desde: string
+  dias: number
+  sin_receta: ProductoSinReceta[]
+  resumen: { piezas_sin_descontar: number; piezas_totales: number }
+  sin_renglon_de_stock: { insumo: string; almacen: string; movido: number }[]
+  catalogo: {
+    insumos: number
+    sin_producto_que_los_use: number
+    sin_un_solo_movimiento: number
+    con_stock_pero_sin_uso: number
+  }
+  combos_vacios: { nombre: string; piezas: number }[]
+  traspasos: { suman: number; restan: number; almacenes: string[] }
+}
+
+/**
+ * Lo que se vende y no descuenta inventario (`fn_inventario_huecos`).
+ *
+ * El motor de descuento nunca estuvo roto: lo que hacia era callarse
+ * cuando no tenia nada que bajar. Esto convierte esa falla invisible en
+ * una lista que alguien puede cerrar, con la causa de cada renglon —
+ * porque el arreglo de cada causa es distinto.
+ *
+ * Exige gerencia del lado del servidor, y truena si no la hay.
+ */
+export async function huecosDeInventario(
+  sb: ShakeClient,
+  dias = 30,
+): Promise<HuecosDeInventario> {
+  const { data, error } = await (sb.rpc as unknown as
+    (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>
+  )('fn_inventario_huecos', { p_dias: dias })
+  if (error) throw error
+  return data as HuecosDeInventario
+}
