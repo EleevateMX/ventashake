@@ -113,9 +113,16 @@ begin
       'corte_horas', (
         select round(extract(epoch from (now() - abierto_en))/3600, 1)
         from caja_cortes where cerrado_en is null limit 1),
+      -- Solo las que SIGUEN vivas. Una orden expirada ya la cerro el
+      -- barredor: contarla aqui es un indicador que no puede volver a
+      -- verde, y un indicador asi se deja de leer (regla del CLAUDE.md).
+      -- Pasaba: quedaban 10 en rojo despues de que el barrido las cerro,
+      -- porque este contador miraba `estado` --que se queda en
+      -- 'pendiente'-- en vez de `estado_pago_orden`.
       'ordenes_sin_pagar_hoy', (
         select count(*) from ordenes
         where not pagado and estado = 'pendiente'
+          and estado_pago_orden not in ('expired', 'cancelled', 'paid')
           and created_at >= ((now() at time zone 'America/Merida')::date::timestamp at time zone 'America/Merida'))
     )
   ) into v_res;
