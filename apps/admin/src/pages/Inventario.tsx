@@ -4,8 +4,19 @@ import { stockPorAlmacen } from '@shake/supabase'
 import type { StockAlmacen } from '@shake/types'
 import { PageHeader, Loading, ErrorMsg, Panel, cx } from '../ui'
 import { mensajeDeError } from '@shake/utils'
+import { HuecosInventario } from '../components/HuecosInventario'
+
+/**
+ * El inventario tiene dos preguntas y no son la misma.
+ *
+ * «Existencias» contesta cuánto hay. «Huecos» contesta por qué ese número
+ * no baja cuando se vende — que es lo que llevaba treinta días sin que
+ * nadie lo notara, porque el descuento fallaba callado.
+ */
+type Vista = 'existencias' | 'huecos'
 
 export default function Inventario() {
+  const [vista, setVista] = useState<Vista>('existencias')
   const [stock, setStock] = useState<StockAlmacen[]>([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -17,12 +28,43 @@ export default function Inventario() {
       .finally(() => setCargando(false))
   }, [])
 
+  const pestanas: { id: Vista; label: string }[] = [
+    { id: 'existencias', label: 'Existencias' },
+    { id: 'huecos', label: 'Lo que no descuenta' },
+  ]
+
+  return (
+    <div>
+      <PageHeader
+        title="Inventario"
+        subtitle={vista === 'existencias' ? 'Stock por almacén' : 'Lo que se vende y no baja del almacén'}
+        action={
+          <div className="flex gap-1">
+            {pestanas.map((p) => (
+              <button
+                key={p.id}
+                onClick={() => setVista(p.id)}
+                className={p.id === vista ? cx.btnPrimary : cx.btnSec}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        }
+      />
+
+      {vista === 'huecos' ? <HuecosInventario /> : <Existencias stock={stock} cargando={cargando} error={error} />}
+    </div>
+  )
+}
+
+function Existencias({ stock, cargando, error }: {
+  stock: StockAlmacen[]; cargando: boolean; error: string | null
+}) {
   if (cargando) return <Loading>Cargando inventario…</Loading>
 
   return (
     <div>
-      <PageHeader title="Inventario" subtitle="Stock por almacén" />
-
       {error && <ErrorMsg>{error}</ErrorMsg>}
 
       {stock.length === 0 ? (

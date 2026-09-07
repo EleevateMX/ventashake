@@ -772,7 +772,15 @@ function renderProt(m){
   m.querySelector("#protBrand").addEventListener("change",e=>{protUI.brand=e.target.value;render();});
   m.querySelector("#protByBrand").onclick=()=>{protUI.byBrand=!protUI.byBrand;render();};
   const rst=m.querySelector("#protReset");if(rst)rst.onclick=()=>{protUI={q:"",brand:"",byBrand:false};render();};
-  m.querySelector("#addP").onclick=()=>{state.proteins.push({codigo:"",codigoBarras:"",marca:"Nueva",sabor:"—",proveedor:"",fechaCompra:"",fechaCaducidad:"",pres:"",costo:"",scoops:"",precioScoop:"",precioBote:"",invOriginal:"",minOriginal:"",invScoops:"",minScoops:""});save();render();};
+  /* Al agregar un renglon NO se guarda todavia. El renglon nace con
+     relleno ("Nueva" / "—" / "Nuevo empaque") para que se vea que esta
+     vacio, y guardar en ese momento hacia que la sincronizacion tomara
+     ese relleno por un nombre: asi nacieron "Nueva - Tamarindo",
+     "Nueva - Chai" y 60 insumos mas que ningun producto usa. Se guarda
+     cuando ya haya algo que guardar, al salir del primer campo. La base
+     tambien los ignora ahora, pero de este lado nos ahorramos ademas una
+     sincronizacion entera por cada renglon en blanco. */
+  m.querySelector("#addP").onclick=()=>{state.proteins.push({codigo:"",codigoBarras:"",marca:"Nueva",sabor:"—",proveedor:"",fechaCompra:"",fechaCaducidad:"",pres:"",costo:"",scoops:"",precioScoop:"",precioBote:"",invOriginal:"",minOriginal:"",invScoops:"",minScoops:""});render();};
   applyProtSearch(m);
 }
 function applyProtSearch(m){const q=(protUI.q||"").toLowerCase().trim();
@@ -935,7 +943,7 @@ function renderEmp(m){
   state.empaque.forEach((e,i)=>{const tr=m.querySelector(`tr[data-i="${i}"]`);bindRow(tr,"empaque",i);
     tr.querySelector('[data-act="del"]').onclick=()=>{if(confirm("¿Eliminar "+e.nombre+"?")){state.empaque.splice(i,1);save();render();}};
     bindReorder(tr,"empaque",i);});
-  m.querySelector("#addE").onclick=()=>{state.empaque.push({codigo:"",codigoBarras:"",marca:"",nombre:"Nuevo empaque",proveedor:"",presentacion:"",costo:"",ultimaCompra:"",stock:"",stockMin:""});save();render();};
+  m.querySelector("#addE").onclick=()=>{state.empaque.push({codigo:"",codigoBarras:"",marca:"",nombre:"Nuevo empaque",proveedor:"",presentacion:"",costo:"",ultimaCompra:"",stock:"",stockMin:""});render();};
 }
 
 /* ---------------- COSTEO RECETAS ---------------- */
