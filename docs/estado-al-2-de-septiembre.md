@@ -107,10 +107,13 @@ esto es lo primero que hay que mirar.
 
 ### 3.5 Limpieza, sin prisa
 
-- **157 ordenes abandonadas** sin pagar (julio a hoy, ~$26,000). Ninguna
-  llego a cocina, o sea que nadie preparo nada: son carritos a medias.
-  Ensucian el panel de salud. Pasarlas a `cancelada` es un `update`, pero
-  son 157 renglones de ventas y no lo decidi yo.
+- ~~**157 ordenes abandonadas**~~ **RESUELTO el 07/09.** Eran 238 para
+  entonces. La causa no era que nadie las cerrara a mano: el barredor
+  `fn_expirar_ordenes_kiosko` filtraba por `canal = 'kiosko'` y `expira_en`,
+  las dos cosas del autoservicio, y la tienda opera en modo cajero — asi
+  que ninguna orden de caja entraba por esa puerta. Ya cubre los dos
+  canales y quedaron 0. Ojo con el numero: **96 de cada 111 eran reintentos
+  de Clip que SI se cobraron**, no ventas perdidas.
 - **`_respaldo_pruebas_28jul` y `_respaldo_pruebas_30jul`**: tablas de
   respaldo de julio que nadie usa.
 - **Cuentas `admin` y `Prueba`** en `app_users` (Costeos), de junio, sin
