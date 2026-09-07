@@ -201,7 +201,7 @@ es inventarle una receta al extra: es decidir en Costeos cuál se vende.
 una hoja de costeo: se escribe el número final y el trigger deduce la
 diferencia. Para recibir cajas es pésimo — el agua Kirkland pasó por
 +10, +7, +3, −20, +21 en veinte minutos el 06/09, que es alguien tecleando
-mientras el guardado rebota. En el kiosko (5 toques a Milo → PIN →
+mientras el guardado rebota. En el kiosko (botón **«Caja y turno»** → PIN →
 **«¿Llegó mercancía?»**) lo que viaja es el **movimiento**, no el total, y
 teclear no puede dejar el inventario en un número raro. Las piezas por
 caja salen de `presentacion` («Pack 21/1L» → 21).
@@ -226,8 +226,8 @@ pantallas muestran comandas pero **no sale papel**.
   (papel/tapa/sensor): el autotest con FEED al encender lo confirma.
 - **Al cambiar el rollo hay que calibrar**, o las comandas salen corridas:
   la etiquetadora mide la luz que pasa por el hueco entre etiquetas y ese
-  umbral depende del papel cargado. Se hace desde el **kiosko** (5 toques a
-  Milo → PIN → "¿Cambiaste el rollo?") o desde el POS, sin ir a la PC. En el
+  umbral depende del papel cargado. Se hace desde el **kiosko** (boton
+  "Caja y turno" -> PIN -> "¿Cambiaste el rollo?") o desde el POS, sin ir a la PC. En el
   kiosko es lo normal: el POS no queda abierto en esa máquina. Gasta dos o tres etiquetas y saca una de prueba
   al final — si esa sale derecha, quedó. Pide agente **1.2.0**; con uno
   viejo el botón lo dice en vez de fallar en silencio.
@@ -326,7 +326,7 @@ empaquetador y se desvían solas:
 | Situación | Qué hacer |
 |---|---|
 | Abrir la tienda | Nada: la PC arranca todo sola |
-| Abrir/cerrar caja o cambiar turno | **5 toques a Milo** en el kiosko → PIN. Se cuenta **por denominación** y el total sale solo |
+| Abrir/cerrar caja o cambiar turno | Kiosko → botón **"Caja y turno"** (arriba, junto a Historial) → PIN. Se cuenta **por denominación** y el total sale solo |
 | Cobrar | **Efectivo** · **Terminal** (Clip) · **Mixto** (efectivo + terminal). Abajo, *Terminal del banco*, que solo registra lo ya cobrado allá |
 | El cliente no puede pagar ahora | Pantalla de pago → **"Dejar esta venta en espera"**. Se retoma desde el chip amarillo del menú |
 | Revisar el arqueo de un turno | Admin → **Cortes de caja** (desglose de billetes, y **Tickets** del turno) |
@@ -338,8 +338,8 @@ empaquetador y se desvían solas:
 | Saber si el POS está sano | Admin → **¿Qué hago si…?** — cobra de mentira y lo deshace |
 | Actualizar el agente de impresión | Solo, al abrir el día siguiente |
 | Instalar en una PC nueva | Admin → **Descargas** → "Instalar todo" |
-| Cambiar el rollo de etiquetas | Kiosko → 5 toques a Milo → PIN → "¿Cambiaste el rollo?" → Calibrar |
-| Llegó mercancía | Kiosko → 5 toques a Milo → PIN → **"¿Llegó mercancía?"** → por caja o por pieza. Di si vino de bodega: eso la resta allá |
+| Cambiar el rollo de etiquetas | Kiosko → **"Caja y turno"** → PIN → "¿Cambiaste el rollo?" → Calibrar |
+| Llegó mercancía | Kiosko → **"Caja y turno"** → PIN → **"¿Llegó mercancía?"** → por caja o por pieza. Di si vino de bodega: eso la resta allá |
 | Ver por qué el inventario no baja | Admin → Inventario → **"Lo que no descuenta"** |
 
 ---
@@ -439,6 +439,15 @@ empaquetador y se desvían solas:
 
 **Frontend**
 
+- **Las herramientas del personal se ven cuando la pantalla es del
+  personal.** El corte de caja vivía detrás de cinco toques a Milo, y ese
+  gesto tiene sentido en autoservicio —ahí la pantalla la usa el cliente—
+  pero no en modo cajero, que es como opera la tienda: esconderle la
+  herramienta a quien tiene derecho a usarla solo la vuelve difícil de
+  usar y de enseñar. Ahora hay un botón **"Caja y turno"** visible cuando
+  hay cajero con turno abierto, y el pasadizo de los cinco toques **sigue
+  funcionando en los dos modos**: si el modo no se pudo leer, el botón no
+  aparece, y sin el gesto la caja se quedaría sin poder abrir turno.
 - El kiosko **no se recarga a media venta**: la señal de recarga espera a
   que la pantalla esté en el menú y sin carrito.
 - Un error que aparece y se va solo en un segundo es peor que ningún
