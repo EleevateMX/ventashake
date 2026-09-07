@@ -25,6 +25,15 @@ export function Catalogo() {
   const navigate = useNavigate()
   const { agregar, agregarConExtras, totalItems, restaurar } = useCarrito()
   /**
+   * Quién tiene el turno abierto en esta pantalla. Solo hay alguien cuando
+   * el kiosko está en modo cajero (App.tsx no deja pasar sin PIN); en
+   * autoservicio es null porque la pantalla la usa el cliente.
+   *
+   * Es lo que decide si las herramientas del personal se ven o se
+   * esconden. Ver el botón "Caja y turno" más abajo.
+   */
+  const cajero = useCarrito((s) => s.cajero)
+  /**
    * Cuantas ventas hay apartadas. Se relee al abrir el panel y al retomar:
    * es de este navegador, nadie mas la toca.
    */
@@ -43,9 +52,22 @@ export function Catalogo() {
    */
   const [observaciones, setObservaciones] = useState<Record<string, string[]>>({})
   /**
-   * Pasadizo del corte de caja: cinco toques a Milo en menos de cuatro
-   * segundos. Sin botón visible a propósito — el personal lo sabe, el
-   * cliente no tiene por qué.
+   * El corte de caja se abre por dos caminos, y cuál sirve depende de
+   * quién está frente a la pantalla:
+   *
+   * - **En modo cajero** hay un botón visible ("Caja y turno"). Esa
+   *   pantalla la opera el personal, no el cliente, así que esconder la
+   *   herramienta detrás de un gesto secreto solo la vuelve difícil de
+   *   usar para quien tiene derecho a usarla — y de enseñar a alguien
+   *   nuevo.
+   * - **En autoservicio** no hay botón: ahí sí la usa el cliente, y no
+   *   tiene por qué encontrarse la caja. Queda el pasadizo de siempre,
+   *   cinco toques a Milo en menos de cuatro segundos.
+   *
+   * El pasadizo se deja funcionando en los dos modos a propósito: si el
+   * modo no se pudo leer (App.tsx sigue como kiosko normal cuando falla),
+   * el botón no aparece y sin el gesto la caja se quedaría sin poder
+   * abrir turno.
    */
   const [modalCorte, setModalCorte] = useState(false)
   const [verHistorial, setVerHistorial] = useState(false)
@@ -280,6 +302,21 @@ export function Catalogo() {
                   </svg>
                   Historial de pedidos
                 </button>
+                {/* Las herramientas del turno: abrir y cerrar caja,
+                    calibrar el rollo, cargar mercancía. Solo en modo
+                    cajero — en autoservicio esta fila la ve el cliente. */}
+                {cajero && (
+                  <button
+                    onClick={() => setModalCorte(true)}
+                    className="inline-flex items-center gap-2 bg-sa-cream/10 hover:bg-sa-cream/20 border border-sa-cream/30 text-sa-cream/90 px-4 py-2 rounded-full font-mono text-xs uppercase tracking-wide transition-colors"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="2" y="7" width="20" height="13" rx="2" />
+                      <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" />
+                    </svg>
+                    Caja y turno
+                  </button>
+                )}
                 {/* Solo aparece si hay algo apartado: un boton que casi
                     siempre dice "0" es un boton que se deja de mirar. */}
                 {enEspera > 0 && (
