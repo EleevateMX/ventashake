@@ -165,3 +165,70 @@ export async function huecosDeInventario(
   if (error) throw error
   return data as HuecosDeInventario
 }
+
+// ------------------ cargar inventario desde el kiosko --------------------
+
+/** Un insumo que la barra puede cargar, con lo que hay de cada lado. */
+export interface InsumoParaCargar {
+  id: string
+  nombre: string
+  unidad: string | null
+  presentacion: string | null
+  en_kiosko: number | null
+  en_bodega: number | null
+  /** Piezas por caja, leído de `presentacion`. Null = no ofrecer cajas. */
+  por_caja: number | null
+}
+
+/**
+ * Lo que se puede cargar desde el kiosko (`fn_inventario_catalogo_kiosko`).
+ *
+ * No son los 1628 insumos: solo los que usa un producto **activo** o los
+ * que ya tienen existencias. Los nombres a medias que dejó el guardado
+ * automático de Costeos («Canada Dry Gi») sí tienen receta, así que el
+ * filtro tiene que mirar el producto, no la receta — si no, se ofrecerían
+ * todos y alguien acabaría cargando 24 aguas en un fantasma.
+ */
+export async function insumosParaCargar(sb: ShakeClient): Promise<InsumoParaCargar[]> {
+  const { data, error } = await (sb.rpc as unknown as
+    (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>
+  )('fn_inventario_catalogo_kiosko', {})
+  if (error) throw error
+  return (data ?? []) as InsumoParaCargar[]
+}
+
+export interface ResultadoEntrada {
+  referencia: string
+  origen: 'bodega' | 'directa'
+  quien: string | null
+  lineas: number
+  piezas: number
+  detalle: { insumo: string; piezas: number }[]
+}
+
+/**
+ * Cargar inventario desde el kiosko (`fn_inventario_entrada`).
+ *
+ * Lo que se manda es el **movimiento**, no el total: «llegaron 2 cajas» se
+ * suma a lo que haya. Costeos hace lo contrario —se escribe el número
+ * final y el trigger deduce la diferencia—, que es correcto para costear y
+ * pésimo para recibir mercancía: por eso el 06/09 el agua Kirkland pasó
+ * por +10, +7, +3, -20, +21 en veinte minutos mientras alguien tecleaba.
+ *
+ * `origen: 'bodega'` hace un traspaso de verdad —resta allá y suma acá—;
+ * `'directa'` es mercancía que llegó a la barra y solo suma.
+ */
+export async function cargarInventario(
+  sb: ShakeClient,
+  lineas: { insumoId: string; piezas: number }[],
+  origen: 'bodega' | 'directa',
+): Promise<ResultadoEntrada> {
+  const { data, error } = await (sb.rpc as unknown as
+    (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>
+  )('fn_inventario_entrada', {
+    p_lineas: lineas.map((l) => ({ insumo_id: l.insumoId, piezas: l.piezas })),
+    p_origen: origen,
+  })
+  if (error) throw error
+  return data as ResultadoEntrada
+}

@@ -12,6 +12,7 @@ import {
 } from '@shake/utils'
 import { CalibrarRollo } from '@/components/CalibrarRollo'
 import { PedirCambio } from '@/components/PedirCambio'
+import { CargarInventario } from '@/components/CargarInventario'
 import { sb } from '@/lib/sb'
 
 interface Props {
@@ -296,6 +297,7 @@ export function CorteMilo({ abierto, onCerrar }: Props) {
                     : 'Cuenta el fondo para abrir'}
               </button>
               <CalibrarRollo />
+              <CargarInventario />
               <PedirCambio />
             </div>
           )}
@@ -338,6 +340,7 @@ export function CorteMilo({ abierto, onCerrar }: Props) {
                 Para cambio de turno: cierra y en seguida abre el nuevo
               </p>
               <CalibrarRollo />
+              <CargarInventario />
               <PedirCambio />
             </div>
           )}
