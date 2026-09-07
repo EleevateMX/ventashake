@@ -384,6 +384,26 @@ empaquetador y se desvían solas:
   ninguna se pagaba. Regla: dentro de funciones que corren desde la app,
   nada de tablas temporales ni de `delete` pelado — el conjunto se calcula
   con CTEs, aunque se repita.
+- **La maquina de estados de la orden no deja ir para atras, y es a
+  proposito.** `fn_validar_transicion_estado_pago_orden` prohibe
+  `payment_processing -> pending_payment`: devolver una orden a "cobrable"
+  seria dejar re-cobrable algo que quiza ya se cobro por otro lado. Desde
+  `payment_processing` solo se sale a `paid`, `cancelled`, `payment_unknown`
+  o `expired`. Si un arreglo necesita "resetear" una orden, el arreglo esta
+  mal planteado.
+- **Un barredor que filtra por `canal` solo barre ese canal.**
+  `fn_expirar_ordenes_kiosko` exigia `canal = 'kiosko'` **y** `expira_en not
+  null` — las dos cosas del flujo de autoservicio. La tienda opera en modo
+  cajero (`canal = 'pos'`, sin `expira_en`), asi que **ninguna orden de caja
+  se cerro nunca**: 238 colgadas en `payment_processing` con el pago ya
+  rechazado, la mas vieja de 19 dias. No fallaba: ese camino jamas tuvo
+  quien lo barriera. Ya cubre los dos canales (07/09).
+- **Cada reintento de Clip levanta una orden NUEVA, no recobra la misma.**
+  Un cobro que falla cuatro veces deja cuatro cadaveres y una venta buena.
+  De 111 ordenes "sin pagar" de una semana, **96 eran reintentos que si se
+  cobraron**: el indicador de abandono era 86% ruido. Antes de reportar
+  dinero perdido, hay que buscar la gemela cobrada (mismo total, +/- 15
+  min) — si no, se reporta como perdida una venta que si entro.
 - **Al tocar el camino del dinero, la verificación no es un `select`: es
   cobrar.** `fn_crear_orden` puede devolver una orden perfecta y el cobro
   fallar en el trigger siguiente. Hay que correr `fn_crear_orden` →
