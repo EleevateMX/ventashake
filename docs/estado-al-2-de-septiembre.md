@@ -62,6 +62,16 @@ sacar dinero.
 | **Tickets del turno** para gerencia, con busqueda y detalle | `apps/admin/src/components/TicketsDelTurno.tsx` |
 | **Pulso** minuto a minuto, solo rol `desarrollo` | `apps/admin/src/pages/Pulso.tsx`, `fn_pulso_desarrollo` |
 
+## Lo que se agrego el 07/09 (inventario)
+
+| Que | Donde vive |
+|---|---|
+| **El descuento deja de fallar callado**: el renglon de stock nace solo (264 insumos del Kiosko lo necesitaban) y los combos se expanden | `fn_descontar_inventario_por_orden` |
+| **"Lo que no descuenta"**: los 42 productos que se venden sin receta, cada uno con su causa | `apps/admin/src/components/HuecosInventario.tsx`, `fn_inventario_huecos` |
+| **Cargar mercancia desde el kiosko**, por caja o por pieza, y el traspaso que SI resta en bodega | `apps/kiosko/src/components/CargarInventario.tsx`, `fn_inventario_entrada` |
+| **Los renglones en blanco dejan de nacer como catalogo** ("Nueva - Tamarindo" y 61 mas) | `fn_sync_app_data` + `apps/costos/index.html` |
+| La limpieza de los 440 insumos que sobran, documentada sin ejecutarla | `docs/limpieza-de-insumos.md` |
+
 ---
 
 ## 3. Lo que quedo pendiente, en orden de importancia

@@ -168,6 +168,48 @@ ordenes se cobro despues**. Cuando alguien reporte "la terminal no
 responde", esto es lo primero que hay que mirar, no el codigo: la Clip
 Stand se apaga sola o alguien cierra la app del Pinpad.
 
+### 2.3.5 El inventario descuenta solo si tiene de qué descontar
+
+Se cobra → un trigger sobre `ordenes` escribe `inventario_movimientos` y
+baja `inventario_stock`. Nunca estuvo roto. Lo que hacía era **callarse
+cuando no tenía nada que bajar**, y así estuvo treinta días sin que nadie
+lo notara: en la tienda contaron cajas a mano y no cuadraban.
+
+Tres formas de quedarse callado, y solo una era código:
+
+- **El renglón de stock que no existía.** El `update` solo tocaba
+  renglones ya creados; si el insumo nunca se dio de alta en ese almacén,
+  el movimiento se escribía y el stock no se movía —el historial decía una
+  cosa y la pantalla otra. Eran **264 insumos del Kiosko**. Arreglado: es
+  un upsert, el renglón nace con el descuento aplicado. **Puede quedar en
+  negativo y está bien**: un negativo se ve y se corrige; un cero que
+  nunca baja no se ve nunca.
+- **Los combos no se abrían** — la receta la tienen sus partes, no el
+  combo. Ya se expanden un nivel. Hoy `combo_items` está vacía, así que no
+  cambia ningún número todavía.
+- **42 productos se venden sin receta** (480 de 4 490 piezas del mes,
+  10.7%). Eso es catálogo, no código: no hay nada que descontar. Se ve en
+  Admin → Inventario → **«Lo que no descuenta»**, cada uno con su causa.
+
+**La causa más común no es una receta faltante: es el gemelo partido en
+dos.** «Agua Mineral - Canada Dry» existe como bebida de $22 costeada y
+como extra de $10 sin costear, las dos con la clave `CANDAM`. Se vende el
+extra 50 veces y la bebida 5, y el inventario solo ve las 5. El arreglo no
+es inventarle una receta al extra: es decidir en Costeos cuál se vende.
+
+**Meter mercancía se hace desde el kiosko, no desde Costeos.** Costeos es
+una hoja de costeo: se escribe el número final y el trigger deduce la
+diferencia. Para recibir cajas es pésimo — el agua Kirkland pasó por
++10, +7, +3, −20, +21 en veinte minutos el 06/09, que es alguien tecleando
+mientras el guardado rebota. En el kiosko (5 toques a Milo → PIN →
+**«¿Llegó mercancía?»**) lo que viaja es el **movimiento**, no el total, y
+teclear no puede dejar el inventario en un número raro. Las piezas por
+caja salen de `presentacion` («Pack 21/1L» → 21).
+
+**Y «vino de bodega» resta en bodega de verdad.** Los 69 traspasos que
+había solo sumaban en el destino, así que bodega seguía diciendo que tenía
+lo que ya había mandado.
+
 ### 2.4 La impresión vive fuera de la nube
 
 `agente-impresion/` es un programa Node que corre **en la PC de la tienda**
@@ -297,6 +339,8 @@ empaquetador y se desvían solas:
 | Actualizar el agente de impresión | Solo, al abrir el día siguiente |
 | Instalar en una PC nueva | Admin → **Descargas** → "Instalar todo" |
 | Cambiar el rollo de etiquetas | Kiosko → 5 toques a Milo → PIN → "¿Cambiaste el rollo?" → Calibrar |
+| Llegó mercancía | Kiosko → 5 toques a Milo → PIN → **"¿Llegó mercancía?"** → por caja o por pieza. Di si vino de bodega: eso la resta allá |
+| Ver por qué el inventario no baja | Admin → Inventario → **"Lo que no descuenta"** |
 
 ---
 
