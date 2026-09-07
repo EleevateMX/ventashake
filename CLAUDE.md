@@ -265,12 +265,26 @@ números y etiquetas en versalitas van en DM Mono. Bagel Fat One solo
 existe en **un peso**: pedirle `font-weight: 700` hace que el navegador la
 engorde sola y se ve emborronada.
 
+Esa regla **se rompía en Costeos** hasta el 07/09: usaba Bagel Fat One a
+12, 14, 15 y 16 px en pestañas, claves, nombres de receta y encabezados de
+tabla. Una display gorda en chico se emborrona sola, y eso era la mitad de
+la sensación de "burdo". Ahora ahí va DM Sans, y las cifras y versalitas
+en DM Mono.
+
 **Las dos excepciones que hay que vigilar**, porque no pasan por el
 empaquetador y se desvían solas:
 
 - `apps/costos/index.html` — HTML plano. Copia los valores a mano en su
   bloque `:root`. Ya se desvió una vez (usaba Fredoka + Inter y una paleta
-  verde-olivo); si se toca `tokens.css`, hay que copiarlo aquí.
+  verde-olivo); si se toca `tokens.css`, hay que copiarlo aquí. **Y lleva
+  su propia escala** (`--r-*` radios, `--s*` espaciado, `--t-*` tamaños):
+  antes tenía 14 radios distintos y 15 tamaños de letra con medios
+  píxeles, y eso —no el color— es lo que lo hacía verse burdo. No metas
+  un `border-radius:11px` ni un `font-size:12.5px` sueltos: si hace falta
+  un valor que no está en la escala, la escala está mal.
+  El alto del encabezado es `--h-head` porque `nav` se pega debajo de él;
+  estaba escrito a mano como `top:74px` en dos lugares y al tocar el
+  padding la barra tapaba la primera fila de la tabla.
 - `apps/web` — carga las fuentes con su propio `<link>`.
 
 ### 2.6 La PC de la tienda se mantiene sola
