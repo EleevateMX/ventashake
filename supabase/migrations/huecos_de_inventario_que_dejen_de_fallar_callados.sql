@@ -73,9 +73,41 @@ begin
       select jsonb_build_object(
         'piezas_sin_descontar', coalesce(sum(oi.cantidad) filter (
           where not exists (select 1 from recetas r where r.producto_id = oi.producto_id)), 0),
+        -- Las de receta en cero cuentan aparte pero pesan igual: tampoco
+        -- descuentan. Separadas porque el arreglo es distinto -- a estas
+        -- no hay que inventarles receta, hay que ponerle la cantidad a la
+        -- que ya tienen.
+        'piezas_receta_en_cero', coalesce(sum(oi.cantidad) filter (
+          where exists (select 1 from recetas r where r.producto_id = oi.producto_id)
+            and not exists (select 1 from recetas r
+                            where r.producto_id = oi.producto_id and r.cantidad > 0)), 0),
         'piezas_totales', coalesce(sum(oi.cantidad), 0))
       from orden_items oi join ordenes o on o.id = oi.orden_id
       where o.pagado and not o.es_demo and o.created_at >= v_desde),
+
+    -- Una receta que existe pero dice CERO es lo mismo que no tenerla:
+    -- el producto sale y no baja nada. Y es peor de encontrar, porque en
+    -- Costeos la fila se ve llena. Aparecio buscando otra cosa: el extra
+    -- de chipotle se vende a $10 y descuenta 0 g. Las cuatro leches
+    -- alternativas --avena, almendra, coco, deslactosada-- estan igual, y
+    -- entre las cuatro son 164 piezas al mes saliendo del refri sin que
+    -- el inventario se entere.
+    'receta_en_cero', (
+      select coalesce(jsonb_agg(x order by x.piezas desc), '[]'::jsonb) from (
+        select p.id, p.nombre, coalesce(c.nombre, 'sin categoria') as categoria,
+               p.precio, sum(oi.cantidad) as piezas,
+               (select string_agg(i.nombre, ', ') from recetas r
+                  join insumos i on i.id = r.insumo_id
+                 where r.producto_id = p.id) as insumos
+        from orden_items oi
+        join ordenes o on o.id = oi.orden_id
+        join productos p on p.id = oi.producto_id
+        left join categorias c on c.id = p.categoria_id
+        where o.pagado and not o.es_demo and o.created_at >= v_desde
+          and exists (select 1 from recetas r where r.producto_id = p.id)
+          and not exists (select 1 from recetas r where r.producto_id = p.id and r.cantidad > 0)
+        group by p.id, p.nombre, c.nombre, p.precio
+      ) x),
 
     'sin_renglon_de_stock', (
       select coalesce(jsonb_agg(x order by x.movido desc), '[]'::jsonb) from (

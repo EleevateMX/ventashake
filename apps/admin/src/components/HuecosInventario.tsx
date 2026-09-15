@@ -71,7 +71,10 @@ export function HuecosInventario() {
   if (!h) return null
 
   const total = Number(h.resumen.piezas_totales) || 0
-  const perdidas = Number(h.resumen.piezas_sin_descontar) || 0
+  const sinReceta = Number(h.resumen.piezas_sin_descontar) || 0
+  // Una receta en cero no descuenta igual que una que falta: cuenta aquí.
+  const enCero = Number(h.resumen.piezas_receta_en_cero) || 0
+  const perdidas = sinReceta + enCero
   const pct = total > 0 ? (perdidas / total) * 100 : 0
 
   return (
@@ -109,6 +112,7 @@ export function HuecosInventario() {
           <span className={`${cx.muted} font-mono text-xs`}>
             {perdidas.toLocaleString('es-MX')} de {total.toLocaleString('es-MX')} piezas
             · últimos {h.dias} días
+            {enCero > 0 && ` · ${sinReceta.toLocaleString('es-MX')} sin receta + ${enCero.toLocaleString('es-MX')} con receta en cero`}
           </span>
         </div>
         <div className="mt-3 h-2 rounded-full bg-sa-green-ink/10 overflow-hidden">
@@ -168,6 +172,46 @@ export function HuecosInventario() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {/* Receta en cero. Va aparte de «sin receta» porque el arreglo es
+          otro: a estas no hay que inventarles nada, hay que ponerle la
+          cantidad a la que ya tienen. Y son más difíciles de ver: en
+          Costeos la fila se ve llena. */}
+      {(h.receta_en_cero ?? []).length > 0 && (
+        <Panel title="Tienen receta, pero dice cero">
+          <p className={`${cx.muted} text-sm mb-3 max-w-2xl leading-snug`}>
+            Estos <strong>sí</strong> están costeados — pero con cantidad
+            cero, así que descuentan nada. En Costeos la fila se ve llena, y
+            por eso no se notan. No hay que crearles receta: hay que
+            escribirle cuánto lleva.
+          </p>
+          <div className={cx.tableWrap}>
+            <table className={cx.table}>
+              <thead>
+                <tr className={cx.thead}>
+                  <th className={cx.th}>Producto</th>
+                  <th className={cx.th}>Lleva</th>
+                  <th className={cx.thNum}>Piezas</th>
+                </tr>
+              </thead>
+              <tbody className={cx.tbody}>
+                {(h.receta_en_cero ?? []).map((p) => (
+                  <tr key={p.id} className={cx.tr}>
+                    <td className={`${cx.td} font-medium`}>
+                      {p.nombre}
+                      <span className={`${cx.muted} block font-mono text-[10px]`}>
+                        {Number(p.precio) > 0 ? mxn(Number(p.precio)) : 'incluido'} · {p.categoria}
+                      </span>
+                    </td>
+                    <td className={`${cx.td} text-xs`}>{p.insumos ?? '—'}</td>
+                    <td className={cx.tdNum}>{p.piezas}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Panel>
       )}
 
       {h.combos_vacios.length > 0 && (

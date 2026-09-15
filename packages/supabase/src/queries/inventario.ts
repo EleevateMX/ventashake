@@ -129,11 +129,26 @@ export interface ProductoSinReceta {
   es_combo_armado: boolean
 }
 
+/** Tiene receta, pero la receta dice cero. Vende y no baja nada. */
+export interface ProductoRecetaEnCero {
+  id: string
+  nombre: string
+  categoria: string
+  precio: number
+  piezas: number
+  insumos: string | null
+}
+
 export interface HuecosDeInventario {
   desde: string
   dias: number
   sin_receta: ProductoSinReceta[]
-  resumen: { piezas_sin_descontar: number; piezas_totales: number }
+  receta_en_cero: ProductoRecetaEnCero[]
+  resumen: {
+    piezas_sin_descontar: number
+    piezas_receta_en_cero: number
+    piezas_totales: number
+  }
   sin_renglon_de_stock: { insumo: string; almacen: string; movido: number }[]
   catalogo: {
     insumos: number
