@@ -259,6 +259,35 @@ pantallas muestran comandas pero **no sale papel**.
   con tres cabeceras rotuladas A/B/C (agente **1.3.0**) y el papel
   contesta cuál sirve.
 
+### 2.4.5 Las observaciones salen donde tienen sentido
+
+Los chips de personalizar ("Sin hielo", "Cambio a césar") nacieron **por
+estación**: los 15 de bebidas salían igual en un café que en un shake.
+Quince ya es una lista que hay que leer, y "Sin plátano" sobre un
+americano no es solo ruido — es una opción que alguien puede tocar por
+error y que llega a barra como una instrucción imposible.
+
+Ahora cada una lleva **alcance**, que se fija en Admin → Extras →
+*Observaciones* → **"Dónde aplica"**, por **categoría** o por **producto**.
+Los dos, y no uno solo, porque las dos formas existen de verdad: "Sin
+plátano" aplica a los ~250 shakes (una categoría, un clic) y "Cambio a
+césar" a cuatro ensaladas. Ofrecer solo producto es cómo se garantiza que
+nadie lo use.
+
+> **La regla de respaldo es la que permitió desplegarlo con la tienda
+> abierta**: una observación **sin** alcance sigue saliendo en toda su
+> estación, igual que siempre. El día del despliegue no cambió nada — las
+> 30 quedaron en cero — y se va acotando una por una. La que nadie toque
+> se queda como estaba.
+
+Esa regla vive en `packages/utils/src/observaciones.ts`
+(`observacionesDeProducto`, con pruebas) y **no** en el kiosko: es la
+misma lección que `extras.ts`, que kiosko y POS se separan solos. Ojo con
+la distinción que hace el kiosko entre `undefined` (no cargaron → usa los
+chips de respaldo del código) y `[]` (a este producto no le aplica
+ninguna → no pinta nada): confundirlas hace que un café acotado a cero
+muestre las cinco de siempre.
+
 ### 2.5 La identidad es una sola, y vive en `packages/brand`
 
 `packages/brand/tokens.css` es la **fuente de la verdad**: los colores y
@@ -367,6 +396,7 @@ empaquetador y se desvían solas:
 | Cambiar el rollo de etiquetas | Kiosko → **"Caja y turno"** → PIN → "¿Cambiaste el rollo?" → Calibrar |
 | Llegó mercancía | Kiosko → **"Caja y turno"** → PIN → **"¿Llegó mercancía?"** → por caja o por pieza. Di si vino de bodega: eso la resta allá |
 | Ver por qué el inventario no baja | Admin → Inventario → **"Lo que no descuenta"** |
+| Una observación sale donde no debe | Admin → Extras → *Observaciones* → **"Dónde aplica"**. Marca la categoría (un clic para los 250 shakes) o los productos sueltos |
 
 ---
 
@@ -585,6 +615,17 @@ empaquetador y se desvían solas:
   no se reparte desde Admin: `fn_crear_empleado` / `fn_actualizar_empleado`
   lo rechazan salvo que ya seas desarrollo, y esa cuenta no se puede editar
   desde ahí (si no, gerencia le cambiaría el PIN y entraría por ella).
+
+- **`revoke all ... from public` NO le quita el permiso a `anon`.** Supabase
+  tiene privilegios por omisión sobre `public` que le dan EXECUTE a `anon`
+  y `authenticated` en **cada función nueva**, como un grant explícito al
+  rol; `revoke from public` solo toca el pseudo-rol PUBLIC y el de `anon`
+  sobrevive intacto. Escribí el revoke en la migración de
+  `fn_observacion_alcance*`, di por hecho que había cerrado, y quedaron
+  abiertas a `anon` — **lo dijo `get_advisors`, no yo**. Se cierra con
+  `revoke execute ... from anon` a secas, y se comprueba mirando `proacl`,
+  no releyendo la migración. Regla: después de crear una función que NO
+  debe ser pública, `select proacl from pg_proc` antes de decir que quedó.
 
 - **Antes de cerrarle una función a `anon`, busca quién la llama fuera del
   navegador.** Le quité `anon` a `fn_admin_impresoras` para tapar una fuga

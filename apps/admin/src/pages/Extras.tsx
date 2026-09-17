@@ -18,10 +18,12 @@ import {
   guardarObservacion,
   activarObservacion,
   borrarObservacion,
+  alcanceDeObservacion,
+  fijarAlcanceObservacion,
 } from '@shake/supabase'
 import type {
   ProductoVenta, ExtraDeProducto, IngredienteExtraible, ExtraBebidaAdmin, ProductoDeExtra,
-  ObservacionAdmin,
+  ObservacionAdmin, AlcanceObservacion,
 } from '@shake/supabase'
 import { mxn, mensajeDeError } from '@shake/utils'
 import { Panel, PageHeader, Loading, ErrorMsg, OkMsg, Chip, cx } from '../ui'
@@ -44,6 +46,14 @@ export default function Extras() {
   const [obsTexto, setObsTexto] = useState('')
   const [obsEstacion, setObsEstacion] = useState<'bebidas' | 'alimentos'>('bebidas')
   const [guardandoObs, setGuardandoObs] = useState(false)
+  // Panel "donde aplica": una observacion abierta a la vez, con su
+  // checklist de categorias y productos. Mismo patron que "donde se
+  // ofrece" de los extras, a proposito: es la misma pregunta.
+  const [obsAbierta, setObsAbierta] = useState<string | null>(null)
+  const [alcance, setAlcance] = useState<AlcanceObservacion[]>([])
+  const [cargandoAlcance, setCargandoAlcance] = useState(false)
+  const [filtroAlcance, setFiltroAlcance] = useState('')
+  const [cambiandoAlcance, setCambiandoAlcance] = useState<string | null>(null)
 
   // --- extras de shakes (leches, proteínas, agua) ---
   const [bebida, setBebida] = useState<ExtraBebidaAdmin[]>([])
@@ -179,6 +189,53 @@ export default function Extras() {
       setObservaciones(await listarObservacionesAdmin(sb))
     } catch (e) {
       setError(mensajeDeError(e))
+    }
+  }
+
+  /**
+   * Abre (o cierra) el panel de "dónde aplica" de una observación y carga
+   * su checklist: las 42 categorías y los 335 productos, marcados.
+   */
+  async function abrirAlcance(o: ObservacionAdmin) {
+    if (obsAbierta === o.id) { setObsAbierta(null); return }
+    setObsAbierta(o.id)
+    setFiltroAlcance('')
+    setAlcance([])
+    setCargandoAlcance(true)
+    setError(null)
+    try {
+      setAlcance(await alcanceDeObservacion(sb, o.id))
+    } catch (e) {
+      setError(mensajeDeError(e))
+    } finally {
+      setCargandoAlcance(false)
+    }
+  }
+
+  /**
+   * Prende o apaga UNA casilla. Se actualiza la fila en memoria en vez de
+   * recargar las 377: recargar la lista entera por cada clic hace que la
+   * casilla tarde en responder y que el filtro escrito se sienta lento.
+   */
+  async function alternarAlcance(fila: AlcanceObservacion) {
+    if (!obsAbierta) return
+    setCambiandoAlcance(fila.id)
+    setError(null)
+    try {
+      await fijarAlcanceObservacion(sb, obsAbierta, fila.tipo, fila.id, !fila.marcado)
+      setAlcance((prev) => prev.map((f) =>
+        f.tipo === fila.tipo && f.id === fila.id ? { ...f, marcado: !f.marcado } : f,
+      ))
+      // Y el contador del renglón, para que "Dónde · 3" no se quede en 2.
+      setObservaciones((prev) => prev.map((o) =>
+        o.id === obsAbierta
+          ? { ...o, alcances: o.alcances + (fila.marcado ? -1 : 1) }
+          : o,
+      ))
+    } catch (e) {
+      setError(mensajeDeError(e))
+    } finally {
+      setCambiandoAlcance(null)
     }
   }
 
@@ -384,6 +441,9 @@ export default function Extras() {
         <p className={`${cx.muted} text-sm mt-1 mb-4`}>
           Los botones que aparecen al personalizar en el kiosko («menos hielo», «sin tomate»).
           Van a la comanda y a la etiqueta, así que conviene que sean cortos.
+          {' '}Con <strong>Dónde aplica</strong> se acota cada una a las categorías o
+          productos donde tiene sentido — «Sin plátano» no tiene por qué salir en un café.
+          {' '}Una sin acotar sigue saliendo en toda su estación, como hasta hoy.
         </p>
 
         <div className="flex flex-wrap items-end gap-3 mb-5">
@@ -438,6 +498,21 @@ export default function Extras() {
                     >
                       <span className="flex-1 truncate text-sa-green-ink">{o.texto}</span>
                       <button
+                        className={`font-mono text-[11px] uppercase tracking-wide ${
+                          obsAbierta === o.id
+                            ? 'text-sa-green font-bold'
+                            : o.alcances > 0
+                              ? 'text-sa-green hover:text-sa-green-deep'
+                              : 'text-sa-green-ink/60 hover:text-sa-green-ink'
+                        }`}
+                        onClick={() => void abrirAlcance(o)}
+                        title={o.alcances > 0
+                          ? `Acotada a ${o.alcances} lugar(es)`
+                          : 'Sale en toda su estación'}
+                      >
+                        {o.alcances > 0 ? `Dónde · ${o.alcances}` : 'Dónde aplica'}
+                      </button>
+                      <button
                         className="font-mono text-[11px] uppercase tracking-wide text-sa-green-ink/60 hover:text-sa-green-ink"
                         onClick={() => void alternarObservacion(o)}
                       >
@@ -457,6 +532,111 @@ export default function Extras() {
             )
           })}
         </div>
+
+        {/* Dónde aplica: el checklist de la observación abierta. */}
+        {obsAbierta && (() => {
+          const abierta = observaciones.find((o) => o.id === obsAbierta)
+          const f = filtroAlcance.trim().toLowerCase()
+          const filtradas = f
+            ? alcance.filter((a) =>
+                a.nombre.toLowerCase().includes(f) || a.contexto.toLowerCase().includes(f))
+            : alcance
+          const marcadas = alcance.filter((a) => a.marcado)
+          const categorias = filtradas.filter((a) => a.tipo === 'categoria')
+          const productos = filtradas.filter((a) => a.tipo === 'producto')
+
+          const Casilla = ({ a }: { a: AlcanceObservacion }) => (
+            <button
+              key={`${a.tipo}-${a.id}`}
+              onClick={() => void alternarAlcance(a)}
+              disabled={cambiandoAlcance === a.id}
+              className={`flex items-center gap-2 px-3 py-2 rounded-sa border text-left text-sm w-full disabled:opacity-40 ${
+                a.marcado
+                  ? 'border-sa-green bg-sa-green/5'
+                  : 'border-sa-green-ink/10 bg-white hover:border-sa-green-ink/25'
+              }`}
+            >
+              <span className={`font-mono text-xs ${a.marcado ? 'text-sa-green' : 'text-sa-green-ink/25'}`}>
+                {a.marcado ? '✓' : '○'}
+              </span>
+              <span className="flex-1 min-w-0">
+                <span className="block truncate text-sa-green-ink">{a.nombre}</span>
+                <span className="block truncate font-mono text-[10px] uppercase tracking-wide text-sa-green-ink/45">
+                  {a.contexto}
+                </span>
+              </span>
+            </button>
+          )
+
+          return (
+            <div className="mt-6 pt-5 border-t border-sa-green-ink/10">
+              <div className="flex items-baseline justify-between gap-3 flex-wrap mb-1">
+                <h4 className="font-display text-xl text-sa-green-ink">
+                  ¿Dónde aplica «{abierta?.texto}»?
+                </h4>
+                <button
+                  className="font-mono text-[11px] uppercase tracking-wide text-sa-green-ink/60 hover:text-sa-green-ink"
+                  onClick={() => setObsAbierta(null)}
+                >
+                  Cerrar
+                </button>
+              </div>
+
+              <p className={`${cx.muted} text-sm mb-4`}>
+                {marcadas.length === 0 ? (
+                  <>
+                    Ahora mismo <strong>sale en todo {abierta?.cocina}</strong>, porque no tiene
+                    nada marcado. En cuanto marques algo, solo saldrá ahí.
+                  </>
+                ) : (
+                  <>
+                    Marcada en <strong>{marcadas.length}</strong> lugar(es). Desmárcalos todos
+                    para que vuelva a salir en toda la estación.
+                    {' '}Marcar una categoría alcanza a todos sus productos: para los shakes es
+                    un clic en vez de doscientos cincuenta.
+                  </>
+                )}
+              </p>
+
+              <input
+                className={`${cx.input} mb-4`}
+                placeholder="Buscar categoría o producto…"
+                value={filtroAlcance}
+                onChange={(ev) => setFiltroAlcance(ev.target.value)}
+              />
+
+              {cargandoAlcance ? (
+                <p className={cx.muted}>Cargando…</p>
+              ) : (
+                <div className="space-y-5">
+                  {categorias.length > 0 && (
+                    <div>
+                      <p className="font-mono text-xs uppercase tracking-wide text-sa-green mb-2">
+                        Categorías ({categorias.length})
+                      </p>
+                      <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
+                        {categorias.map((a) => <Casilla key={`c-${a.id}`} a={a} />)}
+                      </div>
+                    </div>
+                  )}
+                  {productos.length > 0 && (
+                    <div>
+                      <p className="font-mono text-xs uppercase tracking-wide text-sa-green mb-2">
+                        Productos sueltos ({productos.length})
+                      </p>
+                      <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3 max-h-96 overflow-y-auto pr-1">
+                        {productos.map((a) => <Casilla key={`p-${a.id}`} a={a} />)}
+                      </div>
+                    </div>
+                  )}
+                  {filtradas.length === 0 && (
+                    <p className={cx.muted}>Nada con ese nombre.</p>
+                  )}
+                </div>
+              )}
+            </div>
+          )
+        })()}
       </Panel>
 
       {/* ------------------------------------------------------------------ */}

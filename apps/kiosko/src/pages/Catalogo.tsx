@@ -3,10 +3,12 @@ import { useNavigate } from 'react-router-dom'
 import { Spinner } from '@shake/ui'
 import { useCarrito } from '@/store/carritoStore'
 import {
-  listarProductosParaVenta, listarExtras, listarProductosExtra, listarObservaciones,
+  listarProductosParaVenta, listarExtras, listarProductosExtra,
+  listarObservacionesVigentes,
   nombreParaOrdenar, agruparCategorias,
 } from '@shake/supabase'
-import type { ProductoVenta, ExtraDeProducto } from '@shake/supabase'
+import type { ProductoVenta, ExtraDeProducto, ObservacionVigente } from '@shake/supabase'
+import { observacionesDeProducto } from '@shake/utils'
 import { sb } from '@/lib/sb'
 import { ModalExtras } from '@/components/ModalExtras'
 import { CorteMilo } from '@/components/CorteMilo'
@@ -46,11 +48,17 @@ export function Catalogo() {
   const [productosExtra, setProductosExtra] = useState<ProductoVenta[]>([])
   const [personalizando, setPersonalizando] = useState<ProductoVenta | null>(null)
   /**
-   * Los chips de "menos hielo" / "sin tomate", por estación. Vienen de la
-   * base (Admin -> Observaciones): antes estaban escritos en el código y
-   * cambiar uno obligaba a desplegar el kiosko.
+   * Los chips de "menos hielo" / "sin tomate" con el alcance que les fijó
+   * gerencia. Vienen de la base (Admin -> Extras): antes estaban escritos
+   * en el código y cambiar uno obligaba a desplegar el kiosko.
+   *
+   * `null` significa "todavía no cargaron, o la consulta falló", y NO es lo
+   * mismo que una lista vacía: vacía quiere decir que a ese producto no le
+   * aplica ninguna, y entonces no se deben pintar los chips de respaldo.
+   * Confundir las dos cosas haría que un café acotado a cero observaciones
+   * mostrara las cinco de siempre.
    */
-  const [observaciones, setObservaciones] = useState<Record<string, string[]>>({})
+  const [observaciones, setObservaciones] = useState<ObservacionVigente[] | null>(null)
   /**
    * El corte de caja se abre por dos caminos, y cuál sirve depende de
    * quién está frente a la pantalla:
@@ -91,17 +99,28 @@ export function Catalogo() {
       .catch(() => setProductos([]))
       .finally(() => setLoading(false))
 
-    // Aparte y sin bloquear: si esto falla, el modal simplemente no muestra
-    // chips de observación y la venta sigue igual.
-    Promise.all([listarObservaciones(sb, 'bebidas'), listarObservaciones(sb, 'alimentos')])
-      .then(([beb, ali]) => setObservaciones({
-        bebidas: beb.map((o) => o.texto),
-        alimentos: ali.map((o) => o.texto),
-      }))
+    // Aparte y sin bloquear: si esto falla, el modal cae a los chips de
+    // respaldo del código y la venta sigue igual.
+    listarObservacionesVigentes(sb)
+      .then(setObservaciones)
       .catch(() => {})
   }, [])
 
   const extrasDe = (productoId: string) => extras.filter((e) => e.producto_id === productoId)
+
+  /**
+   * Las observaciones que aplican a ESTE producto. `undefined` mientras no
+   * hayan cargado, para que el modal sepa que debe usar sus chips de
+   * respaldo en vez de creer que a este producto no le aplica ninguna.
+   */
+  const obsDe = (p: ProductoVenta | null): string[] | undefined => {
+    if (!p || !observaciones) return undefined
+    return observacionesDeProducto(observaciones, {
+      id: p.id,
+      categoria_id: p.categorias?.id ?? null,
+      cocina_slug: p.categorias?.cocinas?.slug ?? null,
+    })
+  }
 
   /**
    * Si el producto ofrece extras (tipo de leche, adicionales), se abre el
@@ -110,10 +129,19 @@ export function Catalogo() {
    * un agua o un snack.
    */
   function tocarAgregar(p: ProductoVenta) {
-    // El modal se abre si hay algo que decidir: extras, o las observaciones
-    // de alimentos ("sin tomate"…). Las bebidas embotelladas (Coca, Gatorade)
+    // El modal se abre si hay algo que decidir: extras, o alguna
+    // observación que le aplique. Las bebidas embotelladas (Coca, Gatorade)
     // no tienen ni lo uno ni lo otro y siguen entrando en un toque.
-    if (extrasDe(p.id).length > 0 || p.categorias?.cocinas?.slug === 'alimentos') {
+    //
+    // Mientras las observaciones no hayan cargado se usa la regla vieja —
+    // los alimentos siempre abren— porque equivocarse hacia abrir el modal
+    // le cuesta un toque al cajero, y equivocarse hacia no abrirlo le
+    // esconde el "sin tomate" y eso sale mal preparado a cocina.
+    const obs = obsDe(p)
+    const hayQueDecidir = obs === undefined
+      ? p.categorias?.cocinas?.slug === 'alimentos'
+      : obs.length > 0
+    if (extrasDe(p.id).length > 0 || hayQueDecidir) {
       setPersonalizando(p)
       return
     }
@@ -508,7 +536,7 @@ export function Catalogo() {
       </div>
 
       <ModalExtras
-        observaciones={observaciones}
+        observaciones={obsDe(personalizando)}
         producto={personalizando}
         extras={personalizando ? extrasDe(personalizando.id) : []}
         onCerrar={() => setPersonalizando(null)}

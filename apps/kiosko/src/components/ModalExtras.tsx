@@ -9,7 +9,13 @@ interface Props {
   producto: ProductoVenta | null
   extras: ExtraDeProducto[]
   /** Chips por estación, administrados desde Admin -> Observaciones. */
-  observaciones?: Record<string, string[]>
+  /**
+   * Los chips que aplican a ESTE producto, ya resueltos por
+   * `observacionesDeProducto`. `undefined` = no cargaron (ahí sí entra el
+   * respaldo del código); `[]` = a este producto no le aplica ninguna, y
+   * entonces no se pinta nada.
+   */
+  observaciones?: string[]
   onCerrar: () => void
   onAgregar: (nota: string | null, extrasElegidos: ExtraDeProducto[]) => void
 }
@@ -125,8 +131,7 @@ export function ModalExtras({ producto, extras, observaciones: catalogoObs, onCe
   const slugCocina = producto.categorias?.cocinas?.slug ?? ''
   // Las de la base mandan; el catálogo del código solo cubre el arranque
   // (y el caso de que la consulta falle).
-  const obsDisponibles =
-    catalogoObs?.[slugCocina]?.length ? catalogoObs[slugCocina] : OBSERVACIONES_RESPALDO[slugCocina] ?? []
+  const obsDisponibles = catalogoObs ?? OBSERVACIONES_RESPALDO[slugCocina] ?? []
 
   // Marcas en el orden del negocio (económica → elevada); las que no están
   // en la lista van al final en alfabético.
