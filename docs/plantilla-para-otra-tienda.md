@@ -135,10 +135,11 @@ Este orden no es arbitrario: cada paso desbloquea el siguiente y deja algo
 comprobable.
 
 1. **Proyecto de Supabase nuevo.** Anota el id.
-2. **Conseguir el esquema base. ⚠ NO basta con las migraciones.** Ver el
-   aviso de abajo: 29 de las 62 tablas no se crean en ninguna migración.
-   Hay que sacar un volcado del esquema de Shakeaholic primero.
-3. **Correr las 146 migraciones en orden**, encima de ese volcado.
+2. **Exportar el historial completo de Shakeaholic** con
+   `scripts/exportar-migraciones.sh` (ver el aviso de abajo). Son 198
+   migraciones, no las 146 del repo.
+3. **Aplicarlas en orden** sobre la base nueva — el nombre de archivo
+   lleva la versión delante, así que basta con el orden alfabético.
 4. **Datos base**: sucursal, cocinas (¡cuántas estaciones!), almacenes,
    cajas, roles, el empleado de gerencia y el de `desarrollo`.
 5. **Las 8 tareas de `pg_cron`** — no se copian solas con las migraciones
@@ -148,34 +149,37 @@ comprobable.
 8. **Catálogo** — lo último, porque depende de decidir 3.3.
 9. **La PC de la tienda**: agente de impresión, impresoras, scripts.
 
-> ### ⚠ El repo NO puede reconstruir la base, y hay que arreglarlo antes
+> ### ⚠ El repo NO puede reconstruir la base — y hay un comando que lo arregla
 >
-> Comprobado el 17/09/26: **29 de las 62 tablas no tienen `create table`
-> en ninguna de las 146 migraciones.** Entre ellas las centrales —
-> `ordenes`, `orden_items`, `productos`, `categorias`, `insumos`,
-> `recetas`, `inventario_stock`, `ventas`, `sucursales`. Se crearon al
-> principio desde el panel de Supabase y nunca se capturaron.
+> Comprobado el 17/09/26: **la base tiene 198 migraciones aplicadas y el
+> repo solo 146.** Las 52 que faltan son las primeras, justo las que crean
+> las tablas: por eso **29 de las 62 tablas no tienen `create table` en
+> ningún archivo** — `ordenes`, `orden_items`, `productos`, `categorias`,
+> `insumos`, `recetas`, `inventario_stock`, `ventas`, `sucursales`.
 >
-> Consecuencias, y la segunda es la grave:
+> Y hay un segundo problema encima: **solo 7 de los 146 archivos llevan
+> fecha delante**, así que «correr las migraciones en orden» no está
+> definido para los otros 139.
 >
-> 1. Para la tienda nueva, correr las migraciones sobre una base vacía
->    **falla**: las migraciones alteran tablas que no existen.
-> 2. **Shakeaholic no se puede reconstruir desde el repo.** Si se perdiera
->    el proyecto de Supabase, las 146 migraciones no alcanzarían. Hoy la
->    única copia del esquema es el proyecto en producción.
->
-> **El arreglo es un comando**, y conviene hacerlo antes de tocar nada más
-> — sirve para las dos cosas:
+> **Las dos cosas se arreglan solas**, porque Supabase guarda cada
+> migración con sus sentencias en `supabase_migrations.schema_migrations`
+> — las 198, 732 kB, en orden. Ese es el respaldo real del esquema.
 >
 > ```bash
 > # La cadena sale de Supabase -> Project Settings -> Database.
-> # Guardarla como base cero. NO metas la contrasena al repo.
-> pg_dump "$CADENA" --schema-only --no-owner --no-privileges \
->   --schema=public > supabase/migrations/0000_esquema_base.sql
+> # NO la guardes en el repo ni la pegues en un chat.
+> export PGURI='postgresql://postgres.[ref]:[password]@...pooler.supabase.com:5432/postgres'
+> bash scripts/exportar-migraciones.sh
 > ```
 >
-> Con ese archivo en el repo, el paso 2 deja de ser un problema y
-> Shakeaholic gana una copia de su propio esquema.
+> Deja los 198 archivos con su versión delante, así que el orden
+> alfabético **es** el orden de aplicación. Probado de punta a punta
+> contra un Postgres 16 local: exportar → aplicar en una base vacía →
+> las tablas aparecen.
+>
+> Hazlo **antes** de clonar nada. Sirve para las dos cosas: la tienda
+> nueva arranca de un esquema completo, y Shakeaholic deja de tener su
+> única copia del esquema en producción.
 
 **Prueba de que quedó** (la misma de aquí): `fn_crear_orden` →
 `fn_cobrar_orden` de verdad, y comprobar que salieron pago, venta, pedido
