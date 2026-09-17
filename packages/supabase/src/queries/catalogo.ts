@@ -578,11 +578,30 @@ export async function grupoExtraEnProducto(
 // viaja aquí es un **vistazo**: cuántas y cuánto, para que gerencia lo
 // vea de lejos. No es una orden y nada cobra con esto.
 
+/**
+ * Una venta apartada, con lo justo para reconocerla y saber qué lleva.
+ *
+ * `n` y `c` (nombre y cantidad) van cortos a propósito: se publican en
+ * cada cambio de la lista y son para leerse de un vistazo, no para
+ * cobrar. **No hay folio, ni id de producto, ni precio por renglón** —
+ * eso sería una orden, y las apartadas no son órdenes.
+ */
+export interface VentaApartada {
+  etiqueta: string
+  total: number
+  /** "11:54" en hora de Mérida, de cuándo se apartó. */
+  hora: string
+  items: { n: string; c: number }[]
+}
+
 export interface EsperaEnVivo {
   pantalla: string
   cuantas: number
   total: number
+  /** Legado: las etiquetas planas, de antes de que viajara el detalle. */
   etiquetas: string[]
+  /** Una por venta. El servidor la arma con las etiquetas si una pantalla vieja no manda detalle. */
+  ventas: VentaApartada[]
   /** Hace cuánto publicó esa pantalla. Viejo = se apagó sin limpiar. */
   hace_minutos: number
 }
@@ -594,12 +613,14 @@ export async function publicarEspera(
   cuantas: number,
   total: number,
   etiquetas: string[],
+  ventas: VentaApartada[] = [],
 ): Promise<void> {
   const { error } = await (sb.rpc as unknown as RpcCatalogo)('fn_espera_publicar', {
     p_pantalla: pantalla,
     p_cuantas: cuantas,
     p_total: total,
     p_etiquetas: etiquetas,
+    p_ventas: ventas,
   })
   if (error) throw error
 }

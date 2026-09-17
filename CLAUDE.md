@@ -347,6 +347,10 @@ las 12 horas, la misma vigencia que usa el navegador.
 - Cada pantalla lleva un sufijo al azar (`kiosko:a3f2`). Sin él, dos
   pestañas escribirían el mismo renglón y Admin parpadearía entre dos
   verdades.
+- Cada venta **se abre** en el panel y enseña sus renglones (nombre y
+  cantidad) y la **hora en que se apartó** — no la de ahora: «desde las
+  11:54» es lo que dice si alguien se fue y no volvió. Aun así no hay
+  folio, ni id de producto, ni precio por renglón: eso sería una orden.
 
 ### 2.4.6 La sorpresa no se anuncia
 
@@ -482,7 +486,7 @@ empaquetador y se desvían solas:
 | Ver por qué el inventario no baja | Admin → Inventario → **"Lo que no descuenta"** |
 | Una observación sale donde no debe | Admin → Extras → *Observaciones* → **"Dónde aplica"**. Marca la categoría (un clic para los 250 shakes) o los productos sueltos |
 | Vender un extra suelto (chipotle, pepinillos) | Admin → **Extras** → *Vender solo* → precio y en qué botón del menú |
-| Ver qué ventas están apartadas, a distancia | Admin → **En vivo**, arriba del todo |
+| Ver qué ventas están apartadas, a distancia | Admin → **En vivo**, arriba del todo. Toca una para ver qué lleva y de qué hora es |
 
 ---
 
@@ -605,6 +609,22 @@ empaquetador y se desvían solas:
 
 **Indicadores**
 
+- **La fecha del negocio es la de Mérida, no la de UTC ni la del
+  navegador.** El Dashboard calculaba «hoy» con
+  `new Date().toISOString().slice(0, 10)` y `vw_ventas_diarias` agrupa por
+  `created_at at time zone 'America/Merida'`. Mérida es UTC−6 todo el año,
+  así que **a partir de las 18:00 locales el «hoy» de UTC ya era mañana**:
+  la tarjeta «Ventas de hoy» buscaba un día que no existe en la vista y
+  mostraba **$0 con 0 órdenes desde las 6 de la tarde hasta el cierre**,
+  todos los días. Y estaba como constante de módulo, así que una pestaña
+  abierta nunca cambiaba de día. Ahora es `hoyEnMerida()` en
+  `packages/utils/src/fechas.ts`, con pruebas, y se llama en cada refresco.
+- **Un panel que dice «en vivo» tiene que poder demostrarlo.** El Dashboard
+  cargaba una sola vez y nunca más; En vivo confiaba en Realtime con 30 s
+  de respaldo, y con el canal caído eran medio minuto de pantalla
+  congelada — indistinguible de una pantalla rota. Los dos refrescan cada
+  **10 s** y llevan un sello de «hace N s» que se repinta cada segundo. El
+  sello no es adorno: sin él, un panel dormido y uno al día se ven igual.
 - Un indicador que **no puede volver a verde** deja de leerse. "Comandas
   que fallaron: 21" contaba historia de julio irreimprimible. Las métricas
   de salud llevan ventana de tiempo (24 h / 7 días).

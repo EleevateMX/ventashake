@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { sb } from '../lib/sb'
 import { panelEnVivo, esperaEnVivo, type PanelEnVivo, type EsperaEnVivo } from '@shake/supabase'
-import { mxn, mensajeDeError } from '@shake/utils'
+import { mxn, mensajeDeError, hace } from '@shake/utils'
 import { PageHeader, Loading, ErrorMsg } from '../ui'
 import { BotonActualizarPantallas } from '../BotonActualizarPantallas'
 
@@ -9,7 +9,17 @@ import { BotonActualizarPantallas } from '../BotonActualizarPantallas'
  * Respaldo por si un evento de Realtime se pierde: una foto de cortesía
  * cada 30 s. El motor principal ya no es este reloj, son los eventos.
  */
-const RESPALDO_MS = 30_000
+/**
+ * Cada cuánto se vuelve a preguntar aunque Realtime esté callado.
+ *
+ * Eran 30 s, confiando en que el canal de Realtime traería todo al
+ * instante. Cuando el canal se cae —y el badge dice "RECONECTANDO…"— esos
+ * 30 s son medio minuto de pantalla congelada, y el negocio reportó justo
+ * eso: "dice en vivo pero no está en constante actualización". Diez
+ * segundos es lo que pidieron y lo que cuesta nada: `fn_panel_en_vivo` es
+ * una sola consulta agregada.
+ */
+const RESPALDO_MS = 10_000
 
 /**
  * Version del agente de impresion que debe correr la tienda. Si una
@@ -60,9 +70,12 @@ export default function EnVivo() {
    * y son justo lo contrario: lo que todavía no entró.
    */
   const [espera, setEspera] = useState<EsperaEnVivo[]>([])
+  /** Cuál apartada está abierta. Una a la vez: es una lista, no un menú. */
+  const [esperaAbierta, setEsperaAbierta] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [vista, setVista] = useState<'ultimos' | 'turno'>('ultimos')
   const [conectado, setConectado] = useState(false)
+  const [refrescado, setRefrescado] = useState<Date | null>(null)
   const [, setTic] = useState(0)
   const vivo = useRef(true)
   const vistaRef = useRef(vista)
@@ -78,7 +91,9 @@ export default function EnVivo() {
         .then((e) => { if (vivo.current) setEspera(e) })
         .catch(() => {})
       return panelEnVivo(sb, vistaRef.current === 'turno')
-        .then((p) => { if (vivo.current) { setPanel(p); setError(null) } })
+        .then((p) => {
+          if (vivo.current) { setPanel(p); setError(null); setRefrescado(new Date()) }
+        })
         .catch((e) => { if (vivo.current) setError(mensajeDeError(e)) })
     }
     void cargar()
@@ -143,6 +158,13 @@ export default function EnVivo() {
               {conectado ? 'EN VIVO' : 'RECONECTANDO…'}
             </span>
             {panel && <span className="font-mono text-sm text-sa-green-ink/70">{panel.ahora}</span>}
+            {/* El sello. Con Realtime caído, "EN VIVO" solo era una
+                promesa: esto dice si de verdad llegó algo hace poco. */}
+            {refrescado && (
+              <span className="font-mono text-[11px] text-sa-green-ink/45">
+                {hace(refrescado)}
+              </span>
+            )}
           </div>
           </div>
         }
@@ -167,6 +189,7 @@ export default function EnVivo() {
           <p className="text-xs text-sa-green-ink/60 mb-3">
             Cuentas capturadas que todavía no se cobran. Viven en la pantalla que las
             apartó, así que esto es lo que esa pantalla reportó — no una orden.
+            {' '}Toca una para ver qué lleva.
           </p>
 
           <div className="space-y-3">
@@ -184,16 +207,59 @@ export default function EnVivo() {
                     {e.hace_minutos > 5 && ` · reportado hace ${e.hace_minutos} min`}
                   </p>
                 </div>
-                {e.etiquetas.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 mt-2">
-                    {e.etiquetas.map((et, i) => (
-                      <span
-                        key={`${e.pantalla}-${i}`}
-                        className="px-3 py-1 rounded-full bg-white text-sm text-sa-green-ink border border-sa-green-ink/10"
-                      >
-                        {et}
-                      </span>
-                    ))}
+                {e.ventas.length > 0 && (
+                  <div className="flex flex-col gap-1.5 mt-2">
+                    {e.ventas.map((vt, i) => {
+                      const clave = `${e.pantalla}-${i}`
+                      const abierta = esperaAbierta === clave
+                      const hayDetalle = vt.items.length > 0
+                      return (
+                        <div key={clave}>
+                          <button
+                            onClick={() => setEsperaAbierta(abierta ? null : clave)}
+                            disabled={!hayDetalle}
+                            className={`w-full flex items-center gap-2 px-3 py-2 rounded-sa bg-white border text-left transition-colors ${
+                              abierta ? 'border-sa-green' : 'border-sa-green-ink/10'
+                            } ${hayDetalle ? 'hover:border-sa-green-ink/30' : 'cursor-default'}`}
+                          >
+                            {hayDetalle && (
+                              <span className="font-mono text-[10px] text-sa-green-ink/40 w-3 shrink-0">
+                                {abierta ? '▾' : '▸'}
+                              </span>
+                            )}
+                            <span className="flex-1 min-w-0 truncate text-sm text-sa-green-ink">
+                              {vt.etiqueta}
+                            </span>
+                            {vt.hora && (
+                              <span className="font-mono text-[11px] text-sa-green-ink/50 shrink-0">
+                                {vt.hora}
+                              </span>
+                            )}
+                            {vt.total > 0 && (
+                              <span className="font-mono text-xs text-sa-green-ink/70 shrink-0">
+                                {mxn(vt.total)}
+                              </span>
+                            )}
+                          </button>
+
+                          {abierta && (
+                            <div className="mt-1 ml-5 rounded-sa bg-white/60 px-3 py-2">
+                              {vt.items.map((it, j) => (
+                                <div
+                                  key={`${clave}-${j}`}
+                                  className="flex items-baseline gap-2 text-sm text-sa-green-ink/80 py-0.5"
+                                >
+                                  <span className="font-mono text-xs text-sa-green shrink-0">
+                                    {it.c}×
+                                  </span>
+                                  <span className="min-w-0">{it.n}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
                   </div>
                 )}
               </div>

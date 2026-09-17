@@ -2,10 +2,19 @@ import { useEffect, useState } from 'react'
 import { sb } from '../lib/sb'
 import { ventasDiarias, productosMasVendidos, stockPorAlmacen } from '@shake/supabase'
 import type { VentaDiaria, ProductoVendido, StockAlmacen } from '@shake/types'
-import { mxn, mensajeDeError } from '@shake/utils'
+import { mxn, mensajeDeError, hoyEnMerida, hace } from '@shake/utils'
 import { Panel, PageHeader, Loading, ErrorMsg, cx } from '../ui'
 
-const HOY = new Date().toISOString().slice(0, 10)
+/**
+ * Cada cuánto se vuelve a preguntar. Diez segundos porque así lo pidió el
+ * negocio: un panel que dice "resumen del día" y no se mueve en una hora
+ * no se distingue de uno roto.
+ *
+ * Son tres consultas a vistas ya agregadas, así que el costo es trivial —
+ * y en Supabase las peticiones no se cobran, solo la salida de datos, que
+ * aquí son unos kilobytes.
+ */
+const REFRESCO_MS = 10_000
 
 export default function Dashboard() {
   const [dias, setDias] = useState<VentaDiaria[]>([])
@@ -13,21 +22,42 @@ export default function Dashboard() {
   const [stock, setStock] = useState<StockAlmacen[]>([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [refrescado, setRefrescado] = useState<Date | null>(null)
+  const [, setTic] = useState(0)
 
   useEffect(() => {
-    Promise.all([ventasDiarias(sb, 7), productosMasVendidos(sb, 6), stockPorAlmacen(sb)])
-      .then(([d, t, s]) => {
-        setDias(d)
-        setTop(t)
-        setStock(s)
-        setError(null)
-      })
-      .catch((e) => setError(mensajeDeError(e)))
-      .finally(() => setCargando(false))
+    let vivo = true
+    const cargar = () =>
+      Promise.all([ventasDiarias(sb, 7), productosMasVendidos(sb, 6), stockPorAlmacen(sb)])
+        .then(([d, t, s]) => {
+          if (!vivo) return
+          setDias(d)
+          setTop(t)
+          setStock(s)
+          setError(null)
+          setRefrescado(new Date())
+        })
+        .catch((e) => { if (vivo) setError(mensajeDeError(e)) })
+        .finally(() => { if (vivo) setCargando(false) })
+
+    void cargar()
+    const refresco = setInterval(() => void cargar(), REFRESCO_MS)
+    // Un tic por segundo mantiene vivo el "hace N s" del encabezado. Sin
+    // él el sello se congelaría y volvería a parecer un panel dormido.
+    const reloj = setInterval(() => setTic((n) => n + 1), 1_000)
+    return () => {
+      vivo = false
+      clearInterval(refresco)
+      clearInterval(reloj)
+    }
   }, [])
 
   if (cargando) return <Loading>Cargando panel…</Loading>
 
+  // La fecha se calcula AQUÍ y no como constante de módulo, y en la zona
+  // de Mérida y no en UTC. Ver `hoyEnMerida`: con UTC, a partir de las
+  // 18:00 locales esta tarjeta mostraba $0 hasta el cierre.
+  const HOY = hoyEnMerida()
   const hoy = dias.find((d) => d.dia === HOY)
   const totalHoy = hoy?.total_ventas ?? 0
   const ordHoy = hoy?.num_ordenes ?? 0
@@ -49,9 +79,19 @@ export default function Dashboard() {
         title="Dashboard"
         subtitle={<>Resumen del día · <span className="font-mono text-sa-green-ink/80">{HOY}</span></>}
         action={
-          <div className="flex items-center gap-2 bg-white border border-sa-green-ink/10 rounded-full px-4 py-2 shadow-sa-sm">
-            <span className="w-2 h-2 rounded-full bg-sa-mint" />
-            <span className="text-sm font-medium text-sa-green-ink">Sucursal: Principal</span>
+          <div className="flex items-center gap-3 flex-wrap justify-end">
+            {/* El sello de frescura: un panel que dice "del día" tiene que
+                poder demostrar que está al día. */}
+            <div className="flex items-center gap-2 bg-white border border-sa-green-ink/10 rounded-full px-4 py-2 shadow-sa-sm">
+              <span className="w-2 h-2 rounded-full bg-sa-strawberry animate-pulse" />
+              <span className="font-mono text-xs uppercase tracking-wider text-sa-green-ink/70">
+                {refrescado ? hace(refrescado) : 'actualizando…'}
+              </span>
+            </div>
+            <div className="flex items-center gap-2 bg-white border border-sa-green-ink/10 rounded-full px-4 py-2 shadow-sa-sm">
+              <span className="w-2 h-2 rounded-full bg-sa-mint" />
+              <span className="text-sm font-medium text-sa-green-ink">Sucursal: Principal</span>
+            </div>
           </div>
         }
       />
