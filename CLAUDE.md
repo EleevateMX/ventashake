@@ -404,17 +404,18 @@ empaquetador y se desvían solas:
   ninguna se pagaba. Regla: dentro de funciones que corren desde la app,
   nada de tablas temporales ni de `delete` pelado — el conjunto se calcula
   con CTEs, aunque se repita.
-- **⚠ El repo NO puede reconstruir la base.** Comprobado el 17/09/26:
-  **29 de las 62 tablas no tienen `create table` en ninguna de las 146
-  migraciones** — entre ellas `ordenes`, `orden_items`, `productos`,
-  `categorias`, `insumos`, `recetas`, `inventario_stock` y `ventas`. Se
-  crearon al principio desde el panel de Supabase y nunca se capturaron.
-  Hoy la unica copia del esquema es el proyecto en produccion. Se arregla
-  con un `pg_dump --schema-only` guardado como `0000_esquema_base.sql`
-  (comando exacto en `docs/plantilla-para-otra-tienda.md`), y hace falta
-  la contrasena de la base, que no esta aqui a proposito. **Mientras eso
-  no se haga, guardar migraciones da una sensacion de respaldo que no es
-  real.**
+- **⚠ El repo NO puede reconstruir la base, pero la base si.** Comprobado
+  el 17/09/26: **198 migraciones aplicadas en produccion contra 146 en el
+  repo.** Las 52 que faltan son las primeras, las que crean las tablas —
+  por eso 29 de las 62 no tienen `create table` en ningun archivo
+  (`ordenes`, `productos`, `categorias`, `insumos`, `recetas`, `ventas`…).
+  Y solo 7 de los 146 archivos llevan fecha delante, asi que el orden de
+  los otros 139 no esta definido. **Las dos cosas las arregla
+  `scripts/exportar-migraciones.sh`**: Supabase guarda las 198 con sus
+  sentencias en `supabase_migrations.schema_migrations` (732 kB, en
+  orden), y el script las baja con su version por delante. Probado contra
+  un Postgres 16 local: exportar -> aplicar en base vacia -> las tablas
+  aparecen. Necesita la cadena de conexion, que no esta aqui a proposito.
 - **La maquina de estados de la orden no deja ir para atras, y es a
   proposito.** `fn_validar_transicion_estado_pago_orden` prohibe
   `payment_processing -> pending_payment`: devolver una orden a "cobrable"
