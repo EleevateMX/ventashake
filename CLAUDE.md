@@ -8,6 +8,12 @@ detalles temáticos viven en `docs/` (42 documentos); esto es el mapa.
 falla: es una fila de gente esperando su shake. Verifica en producción
 antes de decir que algo quedó.
 
+> **Si vas a montar OTRA tienda con este sistema** (la panadería, o la que
+> siga), empieza por [`docs/plantilla-para-otra-tienda.md`](docs/plantilla-para-otra-tienda.md)
+> — qué se copia, qué se cambia y qué **no** se debe heredar. Y si la
+> pregunta es si esto corre sin Supabase o como ejecutable de PC, está
+> contestada en [`docs/correr-sin-supabase.md`](docs/correr-sin-supabase.md).
+
 > **Si retomas esto sin contexto, empieza por
 > [`docs/estado-al-2-de-septiembre.md`](docs/estado-al-2-de-septiembre.md).**
 > Ahí está qué quedó vivo, qué quedó abierto y por qué — incluido un hueco
@@ -398,6 +404,17 @@ empaquetador y se desvían solas:
   ninguna se pagaba. Regla: dentro de funciones que corren desde la app,
   nada de tablas temporales ni de `delete` pelado — el conjunto se calcula
   con CTEs, aunque se repita.
+- **⚠ El repo NO puede reconstruir la base.** Comprobado el 17/09/26:
+  **29 de las 62 tablas no tienen `create table` en ninguna de las 146
+  migraciones** — entre ellas `ordenes`, `orden_items`, `productos`,
+  `categorias`, `insumos`, `recetas`, `inventario_stock` y `ventas`. Se
+  crearon al principio desde el panel de Supabase y nunca se capturaron.
+  Hoy la unica copia del esquema es el proyecto en produccion. Se arregla
+  con un `pg_dump --schema-only` guardado como `0000_esquema_base.sql`
+  (comando exacto en `docs/plantilla-para-otra-tienda.md`), y hace falta
+  la contrasena de la base, que no esta aqui a proposito. **Mientras eso
+  no se haga, guardar migraciones da una sensacion de respaldo que no es
+  real.**
 - **La maquina de estados de la orden no deja ir para atras, y es a
   proposito.** `fn_validar_transicion_estado_pago_orden` prohibe
   `payment_processing -> pending_payment`: devolver una orden a "cobrable"
