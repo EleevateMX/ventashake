@@ -14,6 +14,12 @@ antes de decir que algo quedó.
 > pregunta es si esto corre sin Supabase o como ejecutable de PC, está
 > contestada en [`docs/correr-sin-supabase.md`](docs/correr-sin-supabase.md).
 
+> **Si la pregunta es por qué el recibo de Supabase subió**, está
+> contestada en [`docs/costo-de-supabase.md`](docs/costo-de-supabase.md):
+> no es el consumo de la tienda, son proyectos de más en la misma
+> organización — y un proyecto de organización de paga **no se puede
+> pausar**, hay que mudarlo a una organización gratis.
+
 > **Si retomas esto sin contexto, empieza por
 > [`docs/estado-al-2-de-septiembre.md`](docs/estado-al-2-de-septiembre.md).**
 > Ahí está qué quedó vivo, qué quedó abierto y por qué — incluido un hueco

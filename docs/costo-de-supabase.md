@@ -54,36 +54,79 @@ el recibo *sube*, no baja.
 
 ## Lo que sí se puede bajar
 
-1. **Pausar Hojaldras Lily** → −$10/mes (~185 pesos). Está vacía de uso:
-   una petición en 24 horas. **Pausar no borra nada** — los datos y las
-   63 tablas quedan, y se reactiva en minutos cuando se arme la panadería
-   de verdad. Supabase no cobra cómputo de proyectos pausados.
-2. **Soltar el dominio propio** → −$10/mes (~185 pesos). Es un cambio de
-   una línea: vaciar el mapa `DOMINIO_PROPIO` en
-   `packages/supabase/src/client.ts` y volver a desplegar. No se rompe
-   nada: la URL original `zyjtnaystsporbuzcmqk.supabase.co` siempre
-   estuvo viva en paralelo (el agente de impresión la usa tal cual).
-   **Lo único que se pierde es cosmético**: la pantalla de "Entrar con
-   Google" de Rewards dirá el id del proyecto en vez de
-   `api.shakeaholic.mx`.
-3. **Eleevate Control**: 42 inicios de sesión hoy. Alguien lo está usando.
-   Si resulta que ya no hace falta, es otro −$10/mes; si sí hace falta,
-   se queda y ya.
+**Primero, la trampa que me comí yo:** un proyecto de una organización de
+paga **NO se puede pausar**. Supabase contesta *"Project is not free-tier.
+Please downgrade it to free-tier first"*, y su documentación lo dice
+igual: *"Projects under a paid plan cannot be paused. To pause a project
+currently under a paid plan, first transfer the project to an
+organization on the Free plan."* Así que el botón de pausa que uno
+imagina no existe aquí. Las salidas reales son dos: **mudar el proyecto a
+una organización gratis**, o **borrarlo**.
 
-Haciendo 1 y 2: de ~$55 a ~$35 al mes (de ~1 000 a ~645 pesos). Los tres:
-$25, el plan pelón.
+Y mudar es la buena, porque el plan Free da **dos proyectos activos
+gratis** — que es exactamente lo que sobra aquí — con el único requisito
+de que el proyecto pese menos de 500 MB. Hojaldras Lily pesa 48 MB y
+Eleevate Control 26 MB. **Los dos caben de sobra.** La propia
+documentación de Supabase lista *"Transfer projects to a Free Plan
+organization to reduce Compute usage"* como la forma de bajar el gasto.
 
-## Y el candado
+### El plan
 
-En **Organization → Billing** hay un **Spend Cap**. Con el tope puesto,
-Supabase corta el consumo extra en vez de cobrarlo. Vale la pena dejarlo
-encendido aunque hoy no haya excedentes por uso: lo que subió el recibo
-fue cómputo de proyectos nuevos, y eso el tope no lo frena, pero sí frena
-las sorpresas de tráfico o almacenamiento.
+1. Crear una **organización nueva en plan Free** (por ejemplo
+   "Eleevate — pruebas").
+2. Mudar ahí **Hojaldras Lily** y **Eleevate Control**. Se hace desde
+   *Project Settings → General → Transfer project*.
+3. Ya en la organización gratis:
+   - **Hojaldras Lily** se pausa (y si no, se pausa sola a los 7 días sin
+     uso). Pausada no cuenta ni siquiera contra el límite de dos.
+   - **Eleevate Control sigue encendido y funcionando, pero gratis.**
+     Con 26 MB y el tráfico que tiene, el plan Free le sobra.
+4. La organización Pro se queda **solo con Shakeaholic**.
+
+Resultado: de ~$55 a **$35 al mes** (~645 pesos). Y si algún día se suelta
+también el dominio propio, $25 pelados.
+
+### Lo que hay que saber antes de mudar
+
+- **Requisito que sí puede frenar la mudanza**: el proyecto no debe tener
+  la **integración de GitHub conectada** ni *log drains*. Si la tiene, se
+  desconecta primero.
+- **Hay 1–2 minutos de interrupción** al pasar de paga a gratis. Para
+  Eleevate Control eso es un parpadeo; para Shakeaholic sería la caja
+  parada, y por eso **Shakeaholic no se muda nunca**.
+- En plan Free se pierden cosas que esos dos no necesitan: respaldos
+  diarios automáticos, 500 MB de base en vez de 8 GB, 5 GB de salida de
+  datos en vez de 250 GB.
+- **Eleevate Control se dormirá solo si pasa una semana sin que nadie lo
+  abra**, porque el plan Free pausa por inactividad. Se despierta en
+  minutos desde el tablero, sin perder nada — pero hay que saberlo para
+  no pensar que se rompió.
+- La mudanza **no cambia la URL ni las llaves** del proyecto: solo cambia
+  quién lo factura.
+
+### Soltar el dominio propio (aparte, cuando quieras)
+
+−$10/mes más. Es un cambio de una línea: vaciar el mapa `DOMINIO_PROPIO`
+en `packages/supabase/src/client.ts` y volver a desplegar. No se rompe
+nada — la URL original `zyjtnaystsporbuzcmqk.supabase.co` siempre estuvo
+viva en paralelo, y el agente de impresión ya la usa tal cual. **Lo único
+que se pierde es cosmético**: la pantalla de "Entrar con Google" de
+Rewards dirá el id del proyecto en vez de `api.shakeaholic.mx`.
+
+## El candado que NO sirve para esto
+
+En **Organization → Billing** hay un **Spend Cap**, y es lo primero que
+uno piensa al ver un recibo alto. **No habría servido.** La
+documentación es explícita: *"Compute Hours are **not** covered by the
+Spend Cap."* El tope frena excedentes de tráfico, almacenamiento o
+usuarios; **no frena el cómputo de un proyecto nuevo**, que es justo lo
+que subió este recibo. Vale la pena dejarlo encendido de todos modos,
+pero sin creer que protege de esto.
 
 ## La trampa que hay que recordar
 
 **Un proyecto de Supabase vacío no es gratis.** Crear uno "para probar" y
 dejarlo ahí cuesta $10 al mes para siempre. Al armar la siguiente tienda,
-el proyecto se crea **cuando se va a usar**, y el de pruebas se pausa el
-mismo día que deja de servir.
+el proyecto se crea **cuando se va a usar**, y el de pruebas nace en una
+organización Free desde el principio — no en la de paga, de donde luego
+hay que mudarlo con interrupción y todo.
