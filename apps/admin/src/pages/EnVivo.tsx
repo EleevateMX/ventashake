@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { sb } from '../lib/sb'
-import { panelEnVivo, esperaEnVivo, type PanelEnVivo, type EsperaEnVivo } from '@shake/supabase'
+import {
+  panelEnVivo, esperaEnVivo, pedirRecargaPantallas,
+  type PanelEnVivo, type EsperaEnVivo,
+} from '@shake/supabase'
 import { mxn, mensajeDeError, hace } from '@shake/utils'
 import { PageHeader, Loading, ErrorMsg } from '../ui'
 import { BotonActualizarPantallas } from '../BotonActualizarPantallas'
@@ -72,6 +75,43 @@ export default function EnVivo() {
   const [espera, setEspera] = useState<EsperaEnVivo[]>([])
   /** Cuál apartada está abierta. Una a la vez: es una lista, no un menú. */
   const [esperaAbierta, setEsperaAbierta] = useState<string | null>(null)
+  const [pidiendoDetalle, setPidiendoDetalle] = useState(false)
+  const [avisoDetalle, setAvisoDetalle] = useState<string | null>(null)
+
+  /**
+   * Le pide a la pantalla que se refresque para que vuelva a reportar.
+   *
+   * Es la misma señal de "Actualizar pantallas", pero puesta **donde se ve
+   * el problema**: mandar a gerencia a buscar otro botón en otra esquina
+   * para arreglar lo que esta tarjeta está señalando es pedirle que
+   * traduzca. El kiosko espera a estar en el menú y sin carrito, y las
+   * ventas apartadas viven en el navegador: sobreviven a la recarga.
+   */
+  async function pedirDetalle(pantalla: string) {
+    // **Solo el kiosko escucha recargas.** El POS no, así que mapear su
+    // señal a otra pantalla recargaría la que no es —la TV de folios, que
+    // está de cara al cliente—. Por eso el botón solo sale en el kiosko y
+    // esto es la segunda red, no la primera.
+    if (pantalla.startsWith('pos:')) {
+      setAvisoDetalle('La caja no atiende esta señal: se pone al día al abrirla o recargarla.')
+      setTimeout(() => setAvisoDetalle(null), 10_000)
+      return
+    }
+    setPidiendoDetalle(true)
+    setAvisoDetalle(null)
+    try {
+      await pedirRecargaPantallas(sb, 'kiosko')
+      setAvisoDetalle(
+        'Listo. La pantalla se refresca en cuanto esté en el menú y sin carrito, ' +
+        'y ahí vuelve a reportar con el detalle. No se pierde ninguna apartada.',
+      )
+      setTimeout(() => setAvisoDetalle(null), 12_000)
+    } catch (e) {
+      setAvisoDetalle(mensajeDeError(e))
+    } finally {
+      setPidiendoDetalle(false)
+    }
+  }
   const [error, setError] = useState<string | null>(null)
   const [vista, setVista] = useState<'ultimos' | 'turno'>('ultimos')
   const [conectado, setConectado] = useState(false)
@@ -192,14 +232,37 @@ export default function EnVivo() {
             {' '}Toca una para ver qué lleva.
           </p>
 
-          {espera.some((e) => e.ventas.every((v) => v.items.length === 0)) && (
-            <p className="text-[11px] text-sa-green-ink/55 leading-relaxed mb-3 rounded-sa bg-white/50 px-3 py-2">
-              Alguna de estas pantallas todavía reporta <b>sin el detalle</b> (qué lleva y
-              a qué hora): recogió una versión anterior del kiosko. Se pone al día sola
-              en un par de minutos, o de inmediato con <b>Actualizar pantallas</b>.
-              Mientras tanto se ve la etiqueta, que es con la que el cajero la reconoce.
-            </p>
-          )}
+          {(() => {
+            const sinDetalle = espera.filter((e) => e.ventas.every((v) => v.items.length === 0))
+            if (sinDetalle.length === 0) return null
+            return (
+              <div className="mb-3 rounded-sa bg-white/50 px-3 py-2">
+                <p className="text-[11px] text-sa-green-ink/60 leading-relaxed">
+                  {sinDetalle.length === 1 ? 'Esta pantalla' : 'Algunas de estas pantallas'}
+                  {' '}todavía reporta <b>sin el detalle</b> (qué lleva y a qué hora): sigue
+                  con una versión anterior. Mientras tanto se ve la etiqueta, que es con la
+                  que el cajero la reconoce.
+                </p>
+                <div className="flex items-center gap-3 flex-wrap mt-2">
+                  {sinDetalle
+                    .filter((e) => !e.pantalla.startsWith('pos:'))
+                    .map((e) => (
+                      <button
+                        key={e.pantalla}
+                        className="font-mono text-[11px] uppercase tracking-wide px-3 py-1.5 rounded-full border border-sa-green/40 bg-white text-sa-green hover:bg-sa-green hover:text-sa-cream transition-colors disabled:opacity-40"
+                        disabled={pidiendoDetalle}
+                        onClick={() => void pedirDetalle(e.pantalla)}
+                      >
+                        {pidiendoDetalle ? 'Pidiendo…' : 'Pedir detalle al kiosko'}
+                      </button>
+                    ))}
+                  {avisoDetalle && (
+                    <span className="text-[11px] text-sa-green-ink/70">{avisoDetalle}</span>
+                  )}
+                </div>
+              </div>
+            )
+          })()}
 
           <div className="space-y-3">
             {espera.map((e) => (
@@ -226,13 +289,12 @@ export default function EnVivo() {
                         <div key={clave}>
                           <button
                             onClick={() => setEsperaAbierta(abierta ? null : clave)}
-                            disabled={!hayDetalle}
-                            className={`w-full flex items-center gap-2 px-3 py-2 rounded-sa bg-white border text-left transition-colors ${
+                            className={`w-full flex items-center gap-2 px-3 py-2 rounded-sa bg-white border text-left transition-colors hover:border-sa-green-ink/30 ${
                               abierta ? 'border-sa-green' : 'border-sa-green-ink/10'
-                            } ${hayDetalle ? 'hover:border-sa-green-ink/30' : 'cursor-default'}`}
+                            }`}
                           >
                             <span className="font-mono text-[10px] text-sa-green-ink/40 w-3 shrink-0">
-                              {hayDetalle ? (abierta ? '▾' : '▸') : '·'}
+                              {abierta ? '▾' : '▸'}
                             </span>
                             <span className="flex-1 min-w-0 truncate text-sm text-sa-green-ink">
                               {vt.etiqueta}
@@ -251,17 +313,25 @@ export default function EnVivo() {
 
                           {abierta && (
                             <div className="mt-1 ml-5 rounded-sa bg-white/60 px-3 py-2">
-                              {vt.items.map((it, j) => (
-                                <div
-                                  key={`${clave}-${j}`}
-                                  className="flex items-baseline gap-2 text-sm text-sa-green-ink/80 py-0.5"
-                                >
-                                  <span className="font-mono text-xs text-sa-green shrink-0">
-                                    {it.c}×
-                                  </span>
-                                  <span className="min-w-0">{it.n}</span>
-                                </div>
-                              ))}
+                              {hayDetalle ? (
+                                vt.items.map((it, j) => (
+                                  <div
+                                    key={`${clave}-${j}`}
+                                    className="flex items-baseline gap-2 text-sm text-sa-green-ink/80 py-0.5"
+                                  >
+                                    <span className="font-mono text-xs text-sa-green shrink-0">
+                                      {it.c}×
+                                    </span>
+                                    <span className="min-w-0">{it.n}</span>
+                                  </div>
+                                ))
+                              ) : (
+                                <p className="text-[12px] text-sa-green-ink/60 leading-relaxed">
+                                  Esta apartada se guardó <b>antes</b> de que la pantalla supiera
+                                  reportar el contenido, así que lo único que mandó fue su
+                                  etiqueta. Con <b>Pedir detalle</b> aquí arriba se pone al día.
+                                </p>
+                              )}
                             </div>
                           )}
                         </div>

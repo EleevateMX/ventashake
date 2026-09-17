@@ -358,9 +358,20 @@ las 12 horas, la misma vigencia que usa el navegador.
   él —la pantalla no tenía motivo para volver a hablar—, así que en Admin
   los renglones no se podían abrir y no había forma de saber por qué.
   `arrancarLatidoEspera()` en los dos stores; con la lista vacía no late.
-- Y cuando una pantalla reporta **sin detalle**, el panel lo dice. Un
-  renglón que no responde y no explica nada es peor que uno que confiesa
-  que está esperando una versión nueva.
+- Y cuando una pantalla reporta **sin detalle**, el panel lo dice **y trae
+  el botón para arreglarlo ahí mismo** («Pedir detalle al kiosko», que es
+  la señal de recarga de siempre). Mandar a gerencia a buscar otro botón
+  en otra esquina para arreglar lo que esta tarjeta está señalando es
+  pedirle que traduzca.
+- **El renglón se abre siempre**, tenga detalle o no: si no lo tiene, lo
+  dice adentro. Un renglón que no responde y no explica nada es peor que
+  uno que confiesa — la primera versión lo deshabilitaba y se reportó, con
+  razón, como «no me deja hacerle click».
+- ⚠ **Solo el kiosko escucha recargas.** El POS no
+  (`escucharRecargas` está en kiosko, barra, cocina y folios, no en la
+  caja). Mapear la señal del POS a otra pantalla recargaría la que no es
+  —la TV de folios, que está de cara al cliente—. Por eso el botón solo
+  sale para el kiosko.
 
 ### 2.4.6 La sorpresa no se anuncia
 
