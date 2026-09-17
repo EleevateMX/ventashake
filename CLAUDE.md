@@ -288,6 +288,30 @@ chips de respaldo del código) y `[]` (a este producto no le aplica
 ninguna → no pinta nada): confundirlas hace que un café acotado a cero
 muestre las cinco de siempre.
 
+### 2.4.6 La sorpresa no se anuncia
+
+La app del cliente **ya no dice cuántas compras le faltan** para el premio
+de la tarjeta 13+1, ni usa la palabra "gratis". Anunciar el premio lo
+convierte en una deuda que el cliente va tachando, y el día que la cobra no
+hay sorpresa que dar. Ahora calla hasta que faltan dos, suelta un guiño
+("Con un par de visitas más, quizá te llegue una sorpresa"), y al llenarse
+dice que pregunte en caja — sin decir qué es.
+
+> **El número se quitó del SERVIDOR.** `fn_mi_resumen_lealtad` ya no manda
+> `tiene`/`requeridos`/`faltan` ni el catálogo de premios: manda una frase.
+> Quitarlo solo de la pantalla habría sido teatro — el JSON se lee en el
+> inspector en dos clics. **El personal sí lo ve** por
+> `fn_rewards_para_caja`: quien entrega el premio tiene que saber.
+
+Los textos y el umbral los escribe gerencia en Admin → Rewards, con vista
+previa. `aviso_desde = 0` apaga el guiño.
+
+Y en el mismo lugar está **"Cómo está armado"**: todos los parámetros del
+programa con la columna *dónde vive cada uno*, porque no se tocan igual —
+la tasa de canje es una función, los sellos son una tabla editable, y lo
+que se gana por peso vive **dentro del trigger que corre en cada cobro** y
+por eso no tiene botón.
+
 ### 2.5 La identidad es una sola, y vive en `packages/brand`
 
 `packages/brand/tokens.css` es la **fuente de la verdad**: los colores y

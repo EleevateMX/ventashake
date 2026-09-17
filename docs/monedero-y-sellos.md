@@ -81,6 +81,55 @@ Quien toma café a diario no debería llenar la tarjeta de sándwiches.
   los 13 sellos se junten con lo más barato de la carta.
 - Las recargas nunca sellan (no son consumo).
 
+### El cliente NO ve cuántas le faltan (17/09/26)
+
+La app ya no dice «3/13» ni «te faltan 10 para tu bebida **gratis**», y ya
+no pinta los trece circulitos. Lo pidió el negocio y la razón es buena:
+anunciar el premio lo convierte en una deuda que el cliente va tachando, y
+el día que la cobra no hay sorpresa que dar — solo una cuenta que se salda.
+
+Lo que hace ahora: **calla** hasta que falta poco, y entonces suelta un
+guiño sin decir qué es ni que es gratis.
+
+| Sellos (de 13) | Qué ve el cliente |
+|---:|---|
+| 0–10 | **Nada.** Ni una palabra de esta tarjeta |
+| 11–12 | «Con un par de visitas más, quizá te llegue una sorpresa.» |
+| 13 o más | «Tienes una sorpresa esperándote. Pregúntanos en caja.» |
+
+Los dos textos y el umbral (`aviso_desde`, por omisión 2) los escribe
+gerencia en **Admin → Rewards → Tarjetas de sellos**, con vista previa de
+cómo se va a leer. `aviso_desde = 0` apaga el guiño por completo.
+
+> **El número se quitó del SERVIDOR, no de la pantalla.** `fn_mi_resumen_lealtad`
+> ya no manda `tiene`, `requeridos`, `faltan` ni el catálogo de premios:
+> manda una frase. Esconderlo solo en el frontend habría sido teatro — el
+> JSON se lee en el inspector del navegador en dos clics.
+>
+> **El personal sí sigue viendo el número exacto** por `fn_rewards_para_caja`
+> y `fn_rewards_admin`. Quien entrega el premio tiene que saber.
+
+### Dónde vive cada número
+
+Estaban repartidos en cinco lugares y la única forma de contestar «¿cuánto
+vale una mancuerna?» era abrir el repo. Ahora están todos en **Admin →
+Rewards → Cómo está armado**, con un conversor y con la columna que dice
+dónde vive cada uno — porque no se tocan igual:
+
+| Parámetro | Valor | Dónde vive | ¿Se edita en Admin? |
+|---|---|---|---|
+| Tasa de canje | 10 = $1 | `fn_tasa_mancuernas()` | No |
+| Se gana | 1 por cada $10 | dentro del trigger `fn_acumular_mancuernas` | **No, y a propósito** |
+| Tope por ticket | 100 | el mismo trigger | No |
+| Cupón | 100 mancuernas | `fn_mi_resumen_lealtad` | No |
+| Paquetes de recarga | tabla | `paquetes_saldo` | No (todavía) |
+| Sellos: compras, mínimo, guiño | tabla | `config_sellos` | **Sí** |
+
+Lo de la ganancia no se movió al panel a propósito: ese trigger corre en
+**cada cobro**, y un trigger sobre `ordenes` ya dejó a la tienda 50 minutos
+sin poder cobrar. Se cambia con una migración, no con un botón — y el panel
+dice dónde está para que quien lo busque no tenga que adivinar.
+
 ### El ajuste que conviene vigilar
 
 `config_sellos.precio_minimo` está en **$0**: hoy cualquier producto sella.
