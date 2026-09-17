@@ -27,8 +27,18 @@ export function hoyEnMerida(cuando: Date = new Date()): string {
   }).format(cuando)
 }
 
-/** "12:34" en la zona de la tienda, para sellar un refresco. */
+/**
+ * "12:34" en la zona de la tienda.
+ *
+ * Devuelve cadena vacía si la fecha no es válida, en vez de lanzar. Esto
+ * corre al publicar el vistazo de ventas apartadas, o sea **dentro del
+ * camino que guarda una venta**: si un `guardadaEn` corrupto en
+ * `localStorage` hiciera reventar a `Intl`, el cajero no podría apartar
+ * una cuenta. Un hueco donde iba una hora es barato; una caja que no
+ * guarda, no.
+ */
 export function horaEnMerida(cuando: Date = new Date()): string {
+  if (Number.isNaN(cuando.getTime())) return ''
   return new Intl.DateTimeFormat('es-MX', {
     timeZone: ZONA,
     hour: '2-digit',
