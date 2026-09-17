@@ -547,6 +547,12 @@ export interface ObservacionAdmin extends Observacion {
   cocina_id: string
   cocina: string
   activa: boolean
+  /**
+   * Cuántas categorías o productos tiene marcados. **Cero no es "en
+   * ninguno": es "todavía en toda su estación"**, que es como nacieron
+   * todas y como se quedan las que nadie acote.
+   */
+  alcances: number
 }
 
 /** Las activas de una estación, para el kiosko. */
@@ -563,6 +569,73 @@ export async function listarObservacionesAdmin(sb: ShakeClient): Promise<Observa
   const { data, error } = await (sb.rpc as unknown as RpcCatalogo)('fn_observaciones_admin', {})
   if (error) throw error
   return (data ?? []) as ObservacionAdmin[]
+}
+
+/**
+ * Una observación con el alcance que le fijó gerencia: en qué categorías y
+ * en qué productos aplica.
+ *
+ * Las dos listas vacías NO significan "en ninguno": significan que nadie le
+ * ha puesto alcance, y entonces sale en toda su estación como siempre. Ver
+ * `observacionesDeProducto` en @shake/utils, que es donde vive esa regla.
+ */
+export interface ObservacionVigente {
+  id: string
+  texto: string
+  orden: number
+  cocina_slug: string
+  categorias: string[]
+  productos: string[]
+}
+
+/**
+ * Las activas con su alcance, de una sola vez. Son ~30 filas: viajan
+ * enteras y la pantalla decide cuáles van en cuál producto sin volver a
+ * preguntar por cada toque.
+ */
+export async function listarObservacionesVigentes(sb: ShakeClient): Promise<ObservacionVigente[]> {
+  const { data, error } = await (sb.rpc as unknown as RpcCatalogo)('fn_observaciones_vigentes', {})
+  if (error) throw error
+  return (data ?? []) as ObservacionVigente[]
+}
+
+/** Una fila del checklist de alcance en Admin: una categoría o un producto. */
+export interface AlcanceObservacion {
+  tipo: 'categoria' | 'producto'
+  id: string
+  nombre: string
+  /** La estación, o "estación - categoría" si es un producto. */
+  contexto: string
+  marcado: boolean
+}
+
+/** Dónde aplica UNA observación, con todo lo disponible marcado o no. */
+export async function alcanceDeObservacion(
+  sb: ShakeClient,
+  observacionId: string,
+): Promise<AlcanceObservacion[]> {
+  const { data, error } = await (sb.rpc as unknown as RpcCatalogo)('fn_observacion_alcance', {
+    p_observacion_id: observacionId,
+  })
+  if (error) throw error
+  return (data ?? []) as AlcanceObservacion[]
+}
+
+/** Prende o apaga UNA casilla del alcance. */
+export async function fijarAlcanceObservacion(
+  sb: ShakeClient,
+  observacionId: string,
+  tipo: 'categoria' | 'producto',
+  id: string,
+  incluir: boolean,
+): Promise<void> {
+  const { error } = await (sb.rpc as unknown as RpcCatalogo)('fn_observacion_alcance_fijar', {
+    p_observacion_id: observacionId,
+    p_tipo: tipo,
+    p_id: id,
+    p_incluir: incluir,
+  })
+  if (error) throw error
 }
 
 export async function guardarObservacion(

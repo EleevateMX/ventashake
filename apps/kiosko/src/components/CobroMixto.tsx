@@ -7,10 +7,23 @@ export type TerminalTarjeta = 'clip' | 'banco'
 /**
  * "Me das $100 con tarjeta y el resto en efectivo."
  *
- * Se teclea UN número —lo que va con tarjeta— y el efectivo se calcula.
- * Pedirle los dos al cajero es pedirle que haga la resta con gente
- * esperando, y esa resta mal hecha no sale como un número feo: sale como
- * un cobro que el servidor rechaza con la fila detenida.
+ * Se teclea UN número y el otro se calcula: pedirle los dos al cajero es
+ * pedirle que haga la resta con gente esperando, y esa resta mal hecha no
+ * sale como un número feo, sale como un cobro que el servidor rechaza con
+ * la fila detenida.
+ *
+ * **Cuál de los dos se teclea importa, y por eso se puede elegir.** La
+ * primera versión pedía siempre el de la tarjeta, y en la barra reportaron
+ * que "se les complica la suma y la resta": claro, porque el número que el
+ * cajero TIENE EN LA MANO es el efectivo —los billetes que le acaban de
+ * dar— y se le estaba pidiendo el otro. Ahora el efectivo viene marcado por
+ * omisión y la tarjeta se calcula sola; quien prefiera teclear la tarjeta
+ * ("cóbrame $100 a la tarjeta") cambia de pestaña y sigue igual.
+ *
+ * Al cambiar de pestaña **el reparto no se mueve**: si iban $200 en
+ * efectivo de un total de $350, la pestaña de tarjeta abre con $150. Se
+ * cambia de lado para ver o corregir el otro número, no para empezar de
+ * cero.
  *
  * Hay DOS terminales en la barra y no se cobran igual:
  *
@@ -34,14 +47,31 @@ export function CobroMixto({
   onCancelar: () => void
   procesando: boolean
 }) {
-  const [enTarjeta, setEnTarjeta] = useState('')
+  /** Cual de los dos montos teclea el cajero. El otro se calcula. */
+  const [lado, setLado] = useState<'efectivo' | 'tarjeta'>('efectivo')
+  const [tecleado, setTecleado] = useState('')
   // Clip por defecto: es por donde va la mayoria de las tarjetas, y el
   // unico camino en el que cancelar no cuesta nada.
   const [terminal, setTerminal] = useState<TerminalTarjeta>('clip')
 
-  const nTarjeta = Math.round((Number(enTarjeta) || 0) * 100) / 100
-  const enEfectivo = Math.round((total - nTarjeta) * 100) / 100
-  const listo = nTarjeta >= 0.01 && enEfectivo >= 0.01
+  const centavos = (n: number) => Math.round(n * 100) / 100
+  const nTecleado = centavos(Number(tecleado) || 0)
+  const nOtro = centavos(total - nTecleado)
+
+  const nEfectivo = lado === 'efectivo' ? nTecleado : nOtro
+  const nTarjeta = lado === 'efectivo' ? nOtro : nTecleado
+  const listo = nTarjeta >= 0.01 && nEfectivo >= 0.01
+
+  /**
+   * Cambiar de pestaña conserva el reparto: lo que estaba calculado pasa a
+   * ser lo tecleado. Si aun no hay nada escrito, la caja queda vacia — no
+   * se rellena con el total, que seria un reparto que nadie pidio.
+   */
+  function cambiarLado(nuevo: 'efectivo' | 'tarjeta') {
+    if (nuevo === lado) return
+    setTecleado(tecleado === '' ? '' : nOtro.toFixed(2))
+    setLado(nuevo)
+  }
 
   // Repartos que la gente pide de verdad: la mitad, y los billetes
   // redondos que caben en la cuenta.
@@ -53,11 +83,33 @@ export function CobroMixto({
     <div className="bg-sa-cream-soft rounded-sa-lg p-6 space-y-5">
       <div>
         <p className="font-display text-2xl text-sa-green-ink leading-tight">
-          ¿Cuánto va con tarjeta?
+          {lado === 'efectivo' ? '¿Cuánto te dio en efectivo?' : '¿Cuánto va con tarjeta?'}
         </p>
         <p className="font-mono text-xs uppercase tracking-wider text-sa-green-ink/60 mt-1">
-          El resto se cobra en efectivo
+          Total {mxn(total)} · el otro monto se calcula solo
         </p>
+      </div>
+
+      {/* Cual de los dos se teclea. El efectivo viene marcado porque es el
+          numero que el cajero tiene en la mano. */}
+      <div className="grid grid-cols-2 gap-2">
+        {([
+          { id: 'efectivo', titulo: 'Tecleo el efectivo' },
+          { id: 'tarjeta',  titulo: 'Tecleo la tarjeta' },
+        ] as const).map((o) => (
+          <button
+            key={o.id}
+            onClick={() => cambiarLado(o.id)}
+            disabled={procesando}
+            className={`px-4 py-3 rounded-sa border-2 transition-colors disabled:opacity-40 font-mono text-xs uppercase tracking-wide ${
+              lado === o.id
+                ? 'border-sa-green bg-white text-sa-green-ink'
+                : 'border-sa-green-ink/10 bg-white/50 text-sa-green-ink/55 hover:border-sa-green-ink/25'
+            }`}
+          >
+            {o.titulo}
+          </button>
+        ))}
       </div>
 
       <div className="relative">
@@ -65,8 +117,8 @@ export function CobroMixto({
         <input
           type="number"
           inputMode="decimal"
-          value={enTarjeta}
-          onChange={(e) => setEnTarjeta(e.target.value)}
+          value={tecleado}
+          onChange={(e) => setTecleado(e.target.value)}
           placeholder="0.00"
           autoFocus
           className="w-full pl-12 pr-5 py-5 bg-white border-2 border-sa-green-ink/10 rounded-sa font-mono text-4xl text-sa-green-ink focus:outline-none focus:border-sa-green"
@@ -78,7 +130,7 @@ export function CobroMixto({
           {sugeridos.map((v) => (
             <button
               key={v}
-              onClick={() => setEnTarjeta(v.toFixed(2))}
+              onClick={() => setTecleado(v.toFixed(2))}
               className="px-5 py-3 bg-sa-cream-warm hover:bg-sa-banana rounded-full font-mono text-sm text-sa-green-ink transition-colors"
             >
               {mxn(v)}
@@ -117,13 +169,18 @@ export function CobroMixto({
         </div>
       </div>
 
-      {/* El efectivo NO se teclea: se calcula. */}
+      {/* Los dos montos, con el CALCULADO en grande: ese es el que el cajero
+          no tecleó y el único que necesita leer de un vistazo. */}
       <div className="bg-white rounded-sa px-5 py-4 border border-sa-green-ink/10 space-y-2">
         <div className="flex justify-between items-baseline">
           <span className="font-mono text-xs uppercase tracking-wide text-sa-green-ink/60">
             Con tarjeta, en la terminal
           </span>
-          <span className="font-display text-2xl text-sa-green-ink">
+          <span className={
+            lado === 'efectivo'
+              ? 'font-display text-3xl text-sa-green'
+              : 'font-display text-2xl text-sa-green-ink'
+          }>
             {listo ? mxn(nTarjeta) : '—'}
           </span>
         </div>
@@ -131,17 +188,23 @@ export function CobroMixto({
           <span className="font-mono text-xs uppercase tracking-wide text-sa-green-ink/60">
             En efectivo, al cajón
           </span>
-          <span className="font-display text-3xl text-sa-green">
-            {listo ? mxn(enEfectivo) : '—'}
+          <span className={
+            lado === 'tarjeta'
+              ? 'font-display text-3xl text-sa-green'
+              : 'font-display text-2xl text-sa-green-ink'
+          }>
+            {listo ? mxn(nEfectivo) : '—'}
           </span>
         </div>
       </div>
 
-      {!listo && enTarjeta !== '' && (
+      {!listo && tecleado !== '' && (
         <p className="font-mono text-xs text-sa-coffee bg-sa-banana/25 rounded-sa px-4 py-3 leading-relaxed">
-          {nTarjeta >= total
-            ? `Eso ya cubre los ${mxn(total)}: cóbralo todo con la terminal en vez de dividirlo.`
-            : 'Escribe cuánto va con tarjeta.'}
+          {nTecleado >= total
+            ? `Eso ya cubre los ${mxn(total)}: cóbralo todo de un solo método en vez de dividirlo.`
+            : lado === 'efectivo'
+              ? 'Escribe cuánto te dio en efectivo.'
+              : 'Escribe cuánto va con tarjeta.'}
         </p>
       )}
 

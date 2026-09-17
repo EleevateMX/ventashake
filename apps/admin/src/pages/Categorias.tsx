@@ -28,6 +28,10 @@ import { Panel, PageHeader, Loading, ErrorMsg, OkMsg, Chip, cx } from '../ui'
 /** Categorías del sistema que no son del menú: los extras nunca salen como botón. */
 const INTERNAS = new Set(['Extras', 'Extras Bebidas'])
 
+/** Para comparar nombres como los compara la base: sin acentos ni mayúsculas. */
+const sinAcentos = (s: string) =>
+  s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
+
 export default function Categorias() {
   const [categorias, setCategorias] = useState<Categoria[]>([])
   const [productos, setProductos] = useState<Producto[]>([])
@@ -68,6 +72,22 @@ export default function Categorias() {
   }, [productos])
 
   const catPorId = useMemo(() => new Map(categorias.map((c) => [c.id, c])), [categorias])
+
+  /**
+   * La categoría que ya se llama así — si la hay — buscada ANTES de que la
+   * base rechace el alta, y buscada en `categorias` y no en `visibles`.
+   *
+   * Esa diferencia es todo el bug: esta pantalla esconde a propósito las
+   * categorías del sistema (`INTERNAS`), así que cuando alguien escribía
+   * "Extras" la base contestaba "ya existe" y el mensaje mandaba a buscarla
+   * en una lista donde **nunca iba a estar**. Perla lo intentó tres veces.
+   * Un candado que no se puede ver es un candado que parece una falla.
+   */
+  const choca = useMemo(() => {
+    const n = sinAcentos(nuevoNombre)
+    if (!n) return null
+    return categorias.find((c) => sinAcentos(c.nombre) === n) ?? null
+  }, [nuevoNombre, categorias])
 
   async function cargar() {
     try {
@@ -195,12 +215,37 @@ export default function Categorias() {
           </div>
           <button
             className={cx.btnPrimary}
-            disabled={creando || !nuevoNombre.trim() || !nuevaCocina}
+            disabled={creando || !nuevoNombre.trim() || !nuevaCocina || !!choca}
             onClick={() => void crear()}
           >
             {creando ? 'Creando…' : 'Crear categoría'}
           </button>
         </div>
+
+        {/* El aviso sale MIENTRAS escribe, no después de que la base lo
+            rechace: así el nombre sigue en la caja y se puede corregir. */}
+        {choca && (
+          <div className="mt-4 rounded-xl border border-sa-banana bg-sa-banana/20 px-4 py-3">
+            {INTERNAS.has(choca.nombre) ? (
+              <p className="text-sm text-sa-green-ink leading-relaxed">
+                <strong>«{choca.nombre}» ya existe</strong>, pero no la ves aquí
+                porque no es un botón del menú: es donde viven los extras.
+                {' '}Para dar de alta un extra —un chipotle, un aderezo, un
+                scoop— ve a <strong>Extras</strong> en el menú de la
+                izquierda. Ahí se crea y se elige en qué productos aparece.
+              </p>
+            ) : (
+              <p className="text-sm text-sa-green-ink leading-relaxed">
+                <strong>«{choca.nombre}» ya existe</strong> y está más abajo en
+                esta misma lista
+                {(activosPorCategoria.get(choca.id) ?? []).length > 0
+                  ? `, con ${(activosPorCategoria.get(choca.id) ?? []).length} producto(s) dentro`
+                  : ', todavía vacía'}
+                . Ábrela para meterle productos, o escribe otro nombre.
+              </p>
+            )}
+          </div>
+        )}
       </Panel>
 
       <div className="space-y-3">
