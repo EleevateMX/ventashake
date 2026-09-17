@@ -103,9 +103,21 @@ function publicarVistazo(lista: VentaEnEspera[]): void {
   ).catch(() => {})
 }
 
-/** Publica lo que ya había al abrir la pantalla. */
-export function publicarEsperaAlArrancar(): void {
+/**
+ * Publica al abrir y **sigue latiendo** mientras haya algo apartado.
+ * Misma razón que en el kiosko: el vistazo caduca a las 12 h, y sin
+ * latido una apartada que nadie toca se le desaparece a gerencia aunque
+ * siga viva aquí. Ver el comentario largo en `apps/kiosko/src/store/espera.ts`.
+ */
+const LATIDO_MS = 120_000
+
+export function arrancarLatidoEspera(): () => void {
   publicarVistazo(leerEspera())
+  const id = setInterval(() => {
+    const lista = leerEspera()
+    if (lista.length > 0) publicarVistazo(lista)
+  }, LATIDO_MS)
+  return () => clearInterval(id)
 }
 
 /**

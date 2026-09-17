@@ -7,7 +7,7 @@ import { CatalogoBusqueda } from '@/components/pos/CatalogoBusqueda'
 import { OrdenPanel } from '@/components/pos/OrdenPanel'
 import { useProductosPOS } from '@/hooks/useProductosPOS'
 import { mensajeDeError, mxn } from '@shake/utils'
-import { publicarEsperaAlArrancar } from '@/store/espera'
+import { arrancarLatidoEspera } from '@/store/espera'
 
 export function Caja() {
   const navigate = useNavigate()
@@ -29,9 +29,10 @@ export function Caja() {
     return () => clearInterval(interval)
   }, [])
 
-  // Lo que ya estaba apartado al abrir la caja, para que Admin -> En vivo
-  // lo vea sin esperar a que alguien toque la lista.
-  useEffect(() => { publicarEsperaAlArrancar() }, [])
+  // Lo que ya estaba apartado al abrir la caja, y despues un latido cada
+  // dos minutos: sin el, una apartada que nadie toca se le caduca a
+  // gerencia a las 12 h aunque siga viva aqui.
+  useEffect(() => arrancarLatidoEspera(), [])
 
   // Bootstrap real: almacén kiosko + caja de la sucursal + corte abierto.
   useEffect(() => {

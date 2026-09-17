@@ -351,6 +351,16 @@ las 12 horas, la misma vigencia que usa el navegador.
   cantidad) y la **hora en que se apartó** — no la de ahora: «desde las
   11:54» es lo que dice si alguien se fue y no volvió. Aun así no hay
   folio, ni id de producto, ni precio por renglón: eso sería una orden.
+- **El vistazo LATE cada 2 minutos, no solo al cambiar la lista.** Sin
+  latido pasaban dos cosas: una apartada que nadie toca **se le caducaba a
+  gerencia a las 12 h** aunque siguiera viva en la pantalla, y el día que
+  empezó a viajar el detalle las apartadas que ya existían se quedaron sin
+  él —la pantalla no tenía motivo para volver a hablar—, así que en Admin
+  los renglones no se podían abrir y no había forma de saber por qué.
+  `arrancarLatidoEspera()` en los dos stores; con la lista vacía no late.
+- Y cuando una pantalla reporta **sin detalle**, el panel lo dice. Un
+  renglón que no responde y no explica nada es peor que uno que confiesa
+  que está esperando una versión nueva.
 
 ### 2.4.6 La sorpresa no se anuncia
 
