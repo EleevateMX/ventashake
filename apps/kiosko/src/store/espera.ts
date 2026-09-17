@@ -1,6 +1,6 @@
 import type { ItemCarrito, UsuarioKiosko } from './carritoStore'
-import { idDePantalla } from '@shake/utils'
-import { publicarEspera } from '@shake/supabase'
+import { idDePantalla, horaEnMerida } from '@shake/utils'
+import { publicarEspera, type VentaApartada } from '@shake/supabase'
 import { sb } from '@/lib/sb'
 
 /**
@@ -93,7 +93,25 @@ function publicarVistazo(lista: VentaEnEspera[]): void {
     lista.length,
     Math.round(total * 100) / 100,
     lista.map((v) => v.etiqueta),
+    lista.map(detalleParaVistazo),
   ).catch(() => {})
+}
+
+/**
+ * Lo que se publica de UNA apartada: qué lleva y de qué hora es.
+ *
+ * Los extras van como renglón propio y no colgando del padre, porque aquí
+ * nadie prepara nada: es una lista para que gerencia reconozca la venta
+ * desde su celular. Y va la hora en que se apartó, no la de ahora: "desde
+ * las 11:54" es lo que dice si alguien se fue y no volvió.
+ */
+function detalleParaVistazo(v: VentaEnEspera): VentaApartada {
+  return {
+    etiqueta: v.etiqueta,
+    total: Math.round((Number(v.total) || 0) * 100) / 100,
+    hora: horaEnMerida(new Date(v.guardadaEn)),
+    items: v.items.map((i) => ({ n: i.nombre, c: i.cantidad })),
+  }
 }
 
 /**
