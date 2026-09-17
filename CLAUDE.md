@@ -280,6 +280,15 @@ nadie lo use.
 > 30 quedaron en cero — y se va acotando una por una. La que nadie toque
 > se queda como estaba.
 
+> **Y el alcance explícito le gana a la estación.** Lo escribí al revés
+> primero y rompió justo lo que Perla acababa de configurar: los **combos**
+> imprimen en Bebidas pero llevan queso y verdura, así que ató «Sin queso»
+> y «Sin zanahoria» —de Alimentos— a la categoría Combos, y mi filtro por
+> estación las tiraba antes de mirar el alcance. En el kiosko seguían
+> saliendo solo las quince de bebidas. La estación es el valor por omisión
+> de las que nadie acotó; **un valor por omisión no le gana a una
+> decisión**.
+
 Esa regla vive en `packages/utils/src/observaciones.ts`
 (`observacionesDeProducto`, con pruebas) y **no** en el kiosko: es la
 misma lección que `extras.ts`, que kiosko y POS se separan solos. Ojo con
@@ -287,6 +296,57 @@ la distinción que hace el kiosko entre `undefined` (no cargaron → usa los
 chips de respaldo del código) y `[]` (a este producto no le aplica
 ninguna → no pinta nada): confundirlas hace que un café acotado a cero
 muestre las cinco de siempre.
+
+### 2.4.7 Un extra también puede ser un botón del menú
+
+Hay gente que entra **solo** por un extra de chipotle o de pepinillos, y
+hay wraps que no los llevan en la receta pero el cliente los pide aparte.
+Para eso está **Admin → Extras → «Vender solo»**: precio, en qué botón del
+menú aparece, y listo.
+
+No mueve el extra: **crea un gemelo** con `es_extra = false` y **la receta
+copiada**. Son dos cosas distintas a propósito — un extra y un producto de
+menú se filtran por pools distintos en todas las pantallas
+(`listarProductosParaVenta` excluye `es_extra`), así que moverlo lo
+sacaría de los productos donde ya se ofrece. Copiar la receta es lo que
+evita repetir el agujero de «se vende y no descuenta».
+
+Las categorías **«Extras» y «Extras Bebidas» ya no se esconden** de Admin
+→ Categorías. Se escondían porque los extras no son botones del menú, y
+eso dejaba la pantalla mintiendo dos veces: Perla escribía «Extras», la
+base contestaba «ya existe» y la categoría no estaba en ninguna lista; y
+cuando pidió una sección EXTRAS en el menú, no había forma de ordenarla.
+Cumplen los dos papeles y el flag `es_extra` los separa limpio: la lista
+cuenta y el kiosko pinta **solo lo vendible**. El botón aparece en el
+kiosko en cuanto la categoría tenga un producto suelto dentro — las
+categorías del menú se derivan de los productos cargados, no de una lista
+aparte.
+
+### 2.4.8 Las ventas en espera se ven de lejos, pero siguen siendo locales
+
+Gerencia pidió verlas desde Admin → **En vivo**. **No se movieron a la
+base**: meterlas a `ordenes` sería una orden a medio crear que la
+reconciliación tendría que distinguir de una venta perdida, y ensuciar el
+camino del dinero por algo que dura tres minutos es mal negocio.
+
+Lo que viaja es un **vistazo** (`ventas_en_espera_vistazo`): cuántas,
+cuánto y las etiquetas — sin items, sin precios por renglón, sin folio.
+Es lo mismo que el latido de la impresora: un «aquí estoy y esto tengo».
+La venta sigue en el navegador que la apartó, y el vistazo caduca solo a
+las 12 horas, la misma vigencia que usa el navegador.
+
+- Se publica desde **`escribir`/`guardarEspera`**, no desde cada botón: así
+  toda ruta que cambie la lista avisa sola y no hay forma de agregar un
+  camino nuevo que se olvide.
+- Va **en silencio**. Si falla, la caja sigue cobrando y lo único
+  desactualizado es la pantalla de gerencia.
+- `fn_espera_publicar` está abierta a `anon` (el kiosko en modo cajero
+  cobra como `anon`); `fn_espera_en_vivo` **no**, porque las etiquetas
+  llevan nombres de clientes. Comprobado por HTTP: publicar da 204, leer
+  da 401.
+- Cada pantalla lleva un sufijo al azar (`kiosko:a3f2`). Sin él, dos
+  pestañas escribirían el mismo renglón y Admin parpadearía entre dos
+  verdades.
 
 ### 2.4.6 La sorpresa no se anuncia
 
@@ -421,6 +481,8 @@ empaquetador y se desvían solas:
 | Llegó mercancía | Kiosko → **"Caja y turno"** → PIN → **"¿Llegó mercancía?"** → por caja o por pieza. Di si vino de bodega: eso la resta allá |
 | Ver por qué el inventario no baja | Admin → Inventario → **"Lo que no descuenta"** |
 | Una observación sale donde no debe | Admin → Extras → *Observaciones* → **"Dónde aplica"**. Marca la categoría (un clic para los 250 shakes) o los productos sueltos |
+| Vender un extra suelto (chipotle, pepinillos) | Admin → **Extras** → *Vender solo* → precio y en qué botón del menú |
+| Ver qué ventas están apartadas, a distancia | Admin → **En vivo**, arriba del todo |
 
 ---
 

@@ -7,6 +7,8 @@ import {
   guardarExtra,
   quitarExtra,
   listarExtrasBebidaAdmin,
+  extraVenderSolo,
+  listarCategorias,
   guardarExtraBebida,
   activarExtraBebida,
   productosDeExtra,
@@ -68,6 +70,14 @@ export default function Extras() {
   const [filtroVinculos, setFiltroVinculos] = useState('')
   const [cambiandoVinculo, setCambiandoVinculo] = useState<string | null>(null)
 
+  // "Vender solo": el extra tambien como boton del menu. Un extra abierto
+  // a la vez, con su precio y su categoria destino.
+  const [soloAbierto, setSoloAbierto] = useState<string | null>(null)
+  const [soloPrecio, setSoloPrecio] = useState('')
+  const [soloCategoria, setSoloCategoria] = useState('')
+  const [guardandoSolo, setGuardandoSolo] = useState(false)
+  const [categorias, setCategorias] = useState<{ id: string; nombre: string }[]>([])
+
   const [abierto, setAbierto] = useState<string | null>(null)
   const [ingredientes, setIngredientes] = useState<IngredienteExtraible[]>([])
   const [cargandoIngs, setCargandoIngs] = useState(false)
@@ -92,14 +102,15 @@ export default function Extras() {
 
   async function cargar() {
     try {
-      const [ps, exs, bs, obs] = await Promise.all([
+      const [ps, exs, bs, obs, cats] = await Promise.all([
         listarProductosParaVenta(sb), listarExtras(sb), listarExtrasBebidaAdmin(sb),
-        listarObservacionesAdmin(sb),
+        listarObservacionesAdmin(sb), listarCategorias(sb),
       ])
       setProductos(ps)
       setExtras(exs)
       setBebida(bs)
       setObservaciones(obs)
+      setCategorias(cats.map((c) => ({ id: c.id, nombre: c.nombre })))
       setError(null)
     } catch (e) {
       setError(mensajeDeError(e))
@@ -352,6 +363,41 @@ export default function Extras() {
       setError(mensajeDeError(e))
     } finally {
       setCambiandoVinculo(null)
+    }
+  }
+
+  /**
+   * Abre el panel de "vender solo" de un extra, con lo que ya tiene
+   * puesto si es que ya se vende — así el control no pierde el precio
+   * que alguien eligió la vez pasada.
+   */
+  function abrirSolo(e: ExtraBebidaAdmin) {
+    if (soloAbierto === e.id) { setSoloAbierto(null); return }
+    setSoloAbierto(e.id)
+    setSoloPrecio(e.suelto_precio != null ? String(e.suelto_precio) : String(e.precio || ''))
+    setSoloCategoria(e.suelto_categoria ?? 'Extras')
+    setError(null)
+  }
+
+  async function ponerAlaVenta(e: ExtraBebidaAdmin, vender: boolean) {
+    setGuardandoSolo(true)
+    setError(null)
+    try {
+      const r = await extraVenderSolo(
+        sb, e.id, vender,
+        vender ? Number(soloPrecio) || 0 : undefined,
+        vender ? soloCategoria : undefined,
+      )
+      setOk(vender
+        ? `«${r.nombre}» ya es un botón del menú, con ${r.renglones_de_receta ?? 0} renglón(es) de receta copiados.`
+        : `«${r.nombre}» dejó de venderse por separado. No se borró nada.`)
+      setSoloAbierto(null)
+      await cargar()
+      setTimeout(() => setOk(null), 6000)
+    } catch (err) {
+      setError(mensajeDeError(err))
+    } finally {
+      setGuardandoSolo(false)
     }
   }
 
@@ -701,6 +747,7 @@ export default function Extras() {
                   <th className={cx.thNum}>Precio</th>
                   <th className={cx.th}>En cuántos productos</th>
                   <th className={cx.th}>Disponible</th>
+                  <th className={cx.th}>Solo en el menú</th>
                   <th className={cx.thNum}></th>
                 </tr>
               </thead>
@@ -722,10 +769,23 @@ export default function Extras() {
                       <td className={cx.td}>
                         <Chip tone={e.activo ? 'si' : 'no'}>{e.activo ? 'Sí' : 'Apagado'}</Chip>
                       </td>
+                      <td className={cx.td}>
+                        {e.vende_solo ? (
+                          <span className="text-xs text-sa-green">
+                            Sí · {e.suelto_precio != null ? mxn(e.suelto_precio) : '—'}
+                            {e.suelto_categoria ? ` en ${e.suelto_categoria}` : ''}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-sa-green-ink/40">No</span>
+                        )}
+                      </td>
                       <td className={cx.tdNum}>
                         <div className="inline-flex gap-2">
                           <button className={cx.btnSec} onClick={() => void abrirVinculos(e.id)}>
                             {extraAbierto === e.id ? 'Cerrar' : 'Dónde se ofrece'}
+                          </button>
+                          <button className={cx.btnSec} onClick={() => abrirSolo(e)}>
+                            {soloAbierto === e.id ? 'Cerrar' : 'Vender solo'}
                           </button>
                           <button className={cx.btnSec} onClick={() => void toggleBebida(e)}>
                             {e.activo ? 'Apagar' : 'Prender'}
@@ -733,9 +793,82 @@ export default function Extras() {
                         </div>
                       </td>
                     </tr>
+
+                    {/* Vender solo: el extra tambien como boton del menu. */}
+                    {soloAbierto === e.id && (
+                      <tr>
+                        <td colSpan={6} className="px-5 py-4 bg-sa-cream-soft/60">
+                          <p className="text-sm text-sa-green-ink/75 leading-relaxed mb-3 max-w-3xl">
+                            Ponerlo a la venta por separado crea un <b>producto propio</b> en el
+                            menú —para quien entra solo por un extra de chipotle o de
+                            pepinillos— con la <b>receta copiada</b>, así que descuenta inventario
+                            igual que cualquier otro. El extra sigue existiendo tal cual dentro de
+                            los productos donde ya se ofrece: son dos cosas distintas, no una
+                            movida.
+                          </p>
+
+                          {e.vende_solo ? (
+                            <div className="flex items-center gap-3 flex-wrap">
+                              <span className="text-sm">
+                                Hoy se vende como <b>«{e.suelto_nombre}»</b>
+                                {e.suelto_precio != null && <> a {mxn(e.suelto_precio)}</>}
+                                {e.suelto_categoria && <> en <b>{e.suelto_categoria}</b></>}.
+                              </span>
+                              <button
+                                className={cx.btnSec}
+                                disabled={guardandoSolo}
+                                onClick={() => void ponerAlaVenta(e, false)}
+                              >
+                                {guardandoSolo ? 'Quitando…' : 'Quitar del menú'}
+                              </button>
+                              <span className={`${cx.muted} text-xs`}>
+                                Quitarlo no borra nada: se apaga y conserva su historial de ventas.
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="flex items-end gap-3 flex-wrap">
+                              <div>
+                                <label className={cx.label}>Precio suelto</label>
+                                <input
+                                  className={cx.input}
+                                  style={{ maxWidth: 140 }}
+                                  type="number"
+                                  value={soloPrecio}
+                                  onChange={(ev) => setSoloPrecio(ev.target.value)}
+                                />
+                              </div>
+                              <div>
+                                <label className={cx.label}>¿En qué botón del menú?</label>
+                                <select
+                                  className={cx.input}
+                                  style={{ maxWidth: 240 }}
+                                  value={soloCategoria}
+                                  onChange={(ev) => setSoloCategoria(ev.target.value)}
+                                >
+                                  {categorias.map((c) => (
+                                    <option key={c.id} value={c.nombre}>{c.nombre}</option>
+                                  ))}
+                                </select>
+                              </div>
+                              <button
+                                className={cx.btnPrimary}
+                                disabled={guardandoSolo || !(Number(soloPrecio) > 0)}
+                                onClick={() => void ponerAlaVenta(e, true)}
+                              >
+                                {guardandoSolo ? 'Poniendo…' : 'Ponerlo en el menú'}
+                              </button>
+                              <span className={`${cx.muted} text-xs max-w-xs`}>
+                                El precio no se adivina: es una decisión del negocio. El botón
+                                aparece en el kiosko en cuanto la categoría tenga algo dentro.
+                              </span>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    )}
                     {extraAbierto === e.id && (
                       <tr>
-                        <td colSpan={5} className="px-5 py-4 bg-sa-cream-soft/60">
+                        <td colSpan={6} className="px-5 py-4 bg-sa-cream-soft/60">
                           {cargandoVinculos ? (
                             <p className={cx.muted}>Cargando productos…</p>
                           ) : (

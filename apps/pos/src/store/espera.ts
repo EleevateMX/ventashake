@@ -1,6 +1,9 @@
 import type { LineaCarrito, DescuentoManual } from './posStore'
 import type { ClienteConLealtad } from '@shake/supabase'
 import type { Cupon, Promocion } from '@shake/types'
+import { idDePantalla } from '@shake/utils'
+import { publicarEspera } from '@shake/supabase'
+import { sb } from '../lib/sb'
 
 /**
  * Ventas apartadas: "déjame la mía en espera y cóbrale a él, que va con
@@ -54,12 +57,49 @@ export function leerEspera(): VentaEnEspera[] {
 }
 
 export function guardarEspera(lista: VentaEnEspera[]): void {
+  const cortada = lista.slice(-MAX)
   try {
-    localStorage.setItem(LLAVE, JSON.stringify(lista.slice(-MAX)))
+    localStorage.setItem(LLAVE, JSON.stringify(cortada))
   } catch {
     // Si no se puede guardar, la venta sigue en pantalla: no se pierde nada
     // que el cajero no pueda volver a capturar.
   }
+  publicarVistazo(cortada)
+}
+
+/**
+ * Le avisa al servidor cuántas apartadas tiene ESTA pantalla, para que
+ * gerencia las vea en Admin → En vivo.
+ *
+ * **No es guardar la venta**: viajan el conteo, el total y las etiquetas,
+ * nunca los items ni los precios por renglón. La venta sigue viviendo en
+ * este navegador, por las razones de arriba.
+ *
+ * Va desde `guardarEspera` y no desde cada botón, igual que en el kiosko:
+ * así toda ruta que cambie la lista publica sola. Y va en silencio — si
+ * falla, la caja sigue cobrando y lo único desactualizado es la pantalla
+ * de gerencia.
+ */
+function publicarVistazo(lista: VentaEnEspera[]): void {
+  // El POS no guarda un total en la apartada: guarda las líneas. Se suma
+  // de ellas, y a precio de catálogo — es un vistazo, no una cuenta: el
+  // servidor cobra el precio de hoy cuando la venta se retome, y ese es
+  // el número que manda.
+  const deLaVenta = (v: VentaEnEspera) =>
+    v.items.reduce((s, l) => s + (Number(l.producto?.precio) || 0) * (Number(l.cantidad) || 0), 0)
+  const total = lista.reduce((s, v) => s + deLaVenta(v), 0)
+  void publicarEspera(
+    sb,
+    idDePantalla('pos'),
+    lista.length,
+    Math.round(total * 100) / 100,
+    lista.map((v) => v.etiqueta),
+  ).catch(() => {})
+}
+
+/** Publica lo que ya había al abrir la pantalla. */
+export function publicarEsperaAlArrancar(): void {
+  publicarVistazo(leerEspera())
 }
 
 /**
