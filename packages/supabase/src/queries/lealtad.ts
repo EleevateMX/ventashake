@@ -243,16 +243,29 @@ export interface ResumenLealtad {
     desde: string
   }
   progreso?: { meta: number; faltan: number; pct: number }
-  /** Las dos tarjetas 13+1: una de bebidas y otra de comida. */
-  sellos?: {
+  /**
+   * El guiño de la tarjeta 13+1, **sin números**.
+   *
+   * Antes aquí viajaban `tiene`, `requeridos`, `faltan` y el catálogo de
+   * premios, y la app pintaba "3/13 · te faltan 10 para tu bebida gratis".
+   * Eso convierte el premio en una deuda anunciada: el cliente sabe
+   * exactamente cuánto le falta y que es gratis, y deja de ser sorpresa.
+   *
+   * Ahora el servidor manda **una frase y nada más**, y solo cuando ya
+   * está cerca (`aviso_desde` en `config_sellos`, por omisión a dos
+   * compras del premio). Quitarlo únicamente de la pantalla no habría
+   * servido: el JSON se lee en el inspector del navegador.
+   *
+   * El personal sigue viendo el número exacto por `fn_rewards_para_caja`.
+   * Quien entrega el premio tiene que saber.
+   */
+  sorpresa?: {
     tipo: string
-    tiene: number
-    requeridos: number
-    faltan: number
-    listo: boolean
+    /** "Bebidas" / "Comida", para saber de cuál se habla. */
+    nombre: string
+    estado: 'cerca' | 'lista'
+    texto: string
   }[]
-  /** Catálogo de lo que se puede pedir al llenar una tarjeta. */
-  premios?: { tipo: string; nombre: string; precio: number }[]
   /** Paquetes de recarga a la venta, con el bono que regalan. */
   paquetes?: {
     nombre: string
@@ -554,6 +567,95 @@ export interface RewardsAdmin {
 
 export async function rewardsAdmin(sb: ShakeClient): Promise<RewardsAdmin> {
   return rpc<RewardsAdmin>(sb, 'fn_rewards_admin', {})
+}
+
+/**
+ * Todo lo que define Rewards, en una sola respuesta.
+ *
+ * Los números que gobiernan el programa vivían repartidos en cinco
+ * lugares —una función, un trigger, dos tablas y un documento—, así que
+ * la única forma de contestar "¿cuánto vale una mancuerna?" era abrir el
+ * repo. El dueño no puede planear un programa cuyos parámetros no ve.
+ */
+export interface RewardsParametros {
+  /** Cuántas mancuernas hacen $1 al gastarlas. */
+  canje: { mancuernas_por_peso: number; vale_una_mancuerna: number; donde: string }
+  /**
+   * Cuánto hay que gastar para ganar una, y el tope por orden. **No se
+   * edita desde Admin**: vive dentro del trigger que corre en cada cobro,
+   * y ese camino no se toca por un ajuste de pantalla.
+   */
+  ganancia: {
+    pesos_por_mancuerna: number
+    tope_por_orden: number
+    donde: string
+    editable_aqui: boolean
+  }
+  cupon: { meta_mancuernas: number; donde: string }
+  paquetes: {
+    id: string
+    nombre: string
+    precio: number
+    mancuernas: number
+    vale_pesos: number
+    bono_pct: number
+    activo: boolean
+  }[]
+  sellos: {
+    tipo: string
+    nombre: string
+    requeridos: number
+    precio_minimo: number
+    /** A cuántas compras del premio empieza el guiño. 0 lo apaga. */
+    aviso_desde: number
+    aviso_texto: string | null
+    aviso_listo_texto: string | null
+    activo: boolean
+    premios: number
+    premio_mas_barato: number | null
+    /**
+     * El cliente elige del catálogo, así que **este** es el costo real de
+     * la tarjeta, no el promedio.
+     */
+    premio_mas_caro: number | null
+    clientes_juntando: number
+    clientes_listos: number
+  }[]
+  premios: {
+    tipo: string
+    producto_id: string
+    nombre: string
+    precio: number
+    activo: boolean
+  }[]
+}
+
+export async function rewardsParametros(sb: ShakeClient): Promise<RewardsParametros> {
+  return rpc<RewardsParametros>(sb, 'fn_rewards_parametros', {})
+}
+
+/** Cambia las reglas de UNA tarjeta de sellos. Solo gerencia. */
+export async function guardarConfigSellos(
+  sb: ShakeClient,
+  c: {
+    tipo: string
+    requeridos: number
+    precio_minimo: number
+    aviso_desde: number
+    aviso_texto: string
+    aviso_listo_texto: string
+    activo: boolean
+  },
+): Promise<void> {
+  await rpc<void>(sb, 'fn_config_sellos_guardar', {
+    p_tipo: c.tipo,
+    p_requeridos: c.requeridos,
+    p_precio_minimo: c.precio_minimo,
+    p_aviso_desde: c.aviso_desde,
+    p_aviso_texto: c.aviso_texto,
+    p_aviso_listo_texto: c.aviso_listo_texto,
+    p_activo: c.activo,
+  })
 }
 
 export interface TarjetaGenerada {

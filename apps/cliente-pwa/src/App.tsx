@@ -12,7 +12,7 @@ import { sb } from './lib/sb'
 import { esNativo, iniciarSesionGoogleNativa, escucharVueltaDeLogin } from './nativo'
 import {
   IconoMancuerna, IconoVaso, IconoLista, IconoPersona,
-  IconoComida, IconoRegalo, IconoPalomita,
+  IconoComida, IconoRegalo,
 } from './Iconos'
 import { Metas } from './Metas'
 import { Avatar, CambiarFoto } from './Avatar'
@@ -253,7 +253,7 @@ function Inicio({ datos, alRecargar }: { datos: ResumenLealtad | null; alRecarga
 
       <Bolsas datos={datos} />
       <Metas alGanar={alRecargar} />
-      <Sellos datos={datos} />
+      <Sorpresa datos={datos} />
       <Cupones datos={datos} />
       <Paquetes datos={datos} />
       <TarjetaRegalo alRecargar={alRecargar} />
@@ -437,66 +437,51 @@ function Bolsas({ datos }: { datos: ResumenLealtad | null }) {
   )
 }
 
-/** Las tarjetas 13 + 1, una por familia. */
-function Sellos({ datos }: { datos: ResumenLealtad | null }) {
-  const sellos = datos?.sellos ?? []
-  const premios = datos?.premios ?? []
-  if (sellos.length === 0) return null
+/**
+ * El guiño de la tarjeta 13 + 1.
+ *
+ * Antes esto era una tarjeta de sellos completa: "3/13", los trece
+ * circulitos y "Te faltan 10 para tu bebida GRATIS". El negocio pidió lo
+ * contrario, y tiene razón: anunciar el premio lo convierte en una deuda
+ * que el cliente va tachando, y el día que lo reclama no hay sorpresa que
+ * dar — solo una cuenta que se salda.
+ *
+ * Ahora no se dice nada hasta que ya está cerca, y ni entonces se dice
+ * qué es ni que es gratis. El texto lo escribe gerencia en Admin, así que
+ * esta pantalla **no decide el mensaje**: lo pinta.
+ *
+ * Los números no viajan desde el servidor, así que aquí no hay nada que
+ * esconder ni que calcular. Si esta sección no aparece, es porque el
+ * servidor no mandó nada — no porque la pantalla lo esté ocultando.
+ */
+function Sorpresa({ datos }: { datos: ResumenLealtad | null }) {
+  const avisos = datos?.sorpresa ?? []
+  if (avisos.length === 0) return null
 
   return (
     <section className="rounded-sa-lg p-5 mb-3 bg-sa-cream-paper text-sa-green-ink shadow-sa">
-      <h2 className="font-display text-lg text-sa-green">Tus tarjetas de sellos</h2>
-      <p className="text-xs text-sa-green-ink/55 mb-3">
-        Junta 13 y la 14 va por cuenta de la casa. Bebidas y comida cuentan por separado.
-      </p>
-
-      <div className="space-y-4">
-        {sellos.map((s) => {
-          const info = NOMBRE_SELLO[s.tipo] ?? { titulo: s.tipo, Icono: IconoRegalo, que: s.tipo }
-          const cuantos = premios.filter((pr) => pr.tipo === s.tipo).length
+      <div className="space-y-3">
+        {avisos.map((a) => {
+          const info = NOMBRE_SELLO[a.tipo] ?? { titulo: a.nombre, Icono: IconoRegalo, que: a.tipo }
+          const lista = a.estado === 'lista'
           return (
-            <div key={s.tipo}>
-              <div className="flex items-baseline justify-between gap-3">
-                <p className="font-display text-base leading-tight flex items-center gap-1.5">
-                  <info.Icono className="w-[18px] h-[18px] text-sa-green" />
+            <div
+              key={a.tipo}
+              className={`flex items-start gap-3 rounded-sa px-4 py-3 ${
+                lista ? 'bg-sa-banana/30' : 'bg-white/60'
+              }`}
+            >
+              <info.Icono
+                className={`w-5 h-5 shrink-0 mt-0.5 ${lista ? 'text-sa-green' : 'text-sa-green/70'}`}
+              />
+              <div className="min-w-0">
+                <p className={`text-sm leading-snug ${lista ? 'font-semibold text-sa-green' : 'text-sa-green-ink/80'}`}>
+                  {a.texto}
+                </p>
+                <p className="font-mono text-[10px] uppercase tracking-wide text-sa-green-ink/45 mt-0.5">
                   {info.titulo}
                 </p>
-                <p className="font-mono text-xs text-sa-green-ink/55">
-                  {s.tiene}/{s.requeridos}
-                </p>
               </div>
-
-              {/* Los sellos como los del papel: se ven de un vistazo cuántos
-                  faltan sin tener que leer un número. */}
-              <div className="grid grid-cols-7 gap-1.5 mt-2">
-                {Array.from({ length: s.requeridos }, (_, i) => (
-                  <span
-                    key={i}
-                    className={`aspect-square rounded-full border flex items-center justify-center text-[11px] ${
-                      i < s.tiene
-                        ? 'bg-sa-green border-sa-green text-sa-cream'
-                        : 'border-dashed border-sa-green-ink/25 text-sa-green-ink/20'
-                    }`}
-                  >
-                    {i < s.tiene ? <IconoPalomita className="w-3.5 h-3.5" /> : i + 1}
-                  </span>
-                ))}
-                <span
-                  className={`aspect-square rounded-full border flex items-center justify-center text-[11px] ${
-                    s.listo
-                      ? 'bg-sa-banana border-sa-banana text-sa-green-ink font-bold'
-                      : 'border-dashed border-sa-banana/50 text-sa-banana/60'
-                  }`}
-                >
-                  <IconoRegalo className="w-[15px] h-[15px]" />
-                </span>
-              </div>
-
-              <p className={`text-[12px] mt-1.5 leading-snug ${s.listo ? 'text-sa-green font-semibold' : 'text-sa-green-ink/60'}`}>
-                {s.listo
-                  ? `¡Lista! Pide tu ${info.que} gratis en caja.`
-                  : `Te ${s.faltan === 1 ? 'falta' : 'faltan'} ${s.faltan} para tu ${info.que} gratis${cuantos > 0 ? ` (${cuantos} a elegir)` : ''}.`}
-              </p>
             </div>
           )
         })}
