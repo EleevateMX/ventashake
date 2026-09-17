@@ -25,8 +25,23 @@ import { Panel, PageHeader, Loading, ErrorMsg, OkMsg, Chip, cx } from '../ui'
  * de la que se arma todo, no solo en la vista.
  */
 
-/** Categorías del sistema que no son del menú: los extras nunca salen como botón. */
-const INTERNAS = new Set(['Extras', 'Extras Bebidas'])
+/**
+ * Categorías que además guardan los extras.
+ *
+ * **Ya no se esconden, y esa es la corrección.** Se escondían porque los
+ * extras no son botones del menú — cierto — pero eso dejaba la pantalla
+ * mintiendo dos veces: Perla escribía "Extras", la base contestaba "ya
+ * existe" y la categoría no estaba en ninguna lista; y cuando pidió una
+ * sección EXTRAS en el menú, no había forma de ordenarla desde aquí.
+ *
+ * Ahora sí salen, con su aviso, porque cumplen los dos papeles a la vez:
+ * guardan los extras (`es_extra = true`, que ninguna pantalla del menú
+ * muestra) y pueden guardar productos sueltos vendibles (`es_extra =
+ * false`), que son los que Admin cuenta y los que el kiosko pinta. El
+ * flag los separa limpiamente; esconder la categoría no separaba nada,
+ * solo escondía.
+ */
+const CON_EXTRAS = new Set(['Extras', 'Extras Bebidas'])
 
 /** Para comparar nombres como los compara la base: sin acentos ni mayúsculas. */
 const sinAcentos = (s: string) =>
@@ -56,7 +71,7 @@ export default function Categorias() {
   const [moviendo, setMoviendo] = useState<string | null>(null)
 
   const visibles = useMemo(
-    () => categorias.filter((c) => !INTERNAS.has(c.nombre)),
+    () => categorias,
     [categorias],
   )
 
@@ -78,7 +93,7 @@ export default function Categorias() {
    * base rechace el alta, y buscada en `categorias` y no en `visibles`.
    *
    * Esa diferencia es todo el bug: esta pantalla esconde a propósito las
-   * categorías del sistema (`INTERNAS`), así que cuando alguien escribía
+   * categorías que guardan los extras, así que cuando alguien escribía
    * "Extras" la base contestaba "ya existe" y el mensaje mandaba a buscarla
    * en una lista donde **nunca iba a estar**. Perla lo intentó tres veces.
    * Un candado que no se puede ver es un candado que parece una falla.
@@ -226,13 +241,15 @@ export default function Categorias() {
             rechace: así el nombre sigue en la caja y se puede corregir. */}
         {choca && (
           <div className="mt-4 rounded-xl border border-sa-banana bg-sa-banana/20 px-4 py-3">
-            {INTERNAS.has(choca.nombre) ? (
+            {CON_EXTRAS.has(choca.nombre) ? (
               <p className="text-sm text-sa-green-ink leading-relaxed">
-                <strong>«{choca.nombre}» ya existe</strong>, pero no la ves aquí
-                porque no es un botón del menú: es donde viven los extras.
-                {' '}Para dar de alta un extra —un chipotle, un aderezo, un
-                scoop— ve a <strong>Extras</strong> en el menú de la
-                izquierda. Ahí se crea y se elige en qué productos aparece.
+                <strong>«{choca.nombre}» ya existe</strong> y está en la lista de abajo:
+                es la categoría donde viven los extras. Para dar de alta un extra
+                —un chipotle, unos pepinillos— ve a <strong>Extras</strong> en el
+                menú de la izquierda; y si además quieres que se venda solo, ahí
+                mismo está <strong>«Vender solo»</strong>. En cuanto tenga un producto
+                suelto dentro, esta categoría sale como botón en el kiosko y la puedes
+                subir de posición con las flechas.
               </p>
             ) : (
               <p className="text-sm text-sa-green-ink leading-relaxed">
@@ -303,6 +320,11 @@ export default function Categorias() {
                     onClick={() => { setAbierta(estaAbierta ? null : c.id); setFiltro('') }}
                   >
                     <span className="font-display text-xl text-sa-green-ink">{c.nombre}</span>
+                    {CON_EXTRAS.has(c.nombre) && (
+                      <Chip tone="neutral">
+                        aquí viven los extras · solo cuenta lo que se vende suelto
+                      </Chip>
+                    )}
                     <span className={`${cx.muted} text-sm ml-3`}>
                       {dentro.length === 0
                         ? 'vacía — no aparece en el kiosko todavía'

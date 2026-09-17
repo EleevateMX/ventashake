@@ -1,4 +1,7 @@
 import type { ItemCarrito, UsuarioKiosko } from './carritoStore'
+import { idDePantalla } from '@shake/utils'
+import { publicarEspera } from '@shake/supabase'
+import { sb } from '@/lib/sb'
 
 /**
  * Ventas apartadas: "déjame la mía en espera y cóbrale a él".
@@ -56,12 +59,50 @@ export function leerEspera(): VentaEnEspera[] {
 }
 
 function escribir(lista: VentaEnEspera[]): void {
+  const cortada = lista.slice(-MAX)
   try {
-    localStorage.setItem(LLAVE, JSON.stringify(lista.slice(-MAX)))
+    localStorage.setItem(LLAVE, JSON.stringify(cortada))
   } catch {
     // Si no se puede guardar, la venta sigue en pantalla: no se pierde
     // nada que el cajero no pueda volver a capturar.
   }
+  publicarVistazo(cortada)
+}
+
+/**
+ * Le avisa al servidor cuántas apartadas tiene ESTA pantalla, para que
+ * gerencia lo vea en Admin → En vivo.
+ *
+ * **No es guardar la venta**: no viajan los items ni los precios por
+ * renglón, solo el conteo, el total y las etiquetas. La venta sigue
+ * viviendo aquí, en el navegador, por las razones de arriba.
+ *
+ * Va desde `escribir` y no desde cada botón a propósito: así toda ruta
+ * que cambie la lista publica sola, y no hay forma de agregar un camino
+ * nuevo que se olvide de avisar.
+ *
+ * Y va en silencio. Si esto falla, la caja tiene que seguir cobrando:
+ * un vistazo que no llegó es una pantalla de gerencia desactualizada,
+ * nada más.
+ */
+function publicarVistazo(lista: VentaEnEspera[]): void {
+  const total = lista.reduce((s, v) => s + (Number(v.total) || 0), 0)
+  void publicarEspera(
+    sb,
+    idDePantalla('kiosko'),
+    lista.length,
+    Math.round(total * 100) / 100,
+    lista.map((v) => v.etiqueta),
+  ).catch(() => {})
+}
+
+/**
+ * Publica lo que ya había al abrir la pantalla. Sin esto, una caja que
+ * lleva tres horas con una apartada no aparecería en Admin hasta que
+ * alguien tocara la lista — y ese es justo el caso que se quería ver.
+ */
+export function publicarEsperaAlArrancar(): void {
+  publicarVistazo(leerEspera())
 }
 
 /**

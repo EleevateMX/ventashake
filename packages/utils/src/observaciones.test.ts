@@ -55,11 +55,36 @@ describe('observacionesDeProducto', () => {
     )).toEqual([])
   })
 
-  it('la estación manda sobre el alcance: una de cocina no salta a una bebida', () => {
-    // Aunque alguien ate por error una observación de alimentos a la
-    // categoría de shakes, no debe salir en la barra de bebidas.
-    const todas = [obs('Sin tomate', 'alimentos', [CAT_SHAKES])]
-    expect(observacionesDeProducto(todas, shake)).toEqual([])
+  it('el alcance explícito le gana a la estación: el caso de los combos', () => {
+    // Un combo imprime en Bebidas (va a la barra) pero lleva queso y
+    // verdura. Gerencia ató "Sin queso" —de Alimentos— a la categoría
+    // Combos a mano, y eso tiene que salir. La primera versión filtraba
+    // por estación ANTES de mirar el alcance y las tiraba todas: en el
+    // kiosko seguían apareciendo solo las quince de bebidas.
+    const combo: ProductoParaObservaciones = {
+      id: 'p-combo', categoria_id: 'cat-combos', cocina_slug: 'bebidas',
+    }
+    const todas = [
+      obs('Sin queso', 'alimentos', ['cat-combos']),
+      obs('Sin zanahoria', 'alimentos', ['cat-combos']),
+      obs('Sin hielo', 'bebidas'),
+      // Una de alimentos SIN acotar no debe colarse al combo.
+      obs('Sin aderezo', 'alimentos'),
+    ]
+    expect(observacionesDeProducto(todas, combo))
+      .toEqual(['Sin hielo', 'Sin queso', 'Sin zanahoria'])
+  })
+
+  it('sin acotar, cada observación se queda en su estación', () => {
+    const todas = [obs('Sin hielo', 'bebidas'), obs('Sin tomate', 'alimentos')]
+    expect(observacionesDeProducto(todas, shake)).toEqual(['Sin hielo'])
+    expect(observacionesDeProducto(todas, ensalada)).toEqual(['Sin tomate'])
+  })
+
+  it('acotar a un producto tambien cruza de estación', () => {
+    // Mismo principio, por producto en vez de por categoría.
+    const todas = [obs('Sin queso', 'alimentos', [], ['p-cafe'])]
+    expect(observacionesDeProducto(todas, cafe)).toEqual(['Sin queso'])
   })
 
   it('un producto sin estación conocida ve todo lo que le aplique por alcance', () => {

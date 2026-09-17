@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { sb } from '../lib/sb'
-import { panelEnVivo, type PanelEnVivo } from '@shake/supabase'
+import { panelEnVivo, esperaEnVivo, type PanelEnVivo, type EsperaEnVivo } from '@shake/supabase'
 import { mxn, mensajeDeError } from '@shake/utils'
 import { PageHeader, Loading, ErrorMsg } from '../ui'
 import { BotonActualizarPantallas } from '../BotonActualizarPantallas'
@@ -52,6 +52,14 @@ const ICONO_EVENTO: Record<string, string> = {
  */
 export default function EnVivo() {
   const [panel, setPanel] = useState<PanelEnVivo | null>(null)
+  /**
+   * Las ventas apartadas de cada pantalla. Van aparte del panel y no
+   * dentro de él porque **no son órdenes**: viven en el navegador de la
+   * caja y lo que llega aquí es un vistazo que esa pantalla publica.
+   * Meterlas al mismo viaje daría a entender que son parte de la venta,
+   * y son justo lo contrario: lo que todavía no entró.
+   */
+  const [espera, setEspera] = useState<EsperaEnVivo[]>([])
   const [error, setError] = useState<string | null>(null)
   const [vista, setVista] = useState<'ultimos' | 'turno'>('ultimos')
   const [conectado, setConectado] = useState(false)
@@ -63,10 +71,16 @@ export default function EnVivo() {
 
   useEffect(() => {
     vivo.current = true
-    const cargar = () =>
-      panelEnVivo(sb, vistaRef.current === 'turno')
+    const cargar = () => {
+      // Si el vistazo de apartadas falla no se enseña error: el panel
+      // principal es lo que no puede faltar.
+      void esperaEnVivo(sb)
+        .then((e) => { if (vivo.current) setEspera(e) })
+        .catch(() => {})
+      return panelEnVivo(sb, vistaRef.current === 'turno')
         .then((p) => { if (vivo.current) { setPanel(p); setError(null) } })
         .catch((e) => { if (vivo.current) setError(mensajeDeError(e)) })
+    }
     void cargar()
 
     // El corazón: cualquier movimiento en las tablas que laten dispara una
@@ -77,7 +91,10 @@ export default function EnVivo() {
       debounce.current = setTimeout(() => void cargar(), 350)
     }
     let canal = sb.channel('panel-en-vivo')
-    for (const tabla of ['ordenes', 'pagos', 'pedidos_cocina', 'trabajos_impresion', 'caja_cortes']) {
+    for (const tabla of [
+      'ordenes', 'pagos', 'pedidos_cocina', 'trabajos_impresion', 'caja_cortes',
+      'ventas_en_espera_vistazo',
+    ]) {
       canal = canal.on(
         'postgres_changes',
         { event: '*', schema: 'public', table: tabla },
@@ -132,6 +149,58 @@ export default function EnVivo() {
       />
 
       {error && <ErrorMsg>{error}</ErrorMsg>}
+
+      {/* Ventas apartadas. Van arriba del panel porque son lo único de
+          esta pantalla que pide una acción de alguien: una cuenta
+          capturada que lleva rato esperando a que el cliente vuelva. */}
+      {espera.length > 0 && (
+        <section className="mb-6 rounded-sa-lg border border-sa-banana bg-sa-banana/15 p-5">
+          <div className="flex items-baseline justify-between gap-3 flex-wrap mb-1">
+            <h2 className="font-display text-xl text-sa-green-ink">
+              Ventas en espera ·{' '}
+              {espera.reduce((s, e) => s + e.cuantas, 0)}
+            </h2>
+            <span className="font-mono text-sm text-sa-green-ink/70">
+              {mxn(espera.reduce((s, e) => s + Number(e.total || 0), 0))} apartados
+            </span>
+          </div>
+          <p className="text-xs text-sa-green-ink/60 mb-3">
+            Cuentas capturadas que todavía no se cobran. Viven en la pantalla que las
+            apartó, así que esto es lo que esa pantalla reportó — no una orden.
+          </p>
+
+          <div className="space-y-3">
+            {espera.map((e) => (
+              <div key={e.pantalla} className="rounded-sa bg-white/70 px-4 py-3">
+                <div className="flex items-baseline justify-between gap-3 flex-wrap">
+                  <p className="font-display text-base text-sa-green-ink">
+                    {e.pantalla.startsWith('pos:') ? 'Caja' : 'Kiosko'}
+                    <span className="font-mono text-[11px] text-sa-green-ink/40 ml-2">
+                      {e.pantalla.split(':')[1]}
+                    </span>
+                  </p>
+                  <p className="font-mono text-xs text-sa-green-ink/55">
+                    {e.cuantas} {e.cuantas === 1 ? 'apartada' : 'apartadas'} · {mxn(e.total)}
+                    {e.hace_minutos > 5 && ` · reportado hace ${e.hace_minutos} min`}
+                  </p>
+                </div>
+                {e.etiquetas.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {e.etiquetas.map((et, i) => (
+                      <span
+                        key={`${e.pantalla}-${i}`}
+                        className="px-3 py-1 rounded-full bg-white text-sm text-sa-green-ink border border-sa-green-ink/10"
+                      >
+                        {et}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {panel && (
         <>

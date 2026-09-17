@@ -333,6 +333,30 @@ export async function listarExtras(sb: ShakeClient): Promise<ExtraDeProducto[]> 
   return data as unknown as ExtraDeProducto[]
 }
 
+/**
+ * Pone (o quita) un extra a la venta **por separado**, como un producto
+ * más del menú.
+ *
+ * `precio` y `categoria` solo se usan al prender. Apagar no borra nada:
+ * el gemelo se desactiva y conserva su historial de ventas.
+ */
+export async function extraVenderSolo(
+  sb: ShakeClient,
+  extraId: string,
+  vender: boolean,
+  precio?: number,
+  categoria?: string,
+): Promise<{ vende_solo: boolean; nombre: string; renglones_de_receta?: number }> {
+  const { data, error } = await (sb.rpc as unknown as RpcCatalogo)('fn_extra_vender_solo', {
+    p_extra_id: extraId,
+    p_vender: vender,
+    p_precio: precio ?? null,
+    p_categoria: categoria ?? null,
+  })
+  if (error) throw error
+  return data as { vende_solo: boolean; nombre: string; renglones_de_receta?: number }
+}
+
 /** Ingredientes de un producto que pueden ofrecerse como extra, con su costo real. */
 export interface IngredienteExtraible {
   insumo_id: string
@@ -391,6 +415,21 @@ export interface ExtraBebidaAdmin {
   activo: boolean
   /** En cuántos productos se ofrece. 0 = existe pero no aparece en ningún lado. */
   ligado_a: number
+  /**
+   * Si además se vende **solo**, como un botón más del menú, para quien
+   * entra nada más por un extra de chipotle o de pepinillos.
+   *
+   * No es el mismo producto: es un gemelo con `es_extra = false` y la
+   * receta copiada, porque un extra y un producto de menú se filtran por
+   * pools distintos en todas las pantallas. Copiar la receta es lo que
+   * evita repetir el agujero de "se vende y no descuenta".
+   */
+  vende_solo: boolean
+  suelto_id: string | null
+  suelto_nombre: string | null
+  suelto_precio: number | null
+  /** La categoría en la que aparece como botón del menú. */
+  suelto_categoria: string | null
 }
 
 type RpcCatalogo = (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>
@@ -530,6 +569,46 @@ export async function grupoExtraEnProducto(
     p_grupo: grupo,
   })
   if (error) throw error
+}
+
+// ------------------------- ventas en espera ---------------------------
+// Las apartadas viven en el navegador de cada pantalla, y esa decisión no
+// cambia (meterlas a `ordenes` sería una orden a medio crear que la
+// reconciliación tendría que distinguir de una venta perdida). Lo que
+// viaja aquí es un **vistazo**: cuántas y cuánto, para que gerencia lo
+// vea de lejos. No es una orden y nada cobra con esto.
+
+export interface EsperaEnVivo {
+  pantalla: string
+  cuantas: number
+  total: number
+  etiquetas: string[]
+  /** Hace cuánto publicó esa pantalla. Viejo = se apagó sin limpiar. */
+  hace_minutos: number
+}
+
+/** La pantalla publica su lista. Se llama cada vez que cambia. */
+export async function publicarEspera(
+  sb: ShakeClient,
+  pantalla: string,
+  cuantas: number,
+  total: number,
+  etiquetas: string[],
+): Promise<void> {
+  const { error } = await (sb.rpc as unknown as RpcCatalogo)('fn_espera_publicar', {
+    p_pantalla: pantalla,
+    p_cuantas: cuantas,
+    p_total: total,
+    p_etiquetas: etiquetas,
+  })
+  if (error) throw error
+}
+
+/** Lo que ve Admin -> En vivo. Solo personal. */
+export async function esperaEnVivo(sb: ShakeClient): Promise<EsperaEnVivo[]> {
+  const { data, error } = await (sb.rpc as unknown as RpcCatalogo)('fn_espera_en_vivo', {})
+  if (error) throw error
+  return (data ?? []) as EsperaEnVivo[]
 }
 
 // ---------------------------- observaciones ----------------------------

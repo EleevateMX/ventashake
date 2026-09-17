@@ -89,3 +89,28 @@ export function refrescarContraCatalogo<T extends LineaRefrescable>(
 export function totalRefrescado(items: LineaRefrescable[]): number {
   return items.reduce((s, i) => s + i.precio * i.cantidad, 0)
 }
+
+/**
+ * Un nombre estable para ESTA pantalla, para que Admin pueda distinguir
+ * la caja del kiosko cuando las dos tienen ventas apartadas.
+ *
+ * Lleva un sufijo al azar guardado en el navegador y no solo "kiosko",
+ * porque si alguien abre una segunda pestaña las dos escribirían el mismo
+ * renglón y Admin parpadearía entre dos verdades. Con el sufijo, dos
+ * pestañas se ven como dos pantallas — que es exactamente lo que son.
+ *
+ * Si `localStorage` no está disponible, se devuelve un nombre efímero: el
+ * vistazo es para mirar de lejos, y perderlo no le cuesta nada a la venta.
+ */
+export function idDePantalla(app: 'kiosko' | 'pos'): string {
+  const llave = `shake.${app}.id-pantalla`
+  try {
+    const guardado = localStorage.getItem(llave)
+    if (guardado) return `${app}:${guardado}`
+    const nuevo = Math.random().toString(36).slice(2, 6)
+    localStorage.setItem(llave, nuevo)
+    return `${app}:${nuevo}`
+  } catch {
+    return `${app}:tmp`
+  }
+}

@@ -14,7 +14,7 @@ import { ModalExtras } from '@/components/ModalExtras'
 import { CorteMilo } from '@/components/CorteMilo'
 import { HistorialPedidos } from '@/components/HistorialPedidos'
 import { VentasEnEspera } from '@/components/VentasEnEspera'
-import { leerEspera, quitarDeEspera } from '@/store/espera'
+import { leerEspera, quitarDeEspera, publicarEsperaAlArrancar } from '@/store/espera'
 
 interface Categoria {
   id: string
@@ -104,6 +104,10 @@ export function Catalogo() {
     listarObservacionesVigentes(sb)
       .then(setObservaciones)
       .catch(() => {})
+
+    // Lo que ya estaba apartado al abrir la pantalla, para que Admin lo
+    // vea sin esperar a que alguien toque la lista.
+    publicarEsperaAlArrancar()
   }, [])
 
   const extrasDe = (productoId: string) => extras.filter((e) => e.producto_id === productoId)

@@ -7,6 +7,7 @@ import { CatalogoBusqueda } from '@/components/pos/CatalogoBusqueda'
 import { OrdenPanel } from '@/components/pos/OrdenPanel'
 import { useProductosPOS } from '@/hooks/useProductosPOS'
 import { mensajeDeError, mxn } from '@shake/utils'
+import { publicarEsperaAlArrancar } from '@/store/espera'
 
 export function Caja() {
   const navigate = useNavigate()
@@ -27,6 +28,10 @@ export function Caja() {
     const interval = setInterval(() => setHoraActual(new Date()), 30000)
     return () => clearInterval(interval)
   }, [])
+
+  // Lo que ya estaba apartado al abrir la caja, para que Admin -> En vivo
+  // lo vea sin esperar a que alguien toque la lista.
+  useEffect(() => { publicarEsperaAlArrancar() }, [])
 
   // Bootstrap real: almacén kiosko + caja de la sucursal + corte abierto.
   useEffect(() => {

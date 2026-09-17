@@ -18,6 +18,12 @@
  * abierta**: una observación sin alcance sale en toda su estación, igual
  * que siempre. El día del despliegue no cambia nada; se va acotando una
  * por una, y la que nadie toque se queda como estaba.
+ *
+ * Y el orden importa: **el alcance explícito le gana a la estación**. Un
+ * combo imprime en Bebidas pero lleva queso y verdura, así que "Sin queso"
+ * —una observación de Alimentos— le aplica si alguien la ató a Combos a
+ * mano. La estación es el valor por omisión de las que nadie acotó, y un
+ * valor por omisión no le gana a una decisión.
  */
 
 /** Lo mínimo que hace falta de una observación para decidir dónde va. */
@@ -43,16 +49,29 @@ export function observacionesDeProducto(
 ): string[] {
   return todas
     .filter((o) => {
-      // Primero la estación: una observación de cocina no se ofrece en una
-      // bebida por mucho alcance que tenga. El alcance afina dentro de su
-      // estación, no salta de una a otra.
-      if (producto.cocina_slug && o.cocina_slug !== producto.cocina_slug) return false
-
+      // El alcance explícito manda sobre la estación, y esto es al revés
+      // de como lo escribí primero.
+      //
+      // Los **combos** son el caso que lo demuestra: imprimen en Bebidas
+      // (van a la barra), pero un Chapata-Americano lleva queso y verdura,
+      // así que "Sin queso" y "Sin zanahoria" —que son de Alimentos— le
+      // aplican de verdad. Gerencia las ató a la categoría Combos a mano,
+      // y mi filtro por estación las tiraba antes de mirar el alcance: en
+      // el kiosko seguían saliendo solo las quince de bebidas.
+      //
+      // La lección: atar una observación a una categoría o a un producto
+      // es un acto deliberado de quien conoce la carta. La estación es
+      // solo el valor por omisión de las que nadie acotó — y un valor por
+      // omisión no le gana a una decisión.
       const acotada = o.categorias.length > 0 || o.productos.length > 0
-      if (!acotada) return true
 
-      if (producto.categoria_id && o.categorias.includes(producto.categoria_id)) return true
-      return o.productos.includes(producto.id)
+      if (acotada) {
+        if (producto.categoria_id && o.categorias.includes(producto.categoria_id)) return true
+        return o.productos.includes(producto.id)
+      }
+
+      // Sin acotar: se queda en su estación, como siempre.
+      return !producto.cocina_slug || o.cocina_slug === producto.cocina_slug
     })
     .sort((a, b) => a.orden - b.orden || a.texto.localeCompare(b.texto, 'es'))
     .map((o) => o.texto)
