@@ -115,12 +115,37 @@ function detalleParaVistazo(v: VentaEnEspera): VentaApartada {
 }
 
 /**
- * Publica lo que ya había al abrir la pantalla. Sin esto, una caja que
- * lleva tres horas con una apartada no aparecería en Admin hasta que
- * alguien tocara la lista — y ese es justo el caso que se quería ver.
+ * Publica lo que ya había al abrir la pantalla, y **sigue latiendo**
+ * mientras haya algo apartado.
+ *
+ * El latido no es adorno, son dos agujeros que tapa:
+ *
+ * 1. **El vistazo caduca a las 12 h.** Publicando solo al cambiar la
+ *    lista, una apartada que nadie toca desaparece del panel de gerencia
+ *    aunque siga viva en esta pantalla. El panel perdería justo lo que
+ *    está ahí para vigilar.
+ * 2. **Lo que esta pantalla sabe decir cambia con los despliegues.** El
+ *    día que empezó a viajar el detalle (qué lleva, a qué hora), las
+ *    apartadas que ya existían se quedaron sin él: la pantalla no tenía
+ *    motivo para volver a hablar, así que en Admin los renglones no se
+ *    podían abrir y no había forma de saber por qué. Con el latido, la
+ *    versión nueva se pone al día sola en un par de minutos.
+ *
+ * Con la lista vacía no late: `escribir` ya publicó el cero cuando se
+ * retomó la última, y un renglón en cero no se muestra ni caduca a nadie.
+ *
+ * Devuelve la función para apagarlo, para que la pantalla no deje
+ * intervalos sueltos al desmontarse.
  */
-export function publicarEsperaAlArrancar(): void {
+const LATIDO_MS = 120_000
+
+export function arrancarLatidoEspera(): () => void {
   publicarVistazo(leerEspera())
+  const id = setInterval(() => {
+    const lista = leerEspera()
+    if (lista.length > 0) publicarVistazo(lista)
+  }, LATIDO_MS)
+  return () => clearInterval(id)
 }
 
 /**

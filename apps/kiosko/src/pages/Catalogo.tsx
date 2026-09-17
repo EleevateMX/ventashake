@@ -14,7 +14,7 @@ import { ModalExtras } from '@/components/ModalExtras'
 import { CorteMilo } from '@/components/CorteMilo'
 import { HistorialPedidos } from '@/components/HistorialPedidos'
 import { VentasEnEspera } from '@/components/VentasEnEspera'
-import { leerEspera, quitarDeEspera, publicarEsperaAlArrancar } from '@/store/espera'
+import { leerEspera, quitarDeEspera, arrancarLatidoEspera } from '@/store/espera'
 
 interface Categoria {
   id: string
@@ -105,9 +105,11 @@ export function Catalogo() {
       .then(setObservaciones)
       .catch(() => {})
 
-    // Lo que ya estaba apartado al abrir la pantalla, para que Admin lo
-    // vea sin esperar a que alguien toque la lista.
-    publicarEsperaAlArrancar()
+    // Lo que ya estaba apartado al abrir la pantalla, y despues un latido
+    // cada dos minutos: sin el, una apartada que nadie toca se le caduca
+    // a gerencia a las 12 h aunque siga viva aqui.
+    const apagarLatido = arrancarLatidoEspera()
+    return apagarLatido
   }, [])
 
   const extrasDe = (productoId: string) => extras.filter((e) => e.producto_id === productoId)

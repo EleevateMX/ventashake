@@ -192,6 +192,15 @@ export default function EnVivo() {
             {' '}Toca una para ver qué lleva.
           </p>
 
+          {espera.some((e) => e.ventas.every((v) => v.items.length === 0)) && (
+            <p className="text-[11px] text-sa-green-ink/55 leading-relaxed mb-3 rounded-sa bg-white/50 px-3 py-2">
+              Alguna de estas pantallas todavía reporta <b>sin el detalle</b> (qué lleva y
+              a qué hora): recogió una versión anterior del kiosko. Se pone al día sola
+              en un par de minutos, o de inmediato con <b>Actualizar pantallas</b>.
+              Mientras tanto se ve la etiqueta, que es con la que el cajero la reconoce.
+            </p>
+          )}
+
           <div className="space-y-3">
             {espera.map((e) => (
               <div key={e.pantalla} className="rounded-sa bg-white/70 px-4 py-3">
@@ -222,11 +231,9 @@ export default function EnVivo() {
                               abierta ? 'border-sa-green' : 'border-sa-green-ink/10'
                             } ${hayDetalle ? 'hover:border-sa-green-ink/30' : 'cursor-default'}`}
                           >
-                            {hayDetalle && (
-                              <span className="font-mono text-[10px] text-sa-green-ink/40 w-3 shrink-0">
-                                {abierta ? '▾' : '▸'}
-                              </span>
-                            )}
+                            <span className="font-mono text-[10px] text-sa-green-ink/40 w-3 shrink-0">
+                              {hayDetalle ? (abierta ? '▾' : '▸') : '·'}
+                            </span>
                             <span className="flex-1 min-w-0 truncate text-sm text-sa-green-ink">
                               {vt.etiqueta}
                             </span>

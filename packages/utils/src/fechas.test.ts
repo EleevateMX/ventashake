@@ -46,3 +46,12 @@ describe('hace', () => {
     expect(hace(new Date('2026-09-17T12:00:04Z'), ahora)).toBe('hace 0 s')
   })
 })
+
+describe('horaEnMerida con basura', () => {
+  it('no lanza con una fecha invalida: esto corre al guardar una venta apartada', () => {
+    // Un `guardadaEn` corrupto en localStorage no debe impedir que el
+    // cajero aparte una cuenta.
+    expect(() => horaEnMerida(new Date('no es fecha'))).not.toThrow()
+    expect(horaEnMerida(new Date('no es fecha'))).toBe('')
+  })
+})
