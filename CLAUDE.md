@@ -689,6 +689,20 @@ empaquetador y se desvían solas:
   frío/caliente) ya no es una expresión regular en el código: es la
   estrella de Admin → Extras, guardada por vínculo producto↔extra. Las
   reglas viejas siguen ahí de respaldo mientras nadie marque nada.
+- **El doble scoop se empata por `marca`, y un extra sin marca cobraba de
+  menos.** `fn_extra_bebida_guardar` —la función de Admin → Extras— **nunca
+  escribía `marca`**, así que todo lo dado de alta desde ahí nacía en null.
+  El kiosko no encontraba su "Doble scoop - MARCA" y caía a *el primero sin
+  marca*, que en El Clásico —ordenado por nombre— es **GHOST a $39**: con
+  Sascha ($49) o ISO 100 ($45) elegidas, cobraba $39. Por eso el reporte
+  fue "son las últimas proteínas que agregué": eran justo las que habían
+  pasado por esa pantalla.
+  Arreglado en los tres niveles: la marca **se deriva del nombre al dar de
+  alta** (`fn_marca_de_extra`), se rellenaron las 21 que faltaban, y la
+  regla de la pantalla vive en `dobleScoopDe` (@shake/utils, con pruebas).
+  **Si no empata, ya no ofrece ninguno**: que alguien diga "no me deja
+  poner doble scoop" es barato; que la caja cobre $10 de menos sin que
+  nadie se entere, no.
 - **Las ventas apartadas viven en el navegador de esa caja**, no en la
   base (`apps/pos/src/store/espera.ts`). Meterlas a la base significaría
   una orden a medio crear que la reconciliación tendría que aprender a
