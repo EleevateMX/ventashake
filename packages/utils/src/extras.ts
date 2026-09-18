@@ -157,3 +157,45 @@ export function notaDeBase(base: OpcionExtra | null | undefined): string | null 
 export function baseCobrada<T extends OpcionExtra>(base: T | null | undefined): T | null {
   return base && base.precio > 0 ? base : null
 }
+
+/** Lo mínimo de un extra para elegir su doble scoop. */
+export interface ExtraConMarca {
+  nombre: string
+  precio: number
+  /** Dato del catálogo, no un recorte del nombre. Puede faltar. */
+  marca?: string | null
+}
+
+/**
+ * Cuál "Doble scoop" le toca a la proteína elegida.
+ *
+ * Un scoop de Optimum son $29 y uno de Peacock $49, así que elegir mal no
+ * es un detalle de pantalla: es cobrar de menos. Por eso esta regla vive
+ * aquí, con pruebas, y no suelta dentro de un componente.
+ *
+ * Se empata por `marca`, que es un dato del catálogo. Recortar el nombre
+ * confundiría "BIRDMAN FALCON" con "BIRDMAN FALCON PERFORMANCE".
+ *
+ * **Y si no empata, NO se ofrece ninguno.** La versión anterior caía a
+ * `dobles.find((d) => !d.marca)` — "el primero que no tenga marca"— como
+ * atajo para los productos de proteína fija, que ofrecen uno solo. Pero
+ * en El Clásico, que ofrece diez, ese atajo agarraba el primero en orden
+ * alfabético: con Sascha ($49) o ISO 100 ($45) elegidas, cobraba el de
+ * GHOST, **$39**. Undercharge silencioso, que es la peor clase.
+ *
+ * El caso de proteína fija se cubre con lo que de verdad lo define —que
+ * haya **uno solo**— y no con la ausencia de marca. Si hay varios y
+ * ninguno empata, no ofrecerlo: que alguien diga "no me deja poner doble
+ * scoop" es barato; que la caja cobre $10 de menos sin que nadie se
+ * entere, no.
+ */
+export function dobleScoopDe<T extends ExtraConMarca>(
+  dobles: T[],
+  proteinaElegida: ExtraConMarca | null | undefined,
+): T | null {
+  const porMarca = dobles.find(
+    (d) => d.marca && proteinaElegida?.marca && d.marca === proteinaElegida.marca,
+  )
+  if (porMarca) return porMarca
+  return dobles.length === 1 ? dobles[0] : null
+}

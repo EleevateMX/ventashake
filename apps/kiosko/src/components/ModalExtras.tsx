@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import {
-  mxn, esBase, esGalleta, esProteina, esDobleScoop,
+  mxn, esBase, esGalleta, esProteina, esDobleScoop, dobleScoopDe,
   ordenarBases, baseDeCasa, opcionDeCasa, notaDeBase, baseCobrada,
 } from '@shake/utils'
 import type { ProductoVenta, ExtraDeProducto } from '@shake/supabase'
@@ -154,19 +154,10 @@ export function ModalExtras({ producto, extras, observaciones: catalogoObs, onCe
   /**
    * El doble scoop de ESTA proteína.
    *
-   * Un scoop de Optimum son $25 y uno de Peacock $49, así que un precio
-   * único regalaba dinero en las caras. Donde se elige proteína hay un
-   * "Doble scoop - MARCA" por cada una y aquí se escoge el que le toca;
-   * donde la proteína es fija (Blueberry Bloom siempre lleva Fitmingo) hay
-   * uno solo, sin marca, con su precio puesto por producto desde Admin.
-   *
-   * Se empata por `marca`, que es un dato del catálogo. Recortar el nombre
-   * confundiría "BIRDMAN FALCON" con "BIRDMAN FALCON PERFORMANCE".
+   * La regla vive en `dobleScoopDe` (@shake/utils), con pruebas: elegir
+   * mal aquí no es un detalle de pantalla, es cobrar de menos.
    */
-  const doble =
-    dobles.find((d) => d.marca && d.marca === proteinaElegida?.marca) ??
-    dobles.find((d) => !d.marca) ??
-    (proteinas.length === 0 ? dobles[0] ?? null : null)
+  const doble = dobleScoopDe(dobles, proteinaElegida)
   /**
    * Lo elegido en cada grupo. Si el cliente no tocó el grupo vale la
    * primera opción — la misma que se ve marcada en pantalla: si aquí no se

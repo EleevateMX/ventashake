@@ -3,6 +3,7 @@ import {
   claseExtra, esBase, esProteina, esGalleta, esDobleScoop,
   ordenarBases, baseDeCasa, opcionDeCasa, notaDeBase, baseCobrada,
   type OpcionExtra,
+  dobleScoopDe,
 } from './extras'
 
 const op = (nombre: string, extra: Partial<OpcionExtra> = {}): OpcionExtra => ({
@@ -118,5 +119,51 @@ describe('notaDeBase', () => {
   })
   it('sin base, no hay nota', () => {
     expect(notaDeBase(null)).toBeNull()
+  })
+})
+
+describe('dobleScoopDe', () => {
+  const d = (nombre: string, precio: number, marca: string | null) => ({ nombre, precio, marca })
+
+  it('empata por marca, no por nombre', () => {
+    const dobles = [
+      d('Doble scoop - BIRDMAN FALCON', 35, 'BIRDMAN FALCON'),
+      d('Doble scoop - BIRDMAN FALCON PERFORMANCE', 39, 'BIRDMAN FALCON PERFORMANCE'),
+    ]
+    const elegida = d('Proteína BIRDMAN FALCON - Fresa', 0, 'BIRDMAN FALCON')
+    expect(dobleScoopDe(dobles, elegida)?.precio).toBe(35)
+  })
+
+  it('con UN solo doble scoop lo usa: es el caso de proteína fija', () => {
+    const dobles = [d('Doble Scoop de Proteína', 45, null)]
+    expect(dobleScoopDe(dobles, d('Proteína ISO 100 - Churro', 0, null))?.precio).toBe(45)
+    expect(dobleScoopDe(dobles, null)?.precio).toBe(45)
+  })
+
+  it('NO cobra el más barato cuando la marca no empata: el bug de El Clásico', () => {
+    // La proteína llegó sin `marca` (Admin -> Extras no la escribía), y la
+    // versión vieja agarraba "el primero sin marca" — GHOST, $39— aunque
+    // el cliente hubiera elegido Sascha, que son $49.
+    const dobles = [
+      d('Doble scoop - GHOST', 39, null),
+      d('Doble scoop - ISO 100', 45, 'ISO 100'),
+      d('Doble scoop - SASCHA FITNESS', 49, null),
+    ]
+    const sinMarca = d('Proteína SASCHA FITNESS - Chocolate', 0, null)
+    expect(dobleScoopDe(dobles, sinMarca)).toBeNull()
+  })
+
+  it('con la marca puesta sí encuentra el suyo aunque haya varios', () => {
+    const dobles = [
+      d('Doble scoop - GHOST', 39, 'GHOST'),
+      d('Doble scoop - ISO 100', 45, 'ISO 100'),
+      d('Doble scoop - SASCHA FITNESS', 49, 'SASCHA FITNESS'),
+    ]
+    expect(dobleScoopDe(dobles, d('Proteína ISO 100 - Churro', 0, 'ISO 100'))?.precio).toBe(45)
+    expect(dobleScoopDe(dobles, d('Proteína SASCHA FITNESS - Vainilla', 0, 'SASCHA FITNESS'))?.precio).toBe(49)
+  })
+
+  it('sin dobles ofrecidos, no hay nada que elegir', () => {
+    expect(dobleScoopDe([], d('Proteína OPTIMUM - Vainilla', 0, 'OPTIMUM'))).toBeNull()
   })
 })
