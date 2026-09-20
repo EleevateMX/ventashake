@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   claseExtra, esBase, esProteina, esGalleta, esDobleScoop,
-  ordenarBases, baseDeCasa, opcionDeCasa, notaDeBase, baseCobrada,
+  ordenarBases, baseDeCasa, opcionDeGrupo, grupoEsOpcional, extraDisponible, notaDeBase, baseCobrada,
   type OpcionExtra,
   dobleScoopDe,
 } from './extras'
@@ -93,12 +93,47 @@ describe('baseDeCasa', () => {
   })
 })
 
-describe('opcionDeCasa', () => {
+describe('opcionDeGrupo', () => {
   it('la marcada, si la hay', () => {
-    expect(opcionDeCasa([op('Frío'), op('Caliente', { por_defecto: true })])?.nombre).toBe('Caliente')
+    expect(opcionDeGrupo([op('Frío'), op('Caliente', { por_defecto: true })])?.nombre).toBe('Caliente')
   })
-  it('si no, la primera — la misma que se ve marcada en pantalla', () => {
-    expect(opcionDeCasa([op('Frío'), op('Caliente')])?.nombre).toBe('Frío')
+
+  it('sin marca y todas sin costo, la primera — el combo ya viene pagado', () => {
+    expect(opcionDeGrupo([op('Frío'), op('Caliente')])?.nombre).toBe('Frío')
+  })
+
+  it('sin marca y alguna cuesta, NINGUNA: el kiosko no cobra lo que nadie eligió', () => {
+    const preparados = [op('Preparado: Açaí Dream', { precio: 56 }), op('Preparado: Mr. Nutty', { precio: 56 })]
+    expect(opcionDeGrupo(preparados)).toBeNull()
+    expect(grupoEsOpcional(preparados)).toBe(true)
+  })
+
+  it('la estrella le gana al precio: si alguien decidió, se respeta', () => {
+    const conMarca = [op('Chico', { precio: 0 }), op('Grande', { precio: 10, por_defecto: true })]
+    expect(opcionDeGrupo(conMarca)?.nombre).toBe('Grande')
+    expect(grupoEsOpcional(conMarca)).toBe(false)
+  })
+
+  it('un grupo gratis no se puede dejar vacío', () => {
+    expect(grupoEsOpcional([op('Frío'), op('Caliente')])).toBe(false)
+  })
+})
+
+describe('extraDisponible', () => {
+  it('sin acotar, siempre — como nacieron todos', () => {
+    expect(extraDisponible({}, [])).toBe(true)
+    expect(extraDisponible({ requiere_grupo: null }, [])).toBe(true)
+    expect(extraDisponible({ requiere_grupo: '  ' }, [])).toBe(true)
+  })
+
+  it('la galleta aparece solo cuando ya hay preparado', () => {
+    const galleta = { requiere_grupo: 'Preparado' }
+    expect(extraDisponible(galleta, [])).toBe(false)
+    expect(extraDisponible(galleta, ['Preparado'])).toBe(true)
+  })
+
+  it('otro grupo elegido no la habilita', () => {
+    expect(extraDisponible({ requiere_grupo: 'Preparado' }, ['Café', 'Muffin'])).toBe(false)
   })
 })
 

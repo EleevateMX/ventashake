@@ -322,6 +322,60 @@ kiosko en cuanto la categoría tenga un producto suelto dentro — las
 categorías del menú se derivan de los productos cargados, no de una lista
 aparte.
 
+### 2.4.9 El kiosko no cobra lo que nadie eligió
+
+Los extras de un mismo producto que comparten **grupo** se ofrecen como
+«elige una». La regla vieja era: la estrella de Admin, y si no hay, **la
+primera**. Eso funcionaba porque todos los grupos que existían eran de
+combo —¿qué wrap?, ¿qué café?— y sus opciones cuestan **$0**: la opción ya
+viene pagada dentro del combo y no elegir ninguna no es una respuesta.
+
+El 19/09 se metieron los **«Preparado: …» de $56** como grupo dentro de El
+Clásico, para vender un signature con la proteína que el cliente quiera
+($69 + $56 = $125, el precio del signature). Y la regla vieja preseleccionó
+el primero: **al abrir El Clásico ya decía $125**, así que no había forma
+de vender uno normal. El reporte llegó como «los chicos no pudieron cobrar
+un clásico por el tema de sistema».
+
+La regla nueva vive en `opcionDeGrupo` (`packages/utils/src/extras.ts`, con
+pruebas) y tiene tres casos:
+
+1. **Hay estrella en Admin** → esa. Alguien decidió.
+2. **Sin estrella y todas salen sin costo** → la primera. Los combos siguen
+   igual que siempre; el día del despliegue no cambió ninguno.
+3. **Sin estrella y alguna cuesta** → **ninguna**, y el grupo se puede
+   vaciar tocando la opción otra vez.
+
+> Es la misma familia del doble scoop, al revés: allá la pantalla cobraba
+> **de menos** sin que nadie se enterara, aquí **de más**. La regla que
+> cubre las dos es una sola — **el precio lo pone lo que el cliente eligió,
+> nunca lo que la pantalla eligió por él**. Por eso el caso 3 no es una
+> preferencia de diseño: preseleccionar algo que cobra es un cobro que
+> nadie pidió.
+
+**Y un extra puede depender de un grupo.** `producto_extras.requiere_grupo`
+dice qué grupo tiene que estar resuelto para que ese extra aparezca; vacío
+= siempre, como nacieron todos (misma regla de respaldo que las
+observaciones). Se escribe en Admin → Extras → columna **«solo si…»**,
+junto a *grupo*.
+
+Nació de las galletas, que son promoción **de los preparados**: están
+colgadas de los 16 signature de $125 y de ningún shake barato. En El
+Clásico no se podían colgar sin más —se regalaría la promo sobre un shake
+de $69— ni dejar fuera, porque quien sí compra el preparado las quiere. Con
+`requiere_grupo = 'Preparado'` la sección de Galletas **ni se pinta** hasta
+que hay preparado elegido, y desaparece si lo quitan.
+
+- La regla es `extraDisponible` en `@shake/utils`, importada por el kiosko
+  **y** por el POS. En el kiosko «el grupo está resuelto» es la opción
+  elegida en su sección; en el POS —que lista los grupos como extras
+  sueltos— es «hay algo puesto que pertenece a ese grupo». Misma lección
+  que `extras.ts`: las dos puertas no pueden divergir.
+- **No está blindado en el servidor**: `fn_crear_orden` no verifica
+  `requiere_grupo`. Es merchandising, no precio — lo que el servidor sí
+  protege (que el cliente no mande precios) sigue en pie, y el riesgo aquí
+  son $5 de una galleta.
+
 ### 2.4.8 Las ventas en espera se ven de lejos, pero siguen siendo locales
 
 Gerencia pidió verlas desde Admin → **En vivo**. **No se movieron a la
@@ -516,6 +570,7 @@ empaquetador y se desvían solas:
 | Ver por qué el inventario no baja | Admin → Inventario → **"Lo que no descuenta"** |
 | Una observación sale donde no debe | Admin → Extras → *Observaciones* → **"Dónde aplica"**. Marca la categoría (un clic para los 250 shakes) o los productos sueltos |
 | Vender un extra suelto (chipotle, pepinillos) | Admin → **Extras** → *Vender solo* → precio y en qué botón del menú |
+| Un extra solo debe salir con otra cosa (galletas solo con preparado) | Admin → **Extras** → en el producto, columna **«solo si…»** → escribe el nombre del grupo |
 | Ver qué ventas están apartadas, a distancia | Admin → **En vivo**, arriba del todo. Toca una para ver qué lleva, de qué hora es el ticket y a qué hora entró cada producto |
 
 ---

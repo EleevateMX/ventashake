@@ -126,9 +126,47 @@ export function baseDeCasa<T extends OpcionExtra>(bases: T[]): T | null {
   )
 }
 
-/** La marca de Admin manda; si no hay, la primera de la lista. */
-export function opcionDeCasa<T extends OpcionExtra>(opciones: T[]): T | null {
-  return opciones.find((o) => o.por_defecto) ?? opciones[0] ?? null
+/**
+ * Con qué opción de un grupo sale el producto si el cliente no toca nada.
+ *
+ * Tres casos, y el tercero nació de una venta que no se pudo cobrar:
+ *
+ *  1. **Hay estrella en Admin** → esa. Alguien decidió, y una decisión no
+ *     se discute.
+ *  2. **Sin estrella y todas salen sin costo** → la primera. Es el caso de
+ *     los combos ("¿qué wrap?", "¿qué café?"): la opción ya viene pagada
+ *     dentro del combo y no elegir ninguna no es una respuesta válida.
+ *  3. **Sin estrella y alguna cuesta** → ninguna. El kiosko **no
+ *     preselecciona nada que cobre**.
+ *
+ * El tercero es el que importa. El 19/09 se metieron los "Preparado: …" de
+ * $56 como grupo dentro de El Clásico —para poder vender un signature con
+ * la proteína que el cliente quiera— y la regla vieja preseleccionaba el
+ * primero: al abrir El Clásico ya decía **$125**, así que no había forma de
+ * vender uno normal de $69. Nadie había pedido ese preparado y ya estaba
+ * cobrado.
+ *
+ * Es la misma familia de error que el doble scoop, al revés: allá se
+ * cobraba de menos sin que nadie se enterara, aquí de más. La regla que
+ * cubre las dos es una sola — **el precio lo pone lo que el cliente
+ * eligió, nunca lo que la pantalla eligió por él**.
+ */
+export function opcionDeGrupo<T extends OpcionExtra>(opciones: T[]): T | null {
+  const marcada = opciones.find((o) => o.por_defecto)
+  if (marcada) return marcada
+  if (opciones.some((o) => o.precio > 0)) return null
+  return opciones[0] ?? null
+}
+
+/**
+ * Si un grupo se puede dejar sin elegir.
+ *
+ * Es el espejo de `opcionDeGrupo`: donde no hay nada preseleccionado, el
+ * cliente tiene que poder quitar lo que puso. Un grupo que se preselecciona
+ * solo no se puede vaciar — "elige una" es literal.
+ */
+export function grupoEsOpcional<T extends OpcionExtra>(opciones: T[]): boolean {
+  return opcionDeGrupo(opciones) === null
 }
 
 /**
@@ -198,4 +236,31 @@ export function dobleScoopDe<T extends ExtraConMarca>(
   )
   if (porMarca) return porMarca
   return dobles.length === 1 ? dobles[0] : null
+}
+
+/**
+ * Un extra que solo existe cuando ya se eligió algo de cierto grupo.
+ *
+ * El caso que lo pidió: las galletas son una promoción que **solo aplica a
+ * los preparados** (los de $125). Colgadas de El Clásico sin más, se
+ * podrían poner a un shake de $69 y la promo se regalaría sola. Y al revés
+ * —no ofrecerlas— deja a quien sí compró el preparado sin poder pedirlas.
+ *
+ * Por eso el vínculo producto↔extra lleva `requiere_grupo`: el nombre del
+ * grupo que tiene que estar resuelto para que ese extra aparezca. Vacío =
+ * siempre disponible, que es como nacieron todos y como se quedan los que
+ * nadie acote — la misma regla de respaldo que las observaciones.
+ *
+ * `gruposElegidos` son los grupos que YA tienen algo elegido en pantalla,
+ * no los que el producto ofrece: la galleta tiene que aparecer y
+ * desaparecer mientras el cliente decide, no al cargar el producto.
+ */
+export function extraDisponible(
+  extra: { requiere_grupo?: string | null },
+  gruposElegidos: Iterable<string>,
+): boolean {
+  const pide = (extra.requiere_grupo ?? '').trim()
+  if (!pide) return true
+  for (const g of gruposElegidos) if (g === pide) return true
+  return false
 }
