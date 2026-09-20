@@ -351,6 +351,15 @@ las 12 horas, la misma vigencia que usa el navegador.
   cantidad) y la **hora en que se apartó** — no la de ahora: «desde las
   11:54» es lo que dice si alguien se fue y no volvió. Aun así no hay
   folio, ni id de producto, ni precio por renglón: eso sería una orden.
+- **Y cada renglón lleva su propia hora**, la de cuando se capturó, que no
+  es la del ticket: una apartada que se retoma para agregarle algo y se
+  vuelve a apartar tiene renglones de dos momentos, y esa diferencia es lo
+  único que distingue «la dejó completa hace una hora» de «le acaban de
+  agregar algo». El sello lo escribe el store al crear la línea
+  (`agregadoEn`), no quien llama: la pantalla que se olvidara dejaría un
+  renglón mudo y nadie sabría por qué. Una apartada guardada **antes** de
+  este cambio no lo trae y el panel no pinta nada ahí — poner la hora del
+  ticket sería contestar otra pregunta.
 - **El vistazo LATE cada 2 minutos, no solo al cambiar la lista.** Sin
   latido pasaban dos cosas: una apartada que nadie toca **se le caducaba a
   gerencia a las 12 h** aunque siguiera viva en la pantalla, y el día que
@@ -507,7 +516,7 @@ empaquetador y se desvían solas:
 | Ver por qué el inventario no baja | Admin → Inventario → **"Lo que no descuenta"** |
 | Una observación sale donde no debe | Admin → Extras → *Observaciones* → **"Dónde aplica"**. Marca la categoría (un clic para los 250 shakes) o los productos sueltos |
 | Vender un extra suelto (chipotle, pepinillos) | Admin → **Extras** → *Vender solo* → precio y en qué botón del menú |
-| Ver qué ventas están apartadas, a distancia | Admin → **En vivo**, arriba del todo. Toca una para ver qué lleva y de qué hora es |
+| Ver qué ventas están apartadas, a distancia | Admin → **En vivo**, arriba del todo. Toca una para ver qué lleva, de qué hora es el ticket y a qué hora entró cada producto |
 
 ---
 

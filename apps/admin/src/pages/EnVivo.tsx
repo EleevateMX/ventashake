@@ -322,7 +322,21 @@ export default function EnVivo() {
                                     <span className="font-mono text-xs text-sa-green shrink-0">
                                       {it.c}×
                                     </span>
-                                    <span className="min-w-0">{it.n}</span>
+                                    <span className="flex-1 min-w-0">{it.n}</span>
+                                    {/*
+                                      La hora de ESTE renglón, que no es la del
+                                      ticket: una apartada que se retomó para
+                                      agregarle algo tiene renglones de dos
+                                      momentos. Si la pantalla no la mandó (la
+                                      apartada es anterior a este cambio) no se
+                                      pone nada: inventar la del ticket sería
+                                      contestar otra pregunta.
+                                    */}
+                                    {it.h && (
+                                      <span className="font-mono text-[11px] text-sa-green-ink/40 shrink-0">
+                                        {it.h}
+                                      </span>
+                                    )}
                                   </div>
                                 ))
                               ) : (

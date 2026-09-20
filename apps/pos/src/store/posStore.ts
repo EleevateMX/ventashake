@@ -27,6 +27,21 @@ export interface LineaCarrito {
    * puertas decían cosas distintas de la misma venta.
    */
   padreLinea?: string | null
+  /**
+   * Cuándo se capturó ESTA línea (ISO). Lo escribe el store, no quien
+   * llama: si lo pusiera cada pantalla, la que se olvidara dejaría un
+   * renglón sin hora y nadie sabría por qué.
+   *
+   * Es lo que deja ver en Admin -> En vivo a qué hora entró cada producto
+   * de una venta apartada, aparte de la hora en que se apartó el ticket.
+   * Opcional porque las apartadas guardadas antes de esto no lo traen.
+   */
+  agregadoEn?: string
+}
+
+/** Cuándo nace una línea. Un solo lugar, para que las dos rutas coincidan. */
+function ahora(): string {
+  return new Date().toISOString()
 }
 
 function nuevaLineaId(): string {
@@ -148,6 +163,8 @@ export const usePosStore = create<PosStore>((set, get) => ({
       const nota = personalizacion?.trim() || null
       // Solo se agrupa con una línea existente del mismo producto si ambas
       // van sin personalización; con nota distinta va como línea aparte.
+      // Al fundirse con una línea que ya existía se conserva SU hora: se
+      // capturó entonces y solo le subió la cantidad.
       const i = state.items.findIndex(
         (l) => l.producto.id === p.id && !l.personalizacion && !nota,
       )
@@ -159,7 +176,13 @@ export const usePosStore = create<PosStore>((set, get) => ({
       return {
         items: [
           ...state.items,
-          { lineaId: nuevaLineaId(), producto: p, cantidad: 1, personalizacion: nota },
+          {
+            lineaId: nuevaLineaId(),
+            producto: p,
+            cantidad: 1,
+            personalizacion: nota,
+            agregadoEn: ahora(),
+          },
         ],
       }
     }),
@@ -191,6 +214,9 @@ export const usePosStore = create<PosStore>((set, get) => ({
   agregarConExtras: (p, personalizacion, extras) =>
     set((state) => {
       const padre = nuevaLineaId()
+      // Una sola marca para el producto y sus extras: se capturaron en el
+      // mismo gesto y dos relojes los separarían por un segundo.
+      const cuando = ahora()
       return {
         items: [
           ...state.items,
@@ -200,6 +226,7 @@ export const usePosStore = create<PosStore>((set, get) => ({
             cantidad: 1,
             personalizacion: personalizacion?.trim() || null,
             padreLinea: null,
+            agregadoEn: cuando,
           },
           ...extras.map((e) => ({
             lineaId: nuevaLineaId(),
@@ -207,6 +234,7 @@ export const usePosStore = create<PosStore>((set, get) => ({
             cantidad: 1,
             personalizacion: null,
             padreLinea: padre,
+            agregadoEn: cuando,
           })),
         ],
       }

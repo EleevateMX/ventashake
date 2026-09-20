@@ -26,6 +26,19 @@ export interface ItemCarrito {
   padreLinea?: string | null
   /** Solo en extras: cuántos van por cada unidad del producto padre. */
   porUnidad?: number
+  /**
+   * Cuándo se capturó ESTA línea (ISO). Lo escribe el store, no quien
+   * llama: si lo pusiera cada pantalla, la que se olvidara dejaría un
+   * renglón sin hora y nadie sabría por qué.
+   *
+   * Sirve para las ventas apartadas: gerencia ve la hora del ticket, y
+   * ahora también la de cada renglón — una apartada que se retomó para
+   * agregarle algo tiene líneas de dos horas distintas, y eso es justo
+   * lo que se quiere leer.
+   *
+   * Opcional porque las apartadas guardadas antes de esto no lo traen.
+   */
+  agregadoEn?: string
 }
 
 export interface UsuarioKiosko {
@@ -73,11 +86,13 @@ interface CarritoStore {
    * MISMO producto con la MISMA nota y ninguno de los dos lleva extras: dos
    * configuraciones distintas nunca comparten línea.
    */
-  agregar: (item: Omit<ItemCarrito, 'cantidad' | 'linea'>) => void
+  agregar: (item: Omit<ItemCarrito, 'cantidad' | 'linea' | 'agregadoEn'>) => void
   /** Agrega un producto con sus extras como una sola configuración. */
   agregarConExtras: (
-    producto: Omit<ItemCarrito, 'cantidad' | 'linea'>,
-    extras: Array<Omit<ItemCarrito, 'cantidad' | 'linea' | 'padreLinea'> & { porUnidad: number }>,
+    producto: Omit<ItemCarrito, 'cantidad' | 'linea' | 'agregadoEn'>,
+    extras: Array<
+      Omit<ItemCarrito, 'cantidad' | 'linea' | 'padreLinea' | 'agregadoEn'> & { porUnidad: number }
+    >,
   ) => void
   /** Quita la línea y, si es un producto con extras, también los suyos. */
   quitar: (linea: string) => void
@@ -105,6 +120,12 @@ interface CarritoStore {
   total: () => number
   totalItems: () => number
 }
+
+/**
+ * Cuándo nace una línea. Un solo lugar, para que las tres rutas que crean
+ * líneas (suelta, con extras, y los extras mismos) no se desincronicen.
+ */
+const ahora = () => new Date().toISOString()
 
 /** Identificador de línea. Solo vive en el navegador: la base genera el suyo. */
 const nuevaLinea = () =>
@@ -152,6 +173,9 @@ export const useCarrito = create<CarritoStore>((set, get) => ({
     set((state) => {
       // Solo se funden líneas realmente idénticas. Un shake con extras nunca
       // se funde con nada: sus extras cuelgan de ESTA línea.
+      // Al fundirse con una línea que ya existía se conserva SU hora: la
+      // línea se capturó entonces y solo le subió la cantidad. Sellarla de
+      // nuevo borraría el dato que se quiere leer.
       const existe = state.items.find(
         (i) =>
           i.producto_id === item.producto_id &&
@@ -163,7 +187,7 @@ export const useCarrito = create<CarritoStore>((set, get) => ({
       return {
         items: existe
           ? state.items.map((i) => (i.linea === existe.linea ? { ...i, cantidad: i.cantidad + 1 } : i))
-          : [...state.items, { ...item, linea: nuevaLinea(), cantidad: 1 }],
+          : [...state.items, { ...item, linea: nuevaLinea(), cantidad: 1, agregadoEn: ahora() }],
       }
     })
     const { total, totalItems } = get()
@@ -176,15 +200,20 @@ export const useCarrito = create<CarritoStore>((set, get) => ({
 
   agregarConExtras: (producto, extras) => {
     const linea = nuevaLinea()
+    // Una sola marca de tiempo para el producto y sus extras: se
+    // capturaron en el mismo gesto, y dos relojes distintos harían que la
+    // creatina apareciera un segundo después que su shake.
+    const cuando = ahora()
     set((state) => ({
       items: [
         ...state.items,
-        { ...producto, linea, cantidad: 1 },
+        { ...producto, linea, cantidad: 1, agregadoEn: cuando },
         ...extras.map((e) => ({
           ...e,
           linea: nuevaLinea(),
           padreLinea: linea,
           cantidad: e.porUnidad,
+          agregadoEn: cuando,
         })),
       ],
     }))

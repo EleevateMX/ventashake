@@ -104,13 +104,26 @@ function publicarVistazo(lista: VentaEnEspera[]): void {
  * nadie prepara nada: es una lista para que gerencia reconozca la venta
  * desde su celular. Y va la hora en que se apartó, no la de ahora: "desde
  * las 11:54" es lo que dice si alguien se fue y no volvió.
+ *
+ * Cada renglón lleva además **su** hora, la de cuando se capturó. No es la
+ * misma que la del ticket: una apartada que se retoma para agregarle algo
+ * y se vuelve a apartar tiene renglones de dos momentos, y desde Admin esa
+ * diferencia es lo único que distingue "la dejó completa hace una hora" de
+ * "le acaban de agregar algo".
  */
 function detalleParaVistazo(v: VentaEnEspera): VentaApartada {
   return {
     etiqueta: v.etiqueta,
     total: Math.round((Number(v.total) || 0) * 100) / 100,
     hora: horaEnMerida(new Date(v.guardadaEn)),
-    items: v.items.map((i) => ({ n: i.nombre, c: i.cantidad })),
+    items: v.items.map((i) => ({
+      n: i.nombre,
+      c: i.cantidad,
+      // Sin sello no se manda hora. Las apartadas que ya estaban en el
+      // navegador antes de este cambio no lo traen, y poner la del ticket
+      // sería contestar otra pregunta.
+      ...(i.agregadoEn ? { h: horaEnMerida(new Date(i.agregadoEn)) } : {}),
+    })),
   }
 }
 
