@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react'
 import {
-  mxn, esBase, ordenarBases, baseDeCasa, notaDeBase, baseCobrada,
+  mxn, esBase, ordenarBases, baseDeCasa, notaDeBase, baseCobrada, extraDisponible,
 } from '@shake/utils'
 import type { ProductoVenta, ExtraDeProducto } from '@shake/supabase'
 import { nombreParaOrdenar } from '@shake/supabase'
@@ -35,7 +35,28 @@ export function ModalPersonalizar({ producto, extras, onCerrar, onAgregar }: Pro
   const [base, setBase] = useState<string | null>(null)
 
   const bases = useMemo(() => ordenarBases(extras.filter((e) => esBase(e.nombre))), [extras])
-  const adicionales = useMemo(() => extras.filter((e) => !esBase(e.nombre)), [extras])
+  /**
+   * Los grupos que ya tienen algo puesto en el ticket.
+   *
+   * Aquí no hay pantalla de grupos como en el kiosko —la caja los lista
+   * como extras sueltos— así que "el grupo está resuelto" es "hay algo
+   * elegido que pertenece a ese grupo". Es lo que hace que la galleta,
+   * que es promoción del preparado, aparezca en las dos puertas con la
+   * misma regla: la lección de `extras.ts` es justo que no diverjan.
+   */
+  const gruposElegidos = useMemo(
+    () =>
+      new Set(
+        extras
+          .filter((e) => e.grupo && (elegidos[e.extra_id] ?? 0) > 0)
+          .map((e) => e.grupo as string),
+      ),
+    [extras, elegidos],
+  )
+  const adicionales = useMemo(
+    () => extras.filter((e) => !esBase(e.nombre) && extraDisponible(e, gruposElegidos)),
+    [extras, gruposElegidos],
+  )
 
   if (!producto) return null
 

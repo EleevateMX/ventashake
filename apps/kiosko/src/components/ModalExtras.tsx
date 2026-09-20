@@ -1,7 +1,8 @@
 import React, { useState } from 'react'
 import {
   mxn, esBase, esGalleta, esProteina, esDobleScoop, dobleScoopDe,
-  ordenarBases, baseDeCasa, opcionDeCasa, notaDeBase, baseCobrada,
+  ordenarBases, baseDeCasa, opcionDeGrupo, grupoEsOpcional, extraDisponible,
+  notaDeBase, baseCobrada,
 } from '@shake/utils'
 import type { ProductoVenta, ExtraDeProducto } from '@shake/supabase'
 
@@ -102,7 +103,6 @@ export function ModalExtras({ producto, extras, observaciones: catalogoObs, onCe
   if (!producto) return null
 
   const leches = ordenarBases(extras.filter((e) => esBase(e.nombre)))
-  const galletas = extras.filter((e) => esGalleta(e.nombre))
   const proteinas = extras.filter((e) => esProteina(e.nombre))
   const dobles = extras.filter((e) => esDobleScoop(e.nombre))
   /**
@@ -119,13 +119,39 @@ export function ModalExtras({ producto, extras, observaciones: catalogoObs, onCe
         .map((e) => e.grupo as string),
     ),
   ]
+  /**
+   * Lo elegido en cada grupo. Si el cliente no tocó el grupo vale lo que
+   * diga `opcionDeGrupo` — que para un grupo con precio es **nada**: el
+   * kiosko no preselecciona algo que cobra.
+   *
+   * Se calcula aquí arriba, antes que las galletas y los adicionales,
+   * porque hay extras que dependen de que un grupo esté resuelto.
+   */
+  const elegidosDeGrupo = gruposConfigurados
+    .map((g) => {
+      const opciones = extras.filter((e) => e.grupo === g)
+      return opciones.find((e) => e.extra_id === porGrupo[g]) ?? opcionDeGrupo(opciones)
+    })
+    .filter((e): e is ExtraDeProducto => e !== null)
+  const gruposElegidos = new Set(elegidosDeGrupo.map((e) => e.grupo as string))
+
+  /**
+   * Las galletas y los adicionales pueden estar acotados a un grupo
+   * (`requiere_grupo`). Mientras ese grupo no tenga nada elegido, ni se
+   * pintan: las galletas son promoción de los preparados, y ofrecerlas
+   * sobre un shake sin preparado es regalar la promo.
+   */
+  const galletas = extras.filter(
+    (e) => esGalleta(e.nombre) && extraDisponible(e, gruposElegidos),
+  )
   const adicionales = extras.filter(
     (e) =>
       !esBase(e.nombre) &&
       !esGalleta(e.nombre) &&
       !esProteina(e.nombre) &&
       !esDobleScoop(e.nombre) &&
-      !(e.grupo && gruposConfigurados.includes(e.grupo)),
+      !(e.grupo && gruposConfigurados.includes(e.grupo)) &&
+      extraDisponible(e, gruposElegidos),
   )
   const hayAgua = leches.some((l) => /^agua\b/i.test(l.nombre))
   const slugCocina = producto.categorias?.cocinas?.slug ?? ''
@@ -158,18 +184,6 @@ export function ModalExtras({ producto, extras, observaciones: catalogoObs, onCe
    * mal aquí no es un detalle de pantalla, es cobrar de menos.
    */
   const doble = dobleScoopDe(dobles, proteinaElegida)
-  /**
-   * Lo elegido en cada grupo. Si el cliente no tocó el grupo vale la
-   * primera opción — la misma que se ve marcada en pantalla: si aquí no se
-   * respetara ese default, el kiosko mostraría una opción seleccionada que
-   * nunca llegaría a la comanda.
-   */
-  const elegidosDeGrupo = gruposConfigurados
-    .map((g) => {
-      const opciones = extras.filter((e) => e.grupo === g)
-      return opciones.find((e) => e.extra_id === porGrupo[g]) ?? opcionDeCasa(opciones)
-    })
-    .filter((e): e is ExtraDeProducto => e !== null)
   const totalExtras =
     (lecheElegida?.precio ?? 0) +
     (proteinaElegida?.precio ?? 0) +
@@ -385,12 +399,16 @@ export function ModalExtras({ producto, extras, observaciones: catalogoObs, onCe
           {gruposConfigurados.map((g) => {
             const opciones = extras.filter((e) => e.grupo === g)
             if (opciones.length === 0) return null
-            const elegido = porGrupo[g] ?? opcionDeCasa(opciones)?.extra_id
+            const elegido = porGrupo[g] ?? opcionDeGrupo(opciones)?.extra_id
+            // Un grupo que no se preselecciona solo se tiene que poder
+            // vaciar: si no, tocar una opción por error deja $56 puestos
+            // sin manera de quitarlos más que cerrando el modal.
+            const opcional = grupoEsOpcional(opciones)
             return (
               <section key={g}>
                 <h3 className="font-display text-xl text-sa-green-ink">{g}</h3>
                 <p className="font-mono text-[10px] uppercase tracking-wide text-sa-green-ink/40 mb-3">
-                  Elige una
+                  {opcional ? 'Opcional · toca otra vez para quitarlo' : 'Elige una'}
                 </p>
                 <div className="grid grid-cols-2 gap-2">
                   {opciones.map((o) => {
@@ -398,7 +416,16 @@ export function ModalExtras({ producto, extras, observaciones: catalogoObs, onCe
                     return (
                       <button
                         key={o.extra_id}
-                        onClick={() => setPorGrupo((prev) => ({ ...prev, [g]: o.extra_id }))}
+                        onClick={() =>
+                          setPorGrupo((prev) => {
+                            if (opcional && activa) {
+                              const next = { ...prev }
+                              delete next[g]
+                              return next
+                            }
+                            return { ...prev, [g]: o.extra_id }
+                          })
+                        }
                         className={`px-4 py-3 rounded-sa text-left transition-all border-2 ${
                           activa
                             ? 'bg-sa-green text-sa-cream border-sa-green'

@@ -303,6 +303,13 @@ export interface ExtraDeProducto {
    * `claseExtra` en @shake/utils y `fn_clase_extra` en la base.
    */
   por_defecto: boolean
+  /**
+   * Nombre del grupo que tiene que estar resuelto para que este extra
+   * aparezca. Es lo que hace que las galletas —promoción de los
+   * preparados— no se puedan poner a un shake que no lleva preparado.
+   * Null = siempre disponible, como nacieron todos.
+   */
+  requiere_grupo: string | null
   activo: boolean
 }
 
@@ -483,6 +490,8 @@ export interface ProductoDeExtra {
   precio_base: number
   grupo: string | null
   por_defecto: boolean
+  /** Grupo del que depende este extra en ESTE producto. Null = siempre. */
+  requiere_grupo: string | null
 }
 
 /**
@@ -567,6 +576,27 @@ export async function grupoExtraEnProducto(
     p_extra_id: extraId,
     p_producto_id: productoId,
     p_grupo: grupo,
+  })
+  if (error) throw error
+}
+
+/**
+ * Acota un extra a que ya se haya elegido algo de cierto grupo.
+ *
+ * `null` lo devuelve a estar siempre disponible. A diferencia de sus
+ * hermanas, `fn_extra_bebida_requiere` pide personal: nació hoy y solo la
+ * llama Admin.
+ */
+export async function requiereGrupoEnProducto(
+  sb: ShakeClient,
+  extraId: string,
+  productoId: string,
+  requiere: string | null,
+): Promise<void> {
+  const { error } = await (sb.rpc as unknown as RpcCatalogo)('fn_extra_bebida_requiere', {
+    p_extra_id: extraId,
+    p_producto_id: productoId,
+    p_requiere: requiere,
   })
   if (error) throw error
 }

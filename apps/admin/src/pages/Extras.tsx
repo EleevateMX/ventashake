@@ -15,6 +15,7 @@ import {
   vincularExtraBebida,
   precioExtraEnProducto,
   grupoExtraEnProducto,
+  requiereGrupoEnProducto,
   defectoExtraEnProducto,
   listarObservacionesAdmin,
   guardarObservacion,
@@ -279,6 +280,41 @@ export default function Extras() {
           : `${prod.nombre}: se elige junto con los demás del grupo "${limpio}".`,
       )
       setTimeout(() => setOk(null), 3500)
+    } catch (e) {
+      setError(mensajeDeError(e))
+    } finally {
+      setCambiandoVinculo(null)
+    }
+  }
+
+  /**
+   * "Solo si": este extra aparece nada más cuando ya se eligió algo del
+   * grupo que se escriba aquí.
+   *
+   * Nació de las galletas: son una promoción que solo aplica a los
+   * preparados de $125. Colgadas de El Clásico sin más, se podrían poner
+   * a un shake de $69 y la promo se regalaría sola; y no ofrecerlas deja
+   * sin ellas a quien sí compró el preparado. Vacío = siempre, que es
+   * como está todo lo demás.
+   */
+  async function cambiarRequiereVinculo(extraId: string, prod: ProductoDeExtra, valor: string) {
+    const limpio = valor.trim() || null
+    if (limpio === (prod.requiere_grupo ?? null)) return
+    setCambiandoVinculo(prod.producto_id)
+    setError(null)
+    try {
+      await requiereGrupoEnProducto(sb, extraId, prod.producto_id, limpio)
+      setProductosDelExtra((prev) =>
+        prev.map((p) =>
+          p.producto_id === prod.producto_id ? { ...p, requiere_grupo: limpio } : p,
+        ),
+      )
+      setOk(
+        limpio === null
+          ? `${prod.nombre}: vuelve a ofrecerse siempre.`
+          : `${prod.nombre}: solo aparece cuando ya se eligió algo del grupo "${limpio}".`,
+      )
+      setTimeout(() => setOk(null), 4000)
     } catch (e) {
       setError(mensajeDeError(e))
     } finally {
@@ -965,6 +1001,21 @@ export default function Extras() {
                                           defaultValue={pr.grupo ?? ''}
                                           disabled={cambiandoVinculo === pr.producto_id}
                                           onBlur={(ev) => void cambiarGrupoVinculo(e.id, pr, ev.target.value)}
+                                          className="w-20 shrink-0 px-2 py-1 border border-sa-green-ink/15 rounded font-mono text-xs bg-sa-cream-soft/40"
+                                        />
+                                      )}
+                                      {/* "Solo si": este extra aparece nada más cuando ya
+                                          se eligió algo de ese grupo. Es lo que hace que
+                                          las galletas —promoción de los preparados— no se
+                                          puedan poner a un shake sin preparado. */}
+                                      {pr.ofrecido && (
+                                        <input
+                                          type="text"
+                                          title={`En ${pr.nombre}, ofrecer este extra SOLO cuando ya se eligió algo del grupo que escribas aquí. Vacío = siempre.`}
+                                          placeholder="solo si…"
+                                          defaultValue={pr.requiere_grupo ?? ''}
+                                          disabled={cambiandoVinculo === pr.producto_id}
+                                          onBlur={(ev) => void cambiarRequiereVinculo(e.id, pr, ev.target.value)}
                                           className="w-20 shrink-0 px-2 py-1 border border-sa-green-ink/15 rounded font-mono text-xs bg-sa-cream-soft/40"
                                         />
                                       )}
