@@ -737,6 +737,30 @@ empaquetador y se desvían solas:
 
 **Frontend**
 
+- **⚠ PostgREST corta en 1000 filas y NO avisa.** Devuelve 200, sin error,
+  con la lista mocha. Una consulta que ayer traía todo hoy trae el 94% y
+  se ve exactamente igual. El 20/09 `vw_producto_extras` llegó a **1 067**
+  vínculos activos y los 67 del final —ordenados por nombre— dejaron de
+  existir para el kiosko y el POS. Entre ellos **«Proteína OPTIMUM -
+  Vainilla», la de casa, la de $0**, en los 7 shakes que la ofrecen: al no
+  estar en la lista el kiosko caía a la siguiente marca y salía **BIRDMAN
+  FALCON a +$10 marcada por omisión**, así que un shake de $125 se
+  capturaba en $135 y **la comanda mandaba a barra una proteína más cara
+  que la de la receta**. También se cayeron «Sin leche», los cuatro tés de
+  los combos, «Topping extra» y «Yogurt Griego».
+  Nadie lo reportó como "falta un renglón" — se reportó como *«Optimum
+  desapareció del menú»*, que suena a catálogo y no lo era. Y no se
+  degrada: cruzar las 1 000 filas pasa un martes cualquiera, al dar de
+  alta productos.
+  El remedio es `traerTodo()` en `packages/supabase/src/queries/paginar.ts`
+  (con pruebas), ya puesto en `listarExtras`, `listarInsumos` (1 631),
+  `listarCosteo` (1 468), `listarProductos*`. **Dos reglas al paginar:**
+  el orden tiene que **desempatar** (paginar sobre `order('nombre')` a
+  secas, con 18 filas llamadas «Topping extra», salta renglones — por eso
+  todas rematan con `id`), y se para cuando una página viene **incompleta**,
+  no vacía. Regla general: una lista sin `.range()` que pueda crecer es una
+  bomba de tiempo; antes de agregar una, `select count(*)`.
+
 - **Las herramientas del personal se ven cuando la pantalla es del
   personal.** El corte de caja vivía detrás de cinco toques a Milo, y ese
   gesto tiene sentido en autoservicio —ahí la pantalla la usa el cliente—

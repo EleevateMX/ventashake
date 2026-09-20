@@ -13,18 +13,23 @@ import type {
   ComboVista,
 } from '@shake/types'
 import type { ShakeClient } from '../client'
+import { traerTodo } from './paginar'
 
 // ------------------------------ insumos ------------------------------
 
+/**
+ * Los insumos activos, **todos**. Son 1 631: sin paginar, PostgREST
+ * devolvía los primeros 1 000 y Admin mostraba una lista mocha sin
+ * decirlo. El `id` al final es el desempate — `tipo` y `nombre` se
+ * repiten, y sin él la paginación salta renglones.
+ */
 export async function listarInsumos(sb: ShakeClient): Promise<Insumo[]> {
-  const { data, error } = await sb
-    .from('insumos')
-    .select('*')
-    .eq('activo', true)
-    .order('tipo')
-    .order('nombre')
-  if (error) throw error
-  return data
+  return traerTodo<Insumo>((desde, hasta) =>
+    sb.from('insumos').select('*')
+      .eq('activo', true)
+      .order('tipo').order('nombre').order('id')
+      .range(desde, hasta),
+  )
 }
 
 export async function crearInsumo(sb: ShakeClient, insumo: InsumoInsert): Promise<Insumo> {
@@ -58,9 +63,12 @@ export async function listarInsumoCategorias(sb: ShakeClient): Promise<InsumoCat
 // ------------------------------ productos ----------------------------
 
 export async function listarProductos(sb: ShakeClient): Promise<Producto[]> {
-  const { data, error } = await sb.from('productos').select('*').eq('activo', true).order('nombre')
-  if (error) throw error
-  return data
+  return traerTodo<Producto>((desde, hasta) =>
+    sb.from('productos').select('*')
+      .eq('activo', true)
+      .order('nombre').order('id')
+      .range(desde, hasta),
+  )
 }
 
 export async function crearProducto(sb: ShakeClient, producto: ProductoInsert): Promise<Producto> {
@@ -164,15 +172,15 @@ export interface ProductoVenta extends Producto {
  * dentro del producto al que pertenecen (ver `listarExtrasDeProducto`).
  */
 export async function listarProductosParaVenta(sb: ShakeClient): Promise<ProductoVenta[]> {
-  const { data, error } = await sb
-    .from('productos')
-    .select('*, categorias(id, nombre, orden, cocinas(id, nombre, slug))')
-    .eq('activo', true)
-    .eq('es_extra', false)
-    .order('orden')
-    .order('nombre')
-  if (error) throw error
-  return data as unknown as ProductoVenta[]
+  return traerTodo<ProductoVenta>((desde, hasta) =>
+    sb
+      .from('productos')
+      .select('*, categorias(id, nombre, orden, cocinas(id, nombre, slug))')
+      .eq('activo', true)
+      .eq('es_extra', false)
+      .order('orden').order('nombre').order('id')
+      .range(desde, hasta) as unknown as PromiseLike<{ data: ProductoVenta[] | null; error: unknown }>,
+  )
 }
 
 /** Catálogo activo de una estación de cocina ('alimentos' | 'bebidas'). */
@@ -180,14 +188,15 @@ export async function listarProductosPorCocina(
   sb: ShakeClient,
   cocinaSlug: string,
 ): Promise<ProductoVenta[]> {
-  const { data, error } = await sb
-    .from('productos')
-    .select('*, categorias!inner(id, nombre, orden, cocinas!inner(id, nombre, slug))')
-    .eq('activo', true)
-    .eq('categorias.cocinas.slug', cocinaSlug)
-    .order('nombre')
-  if (error) throw error
-  return data as unknown as ProductoVenta[]
+  return traerTodo<ProductoVenta>((desde, hasta) =>
+    sb
+      .from('productos')
+      .select('*, categorias!inner(id, nombre, orden, cocinas!inner(id, nombre, slug))')
+      .eq('activo', true)
+      .eq('categorias.cocinas.slug', cocinaSlug)
+      .order('nombre').order('id')
+      .range(desde, hasta) as unknown as PromiseLike<{ data: ProductoVenta[] | null; error: unknown }>,
+  )
 }
 
 // ------------------------------ recetas ------------------------------
@@ -319,25 +328,40 @@ export interface ExtraDeProducto {
  * elige dentro de un alimento.
  */
 export async function listarProductosExtra(sb: ShakeClient): Promise<ProductoVenta[]> {
-  const { data, error } = await sb
-    .from('productos')
-    .select('*, categorias(id, nombre, orden, cocinas(id, nombre, slug))')
-    .eq('activo', true)
-    .eq('es_extra', true)
-    .order('nombre')
-  if (error) throw error
-  return data as unknown as ProductoVenta[]
+  return traerTodo<ProductoVenta>((desde, hasta) =>
+    sb
+      .from('productos')
+      .select('*, categorias(id, nombre, orden, cocinas(id, nombre, slug))')
+      .eq('activo', true)
+      .eq('es_extra', true)
+      .order('nombre').order('id')
+      .range(desde, hasta) as unknown as PromiseLike<{ data: ProductoVenta[] | null; error: unknown }>,
+  )
 }
 
-/** Extras ofrecidos por producto (todos de una, para cachear en el POS). */
+/**
+ * Extras ofrecidos por producto (todos de una, para cachear en el POS).
+ *
+ * **Va paginado, y esa es la parte importante.** Son 1 067 vínculos
+ * activos: sin paginar, PostgREST cortaba en 1 000 y los 67 del final
+ * —ordenados por nombre— dejaban de existir para el kiosko. Entre ellos
+ * «Proteína OPTIMUM - Vainilla», la de casa y la de $0, así que el
+ * kiosko caía a la siguiente marca y cobraba $10 de más. Ver el comentario
+ * largo en `paginar.ts`.
+ *
+ * `producto_id` y `extra_id` al final desempatan: hay 18 renglones que se
+ * llaman «Topping extra», y paginar sobre un orden con empates salta
+ * filas.
+ */
 export async function listarExtras(sb: ShakeClient): Promise<ExtraDeProducto[]> {
-  const { data, error } = await sb
-    .from('vw_producto_extras')
-    .select('*')
-    .eq('activo', true)
-    .order('nombre')
-  if (error) throw error
-  return data as unknown as ExtraDeProducto[]
+  return traerTodo<ExtraDeProducto>((desde, hasta) =>
+    sb
+      .from('vw_producto_extras')
+      .select('*')
+      .eq('activo', true)
+      .order('nombre').order('producto_id').order('extra_id')
+      .range(desde, hasta) as unknown as PromiseLike<{ data: ExtraDeProducto[] | null; error: unknown }>,
+  )
 }
 
 /**

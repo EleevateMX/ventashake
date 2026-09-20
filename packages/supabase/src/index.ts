@@ -1,4 +1,5 @@
 export { getSupabase, type ShakeClient } from './client'
+export * from './queries/paginar'
 export * from './queries/catalogo'
 export * from './queries/costeo'
 export * from './queries/ordenes'

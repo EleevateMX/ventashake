@@ -930,15 +930,24 @@ export default function Extras() {
                                     pr.nombre.toLowerCase().includes(filtroVinculos.toLowerCase()),
                                   )
                                   .map((pr) => (
+                                    // El renglon se apila cuando esta marcado.
+                                    // En una sola linea, los cuatro controles
+                                    // (precio, estrella, grupo, "solo si") se
+                                    // comen el ancho y el NOMBRE del producto
+                                    // se trunca hasta desaparecer: en tres
+                                    // columnas no quedaba ni una letra, y para
+                                    // saber que shake estabas configurando
+                                    // habia que desmarcarlo. Un renglon que no
+                                    // dice de que es no se puede configurar.
                                     <div
                                       key={pr.producto_id}
-                                      className={`flex items-center gap-2 px-3 py-2 rounded-sa bg-white border text-sm ${
+                                      className={`flex flex-col gap-1.5 px-3 py-2 rounded-sa bg-white border text-sm ${
                                         pr.ofrecido
                                           ? 'border-sa-green/40'
                                           : 'border-sa-green-ink/10'
                                       } ${cambiandoVinculo === pr.producto_id ? 'opacity-50' : ''}`}
                                     >
-                                      <label className="flex items-center gap-2.5 min-w-0 flex-1 cursor-pointer">
+                                      <label className="flex items-center gap-2.5 min-w-0 cursor-pointer">
                                         <input
                                           type="checkbox"
                                           className="w-4 h-4 accent-sa-green shrink-0"
@@ -946,78 +955,77 @@ export default function Extras() {
                                           disabled={cambiandoVinculo === pr.producto_id}
                                           onChange={() => void toggleVinculo(e.id, pr)}
                                         />
-                                        <span className="truncate text-sa-green-ink">{pr.nombre}</span>
+                                        <span className="min-w-0 text-sa-green-ink leading-snug">
+                                          {pr.nombre}
+                                        </span>
                                       </label>
-                                      {/* Precio de ESTE extra en ESTE producto: es lo que
-                                          hace que la leche cueste $10 en un americano y $0
-                                          en un shake, o que cambiar de proteína sume $10.
-                                          Vacío = cobra el precio normal del extra. */}
+
                                       {pr.ofrecido && (
-                                        <input
-                                          type="number"
-                                          min="0"
-                                          step="1"
-                                          title={`Precio en ${pr.nombre}. Vacío = ${mxn(pr.precio_base)} (el del extra).`}
-                                          placeholder={String(pr.precio_base)}
-                                          defaultValue={pr.precio_propio ?? ''}
-                                          disabled={cambiandoVinculo === pr.producto_id}
-                                          onBlur={(ev) => void cambiarPrecioVinculo(e.id, pr, ev.target.value)}
-                                          className="w-16 shrink-0 px-2 py-1 border border-sa-green-ink/15 rounded text-right font-mono text-xs bg-sa-cream-soft/40"
-                                        />
-                                      )}
-                                      {/* "La de casa": con cuál sale el producto si el
-                                          cliente no toca nada. Solo tiene sentido donde se
-                                          elige una entre varias (leches, proteínas, o un
-                                          grupo escrito): en un adicional suelto el servidor
-                                          la rechaza y lo dice. */}
-                                      {pr.ofrecido && (
-                                        <button
-                                          type="button"
-                                          title={
-                                            pr.por_defecto
-                                              ? `Es la opción de entrada en ${pr.nombre}. Toca para quitarla.`
-                                              : `Hacer que ${pr.nombre} salga con esta opción de entrada.`
-                                          }
-                                          aria-pressed={pr.por_defecto}
-                                          disabled={cambiandoVinculo === pr.producto_id}
-                                          onClick={() => void cambiarDefectoVinculo(e.id, pr)}
-                                          className={`w-7 h-7 shrink-0 rounded-full text-sm leading-none transition-colors ${
-                                            pr.por_defecto
-                                              ? 'bg-sa-banana text-sa-coffee'
-                                              : 'bg-white border border-sa-green-ink/15 text-sa-green-ink/25 hover:text-sa-green-ink/60'
-                                          }`}
-                                        >
-                                          ★
-                                        </button>
-                                      )}
-                                      {/* Grupo: los extras con el mismo texto aquí se
-                                          ofrecen como "elige uno". Es lo que convierte
-                                          dos americanos en un botón de frío/caliente. */}
-                                      {pr.ofrecido && (
-                                        <input
-                                          type="text"
-                                          title={`Grupo en ${pr.nombre}. Los extras con el mismo texto se eligen entre sí (uno solo). Vacío = adicional suelto.`}
-                                          placeholder="grupo"
-                                          defaultValue={pr.grupo ?? ''}
-                                          disabled={cambiandoVinculo === pr.producto_id}
-                                          onBlur={(ev) => void cambiarGrupoVinculo(e.id, pr, ev.target.value)}
-                                          className="w-20 shrink-0 px-2 py-1 border border-sa-green-ink/15 rounded font-mono text-xs bg-sa-cream-soft/40"
-                                        />
-                                      )}
-                                      {/* "Solo si": este extra aparece nada más cuando ya
-                                          se eligió algo de ese grupo. Es lo que hace que
-                                          las galletas —promoción de los preparados— no se
-                                          puedan poner a un shake sin preparado. */}
-                                      {pr.ofrecido && (
-                                        <input
-                                          type="text"
-                                          title={`En ${pr.nombre}, ofrecer este extra SOLO cuando ya se eligió algo del grupo que escribas aquí. Vacío = siempre.`}
-                                          placeholder="solo si…"
-                                          defaultValue={pr.requiere_grupo ?? ''}
-                                          disabled={cambiandoVinculo === pr.producto_id}
-                                          onBlur={(ev) => void cambiarRequiereVinculo(e.id, pr, ev.target.value)}
-                                          className="w-20 shrink-0 px-2 py-1 border border-sa-green-ink/15 rounded font-mono text-xs bg-sa-cream-soft/40"
-                                        />
+                                        <div className="flex items-center gap-2 flex-wrap pl-6">
+                                        {/* Precio de ESTE extra en ESTE producto: es lo que
+                                            hace que la leche cueste $10 en un americano y $0
+                                            en un shake, o que cambiar de proteína sume $10.
+                                            Vacío = cobra el precio normal del extra. */}
+                                          <input
+                                            type="number"
+                                            min="0"
+                                            step="1"
+                                            title={`Precio en ${pr.nombre}. Vacío = ${mxn(pr.precio_base)} (el del extra).`}
+                                            placeholder={String(pr.precio_base)}
+                                            defaultValue={pr.precio_propio ?? ''}
+                                            disabled={cambiandoVinculo === pr.producto_id}
+                                            onBlur={(ev) => void cambiarPrecioVinculo(e.id, pr, ev.target.value)}
+                                            className="w-16 shrink-0 px-2 py-1 border border-sa-green-ink/15 rounded text-right font-mono text-xs bg-sa-cream-soft/40"
+                                          />
+                                        {/* "La de casa": con cuál sale el producto si el
+                                            cliente no toca nada. Solo tiene sentido donde se
+                                            elige una entre varias (leches, proteínas, o un
+                                            grupo escrito): en un adicional suelto el servidor
+                                            la rechaza y lo dice. */}
+                                          <button
+                                            type="button"
+                                            title={
+                                              pr.por_defecto
+                                                ? `Es la opción de entrada en ${pr.nombre}. Toca para quitarla.`
+                                                : `Hacer que ${pr.nombre} salga con esta opción de entrada.`
+                                            }
+                                            aria-pressed={pr.por_defecto}
+                                            disabled={cambiandoVinculo === pr.producto_id}
+                                            onClick={() => void cambiarDefectoVinculo(e.id, pr)}
+                                            className={`w-7 h-7 shrink-0 rounded-full text-sm leading-none transition-colors ${
+                                              pr.por_defecto
+                                                ? 'bg-sa-banana text-sa-coffee'
+                                                : 'bg-white border border-sa-green-ink/15 text-sa-green-ink/25 hover:text-sa-green-ink/60'
+                                            }`}
+                                          >
+                                            ★
+                                          </button>
+                                        {/* Grupo: los extras con el mismo texto aquí se
+                                            ofrecen como "elige uno". Es lo que convierte
+                                            dos americanos en un botón de frío/caliente. */}
+                                          <input
+                                            type="text"
+                                            title={`Grupo en ${pr.nombre}. Los extras con el mismo texto se eligen entre sí (uno solo). Vacío = adicional suelto.`}
+                                            placeholder="grupo"
+                                            defaultValue={pr.grupo ?? ''}
+                                            disabled={cambiandoVinculo === pr.producto_id}
+                                            onBlur={(ev) => void cambiarGrupoVinculo(e.id, pr, ev.target.value)}
+                                            className="w-20 shrink-0 px-2 py-1 border border-sa-green-ink/15 rounded font-mono text-xs bg-sa-cream-soft/40"
+                                          />
+                                        {/* "Solo si": este extra aparece nada más cuando ya
+                                            se eligió algo de ese grupo. Es lo que hace que
+                                            las galletas —promoción de los preparados— no se
+                                            puedan poner a un shake sin preparado. */}
+                                          <input
+                                            type="text"
+                                            title={`En ${pr.nombre}, ofrecer este extra SOLO cuando ya se eligió algo del grupo que escribas aquí. Vacío = siempre.`}
+                                            placeholder="solo si…"
+                                            defaultValue={pr.requiere_grupo ?? ''}
+                                            disabled={cambiandoVinculo === pr.producto_id}
+                                            onBlur={(ev) => void cambiarRequiereVinculo(e.id, pr, ev.target.value)}
+                                            className="w-20 shrink-0 px-2 py-1 border border-sa-green-ink/15 rounded font-mono text-xs bg-sa-cream-soft/40"
+                                          />
+                                        </div>
                                       )}
                                     </div>
                                   ))}
