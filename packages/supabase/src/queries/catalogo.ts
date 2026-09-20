@@ -1121,6 +1121,36 @@ export function escucharRetomarEspera(
   return () => { void sb.removeChannel(canal) }
 }
 
+/**
+ * Un pendiente del menú: algo mal configurado que las pantallas ya están
+ * sufriendo, o que huele mal y conviene mirar.
+ *
+ * Existe porque los reportes del 20/09 llegaron como «se borró algo» y no
+ * lo era, y al buscarlos aparecieron huecos reales que **desde Admin no se
+ * podían ver**: un grupo de «elige una» con una sola opción, y un extra sin
+ * categoría que por eso no sale en la lista de Extras — la pantalla estaba
+ * escondiendo justo el renglón que explicaba el problema.
+ *
+ * Esto no arregla nada solo: enumera con nombre y apellido para que
+ * gerencia lo componga.
+ */
+export interface PendienteDelMenu {
+  tipo: string
+  /** `rompe` = ya lo están sufriendo. `revisar` = huele mal. */
+  severidad: 'rompe' | 'revisar'
+  producto: string
+  producto_id: string
+  detalle: string
+  sugerencia: string
+}
+
+/** Los pendientes del menú. Solo personal. */
+export async function revisionDelMenu(sb: ShakeClient): Promise<PendienteDelMenu[]> {
+  const { data, error } = await (sb.rpc as unknown as RpcCatalogo)('fn_revision_menu', {})
+  if (error) throw error
+  return (data ?? []) as PendienteDelMenu[]
+}
+
 /** Admin: recargar UNA pantalla que se quedó atorada. */
 export async function pedirRecargaPantallas(
   sb: ShakeClient,

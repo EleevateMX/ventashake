@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import {
   claseExtra, esBase, esProteina, esGalleta, esDobleScoop,
-  ordenarBases, baseDeCasa, opcionDeGrupo, grupoEsOpcional, extraDisponible, notaDeBase, baseCobrada,
+  ordenarBases, baseDeCasa, opcionDeGrupo, grupoEsOpcional, extraDisponible, gruposDeExtras,
+  notaDeBase, baseCobrada,
   type OpcionExtra,
   dobleScoopDe,
 } from './extras'
@@ -116,6 +117,68 @@ describe('opcionDeGrupo', () => {
 
   it('un grupo gratis no se puede dejar vacío', () => {
     expect(grupoEsOpcional([op('Frío'), op('Caliente')])).toBe(false)
+  })
+})
+
+describe('gruposDeExtras', () => {
+  /**
+   * La respuesta REAL del servidor para «Milo's Chapata-Americano Combo»
+   * ($99), copiada de producción el 20/09 pidiéndola por HTTP con la
+   * llave pública. Se reportó que ahí «no aparece americano frío o
+   * caliente» y no había nadie en la tienda para mirar la pantalla: esta
+   * prueba es la verificación que sustituye a ir a verlo.
+   */
+  const CHAPATA_AMERICANO = [
+    { nombre: 'Agua', grupo: null, precio: 0 },
+    { nombre: 'Americano Caliente', grupo: 'Café', precio: 0 },
+    { nombre: 'Americano Helado', grupo: 'Café', precio: 0 },
+    { nombre: 'Extra Aderezo Chipotle', grupo: null, precio: 10 },
+    { nombre: 'Galleta: Chispas de Chocolate', grupo: null, precio: 10 },
+    { nombre: 'Galleta: Macadamia', grupo: null, precio: 10 },
+    { nombre: 'Leche de Almendras', grupo: null, precio: 12 },
+    { nombre: 'Leche de Avena', grupo: null, precio: 12 },
+    { nombre: 'Leche de Coco', grupo: null, precio: 12 },
+    { nombre: 'Leche Deslactosada', grupo: null, precio: 10 },
+    { nombre: 'Leche Deslactosada Light', grupo: null, precio: 10 },
+    { nombre: 'Leche Entera', grupo: null, precio: 10 },
+  ]
+
+  it('la chapata SÍ ofrece americano frío o caliente', () => {
+    const grupos = gruposDeExtras(CHAPATA_AMERICANO)
+    expect(grupos).toHaveLength(1)
+    expect(grupos[0].grupo).toBe('Café')
+    expect(grupos[0].opciones.map((o) => o.nombre)).toEqual([
+      'Americano Caliente',
+      'Americano Helado',
+    ])
+  })
+
+  it('y como las dos salen sin costo, entra marcada la primera', () => {
+    const [cafe] = gruposDeExtras(CHAPATA_AMERICANO)
+    const opciones = cafe.opciones.map((o) => op(o.nombre, { precio: o.precio }))
+    expect(opcionDeGrupo(opciones)?.nombre).toBe('Americano Caliente')
+    expect(grupoEsOpcional(opciones)).toBe(false)
+  })
+
+  it('las leches no son un grupo: tienen su propia sección', () => {
+    expect(gruposDeExtras([{ nombre: 'Leche Entera', grupo: 'Café' }])).toEqual([])
+  })
+
+  it('las proteínas tampoco, aunque traigan el grupo escrito', () => {
+    expect(gruposDeExtras([{ nombre: 'Proteína CBUM - Churro', grupo: 'proteina' }])).toEqual([])
+  })
+
+  it('las galletas tampoco: no llevar ninguna es respuesta válida', () => {
+    expect(gruposDeExtras([{ nombre: '2 Galletas L&L Cremes (Mixto)', grupo: 'Postre' }])).toEqual([])
+  })
+
+  it('un grupo de UNA sola opción se sigue devolviendo — el panel de revisión lo señala', () => {
+    // Es el caso del combo del Latte: «Latte Caliente» está apagado, así
+    // que Café se queda con una sola opción y el "elige una" no deja
+    // elegir. No se esconde aquí: esconderlo lo volvería invisible.
+    const grupos = gruposDeExtras([{ nombre: 'Latte Helado', grupo: 'Café' }])
+    expect(grupos).toHaveLength(1)
+    expect(grupos[0].opciones).toHaveLength(1)
   })
 })
 

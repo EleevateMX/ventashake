@@ -264,3 +264,37 @@ export function extraDisponible(
   for (const g of gruposElegidos) if (g === pide) return true
   return false
 }
+
+/**
+ * Los grupos de «elige una» que tiene un producto, con sus opciones.
+ *
+ * Vivía escrito dentro del kiosko, y por eso **no se podía comprobar sin
+ * la pantalla enfrente**. El 20/09 se reportó que «en la chapata no
+ * aparece americano frío o caliente» y no había forma de verificarlo a
+ * distancia: el dato estaba bien en la base, pero la única prueba
+ * posible era ir a tocar el kiosko. Aquí sí se puede — con pruebas que
+ * usan la respuesta real del servidor.
+ *
+ * Qué NO es un grupo, y por qué:
+ *
+ * - **Las bases** (leche, agua, sin leche) tienen su propia sección
+ *   arriba: la base sustituye la líquida de la receta, no se suma.
+ * - **Las proteínas** van por marca y sabor, en dos pasos, así que `grupo
+ *   = 'proteina'` se excluye aunque esté escrito.
+ * - **Las galletas** son promoción con su propia sección; que no lleve
+ *   ninguna es respuesta válida y un «elige una» diría lo contrario.
+ */
+export function gruposDeExtras<T extends { nombre: string; grupo?: string | null }>(
+  extras: T[],
+): Array<{ grupo: string; opciones: T[] }> {
+  const nombres = [
+    ...new Set(
+      extras
+        .filter(
+          (e) => e.grupo && e.grupo !== 'proteina' && !esBase(e.nombre) && !esGalleta(e.nombre),
+        )
+        .map((e) => e.grupo as string),
+    ),
+  ]
+  return nombres.map((grupo) => ({ grupo, opciones: extras.filter((e) => e.grupo === grupo) }))
+}
