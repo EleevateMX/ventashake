@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { mxn, refrescarContraCatalogo, totalRefrescado, type VentaRefrescada } from '@shake/utils'
 import { leerEspera, quitarDeEspera, type VentaEnEspera } from '@/store/espera'
 import type { ItemCarrito } from '@/store/carritoStore'
@@ -15,13 +15,21 @@ type Refrescada = VentaRefrescada<ItemCarrito>
  * un número que la terminal no va a pedir.
  */
 export function VentasEnEspera({
-  catalogo, hayCarrito, onRetomar, onCerrar,
+  catalogo, hayCarrito, onRetomar, onCerrar, abrirDeUnaVez = null,
 }: {
   catalogo: Array<{ id: string; nombre: string; precio: number }>
   /** Si ya hay algo en pantalla, retomar lo pisaría: hay que avisar. */
   hayCarrito: boolean
   onRetomar: (v: VentaEnEspera, refrescada: Refrescada) => void
   onCerrar: () => void
+  /**
+   * Una apartada concreta a la que entrar sola, cuando el panel lo abrió
+   * gerencia desde Admin en vez del cajero. Pasa por el mismo
+   * `intentarRetomar` que el botón: mismo refresco de precios, mismos
+   * avisos. Si no está en este navegador, no se abre nada — la tiene
+   * otra pantalla.
+   */
+  abrirDeUnaVez?: string | null
 }) {
   const [lista, setLista] = useState<VentaEnEspera[]>(() => leerEspera())
   /** La que se está por retomar, con lo que le pasó mientras esperaba. */
@@ -37,6 +45,23 @@ export function VentasEnEspera({
     if (!cambio && !hayCarrito) return onRetomar(v, r)
     setRevisando({ v, r })
   }
+
+  /**
+   * Atender el empujón de gerencia **una sola vez**.
+   *
+   * Con la referencia guardada, volver del diálogo de confirmación no
+   * vuelve a abrirlo solo: el cajero se quedaría atrapado en una pantalla
+   * que se reabre sola cada vez que toca "Volver".
+   */
+  const yaAtendido = useRef<string | null>(null)
+  useEffect(() => {
+    if (!abrirDeUnaVez || yaAtendido.current === abrirDeUnaVez) return
+    yaAtendido.current = abrirDeUnaVez
+    const v = lista.find((x) => x.id === abrirDeUnaVez)
+    if (v) intentarRetomar(v)
+    // `intentarRetomar` y `lista` son estables dentro de este montaje.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [abrirDeUnaVez])
 
   function descartar(id: string) {
     setLista(quitarDeEspera(id))

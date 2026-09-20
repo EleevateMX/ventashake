@@ -23,7 +23,19 @@ interface Categoria {
   cocinas: { id: string; nombre: string; slug: string } | null
 }
 
-export function Catalogo() {
+export function Catalogo({
+  empujada = null,
+  onEmpujadaVista,
+}: {
+  /**
+   * La apartada que gerencia mandó desde Admin -> En vivo. Es la
+   * referencia local que publicó ESTA pantalla; si la venta no está en
+   * este navegador, no pasa nada: la tiene otra.
+   */
+  empujada?: string | null
+  /** Para que App suelte la señal: se atiende una sola vez. */
+  onEmpujadaVista?: () => void
+} = {}) {
   const navigate = useNavigate()
   const { agregar, agregarConExtras, totalItems, restaurar } = useCarrito()
   /**
@@ -41,6 +53,8 @@ export function Catalogo() {
    */
   const [enEspera, setEnEspera] = useState(() => leerEspera().length)
   const [verEspera, setVerEspera] = useState(false)
+  /** Cuál abrir sola al entrar al panel, cuando la mandó gerencia. */
+  const [empujadaAbierta, setEmpujadaAbierta] = useState<string | null>(null)
   const [productos, setProductos] = useState<ProductoVenta[]>([])
   const [categoriaActiva, setCategoriaActiva] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -111,6 +125,25 @@ export function Catalogo() {
     const apagarLatido = arrancarLatidoEspera()
     return apagarLatido
   }, [])
+
+  /**
+   * Gerencia mandó una apartada desde Admin: se abre el panel con ESA.
+   *
+   * No se retoma a la brava. Va por el mismo camino que el botón del
+   * chip amarillo, que es el que refresca precios contra el catálogo de
+   * hoy y avisa si algo cambió o si va a pisar lo que el cajero tiene en
+   * pantalla. Un atajo que se salte eso pondría en la caja un total que
+   * el servidor no va a cobrar.
+   *
+   * Si esta pantalla no tiene esa venta, el panel simplemente no
+   * encuentra nada que abrir — la tiene otra pestaña.
+   */
+  useEffect(() => {
+    if (!empujada) return
+    setEmpujadaAbierta(empujada)
+    setVerEspera(true)
+    onEmpujadaVista?.()
+  }, [empujada, onEmpujadaVista])
 
   const extrasDe = (productoId: string) => extras.filter((e) => e.producto_id === productoId)
 
@@ -262,7 +295,12 @@ export function Catalogo() {
         <VentasEnEspera
           catalogo={[...productos, ...productosExtra]}
           hayCarrito={totalItems() > 0}
-          onCerrar={() => { setEnEspera(leerEspera().length); setVerEspera(false) }}
+          abrirDeUnaVez={empujadaAbierta}
+          onCerrar={() => {
+            setEnEspera(leerEspera().length)
+            setVerEspera(false)
+            setEmpujadaAbierta(null)
+          }}
           onRetomar={(v, r) => {
             restaurar({
               items: r.items,
@@ -272,6 +310,7 @@ export function Catalogo() {
             })
             setEnEspera(quitarDeEspera(v.id).length)
             setVerEspera(false)
+            setEmpujadaAbierta(null)
             navigate('/carrito')
           }}
         />
