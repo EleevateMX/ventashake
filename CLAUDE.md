@@ -376,6 +376,33 @@ que hay preparado elegido, y desaparece si lo quitan.
   protege (que el cliente no mande precios) sigue en pie, y el riesgo aquí
   son $5 de una galleta.
 
+### 2.4.10 Admin revisa el menú y nombra lo que está chueco
+
+**Admin → Revisión del menú** (`fn_revision_menu`) enumera lo que las
+pantallas ya están sufriendo, con nombre y apellido, y trae el botón
+**«Actualizar el kiosko»**. No arregla nada solo, y es a propósito: apagar
+o prender algo del menú es decisión del negocio.
+
+Nació de un día entero de reportes que sonaban a «se borró algo» y no lo
+eran —era el corte de las 1000 filas—, pero al buscarlos aparecieron
+huecos reales **que desde Admin no se podían ver**. Lo que revisa:
+
+| Qué busca | Por qué duele |
+|---|---|
+| Grupo de **una sola opción** | Dice «elige una» y no deja elegir. Es el combo del Latte: «Latte Caliente» quedó apagado al migrar del Chapata Pick viejo |
+| Extra **apagado** pero ligado a un producto activo | No sale en el menú y nadie se entera de por qué |
+| **«solo si…»** apuntando a un grupo que ese producto no tiene | El extra no va a aparecer nunca, y nada lo dice |
+| Dos productos activos con el **mismo nombre** | Es lo que dejó a la tienda sin poder vender El Clásico |
+| Extra **sin categoría** | Invisible en Admin → Extras, así que no hay forma de prenderlo ni ligarlo |
+| Se vende y **no tiene receta** | Al cobrarlo no baja inventario |
+
+> **Y la pantalla de Extras ya no esconde a los huérfanos.** `fn_extras_bebida_admin`
+> hacía `join categorias` y filtraba por «Extras Bebidas», así que un extra
+> sin categoría no aparecía en ninguna lista — la pantalla escondía justo
+> el renglón que explicaba el problema. Ahora también lista los 22 sin
+> categoría (ninguno activo), apagados y listos para prenderse. Es la misma
+> lección de la categoría «Extras» de la sección 2.4.7.
+
 ### 2.4.8 Las ventas en espera se ven de lejos, pero siguen siendo locales
 
 Gerencia pidió verlas desde Admin → **En vivo**. **No se movieron a la
@@ -590,6 +617,7 @@ empaquetador y se desvían solas:
 | Vender un extra suelto (chipotle, pepinillos) | Admin → **Extras** → *Vender solo* → precio y en qué botón del menú |
 | Un extra solo debe salir con otra cosa (galletas solo con preparado) | Admin → **Extras** → en el producto, columna **«solo si…»** → escribe el nombre del grupo |
 | Mandarle una apartada al cajero para que la cobre | Admin → **En vivo** → toca la venta → **«Mandar al kiosko para cobrar»**. Le aparece en pantalla con los precios de hoy; el cobro se hace en la barra |
+| Algo del menú no sale y no se sabe por qué | Admin → **Revisión del menú**. Enumera lo que está chueco con nombre y apellido, y trae el botón **«Actualizar el kiosko»** |
 | Ver qué ventas están apartadas, a distancia | Admin → **En vivo**, arriba del todo. Toca una para ver qué lleva, de qué hora es el ticket y a qué hora entró cada producto |
 
 ---
@@ -785,6 +813,17 @@ empaquetador y se desvían solas:
   escribe en la comanda y qué se cobra aparte vive ahora en
   `packages/utils/src/extras.ts`, importado por las dos. Su espejo en la
   base es `fn_clase_extra`. **Al tocar una, revisa la otra.**
+- **Una regla que solo se puede comprobar con la pantalla enfrente es una
+  regla que no se puede comprobar.** El 20/09 se reportó que «en la chapata
+  no aparece americano frío o caliente» y no había nadie en la tienda para
+  mirarla: el dato estaba bien en la base, pero la derivación de grupos
+  vivía escrita dentro de `ModalExtras` y no había forma de verificarla a
+  distancia. Ahora es `gruposDeExtras` en `@shake/utils`, **con una prueba
+  que usa la respuesta real del servidor** para ese combo (pedida por HTTP
+  con la llave pública y pegada tal cual en el test). Esa prueba es la que
+  contesta «sí ofrece los dos americanos» sin ir a la tienda. Misma familia
+  que `extras.ts` y `observaciones.ts`: lo que decide qué se ve no vive en
+  la pantalla.
 - La comanda muestra cada producto **con sus extras colgando**, no plana:
   `orden_items.padre_item_id` dice de cuál shake es la creatina, y con dos
   bebidas en el mismo folio esa es la única forma de saberlo. Lo agrupa

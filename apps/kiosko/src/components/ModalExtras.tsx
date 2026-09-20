@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import {
   mxn, esBase, esGalleta, esProteina, esDobleScoop, dobleScoopDe,
-  ordenarBases, baseDeCasa, opcionDeGrupo, grupoEsOpcional, extraDisponible,
+  ordenarBases, baseDeCasa, opcionDeGrupo, grupoEsOpcional, extraDisponible, gruposDeExtras,
   notaDeBase, baseCobrada,
 } from '@shake/utils'
 import type { ProductoVenta, ExtraDeProducto } from '@shake/supabase'
@@ -109,16 +109,16 @@ export function ModalExtras({ producto, extras, observaciones: catalogoObs, onCe
    * Grupos armados desde Admin (producto_extras.grupo): los extras que
    * comparten grupo se eligen entre sí, uno solo. Es lo que permite
    * ofrecer "americano frío o caliente" dentro de un paquete sin crear un
-   * producto por combinación. 'proteina' se excluye porque ya tiene su
-   * propia sección de dos pasos.
+   * producto por combinación.
+   *
+   * La regla vive en `@shake/utils` y no aquí: escrita dentro del kiosko
+   * no se podía comprobar sin tener la pantalla enfrente, y el día que
+   * se reportó «en la chapata no aparece americano frío o caliente» no
+   * había nadie en la tienda para mirarla. Ahora hay una prueba que usa
+   * la respuesta real del servidor.
    */
-  const gruposConfigurados = [
-    ...new Set(
-      extras
-        .filter((e) => e.grupo && e.grupo !== 'proteina' && !esBase(e.nombre) && !esGalleta(e.nombre))
-        .map((e) => e.grupo as string),
-    ),
-  ]
+  const grupos = gruposDeExtras(extras)
+  const gruposConfigurados = grupos.map((g) => g.grupo)
   /**
    * Lo elegido en cada grupo. Si el cliente no tocó el grupo vale lo que
    * diga `opcionDeGrupo` — que para un grupo con precio es **nada**: el
@@ -127,11 +127,10 @@ export function ModalExtras({ producto, extras, observaciones: catalogoObs, onCe
    * Se calcula aquí arriba, antes que las galletas y los adicionales,
    * porque hay extras que dependen de que un grupo esté resuelto.
    */
-  const elegidosDeGrupo = gruposConfigurados
-    .map((g) => {
-      const opciones = extras.filter((e) => e.grupo === g)
-      return opciones.find((e) => e.extra_id === porGrupo[g]) ?? opcionDeGrupo(opciones)
-    })
+  const elegidosDeGrupo = grupos
+    .map(({ grupo, opciones }) =>
+      opciones.find((e) => e.extra_id === porGrupo[grupo]) ?? opcionDeGrupo(opciones),
+    )
     .filter((e): e is ExtraDeProducto => e !== null)
   const gruposElegidos = new Set(elegidosDeGrupo.map((e) => e.grupo as string))
 
@@ -396,8 +395,7 @@ export function ModalExtras({ producto, extras, observaciones: catalogoObs, onCe
             </section>
           )}
 
-          {gruposConfigurados.map((g) => {
-            const opciones = extras.filter((e) => e.grupo === g)
+          {grupos.map(({ grupo: g, opciones }) => {
             if (opciones.length === 0) return null
             const elegido = porGrupo[g] ?? opcionDeGrupo(opciones)?.extra_id
             // Un grupo que no se preselecciona solo se tiene que poder

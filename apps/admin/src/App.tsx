@@ -13,6 +13,7 @@ import Nombres from './pages/Nombres'
 import Metas from './pages/Metas'
 import Rewards from './pages/Rewards'
 import Menu from './pages/Menu'
+import Revision from './pages/Revision'
 import Categorias from './pages/Categorias'
 import Combos from './pages/Combos'
 import Extras from './pages/Extras'
@@ -26,7 +27,7 @@ import Empleados from './pages/Empleados'
 import Impresoras from './pages/Impresoras'
 import Sistema from './pages/Sistema'
 
-type Tab = 'dashboard' | 'envivo' | 'diagnostico' | 'menu' | 'categorias' | 'combos' | 'extras' | 'inventario' | 'promos' | 'ventas' | 'cortes' | 'clientes' | 'nombres' | 'metas' | 'rewards' | 'empleados' | 'impresoras' | 'descargas' | 'ayuda' | 'peticiones' | 'soporte' | 'pulso' | 'sistema'
+type Tab = 'dashboard' | 'envivo' | 'diagnostico' | 'menu' | 'revision' | 'categorias' | 'combos' | 'extras' | 'inventario' | 'promos' | 'ventas' | 'cortes' | 'clientes' | 'nombres' | 'metas' | 'rewards' | 'empleados' | 'impresoras' | 'descargas' | 'ayuda' | 'peticiones' | 'soporte' | 'pulso' | 'sistema'
 
 const w = 18
 
@@ -47,6 +48,13 @@ const IconDiagnostico = () => (
     <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
   </svg>
 )
+/** Lupa: revisar el menu, no editarlo. */
+const IconRevision = () => (
+  <svg width={w} height={w} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" />
+  </svg>
+)
+
 const IconMenu = () => (
   <svg width={w} height={w} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2" /><line x1="7" y1="2" x2="7" y2="22" /><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Z" /><line x1="21" y1="15" x2="21" y2="22" />
@@ -174,6 +182,7 @@ const navItems: { id: Tab; label: string; Icon: () => ReactElement; soloSoporte?
   { id: 'envivo', label: 'En vivo', Icon: IconEnVivo },
   { id: 'diagnostico', label: 'Diagnóstico', Icon: IconDiagnostico },
   { id: 'menu', label: 'Menú', Icon: IconMenu },
+  { id: 'revision', label: 'Revisión del menú', Icon: IconRevision },
   { id: 'categorias', label: 'Categorías', Icon: IconCategorias },
   { id: 'combos', label: 'Combos', Icon: IconCombos },
   { id: 'extras', label: 'Extras', Icon: IconExtras },
@@ -253,6 +262,7 @@ export default function App() {
         {tab === 'metas' && <Metas />}
         {tab === 'rewards' && <Rewards />}
         {tab === 'menu' && <Menu />}
+        {tab === 'revision' && <Revision />}
         {tab === 'categorias' && <Categorias />}
         {tab === 'combos' && <Combos />}
         {tab === 'extras' && <Extras />}
