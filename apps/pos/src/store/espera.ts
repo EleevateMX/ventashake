@@ -98,7 +98,14 @@ function publicarVistazo(lista: VentaEnEspera[]): void {
       etiqueta: v.etiqueta,
       total: Math.round(deLaVenta(v) * 100) / 100,
       hora: horaEnMerida(new Date(v.guardadaEn)),
-      items: v.items.map((l) => ({ n: l.producto?.nombre ?? '?', c: l.cantidad })),
+      // Cada renglón con SU hora de captura. Sin sello no se manda: las
+      // apartadas guardadas antes de este cambio no lo traen, y poner la
+      // del ticket sería contestar otra pregunta.
+      items: v.items.map((l) => ({
+        n: l.producto?.nombre ?? '?',
+        c: l.cantidad,
+        ...(l.agregadoEn ? { h: horaEnMerida(new Date(l.agregadoEn)) } : {}),
+      })),
     } satisfies VentaApartada)),
   ).catch(() => {})
 }

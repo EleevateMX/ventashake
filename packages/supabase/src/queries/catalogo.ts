@@ -591,7 +591,15 @@ export interface VentaApartada {
   total: number
   /** "11:54" en hora de Mérida, de cuándo se apartó. */
   hora: string
-  items: { n: string; c: number }[]
+  /**
+   * `n` nombre, `c` cantidad, `h` la hora en que ese renglón se capturó.
+   *
+   * `h` es opcional porque una apartada que ya estaba en el navegador
+   * antes de este cambio no la tiene: sus líneas nacieron sin sello. Se
+   * pinta vacío en vez de inventar la del ticket — "a más tardar a esa
+   * hora" no es lo que se preguntó.
+   */
+  items: { n: string; c: number; h?: string }[]
 }
 
 export interface EsperaEnVivo {
