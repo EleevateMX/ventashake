@@ -98,6 +98,10 @@ function publicarVistazo(lista: VentaEnEspera[]): void {
       etiqueta: v.etiqueta,
       total: Math.round(deLaVenta(v) * 100) / 100,
       hora: horaEnMerida(new Date(v.guardadaEn)),
+      // Va aunque la caja NO escuche señales de Admin (ver el aviso en
+      // CLAUDE.md 2.4.8): el dato es suyo, cuesta nada, y el día que la
+      // caja aprenda a escuchar ya está publicado.
+      ref: v.id,
       // Cada renglón con SU hora de captura. Sin sello no se manda: las
       // apartadas guardadas antes de este cambio no lo traen, y poner la
       // del ticket sería contestar otra pregunta.

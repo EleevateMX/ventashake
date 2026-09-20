@@ -116,6 +116,10 @@ function detalleParaVistazo(v: VentaEnEspera): VentaApartada {
     etiqueta: v.etiqueta,
     total: Math.round((Number(v.total) || 0) * 100) / 100,
     hora: horaEnMerida(new Date(v.guardadaEn)),
+    // El identificador local, para que gerencia pueda señalar ESTA y no
+    // otra. No es un folio: solo sirve para que esta misma pantalla se
+    // reconozca cuando le llegue el timbre de "retoma esa".
+    ref: v.id,
     items: v.items.map((i) => ({
       n: i.nombre,
       c: i.cantidad,

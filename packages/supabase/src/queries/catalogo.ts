@@ -622,6 +622,14 @@ export interface VentaApartada {
   /** "11:54" en hora de Mérida, de cuándo se apartó. */
   hora: string
   /**
+   * Con qué señalarla desde Admin. Es el identificador **local** del
+   * navegador que la apartó, no un folio ni un id de producto: no dice
+   * nada del cliente ni del pedido. Sin él no hay forma de apuntarle a
+   * una venta en concreto — por posición sería frágil, porque la lista
+   * cambia entre que se publica y que alguien toca el botón.
+   */
+  ref?: string
+  /**
    * `n` nombre, `c` cantidad, `h` la hora en que ese renglón se capturó.
    *
    * `h` es opcional porque una apartada que ya estaba en el navegador
@@ -1039,6 +1047,54 @@ export async function publicarCatalogo(sb: ShakeClient): Promise<void> {
     p_quien: null,
   })
   if (error) throw error
+}
+
+/**
+ * Admin: mandarle una venta apartada al kiosko, lista para cobrar.
+ *
+ * **No cobra nada y no mueve la venta a la base.** La apartada sigue
+ * viviendo en el navegador del kiosko que la apartó; esto es un timbre
+ * que dice «retoma esa». El dinero se toma en la barra de todos modos —
+ * el efectivo entra al cajón y la terminal Clip está ahí—, así que lo
+ * útil que puede hacer gerencia a distancia es ponerle la cuenta al
+ * cajero enfrente.
+ *
+ * La señal no apunta a una pestaña concreta: **el kiosko que tenga esa
+ * venta la retoma y los demás no encuentran nada y la ignoran solos**.
+ */
+export async function pedirRetomarEspera(sb: ShakeClient, ref: string): Promise<void> {
+  const { error } = await (sb.rpc as unknown as RpcCatalogo)('fn_pantallas_retomar_espera', {
+    p_venta_ref: ref,
+  })
+  if (error) throw error
+}
+
+/**
+ * El kiosko escucha «retoma la apartada tal».
+ *
+ * Va aparte de `escucharRecargas` y no como un parámetro más: recargar
+ * tira la pantalla entera y esto solo le pone una venta enfrente. Son dos
+ * cosas con riesgos distintos, y mezclarlas haría que un error en una
+ * pudiera disparar la otra.
+ */
+export function escucharRetomarEspera(
+  sb: ShakeClient,
+  alRecibir: (ref: string) => void,
+): () => void {
+  const canal = sb
+    .channel('retomar-espera-kiosko')
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'senales_pantallas' },
+      (evento: { new?: { pantalla?: string; accion?: string; dato?: string | null } }) => {
+        const fila = evento.new
+        if (!fila || fila.accion !== 'retomar' || fila.pantalla !== 'kiosko') return
+        const ref = (fila.dato ?? '').trim()
+        if (ref) alRecibir(ref)
+      },
+    )
+    .subscribe()
+  return () => { void sb.removeChannel(canal) }
 }
 
 /** Admin: recargar UNA pantalla que se quedó atorada. */

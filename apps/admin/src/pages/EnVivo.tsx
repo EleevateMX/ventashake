@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { sb } from '../lib/sb'
 import {
-  panelEnVivo, esperaEnVivo, pedirRecargaPantallas,
+  panelEnVivo, esperaEnVivo, pedirRecargaPantallas, pedirRetomarEspera,
   type PanelEnVivo, type EsperaEnVivo,
 } from '@shake/supabase'
 import { mxn, mensajeDeError, hace } from '@shake/utils'
@@ -77,6 +77,9 @@ export default function EnVivo() {
   const [esperaAbierta, setEsperaAbierta] = useState<string | null>(null)
   const [pidiendoDetalle, setPidiendoDetalle] = useState(false)
   const [avisoDetalle, setAvisoDetalle] = useState<string | null>(null)
+  /** La apartada que se está mandando al kiosko, para no mandarla dos veces. */
+  const [mandando, setMandando] = useState<string | null>(null)
+  const [avisoMandar, setAvisoMandar] = useState<string | null>(null)
 
   /**
    * Le pide a la pantalla que se refresque para que vuelva a reportar.
@@ -112,6 +115,35 @@ export default function EnVivo() {
       setPidiendoDetalle(false)
     }
   }
+  /**
+   * Mandarle una apartada al kiosko para que el cajero la cobre.
+   *
+   * **No cobra nada desde aquí, y no debe.** El efectivo entra al cajón y
+   * la terminal Clip está en la barra: lo único útil que puede hacer
+   * gerencia a distancia es ponerle la cuenta enfrente a quien sí puede
+   * cobrarla. La venta tampoco se mueve a la base — sigue en el navegador
+   * del kiosko, que es donde se decidió que viva.
+   *
+   * Igual que «Pedir detalle», el botón **solo sale para el kiosko**: la
+   * caja no escucha señales de Admin.
+   */
+  async function mandarAlKiosko(ref: string, etiqueta: string) {
+    setMandando(ref)
+    setAvisoMandar(null)
+    try {
+      await pedirRetomarEspera(sb, ref)
+      setAvisoMandar(
+        `«${etiqueta}» va en camino. Le aparece al cajero en cuanto la pantalla esté en el menú, ` +
+        'con los precios de hoy. Cobrar se cobra allá.',
+      )
+      setTimeout(() => setAvisoMandar(null), 12_000)
+    } catch (e) {
+      setAvisoMandar(mensajeDeError(e))
+    } finally {
+      setMandando(null)
+    }
+  }
+
   const [error, setError] = useState<string | null>(null)
   const [vista, setVista] = useState<'ultimos' | 'turno'>('ultimos')
   const [conectado, setConectado] = useState(false)
@@ -313,6 +345,28 @@ export default function EnVivo() {
 
                           {abierta && (
                             <div className="mt-1 ml-5 rounded-sa bg-white/60 px-3 py-2">
+                              {/* Mandársela al cajero. Solo para el kiosko:
+                                  la caja no escucha señales de Admin, y sin
+                                  `ref` (pantalla vieja) no hay a qué apuntar. */}
+                              {vt.ref && e.pantalla.startsWith('kiosko:') && (
+                                <div className="flex items-center gap-2 flex-wrap mb-2 pb-2 border-b border-dashed border-sa-green-ink/10">
+                                  <button
+                                    disabled={mandando === vt.ref}
+                                    onClick={() => void mandarAlKiosko(vt.ref as string, vt.etiqueta)}
+                                    className="px-3 py-1.5 rounded-full text-[11px] bg-sa-green text-sa-cream disabled:opacity-50"
+                                  >
+                                    {mandando === vt.ref ? 'Mandando…' : 'Mandar al kiosko para cobrar'}
+                                  </button>
+                                  <span className="text-[11px] text-sa-green-ink/50">
+                                    se la pone al cajero en pantalla · el cobro se hace allá
+                                  </span>
+                                </div>
+                              )}
+                              {avisoMandar && mandando === null && (
+                                <p className="text-[11px] text-sa-green-ink/70 mb-2 leading-relaxed">
+                                  {avisoMandar}
+                                </p>
+                              )}
                               {hayDetalle ? (
                                 vt.items.map((it, j) => (
                                   <div

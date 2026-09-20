@@ -430,6 +430,24 @@ las 12 horas, la misma vigencia que usa el navegador.
   dice adentro. Un renglón que no responde y no explica nada es peor que
   uno que confiesa — la primera versión lo deshabilitaba y se reportó, con
   razón, como «no me deja hacerle click».
+- **Gerencia puede mandarle una apartada al kiosko para que la cobren**
+  (Admin → En vivo → abre la venta → «Mandar al kiosko para cobrar»).
+  **No cobra desde Admin, y no debe**: el efectivo entra al cajón y la
+  terminal Clip está en la barra, así que lo único útil que se puede
+  hacer a distancia es ponerle la cuenta enfrente a quien sí puede
+  cobrarla. La venta **tampoco se mueve a la base** — sigue en el
+  navegador que la apartó; lo que viaja es un timbre
+  (`senales_pantallas` con `accion = 'retomar'` y el `ref` local en la
+  columna `dato`).
+  Tres cosas que lo hacen seguro: el timbre va a «kiosko» a secas y **la
+  pantalla que no tenga esa venta no encuentra nada y lo ignora sola**
+  (por eso no hace falta apuntarle a una pestaña); el kiosko la abre por
+  el **mismo camino que el botón del chip amarillo**, o sea con el
+  refresco de precios contra el catálogo de hoy y el aviso de «esto va a
+  pisar lo que tienes en pantalla»; y si el timbre suena mientras el
+  cajero está cobrando, **se guarda y se atiende cuando vuelva al menú**
+  —el catálogo ni siquiera está montado ahí, y perder la señal dejaría a
+  gerencia tocando un botón que no hace nada.
 - ⚠ **Solo el kiosko escucha recargas.** El POS no
   (`escucharRecargas` está en kiosko, barra, cocina y folios, no en la
   caja). Mapear la señal del POS a otra pantalla recargaría la que no es
@@ -571,6 +589,7 @@ empaquetador y se desvían solas:
 | Una observación sale donde no debe | Admin → Extras → *Observaciones* → **"Dónde aplica"**. Marca la categoría (un clic para los 250 shakes) o los productos sueltos |
 | Vender un extra suelto (chipotle, pepinillos) | Admin → **Extras** → *Vender solo* → precio y en qué botón del menú |
 | Un extra solo debe salir con otra cosa (galletas solo con preparado) | Admin → **Extras** → en el producto, columna **«solo si…»** → escribe el nombre del grupo |
+| Mandarle una apartada al cajero para que la cobre | Admin → **En vivo** → toca la venta → **«Mandar al kiosko para cobrar»**. Le aparece en pantalla con los precios de hoy; el cobro se hace en la barra |
 | Ver qué ventas están apartadas, a distancia | Admin → **En vivo**, arriba del todo. Toca una para ver qué lleva, de qué hora es el ticket y a qué hora entró cada producto |
 
 ---
@@ -831,6 +850,33 @@ empaquetador y se desvían solas:
   `revoke execute ... from anon` a secas, y se comprueba mirando `proacl`,
   no releyendo la migración. Regla: después de crear una función que NO
   debe ser pública, `select proacl from pg_proc` antes de decir que quedó.
+
+- **Y al revés: `revoke ... from anon` NO le quita el permiso a PUBLIC.**
+  Las dos caras de la misma trampa, y me comí las dos. El 20/09 creé
+  `fn_pantallas_retomar_espera` y `fn_extra_bebida_requiere` con su
+  `revoke execute ... from anon`, lo verifiqué, dije que habían quedado
+  cerradas — y `anon` **las podía ejecutar igual**, heredando el EXECUTE
+  de PUBLIC. Solo las salvó el candado interno (`fn_es_jefe()` /
+  `fn_es_staff()`), que es defensa de verdad pero no era lo que yo había
+  dicho. Hay que revocar a **los dos**.
+  **Y la consulta con la que lo "comprobé" era parte del problema**: un
+  `aclexplode` unido a `pg_roles` **esconde la fila de PUBLIC**, porque su
+  grantee es `0` y no empata con ningún rol — la función se ve limpia
+  aunque esté abierta. Se saca con `coalesce(r.rolname, 'PUBLIC')`, o
+  buscando `a.grantee = 0` directo. La prueba que no miente sigue siendo
+  la misma: **HTTP con la llave publicable**. Con PUBLIC abierto contesta
+  el mensaje del candado ("Solo gerencia puede…"); cerrado de verdad
+  contesta **401 permission denied**. Si lees el mensaje de tu propio
+  candado, la puerta sigue abierta.
+  Consecuencia para el inventario de puertas abiertas: **el conteo de
+  ~115 estaba corto**. Son **116** las `SECURITY DEFINER` alcanzables por
+  `anon`, y **12 de ellas solo por PUBLIC** — invisibles para la consulta
+  de abajo. Casi todas son funciones de trigger (`trg_sync_app_data`,
+  `fn_descontar_inventario_por_orden`, `fn_pago_aprobado`,
+  `fn_encolar_comanda*`…), que PostgREST no expone; las que sí vale la
+  pena mirar algún día son **`fn_confirmar_venta`**,
+  `fn_imprimir_liberar_vencidos` y `fn_encolar_comanda_para_pedido`.
+  Ninguna se cierra de golpe: ya sabemos cómo termina eso.
 
 - **Antes de cerrarle una función a `anon`, busca quién la llama fuera del
   navegador.** Le quité `anon` a `fn_admin_impresoras` para tapar una fuga
