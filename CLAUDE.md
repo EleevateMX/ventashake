@@ -505,6 +505,76 @@ la tasa de canje es una función, los sellos son una tabla editable, y lo
 que se gana por peso vive **dentro del trigger que corre en cada cobro** y
 por eso no tiene botón.
 
+### 2.8 El reloj checador se checa en la barra, y nada se borra
+
+**Kiosko → botón «Checar»**, con el PIN de siempre. Cuatro tipos:
+entrada, salgo a comer, regresé, salida. Gerencia lo ve en **Admin →
+Asistencia**, con exportar a Excel.
+
+> **Por qué no por WhatsApp ni Telegram.** Un checador existe para probar
+> que **alguien estuvo aquí a esta hora**. Un mensaje prueba que se mandó
+> un mensaje — desde la cama, desde el Uber. Ese canal sí sirve, pero como
+> **aviso** («Ana entró 9:12», «son las 11 pm y nadie checó salida»), no
+> como la checada. Y un QR impreso en un gafete se fotografía y se manda
+> por WhatsApp en dos segundos: es *más* fácil de compartir que un PIN, no
+> menos.
+
+Cinco reglas, y las cinco por una razón concreta:
+
+1. **La hora la pone el servidor** (`now()`), nunca la pantalla. Misma
+   regla que el dinero: con la hora del navegador, cambiarle el reloj a la
+   PC bastaría para falsear un turno.
+2. **Nada se edita ni se borra.** Lo impone un trigger sobre
+   `asistencia_eventos`, no la buena voluntad: `update` y `delete`
+   revientan. Corregir es **agregar** una fila que apunta al original
+   (`corrige_evento_id`), con quién la autorizó y por qué — y el servidor
+   rechaza una corrección sin motivo. Un historial que se puede editar no
+   es evidencia de nada, y ahí es donde fallan los checadores baratos.
+3. **Se guardan EVENTOS, no turnos.** La decisión más importante. Con
+   «turno con entrada y salida», el día que alguien se va sin checar —y va
+   a pasar— el registro se rompe o hay que inventarle una hora. Con
+   eventos sueltos, el turno **se calcula** al mostrarlo y un olvido sale
+   marcado como pendiente, que es lo que es.
+4. **La pantalla pregunta, no adivina.** Con cuatro tipos, deducir cuál
+   toca deja de ser seguro: `fn_asistencia_estado` dice en qué estado está
+   cada quien y la pantalla solo ofrece esas transiciones. El servidor
+   **vuelve a validarlas** de todos modos, porque una pantalla puede
+   quedarse vieja y mandar «salida» de alguien que ya se fue.
+5. **Se registra desde qué pantalla se checó** (`kiosko:a3f2`). Si una
+   checada viene del navegador de un celular y no del kiosko de la barra,
+   se nota.
+
+**No se cuelga del corte de caja, a propósito**: quien está en cocina
+nunca abre la caja, y amarrarlo al turno de caja lo dejaría sin poder
+checar. Por eso también se puede checar sin turno abierto — el primero que
+llega checa y *luego* abre la caja.
+
+**Las reglas las escribe gerencia** en Admin → Asistencia → **Reglas**
+(`asistencia_config`): minutos de comida esperados, cuándo una comida es
+«larga», jornada, tolerancia, y a las cuántas horas caduca un turno que
+nadie cerró. Estaban escritas dentro de la función —las 16 horas— y
+cambiarlas obligaba a desplegar. El servidor valida topes de cordura: un
+turno máximo de 200 horas no es una configuración, es un error de dedo.
+
+> **La casilla que mueve la nómina es «la comida se paga».** Apagada, los
+> minutos de comida se restan de las horas trabajadas. El histórico
+> muestra **bruto** y **trabajado** por separado a propósito, para que los
+> dos se puedan comparar sin confiar en uno solo.
+
+- `fn_asistencia_checar` y `fn_asistencia_estado` están abiertas a `anon`
+  porque **el kiosko en modo cajero corre como `anon`** (sección 2.2) y el
+  PIN **es** la credencial, comparado contra bcrypt igual que
+  `fn_staff_por_pin`. Reusan el freno que ya existía
+  (`fn_pin_registrar_intento`): 15 fallos en 15 minutos y se cierra, o un
+  PIN de 4 dígitos se adivina en una tarde. Todo lo demás pide gerencia y
+  está cerrado a `anon` **y** a PUBLIC.
+- **Lo que todavía NO hace: decir «llegó tarde».** Para eso hace falta un
+  **horario por persona**, que es otra pieza y no existe. `tolerancia_min`
+  y `jornada_min` ya se guardan, pero hoy son informativos — prometerlo a
+  medias sería peor que no tenerlo.
+- Lo que sí falta y es barato: los **avisos** por WhatsApp/Telegram, y la
+  **lista de papeles** del expediente de cada quien (ver abajo).
+
 ### 2.5 La identidad es una sola, y vive en `packages/brand`
 
 `packages/brand/tokens.css` es la **fuente de la verdad**: los colores y
@@ -618,6 +688,9 @@ empaquetador y se desvían solas:
 | Un extra solo debe salir con otra cosa (galletas solo con preparado) | Admin → **Extras** → en el producto, columna **«solo si…»** → escribe el nombre del grupo |
 | Mandarle una apartada al cajero para que la cobre | Admin → **En vivo** → toca la venta → **«Mandar al kiosko para cobrar»**. Le aparece en pantalla con los precios de hoy; el cobro se hace en la barra |
 | Algo del menú no sale y no se sabe por qué | Admin → **Revisión del menú**. Enumera lo que está chueco con nombre y apellido, y trae el botón **«Actualizar el kiosko»** |
+| Checar entrada, comida o salida | Kiosko → botón **«Checar»** → PIN → el botón que aplique. La hora la pone el sistema |
+| Ver las horas del personal | Admin → **Asistencia**. Por persona y por día, con la comida descontada. Exporta a Excel |
+| Cambiar las reglas del checador | Admin → Asistencia → **Reglas**. Ojo con «la comida se paga»: esa mueve la nómina |
 | Ver qué ventas están apartadas, a distancia | Admin → **En vivo**, arriba del todo. Toca una para ver qué lleva, de qué hora es el ticket y a qué hora entró cada producto |
 
 ---
