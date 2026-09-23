@@ -15,6 +15,7 @@ import { CorteMilo } from '@/components/CorteMilo'
 import { HistorialPedidos } from '@/components/HistorialPedidos'
 import { VentasEnEspera } from '@/components/VentasEnEspera'
 import { leerEspera, quitarDeEspera, arrancarLatidoEspera } from '@/store/espera'
+import { RelojChecador } from '@/components/RelojChecador'
 
 interface Categoria {
   id: string
@@ -55,6 +56,7 @@ export function Catalogo({
   const [verEspera, setVerEspera] = useState(false)
   /** Cuál abrir sola al entrar al panel, cuando la mandó gerencia. */
   const [empujadaAbierta, setEmpujadaAbierta] = useState<string | null>(null)
+  const [checando, setChecando] = useState(false)
   const [productos, setProductos] = useState<ProductoVenta[]>([])
   const [categoriaActiva, setCategoriaActiva] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -390,6 +392,22 @@ export function Catalogo({
                     Caja y turno
                   </button>
                 )}
+                {/* El reloj checador va APARTE del corte de caja: quien
+                    está en cocina nunca abre la caja, y amarrarlo al
+                    turno de caja lo dejaría sin poder checar. Pide el PIN
+                    de cada quien —no el de quien desbloqueó la pantalla—
+                    porque varias personas trabajan el mismo turno. */}
+                {cajero && (
+                  <button
+                    onClick={() => setChecando(true)}
+                    className="inline-flex items-center gap-2 bg-sa-cream/10 hover:bg-sa-cream/20 border border-sa-cream/30 text-sa-cream/90 px-4 py-2 rounded-full font-mono text-xs uppercase tracking-wide transition-colors"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" />
+                    </svg>
+                    Checar
+                  </button>
+                )}
                 {/* Solo aparece si hay algo apartado: un boton que casi
                     siempre dice "0" es un boton que se deja de mirar. */}
                 {enEspera > 0 && (
@@ -579,6 +597,8 @@ export function Catalogo({
             puede tocar a través de él. */}
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-sa-cream-paper to-transparent" />
       </div>
+
+      {checando && <RelojChecador onCerrar={() => setChecando(false)} />}
 
       <ModalExtras
         observaciones={obsDe(personalizando)}

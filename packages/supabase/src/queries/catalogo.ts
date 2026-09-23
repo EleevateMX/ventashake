@@ -625,6 +625,179 @@ export async function requiereGrupoEnProducto(
   if (error) throw error
 }
 
+// --------------------------- reloj checador ---------------------------
+// Se checa en el kiosko con el PIN de siempre. La HORA LA PONE EL
+// SERVIDOR, nunca la pantalla: con la hora del navegador, cambiarle el
+// reloj a la PC bastaria para falsear un turno. Y las checadas no se
+// editan ni se borran — una correccion es una fila nueva que apunta al
+// original. Ver supabase/migrations/reloj_checador_fase_1.sql.
+
+export type TipoChecada = 'entrada' | 'salida' | 'inicio_comida' | 'fin_comida'
+
+/** En qué estado está quien trae este PIN, y qué puede hacer ahora. */
+export interface EstadoChecador {
+  nombre: string
+  estado: 'fuera' | 'dentro' | 'comiendo'
+  /** Solo las transiciones que existen. La pantalla no adivina: pregunta. */
+  puede: TipoChecada[]
+  /** Desde qué hora lleva el turno abierto, o la comida. */
+  desde_hora: string | null
+}
+
+export async function estadoChecador(sb: ShakeClient, pin: string): Promise<EstadoChecador> {
+  const { data, error } = await (sb.rpc as unknown as RpcCatalogo)('fn_asistencia_estado', {
+    p_pin: pin,
+  })
+  if (error) throw error
+  const filas = (data ?? []) as EstadoChecador[]
+  if (filas.length === 0) throw new Error('No se pudo leer tu estado.')
+  return filas[0]
+}
+
+export interface Checada {
+  empleado_id: string
+  nombre: string
+  tipo: TipoChecada
+  ocurrio_en: string
+  /** "09:12" en hora de Mérida. */
+  hora: string
+  /** Picó dos veces: no se registró otra, esta es la que ya existía. */
+  repetida: boolean
+  /** Solo al salir: cuánto duró el turno. */
+  minutos: number | null
+}
+
+/**
+ * Checar. El servidor **valida la transición** aunque la pantalla ya haya
+ * filtrado los botones: una pantalla vieja podría mandar «salida» de
+ * alguien que ya se fue y partir el histórico en dos.
+ */
+export async function checar(
+  sb: ShakeClient,
+  pin: string,
+  pantalla: string,
+  tipo?: TipoChecada,
+): Promise<Checada> {
+  const { data, error } = await (sb.rpc as unknown as RpcCatalogo)('fn_asistencia_checar', {
+    p_pin: pin,
+    p_pantalla: pantalla,
+    p_tipo: tipo ?? null,
+  })
+  if (error) throw error
+  const filas = (data ?? []) as Checada[]
+  if (filas.length === 0) throw new Error('No se pudo registrar la checada.')
+  return filas[0]
+}
+
+/** Una fila del histórico: una persona, un día. El turno se calcula. */
+export interface DiaDeAsistencia {
+  empleado_id: string
+  nombre: string
+  dia: string
+  entrada: string | null
+  salida: string | null
+  entrada_hora: string | null
+  salida_hora: string | null
+  minutos_bruto: number | null
+  minutos_comida: number
+  /** Lo que cuenta para nómina: bruto menos comida, si la comida no se paga. */
+  minutos_trabajados: number | null
+  /** Entró y no checó salida. Es un pendiente, no un error de datos. */
+  sin_salida: boolean
+  /** Salió a comer y no regresó: no se le inventa una hora de regreso. */
+  comida_abierta: boolean
+  comida_larga: boolean
+  corregido: boolean
+}
+
+/** Las reglas del checador, que escribe gerencia desde Admin. */
+export interface ConfigChecador {
+  jornada_min: number
+  tolerancia_min: number
+  comida_min: number
+  comida_se_paga: boolean
+  comida_max_min: number
+  /** Una entrada más vieja que esto ya no cuenta como turno abierto. */
+  turno_max_horas: number
+}
+
+export async function configChecador(sb: ShakeClient): Promise<ConfigChecador> {
+  const { data, error } = await (sb.rpc as unknown as RpcCatalogo)('fn_asistencia_config', {})
+  if (error) throw error
+  return data as ConfigChecador
+}
+
+export async function guardarConfigChecador(
+  sb: ShakeClient,
+  c: ConfigChecador,
+): Promise<void> {
+  const { error } = await (sb.rpc as unknown as RpcCatalogo)('fn_asistencia_config_guardar', {
+    p_jornada_min: c.jornada_min,
+    p_tolerancia_min: c.tolerancia_min,
+    p_comida_min: c.comida_min,
+    p_comida_se_paga: c.comida_se_paga,
+    p_comida_max_min: c.comida_max_min,
+    p_turno_max_horas: c.turno_max_horas,
+  })
+  if (error) throw error
+}
+
+/** El histórico que ve gerencia. Solo jefes. */
+export async function asistenciaResumen(
+  sb: ShakeClient,
+  desde: string,
+  hasta: string,
+): Promise<DiaDeAsistencia[]> {
+  const { data, error } = await (sb.rpc as unknown as RpcCatalogo)('fn_asistencia_resumen', {
+    p_desde: desde,
+    p_hasta: hasta,
+  })
+  if (error) throw error
+  return (data ?? []) as DiaDeAsistencia[]
+}
+
+/** Las checadas sueltas de un día, para auditar. Incluye las corregidas. */
+export interface ChecadaDelDia {
+  id: string
+  empleado_id: string
+  nombre: string
+  tipo: TipoChecada
+  hora: string
+  pantalla: string | null
+  origen: string
+  nota: string | null
+  corrige_evento_id: string | null
+  reemplazado: boolean
+  autorizo: string | null
+}
+
+export async function asistenciaDelDia(sb: ShakeClient, dia: string): Promise<ChecadaDelDia[]> {
+  const { data, error } = await (sb.rpc as unknown as RpcCatalogo)('fn_asistencia_eventos_dia', {
+    p_dia: dia,
+  })
+  if (error) throw error
+  return (data ?? []) as ChecadaDelDia[]
+}
+
+/**
+ * Corregir una checada **agregando** otra que la reemplaza. El original se
+ * queda y se sigue viendo: un historial que se puede editar no es
+ * evidencia de nada. Exige motivo.
+ */
+export async function corregirChecada(
+  sb: ShakeClient,
+  eventoId: string,
+  hora: string,
+  nota: string,
+): Promise<void> {
+  const { error } = await (sb.rpc as unknown as RpcCatalogo)('fn_asistencia_corregir', {
+    p_evento_id: eventoId,
+    p_hora: hora,
+    p_nota: nota,
+  })
+  if (error) throw error
+}
+
 // ------------------------- ventas en espera ---------------------------
 // Las apartadas viven en el navegador de cada pantalla, y esa decisión no
 // cambia (meterlas a `ordenes` sería una orden a medio crear que la
