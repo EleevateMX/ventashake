@@ -298,3 +298,49 @@ export function gruposDeExtras<T extends { nombre: string; grupo?: string | null
   ]
   return nombres.map((grupo) => ({ grupo, opciones: extras.filter((e) => e.grupo === grupo) }))
 }
+
+/**
+ * Qué leche llevó un renglón de ticket, venga por donde venga.
+ *
+ * Es una sola pregunta —«¿con qué se preparó?»— con **dos respuestas
+ * guardadas en lugares distintos**, y esa es justo la razón de que nadie
+ * la encontrara en Admin:
+ *
+ * - La leche **sin costo** viaja como nota pegada al producto
+ *   (`notaDeBase`), porque verla suelta en la comanda confundía de cuál
+ *   vaso era. Ahí sale como un subtítulo chiquito entre las demás
+ *   observaciones.
+ * - La leche **con costo** (vegetales, agua mineral) viaja como renglón
+ *   hijo cobrado, mezclada entre la creatina y los toppings.
+ *
+ * Revisar «si el tipo de leche solicitado se cobró bien» obligaba
+ * entonces a mirar en dos sitios distintos y saber de antemano cuál
+ * tocaba. Esta función devuelve las dos igual, con su precio, para que la
+ * pantalla las pinte en un solo renglón con nombre y apellido.
+ */
+export interface LecheDelTicket {
+  nombre: string
+  precio: number
+  /** true si se cobró aparte; false si venía incluida. */
+  cobrada: boolean
+}
+
+export function lecheDeTicket(renglon: {
+  personalizacion?: string | null
+  extras?: ReadonlyArray<{ producto?: string; nombre?: string; precio_unitario?: number; precio?: number }>
+}): LecheDelTicket | null {
+  // Primero la cobrada: si existe, es la que se pagó y la que importa.
+  for (const e of renglon.extras ?? []) {
+    const nombre = e.producto ?? e.nombre ?? ''
+    if (esBase(nombre)) {
+      return { nombre, precio: Number(e.precio_unitario ?? e.precio ?? 0), cobrada: true }
+    }
+  }
+  // Si no, la nota. La base es el PRIMER fragmento —así la arma el
+  // kiosko— y solo cuenta si de verdad parece una base: lo que sigue son
+  // observaciones ("Sin hielo"), y llamarle leche a eso sería peor que no
+  // decir nada.
+  const primera = (renglon.personalizacion ?? '').split(',')[0]?.trim() ?? ''
+  if (primera && esBase(primera)) return { nombre: primera, precio: 0, cobrada: false }
+  return null
+}

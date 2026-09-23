@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { hoyEnMerida, horaEnMerida, hace } from './fechas'
+import { diasAntesEnMerida, hoyEnMerida, horaEnMerida, hace } from './fechas'
 
 describe('hoyEnMerida', () => {
   it('a las 18:30 locales sigue siendo el MISMO día, aunque en UTC ya sea mañana', () => {
@@ -53,5 +53,27 @@ describe('horaEnMerida con basura', () => {
     // cajero aparte una cuenta.
     expect(() => horaEnMerida(new Date('no es fecha'))).not.toThrow()
     expect(horaEnMerida(new Date('no es fecha'))).toBe('')
+  })
+})
+
+describe('diasAntesEnMerida', () => {
+  it('resta días sobre el día de Mérida, no sobre el de UTC', () => {
+    // 01:30 UTC del 18 es todavía el 17 en Mérida (UTC−6).
+    const madrugada = new Date('2026-09-18T01:30:00Z')
+    expect(diasAntesEnMerida(0, madrugada)).toBe('2026-09-17')
+    expect(diasAntesEnMerida(7, madrugada)).toBe('2026-09-10')
+  })
+
+  it('cruza el cambio de mes sin inventar días', () => {
+    expect(diasAntesEnMerida(1, new Date('2026-10-01T18:00:00Z'))).toBe('2026-09-30')
+  })
+
+  it('cruza el cambio de año', () => {
+    expect(diasAntesEnMerida(1, new Date('2027-01-01T18:00:00Z'))).toBe('2026-12-31')
+  })
+
+  it('no se recorre un día por el anclaje de la hora', () => {
+    // Si se anclara a medianoche UTC en vez de mediodía, esto daría el 29.
+    expect(diasAntesEnMerida(30, new Date('2026-09-30T18:00:00Z'))).toBe('2026-08-31')
   })
 })

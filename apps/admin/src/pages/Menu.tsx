@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { sb } from '../lib/sb'
 import {
   listarProductos,
@@ -16,7 +16,7 @@ import {
 } from '@shake/supabase'
 import type { Producto, Categoria, Cocina } from '@shake/types'
 import type { CategoriaPantalla } from '@shake/supabase'
-import { mxn, mensajeDeError } from '@shake/utils'
+import { mxn, mensajeDeError, claveNombre } from '@shake/utils'
 import { Panel, PageHeader, Field, Loading, ErrorMsg, OkMsg, Chip, cx } from '../ui'
 
 interface FormProducto {
@@ -63,6 +63,28 @@ export default function Menu() {
 
   // A qué pantalla llega cada categoría
   const [pantallas, setPantallas] = useState<CategoriaPantalla[]>([])
+
+  /**
+   * Buscador de la lista. Con cientos de productos, encontrar uno era
+   * bajar con la rueda leyendo nombre por nombre — y el que se busca casi
+   * siempre se busca porque algo anda mal con él, o sea con prisa.
+   *
+   * Empata sin acentos y por CUALQUIER palabra del nombre: «killer»
+   * encuentra «#1 Choco Killer», que es como lo pide quien está en la
+   * barra. También busca por categoría, porque «kombucha» es lo que
+   * alguien teclea cuando quiere ver todas.
+   */
+  const [busca, setBusca] = useState('')
+  const visibles = useMemo(() => {
+    const q = claveNombre(busca)
+    if (!q) return productos
+    const nombreCat = new Map(categorias.map((c) => [c.id, claveNombre(c.nombre)]))
+    return productos.filter((p) => {
+      const n = claveNombre(p.nombre)
+      const c = p.categoria_id ? nombreCat.get(p.categoria_id) ?? '' : ''
+      return n.includes(q) || c.includes(q)
+    })
+  }, [productos, categorias, busca])
 
   async function cargar() {
     try {
@@ -377,9 +399,34 @@ export default function Menu() {
 
         {/* Tabla productos */}
         <div>
-          <h3 className={`${cx.h3} mb-4`}>Productos</h3>
+          <div className="flex items-baseline justify-between gap-4 flex-wrap mb-4">
+            <h3 className={cx.h3}>Productos</h3>
+            <div className="flex items-center gap-3">
+              <input
+                value={busca}
+                onChange={(e) => setBusca(e.target.value)}
+                placeholder="Buscar producto o categoría…"
+                className={`${cx.input} !py-2 w-64`}
+              />
+              <span className={`${cx.muted} font-mono text-xs whitespace-nowrap`}>
+                {busca ? `${visibles.length} de ${productos.length}` : `${productos.length}`}
+              </span>
+              {busca && (
+                <button onClick={() => setBusca('')} className="text-xs text-sa-green underline">
+                  Limpiar
+                </button>
+              )}
+            </div>
+          </div>
           {productos.length === 0 ? (
             <Panel><p className={cx.muted}>No hay productos activos.</p></Panel>
+          ) : visibles.length === 0 ? (
+            <Panel>
+              <p className={cx.muted}>
+                Ningún producto empata con «{busca}». Ojo: aquí solo salen los
+                del menú — los extras viven en su propia pestaña.
+              </p>
+            </Panel>
           ) : (
             <div className={cx.tableWrap}>
               <table className={cx.table}>
@@ -395,7 +442,7 @@ export default function Menu() {
                   </tr>
                 </thead>
                 <tbody className={cx.tbody}>
-                  {productos.map((p) => (
+                  {visibles.map((p) => (
                     <tr key={p.id} className={cx.tr}>
                       <td className={cx.td}>
                         <div className="flex items-center gap-2">

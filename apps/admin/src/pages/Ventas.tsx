@@ -4,6 +4,8 @@ import { ventasDiarias, productosMasVendidos } from '@shake/supabase'
 import type { VentaDiaria, ProductoVendido } from '@shake/types'
 import { mxn, mensajeDeError } from '@shake/utils'
 import { PageHeader, Loading, ErrorMsg, Panel, cx } from '../ui'
+import { ProductosVendidos } from '../components/ProductosVendidos'
+import { CancelarVentas } from '../components/CancelarVentas'
 
 export default function Ventas() {
   const [dias, setDias] = useState<VentaDiaria[]>([])
@@ -70,6 +72,25 @@ export default function Ventas() {
               </table>
             </div>
           )}
+        </div>
+
+        <div>
+          <h3 className={`${cx.h3} mb-1`}>Cancelar una venta</h3>
+          <p className={`${cx.muted} text-sm mb-4`}>
+            De cualquier día, no solo de hoy. Queda registrado qué se canceló,
+            cuándo fue la venta, cuándo se canceló, quién y por qué.
+          </p>
+          <CancelarVentas />
+        </div>
+
+        <div>
+          <h3 className={`${cx.h3} mb-1`}>Cuántos se vendieron</h3>
+          <p className={`${cx.muted} text-sm mb-4`}>
+            Elige un producto y un periodo. Sirve para pedir mercancía y para
+            contestar «¿cuántos Choco Killer van hoy?» sin bajar por toda la
+            lista.
+          </p>
+          <ProductosVendidos />
         </div>
 
         <div>

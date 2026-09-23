@@ -19,7 +19,7 @@ import { CobroMixto, type TerminalTarjeta } from '@/components/CobroMixto'
 import { CobroNoPaso } from '@/components/CobroNoPaso'
 import { apartar } from '@/store/espera'
 import { usePromos } from '@/lib/usePromos'
-import { mensajeDeError, mxn } from '@shake/utils'
+import { sugerirNombres, mezclarConSemilla, mensajeDeError, mxn } from '@shake/utils'
 
 type EstadoPago = 'cargando' | 'eligiendo' | 'procesando' | 'no_disponible'
 
@@ -48,10 +48,6 @@ const NOMBRES_BASE = [
   'Pedro', 'Adrián', 'Manuel', 'Carlos', 'Luis', 'José',
   'Juan', 'Miguel', 'Jorge', 'Ana', 'María', 'Sofía',
 ]
-
-/** Para comparar nombres sin pelearse con acentos ni mayúsculas. */
-const clave = (s: string) =>
-  s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
 
 const IconCard = () => (
   <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -156,21 +152,14 @@ export function Pago() {
 
   /**
    * Chips de nombre para el cajero: los aprendidos primero (por frecuencia),
-   * la semilla rellena mientras hay poca historia. Al teclear se vuelven
-   * predictivos: solo quedan los que empiezan como lo escrito, sin
-   * distinguir acentos ("adri" también encuentra "Adrián").
+   * la semilla rellena mientras hay poca historia. La regla de empate vive
+   * en `@shake/utils` con pruebas — lo que decide qué nombres existen para
+   * quien está en la barra no se escribe dentro de una pantalla.
    */
-  const sugerenciasNombre = useMemo(() => {
-    const lista = [...nombresGuardados]
-    for (const n of NOMBRES_BASE) {
-      if (!lista.some((g) => clave(g) === clave(n))) lista.push(n)
-    }
-    const escrito = clave(nombrePedido)
-    const visibles = escrito
-      ? lista.filter((n) => clave(n).startsWith(escrito) && clave(n) !== escrito)
-      : lista
-    return visibles.slice(0, 12)
-  }, [nombresGuardados, nombrePedido])
+  const sugerenciasNombre = useMemo(
+    () => sugerirNombres(mezclarConSemilla(nombresGuardados, NOMBRES_BASE), nombrePedido),
+    [nombresGuardados, nombrePedido],
+  )
 
   useEffect(() => {
     ;(async () => {
@@ -191,7 +180,7 @@ export function Pago() {
           setCorte(caja ? await corteAbierto(sb, caja.id) : null)
           // Sin await ni catch ruidoso: si esto falla, el cajero escribe el
           // nombre a mano como siempre y la venta no se entera.
-          nombresPedidoFrecuentes(sb).then(setNombresGuardados).catch(() => {})
+          nombresPedidoFrecuentes(sb, 1000).then(setNombresGuardados).catch(() => {})
         }
 
         setEstado('eligiendo')
