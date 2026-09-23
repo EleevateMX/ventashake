@@ -243,3 +243,30 @@ export function suscribirTrabajosImpresion(sb: ShakeClient, onCambio: () => void
     if (canal) void sb.removeChannel(canal)
   }
 }
+
+/**
+ * Los trabajos de impresion de UNA orden, para poder reimprimir su comanda
+ * desde el folio.
+ *
+ * Existe porque la cola de Admin -> Impresoras esta ordenada por hora y
+ * llena de trabajos de todas las ordenes: encontrar el del folio 5184 ahi
+ * es buscar una aguja. Y el momento en que alguien necesita reimprimir es
+ * justo cuando esta mirando ese ticket.
+ *
+ * Se piden TODOS, no solo los que fallaron: la razon mas comun para
+ * reimprimir no es que haya fallado -es que la etiqueta se mojo, se cayo
+ * o se pego en el vaso equivocado-.
+ */
+export async function trabajosDeOrden(
+  sb: ShakeClient,
+  ordenId: string,
+): Promise<TrabajoImpresion[]> {
+  const { data, error } = await sb
+    .from('trabajos_impresion')
+    .select('*')
+    .eq('orden_id', ordenId)
+    .order('created_at', { ascending: false })
+    .limit(20)
+  if (error) throw error
+  return data
+}

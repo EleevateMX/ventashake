@@ -51,6 +51,9 @@ export function ProductosVendidos() {
     }
   }, [desde, hasta, texto])
 
+  // A propósito solo con las fechas: `consultar` también depende del texto,
+  // y volver a pedir en cada tecla haría una consulta por letra.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { void consultar() }, [desde, hasta])
 
   const totalPiezas = (filas ?? []).reduce((s, f) => s + f.piezas, 0)
