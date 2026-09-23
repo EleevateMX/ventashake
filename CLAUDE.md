@@ -509,7 +509,7 @@ por eso no tiene botón.
 
 **Kiosko → botón «Checar»**, con el PIN de siempre. Cuatro tipos:
 entrada, salgo a comer, regresé, salida. Gerencia lo ve en **Admin →
-Asistencia**, con exportar a Excel.
+Personal → Reloj checador**, con exportar a Excel.
 
 > **Por qué no por WhatsApp ni Telegram.** Un checador existe para probar
 > que **alguien estuvo aquí a esta hora**. Un mensaje prueba que se mandó
@@ -549,8 +549,8 @@ nunca abre la caja, y amarrarlo al turno de caja lo dejaría sin poder
 checar. Por eso también se puede checar sin turno abierto — el primero que
 llega checa y *luego* abre la caja.
 
-**Las reglas las escribe gerencia** en Admin → Asistencia → **Reglas**
-(`asistencia_config`): minutos de comida esperados, cuándo una comida es
+**Las reglas las escribe gerencia** en Admin → Personal → Reloj checador
+→ **Reglas** (`asistencia_config`): minutos de comida esperados, cuándo una comida es
 «larga», jornada, tolerancia, y a las cuántas horas caduca un turno que
 nadie cerró. Estaban escritas dentro de la función —las 16 horas— y
 cambiarlas obligaba a desplegar. El servidor valida topes de cordura: un
@@ -572,8 +572,86 @@ turno máximo de 200 horas no es una configuración, es un error de dedo.
   **horario por persona**, que es otra pieza y no existe. `tolerancia_min`
   y `jornada_min` ya se guardan, pero hoy son informativos — prometerlo a
   medias sería peor que no tenerlo.
-- Lo que sí falta y es barato: los **avisos** por WhatsApp/Telegram, y la
-  **lista de papeles** del expediente de cada quien (ver abajo).
+- Lo que sí falta y es barato: los **avisos** por WhatsApp/Telegram
+  («Ana entró 9:12», «son las 11 pm y nadie checó salida»), que es el uso
+  para el que ese canal sí sirve.
+
+### 2.9 Todo lo del personal vive en una sola pantalla
+
+Admin → **Personal** (antes «Empleados») tiene cuatro pestañas: *Personas*,
+*Reloj checador*, *Expediente* y *Contratos*. Estaban repartidas —los
+empleados en un lado, el checador en otro renglón del menú— y eso obliga a
+gerencia a recordar en qué esquina vive cada cosa **de la misma persona**.
+La pregunta real nunca es «¿dónde está el checador?», es «¿qué pasa con
+Ana?»: a qué hora llegó, qué papeles entregó, qué contrato tiene.
+
+Las cuatro son de **gerencia**, no de la barra: el salario y la INE de un
+compañero no son asunto de quien está en la caja. Cada pestaña lo vuelve a
+verificar en el servidor (`fn_es_jefe()`); **no se confía en que la pantalla
+se haya escondido**, que es la misma regla de siempre.
+
+**El expediente: qué papeles debe tener cada quien.** Una lista de 12
+requisitos de arranque (INE, CURP, acta, comprobante, NSS…), cada uno
+obligatorio o no y con vencimiento o no. La pantalla dice `3 de 9
+obligatorios` y marca los vencidos. **No es asesoría legal** — la lista la
+ajusta gerencia con su contador; esto es control administrativo.
+
+- El bucket `expedientes` es **privado**, a diferencia de los otros tres
+  del proyecto. Por eso no hay URL fija: cada vez que se abre un archivo se
+  pide una **firmada que dura dos minutos**. Una URL eterna a la INE de
+  alguien es una fuga esperando a que alguien la reenvíe.
+- **Queda anotado quién abrió qué** (`fn_expediente_registrar_acceso`), y
+  se anota **antes** de abrir: si el registro fallara, es mejor no abrir el
+  archivo que abrirlo sin dejar rastro. Con actas e INE de por medio, una
+  fuga sin bitácora no tiene por dónde empezar a investigarse.
+- Reemplazar un documento —una INE renovada— **no pisa el anterior**: la
+  ruta lleva el momento (`{empleado}/{requisito}-{ms}.pdf`).
+- «Quitar» borra el **registro**, no el archivo. Se quita por error más
+  seguido de lo que se quita a propósito.
+
+**Los contratos: el sistema NO redacta el contrato.** El texto legal lo
+escribe o lo revisa un abogado y vive en una **plantilla editable**; aquí
+solo se rellenan las variables y se hace que el documento **concuerde en
+género**. La plantilla de fábrica está marcada como **BORRADOR** justo para
+que nadie la firme sin que un abogado la lea. Un contrato mal redactado es
+peor que no tener uno: en una junta una cláusula inválida no protege, y sí
+se puede usar en contra.
+
+Tres decisiones que no son de estilo:
+
+1. **El neutro no usa diagonal.** `m` → «EL TRABAJADOR», `f` → «LA
+   TRABAJADORA», `x` → «LA PERSONA TRABAJADORA». «trabajador/a» obliga a
+   tachar una de las dos con pluma en algo que se va a firmar.
+2. **Una variable sin llenar SE QUEDA A LA VISTA** y se lista arriba
+   (`faltantes`), y el botón de guardar no se habilita hasta llenarla.
+   Borrarla dejaría **una línea en blanco donde iba el salario**, y eso se
+   firma sin que nadie lo note.
+3. **Lo generado se congela.** `contratos_generados` guarda el texto final,
+   no una referencia a la plantilla: si mañana cambia el salario o el
+   documento, el que ya se imprimió y se firmó **no cambia con ellos**.
+
+> **La fecha del contrato también es de Mérida.**
+> `new Date('2026-01-15')` se lee como medianoche **UTC**, que en Mérida
+> (UTC−6) es el 14 a las 18:00 — el contrato diría que entró un día antes.
+> Se fija el mediodía (`T12:00:00Z`) antes de formatear. Misma familia que
+> `hoyEnMerida()`; la regla vive en `packages/utils/src/contratos.ts`, con
+> pruebas.
+
+**Los días de descanso los asigna Shakeaholic**, no se negocian en la
+pantalla: son casillas de Dom a Sáb en los datos laborales y se escriben en
+el contrato en palabras («domingo y sábado»). Sin días marcados **no
+inventa uno**: escribe «los que acuerden las partes».
+
+> **¿Se puede checar desde el teléfono?** Técnicamente sí, hoy mismo:
+> `fn_asistencia_checar` es un endpoint HTTP y no le importa de dónde le
+> llamen. **Y eso es exactamente el problema**: un checador existe para
+> probar que alguien estuvo *aquí*, y uno que se puede llamar desde
+> cualquier lado no prueba nada — es la misma objeción que tumbó lo de
+> WhatsApp. La única versión que conserva el sentido lleva **geocerca**
+> (coordenadas del teléfono validadas en el servidor contra el punto de la
+> tienda, con el radio como parámetro de gerencia) y **marca la checada
+> como «desde teléfono»** para que se distinga de la de barra. No está
+> puesto a propósito: hoy todos llegan a la barra.
 
 ### 2.5 La identidad es una sola, y vive en `packages/brand`
 
@@ -689,8 +767,10 @@ empaquetador y se desvían solas:
 | Mandarle una apartada al cajero para que la cobre | Admin → **En vivo** → toca la venta → **«Mandar al kiosko para cobrar»**. Le aparece en pantalla con los precios de hoy; el cobro se hace en la barra |
 | Algo del menú no sale y no se sabe por qué | Admin → **Revisión del menú**. Enumera lo que está chueco con nombre y apellido, y trae el botón **«Actualizar el kiosko»** |
 | Checar entrada, comida o salida | Kiosko → botón **«Checar»** → PIN → el botón que aplique. La hora la pone el sistema |
-| Ver las horas del personal | Admin → **Asistencia**. Por persona y por día, con la comida descontada. Exporta a Excel |
-| Cambiar las reglas del checador | Admin → Asistencia → **Reglas**. Ojo con «la comida se paga»: esa mueve la nómina |
+| Ver las horas del personal | Admin → **Personal** → *Reloj checador*. Por persona y por día, con la comida descontada. Exporta a Excel |
+| Cambiar las reglas del checador | Admin → Personal → *Reloj checador* → **Reglas**. Ojo con «la comida se paga»: esa mueve la nómina |
+| Ver qué papeles le faltan a alguien | Admin → **Personal** → *Expediente*. Sube el archivo o márcalo como entregado en físico |
+| Hacer el contrato de alguien | Admin → **Personal** → *Contratos*. Llena los datos, marca sus días de descanso, «Ver cómo queda» y guarda. **La plantilla la revisa tu abogado antes de firmar nada** |
 | Ver qué ventas están apartadas, a distancia | Admin → **En vivo**, arriba del todo. Toca una para ver qué lleva, de qué hora es el ticket y a qué hora entró cada producto |
 
 ---

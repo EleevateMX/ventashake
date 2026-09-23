@@ -5,8 +5,8 @@ import {
   type DiaDeAsistencia, type ChecadaDelDia, type ConfigChecador,
 } from '@shake/supabase'
 import { mensajeDeError, hoyEnMerida } from '@shake/utils'
-import { sb } from '../lib/sb'
-import { PageHeader, Panel, Loading, ErrorMsg, OkMsg, Chip, cx } from '../ui'
+import { sb } from '../../lib/sb'
+import { PageHeader, Panel, Loading, ErrorMsg, OkMsg, Chip, cx } from '../../ui'
 
 /**
  * El histórico del reloj checador.
