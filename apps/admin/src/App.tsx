@@ -14,7 +14,6 @@ import Metas from './pages/Metas'
 import Rewards from './pages/Rewards'
 import Menu from './pages/Menu'
 import Revision from './pages/Revision'
-import Asistencia from './pages/Asistencia'
 import Categorias from './pages/Categorias'
 import Combos from './pages/Combos'
 import Extras from './pages/Extras'
@@ -28,7 +27,7 @@ import Empleados from './pages/Empleados'
 import Impresoras from './pages/Impresoras'
 import Sistema from './pages/Sistema'
 
-type Tab = 'dashboard' | 'envivo' | 'diagnostico' | 'menu' | 'revision' | 'asistencia' | 'categorias' | 'combos' | 'extras' | 'inventario' | 'promos' | 'ventas' | 'cortes' | 'clientes' | 'nombres' | 'metas' | 'rewards' | 'empleados' | 'impresoras' | 'descargas' | 'ayuda' | 'peticiones' | 'soporte' | 'pulso' | 'sistema'
+type Tab = 'dashboard' | 'envivo' | 'diagnostico' | 'menu' | 'revision' | 'categorias' | 'combos' | 'extras' | 'inventario' | 'promos' | 'ventas' | 'cortes' | 'clientes' | 'nombres' | 'metas' | 'rewards' | 'empleados' | 'impresoras' | 'descargas' | 'ayuda' | 'peticiones' | 'soporte' | 'pulso' | 'sistema'
 
 const w = 18
 
@@ -49,13 +48,6 @@ const IconDiagnostico = () => (
     <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
   </svg>
 )
-/** Reloj: el checador del personal. */
-const IconAsistencia = () => (
-  <svg width={w} height={w} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" />
-  </svg>
-)
-
 /** Lupa: revisar el menu, no editarlo. */
 const IconRevision = () => (
   <svg width={w} height={w} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -202,8 +194,7 @@ const navItems: { id: Tab; label: string; Icon: () => ReactElement; soloSoporte?
   { id: 'nombres', label: 'Nombres', Icon: IconNombres },
   { id: 'metas', label: 'Metas', Icon: IconMetas },
   { id: 'rewards', label: 'Rewards', Icon: IconRewards },
-  { id: 'empleados', label: 'Empleados', Icon: IconEmpleados },
-  { id: 'asistencia', label: 'Asistencia', Icon: IconAsistencia },
+  { id: 'empleados', label: 'Personal', Icon: IconEmpleados },
   { id: 'impresoras', label: 'Impresoras', Icon: IconImpresoras },
   { id: 'descargas', label: 'Descargas', Icon: IconDescargas },
   { id: 'ayuda', label: '¿Qué hago si…?', Icon: IconAyuda },
@@ -283,7 +274,6 @@ export default function App() {
         {tab === 'clientes' && <Clientes />}
         {tab === 'nombres' && <Nombres />}
         {tab === 'empleados' && <Empleados />}
-        {tab === 'asistencia' && <Asistencia />}
         {tab === 'impresoras' && <Impresoras />}
         {tab === 'descargas' && <Descargas />}
         {tab === 'ayuda' && <Ayuda />}
