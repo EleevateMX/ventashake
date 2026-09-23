@@ -1,0 +1,19 @@
+@import '@shake/brand/tokens.css';
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #root { min-height: 100%; }
+
+body {
+  font-family: var(--sa-ff-body);
+  background: var(--sa-green-deep);
+  color: var(--sa-cream);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* El teclado es de dedos gordos y prisa: sin seleccion accidental ni
+     menu contextual al dejar el dedo encima. */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}

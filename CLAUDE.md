@@ -30,7 +30,7 @@ antes de decir que algo quedó.
 
 ## 1. Qué es esto
 
-Protein bar en Mérida (The Harbor). Monorepo pnpm, 9 apps sobre un solo
+Protein bar en Mérida (The Harbor). Monorepo pnpm, 10 apps sobre un solo
 Supabase (`zyjtnaystsporbuzcmqk`), desplegadas a Cloudflare Pages por
 GitHub Actions al hacer push a `main`.
 
@@ -45,6 +45,7 @@ GitHub Actions al hacer push a `main`.
 | `admin` | `admin.shakeaholic.mx` | Gerencia |
 | `cliente-pwa` | `rewards.shakeaholic.mx` | Celular del cliente (y la app de TestFlight) |
 | `costos` | `costos.shakeaholic.mx` | Costeo e inventario (HTML plano) |
+| `checador` | `shake-checador.pages.dev` | El celular del personal, solo para checar |
 
 `api.shakeaholic.mx` es el dominio propio de Supabase (add-on). Los
 nameservers viven en **Cloudflare** desde el 24/08/26; GoDaddy solo tiene
@@ -630,6 +631,32 @@ Tres decisiones que no son de estilo:
    no una referencia a la plantilla: si mañana cambia el salario o el
    documento, el que ya se imprimió y se firmó **no cambia con ellos**.
 
+**El contrato se ve como un documento, no como una nota de bloc.** El
+texto se parte en bloques (`contratoABloques` en `packages/utils`, con
+pruebas) y se maqueta en `hoja-contrato.ts`: título, secciones, cláusulas
+con su ordinal resaltado, viñetas y un bloque de firmas que **no se parte
+entre páginas**.
+
+- **La vista previa y la impresión son el MISMO documento**, byte por
+  byte: la previa es un `<iframe srcDoc>` con exactamente el HTML que se
+  manda a imprimir. Con dos maquetados —uno de pantalla y otro de papel—
+  lo que se revisa deja de ser lo que se firma, y en un contrato eso no es
+  un detalle estético. El iframe además **aísla** el texto, que lo escribe
+  gerencia pegando lo de su abogado.
+- Entiende **dos formas de escribir**, porque las dos van a pasar: marcas
+  (`# título`, `## sección`, `---`, `[[FIRMAS: A | B]]`) para la plantilla
+  de casa, y **texto pelón** del abogado, donde deduce que una línea corta
+  en mayúsculas es un encabezado y que «PRIMERA.-» es la etiqueta de una
+  cláusula. Los ordinales son una **lista cerrada**: si dedujera de más,
+  «IMPORTANTE:» se convertiría en etiqueta y la palabra desaparecería del
+  documento. La prueba que más importa es la que verifica que **ninguna
+  línea con contenido se pierde** en el maquetado.
+- Va en la letra de la casa (DM Sans / DM Mono), no en Times. Un contrato
+  en la tipografía de sistema se ve como una plantilla bajada de internet.
+- Al imprimir se espera a `onload` antes de abrir el diálogo: sin eso la
+  primera hoja sale con la letra de repuesto y el documento se ve distinto
+  cada vez.
+
 > **La fecha del contrato también es de Mérida.**
 > `new Date('2026-01-15')` se lee como medianoche **UTC**, que en Mérida
 > (UTC−6) es el 14 a las 18:00 — el contrato diría que entró un día antes.
@@ -642,16 +669,49 @@ pantalla: son casillas de Dom a Sáb en los datos laborales y se escriben en
 el contrato en palabras («domingo y sábado»). Sin días marcados **no
 inventa uno**: escribe «los que acuerden las partes».
 
-> **¿Se puede checar desde el teléfono?** Técnicamente sí, hoy mismo:
-> `fn_asistencia_checar` es un endpoint HTTP y no le importa de dónde le
-> llamen. **Y eso es exactamente el problema**: un checador existe para
-> probar que alguien estuvo *aquí*, y uno que se puede llamar desde
-> cualquier lado no prueba nada — es la misma objeción que tumbó lo de
-> WhatsApp. La única versión que conserva el sentido lleva **geocerca**
-> (coordenadas del teléfono validadas en el servidor contra el punto de la
-> tienda, con el radio como parámetro de gerencia) y **marca la checada
-> como «desde teléfono»** para que se distinga de la de barra. No está
-> puesto a propósito: hoy todos llegan a la barra.
+### 2.9.1 El checador del teléfono no finge ser el de la barra
+
+`apps/checador` es una app aparte —su propio link, su propio bundle— con
+teclado de PIN y nada más. Se reparte a los celulares y **viene apagada**:
+se prende en Admin → Personal → Reloj checador → **Reglas** → *Desde el
+teléfono*, después de marcar dónde está la tienda.
+
+> **Lo que hay que tener clarísimo, y por eso está escrito en la propia
+> pantalla de Admin: una checada de teléfono NO prueba lo mismo que una de
+> barra.** El kiosko está clavado en la barra, así que checar ahí prueba
+> que alguien estuvo ahí. Un teléfono manda las coordenadas que quiera —
+> Android trae simulación de ubicación en las opciones de desarrollador.
+> La geocerca sube el costo de hacer trampa; no lo vuelve imposible. Por
+> eso no se disfraza: `origen = 'telefono'` y en el histórico sale su
+> propio chip con la distancia.
+
+Cuatro decisiones:
+
+1. **La geocerca la valida el SERVIDOR.** La pantalla solo entrega la
+   lectura cruda del GPS. Una pantalla que se aprueba su propia checada no
+   es un control — misma familia que «el cliente nunca manda precios».
+2. **Se guarda la distancia Y la precisión.** «A 8 m con ±12 m» y «a 119 m
+   con ±450 m» no valen lo mismo. Una lectura más vaga que
+   `precision_max_m` se rechaza: un radio de error de media cuadra
+   convierte la geocerca en un adorno.
+3. **La geocerca se revisa ANTES del PIN.** Quien está lejos no tiene por
+   qué averiguar si un PIN existe probándolo desde su casa.
+4. **Es la MISMA `fn_asistencia_checar`**, con parámetros nuevos que traen
+   `DEFAULT` — no una gemela para teléfono. Las reglas de transición (no
+   sales sin haber entrado, no regresas de una comida que no abriste) no
+   pueden tener dos copias: así es como se separaron kiosko y POS.
+
+**El punto de la tienda se marca parado en la barra**, con «Marcar este
+punto como la tienda» desde ese mismo dispositivo. Escribirlo a mano desde
+un mapa suena más limpio y no lo es: un par de decenas de metros de
+diferencia es justo el margen que después rebota a quien sí está ahí.
+Valores de arranque: radio **120 m**, precisión exigida **150 m**.
+
+> **Lo que le falta para ser prueba de verdad** —y es barato— es un
+> **código que rote en la pantalla del kiosko** y que el teléfono tenga
+> que teclear. Eso sí prueba que quien checa está viendo la barra, y
+> convierte la geocerca en el segundo candado en vez del único. Está sin
+> hacer, a propósito, porque primero conviene ver si el teléfono se usa.
 
 ### 2.5 La identidad es una sola, y vive en `packages/brand`
 
@@ -769,6 +829,7 @@ empaquetador y se desvían solas:
 | Checar entrada, comida o salida | Kiosko → botón **«Checar»** → PIN → el botón que aplique. La hora la pone el sistema |
 | Ver las horas del personal | Admin → **Personal** → *Reloj checador*. Por persona y por día, con la comida descontada. Exporta a Excel |
 | Cambiar las reglas del checador | Admin → Personal → *Reloj checador* → **Reglas**. Ojo con «la comida se paga»: esa mueve la nómina |
+| Que el personal cheque desde su celular | Admin → Personal → *Reloj checador* → **Reglas** → *Desde el teléfono*: parado en la barra, «Marcar este punto como la tienda», prender la casilla, guardar. Luego repartir el link `shake-checador.pages.dev` |
 | Ver qué papeles le faltan a alguien | Admin → **Personal** → *Expediente*. Sube el archivo o márcalo como entregado en físico |
 | Hacer el contrato de alguien | Admin → **Personal** → *Contratos*. Llena los datos, marca sus días de descanso, «Ver cómo queda» y guarda. **La plantilla la revisa tu abogado antes de firmar nada** |
 | Ver qué ventas están apartadas, a distancia | Admin → **En vivo**, arriba del todo. Toca una para ver qué lleva, de qué hora es el ticket y a qué hora entró cada producto |

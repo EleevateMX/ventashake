@@ -37,6 +37,7 @@ export default function Asistencia() {
   const [detalle, setDetalle] = useState<{ dia: string; filas: ChecadaDelDia[] } | null>(null)
   const [cfg, setCfg] = useState<ConfigChecador | null>(null)
   const [verReglas, setVerReglas] = useState(false)
+  const [ubicando, setUbicando] = useState(false)
   const [guardando, setGuardando] = useState(false)
 
   const cargar = useCallback(async () => {
@@ -58,6 +59,31 @@ export default function Asistencia() {
    * servidor valida los topes: un turno máximo de 200 horas no es una
    * configuración, es un error de dedo que ensucia el histórico.
    */
+  /**
+   * El punto de la tienda se toma con el navegador de quien lo esta
+   * configurando, **parado ahi**. Escribirlo a mano desde un mapa suena
+   * mas limpio y no lo es: un par de decenas de metros de diferencia es
+   * justo el margen que despues rebota a quien si esta en la barra.
+   */
+  function marcarAqui() {
+    if (!cfg || !('geolocation' in navigator)) {
+      setError('Este dispositivo no puede dar su ubicacion.')
+      return
+    }
+    setUbicando(true)
+    navigator.geolocation.getCurrentPosition(
+      (p) => {
+        setCfg({ ...cfg, tienda_lat: p.coords.latitude, tienda_lon: p.coords.longitude })
+        setUbicando(false)
+      },
+      () => {
+        setError('No se pudo leer la ubicacion. Dale permiso al navegador.')
+        setUbicando(false)
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
+    )
+  }
+
   async function guardarReglas() {
     if (!cfg) return
     setGuardando(true)
@@ -332,6 +358,77 @@ export default function Asistencia() {
               </label>
             </div>
 
+            <div className="mt-7 pt-6 border-t border-sa-green-ink/15">
+              <p className="font-display text-2xl text-sa-green-ink leading-tight">
+                Desde el telefono
+              </p>
+              <p className="text-sm text-sa-green-ink/65 mt-1.5 mb-4 leading-relaxed">
+                Deja checar con el celular, pero solo si el telefono esta cerca de
+                la tienda. <b>No prueba lo mismo que el kiosko</b> — un telefono
+                puede mentir sobre donde esta, asi que estas checadas quedan
+                marcadas aparte y con su distancia. Lo damos por bueno para
+                entradas y salidas del dia a dia, no como evidencia formal.
+              </p>
+
+              <label className="flex items-start gap-3 mb-4">
+                <input
+                  type="checkbox"
+                  checked={cfg.telefono_activo}
+                  onChange={(e) => setCfg({ ...cfg, telefono_activo: e.target.checked })}
+                  className="w-4 h-4 mt-1 accent-sa-green shrink-0"
+                />
+                <span>
+                  <span className="text-sm text-sa-green-ink">Permitir checar desde el telefono</span>
+                  <p className="text-[11px] text-sa-green-ink/50 mt-0.5 leading-snug">
+                    Apagado, el link del telefono contesta que hay que checar en la barra.
+                  </p>
+                </span>
+              </label>
+
+              <div className="bg-white border border-sa-green-ink/12 rounded-sa px-4 py-3 mb-4">
+                <p className="text-sm text-sa-green-ink mb-1">Donde esta la tienda</p>
+                {cfg.tienda_lat != null && cfg.tienda_lon != null ? (
+                  <p className="font-mono text-[12px] text-sa-green-ink/70">
+                    {cfg.tienda_lat.toFixed(5)}, {cfg.tienda_lon.toFixed(5)}
+                  </p>
+                ) : (
+                  <p className="text-[12px] text-sa-strawberry">
+                    Sin marcar. Mientras no este, el telefono no deja checar a nadie.
+                  </p>
+                )}
+                <button
+                  onClick={() => marcarAqui()}
+                  disabled={ubicando}
+                  className="mt-2 text-[11px] text-sa-green underline disabled:opacity-50"
+                >
+                  {ubicando ? 'Leyendo tu ubicacion...' : 'Marcar este punto como la tienda'}
+                </button>
+                <p className="text-[11px] text-sa-green-ink/50 mt-1.5 leading-snug">
+                  Hazlo <b>parado en la barra</b>, desde este mismo dispositivo. El
+                  sistema no adivina donde esta la tienda, y una coordenada de otro
+                  lado deja la geocerca midiendo contra el lugar equivocado.
+                </p>
+              </div>
+
+              {([
+                ['radio_m', 'Radio permitido (metros)', 'Que tan lejos del punto se acepta. 120 m cubre el local y su banqueta sin abarcar la calle de enfrente.'],
+                ['precision_max_m', 'Precision minima exigida (metros)', 'Si el telefono dice "estoy aqui, mas o menos 500 m", no se acepta: una ubicacion vaga no acota nada.'],
+              ] as const).map(([campo, etiqueta, ayuda]) => (
+                <div key={campo} className="mb-3">
+                  <label className="flex items-center justify-between gap-4">
+                    <span className="text-sm text-sa-green-ink">{etiqueta}</span>
+                    <input
+                      type="number"
+                      value={cfg[campo]}
+                      onChange={(e) => setCfg({ ...cfg, [campo]: Number(e.target.value) || 0 })}
+                      className="w-24 px-3 py-2 border border-sa-green-ink/15 rounded text-right font-mono text-sm"
+                    />
+                  </label>
+                  <p className="text-[11px] text-sa-green-ink/50 mt-1 leading-snug">{ayuda}</p>
+                </div>
+              ))}
+            </div>
+
             <div className="flex gap-3 mt-7">
               <button
                 onClick={() => { setVerReglas(false); configChecador(sb).then(setCfg).catch(() => {}) }}
@@ -390,6 +487,11 @@ export default function Asistencia() {
                       <Chip tone={f.tipo === 'entrada' ? 'si' : 'neutral'}>{f.tipo}</Chip>
                       {f.reemplazado && <Chip tone="no">reemplazada</Chip>}
                       {f.corrige_evento_id && <Chip tone="neutral">es una corrección</Chip>}
+                      {f.origen === 'telefono' && (
+                        <Chip tone="neutral">
+                          telefono{f.distancia_m != null && ` · a ${f.distancia_m} m`}
+                        </Chip>
+                      )}
                       <span className="font-mono text-[11px] text-sa-green-ink/40 ml-auto">
                         {f.pantalla || f.origen}
                       </span>

@@ -1,4 +1,4 @@
-# Despliega las 8 apps de Shakeaholic a Cloudflare Pages.
+# Despliega las 10 apps de Shakeaholic a Cloudflare Pages.
 #
 # Qué necesitas configurar UNA sola vez en GitHub
 # (repo → Settings → Secrets and variables → Actions):
@@ -32,7 +32,7 @@ jobs:
   # ninguna app se despliega (evita subir a producción un frontend roto).
   # El build de cada app abajo YA corre `tsc --noEmit` individualmente; este
   # job además corre eslint (detecta cosas que el compilador no, ej. hooks
-  # de React mal usados) una sola vez para las 8 apps, en vez de 8 veces.
+  # de React mal usados) una sola vez para todas las apps, en vez de una por app.
   lint:
     runs-on: ubuntu-latest
     steps:
@@ -78,6 +78,12 @@ jobs:
           # compilando desde hace semanas, pero nadie la desplegaba.
           - app: web
             project: shake-web
+          # El checador del telefono. Va como app APARTE y no como una ruta
+          # dentro de otra: es una herramienta del personal con su propio
+          # link para repartir, y meterla dentro del sitio publico la
+          # ataria al bundle del menu de clientes.
+          - app: checador
+            project: shake-checador
 
     name: ${{ matrix.app }}
     steps:
