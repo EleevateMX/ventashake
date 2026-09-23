@@ -46,3 +46,28 @@ export const UMBRAL_MINUTOS = {
   bebidas: 3,
   alimentos: 5,
 } as const
+
+/**
+ * Qué vaso agarrar, contando lo que el cliente le agregó.
+ *
+ * El caso que lo pidió: **El Clásico es de 16 oz, pero con un «Preparado»
+ * encima es un signature de 20 oz.** La pantalla de barra leía las onzas
+ * del producto base y decía 16, así que el shake se preparaba en el vaso
+ * chico y no cabía. Nadie lo reportó como «las onzas están mal» — se
+ * reportó como «hay que poner el vaso de 20 oz cuando se elige un
+ * preparado», que es el síntoma.
+ *
+ * La regla es **el vaso más grande de todo lo que va adentro**: un extra
+ * puede subir el tamaño, nunca bajarlo. Y el tamaño sale del catálogo
+ * (`productos.onzas`), no de una lista de nombres escrita aquí: el día
+ * que entre un preparado nuevo tiene que traer su vaso solo.
+ */
+export function vasoDeItem(
+  item: { productos?: { onzas?: number | null } | null },
+  extras: ReadonlyArray<{ productos?: { onzas?: number | null } | null }> = [],
+): number | null {
+  const tamanos = [item, ...extras]
+    .map((x) => x.productos?.onzas)
+    .filter((o): o is number => typeof o === 'number' && o > 0)
+  return tamanos.length > 0 ? Math.max(...tamanos) : null
+}

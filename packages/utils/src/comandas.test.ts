@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { urgenciaComanda, UMBRAL_MINUTOS } from './comandas'
+import { urgenciaComanda, UMBRAL_MINUTOS, vasoDeItem } from './comandas'
 
 const AHORA = new Date('2026-08-26T12:00:00Z').getTime()
 const haceMinutos = (m: number) => new Date(AHORA - m * 60000).toISOString()
@@ -35,5 +35,36 @@ describe('urgenciaComanda', () => {
   it('un dato roto no pinta la pantalla de rojo', () => {
     expect(urgenciaComanda('en_preparacion', null, AHORA, 3)).toBe('a_tiempo')
     expect(urgenciaComanda('en_preparacion', 'no es fecha', AHORA, 3)).toBe('a_tiempo')
+  })
+})
+
+describe('vasoDeItem', () => {
+  const oz = (n: number | null) => ({ productos: { onzas: n } })
+
+  it('sin extras, es el vaso del producto', () => {
+    expect(vasoDeItem(oz(16), [])).toBe(16)
+  })
+
+  it('un extra puede SUBIR el vaso', () => {
+    // El Clásico (16 oz) con un Preparado (20 oz) es un signature: va en el
+    // vaso grande. La pantalla decía 16 y el shake no cabía.
+    expect(vasoDeItem(oz(16), [oz(20)])).toBe(20)
+  })
+
+  it('un extra NO puede bajar el vaso', () => {
+    expect(vasoDeItem(oz(20), [oz(12)])).toBe(20)
+  })
+
+  it('ignora los extras sin tamaño, que son casi todos', () => {
+    expect(vasoDeItem(oz(16), [oz(null), oz(null)])).toBe(16)
+  })
+
+  it('si nadie tiene tamaño, no inventa uno', () => {
+    // Mejor no decir nada que mandar a barra por un vaso equivocado.
+    expect(vasoDeItem(oz(null), [oz(null)])).toBeNull()
+  })
+
+  it('un producto sin tamaño hereda el del extra', () => {
+    expect(vasoDeItem(oz(null), [oz(20)])).toBe(20)
   })
 })

@@ -8,7 +8,7 @@ import {
 } from '@shake/supabase'
 import type { PedidoConItems } from '@shake/supabase'
 import type { EstadoCocina, TrabajoImpresion } from '@shake/types'
-import { mensajeDeError, urgenciaComanda, UMBRAL_MINUTOS } from '@shake/utils'
+import { mensajeDeError, urgenciaComanda, UMBRAL_MINUTOS, vasoDeItem } from '@shake/utils'
 
 // Indicador de estado de impresión de la comanda de este pedido.
 function EstadoImpresion({ trabajo, onReimprimir }: { trabajo: TrabajoImpresion | undefined; onReimprimir: () => void }) {
@@ -354,9 +354,13 @@ export default function App() {
                             {/* Que vaso agarrar, antes de leer la receta. Solo
                                 aqui: la etiqueta impresa no lo lleva (pedido
                                 explicito de la sucursal). */}
-                            {item.productos?.onzas != null && (
+                            {/* El vaso cuenta lo que se le agregó: El Clásico
+                                es de 16 oz, pero con un «Preparado» encima es
+                                un signature y va en el de 20. Leer solo el
+                                producto base mandaba por el vaso chico. */}
+                            {vasoDeItem(item, extras) != null && (
                               <span className="ml-2 align-middle inline-flex px-1.5 py-0.5 rounded font-mono text-[10px] font-semibold tracking-wide bg-sa-banana/30 text-sa-coffee">
-                                {item.productos.onzas} OZ
+                                {vasoDeItem(item, extras)} OZ
                               </span>
                             )}
                           </p>

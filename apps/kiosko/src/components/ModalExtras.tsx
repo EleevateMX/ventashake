@@ -35,6 +35,17 @@ interface Props {
 // de chocolate solo ofrecen chocolates y los de vainilla puras vainillas,
 // así que con la marca basta (en El Clásico, que trae ambas, el orden
 // alfabético deja Chocolate primero — igual que siempre).
+/**
+ * A partir de cuántas opciones un grupo se pliega.
+ *
+ * Cinco no es un número mágico: es donde deja de caber en pantalla junto
+ * con lo demás. Los once «Preparado: …» de El Clásico obligaban a bajar
+ * con la rueda solo para llegar a las galletas; los grupos de combo
+ * —«¿qué wrap?», «¿qué café?»— tienen dos o tres y se quedan a la vista,
+ * porque plegar dos botones no ahorra nada y sí agrega un toque.
+ */
+const GRUPO_LARGO = 4
+
 const PROTEINA_DEFAULT = /optimum/i
 
 /**
@@ -95,6 +106,9 @@ export function ModalExtras({ producto, extras, observaciones: catalogoObs, onCe
   const [marcaAbierta, setMarcaAbierta] = useState<string | null>(null)
   const [galleta, setGalleta] = useState<string | null>(null)
   const [dobleScoop, setDobleScoop] = useState(false)
+  /** Qué grupo largo está desplegado. Solo uno a la vez. */
+  const [grupoAbierto, setGrupoAbierto] = useState<string | null>(null)
+
   /** Elección dentro de cada grupo configurado en Admin ({grupo: extra_id}). */
   const [porGrupo, setPorGrupo] = useState<Record<string, string>>({})
   const [cantidades, setCantidades] = useState<Record<string, number>>({})
@@ -204,8 +218,23 @@ export function ModalExtras({ producto, extras, observaciones: catalogoObs, onCe
   function limpiar() {
     setLeche(null); setVerLeches(false); setProteina(null); setVerProteinas(false)
     setMarcaAbierta(null); setGalleta(null); setCantidades({}); setObservaciones([])
-    setDobleScoop(false); setPorGrupo({})
+    setDobleScoop(false); setPorGrupo({}); setGrupoAbierto(null)
   }
+
+  /**
+   * Qué vaso va a necesitar barra, contando lo elegido.
+   *
+   * El Clásico es de 16 oz, pero con un «Preparado» encima es un signature
+   * y va en el de 20. Enterarse hasta la pantalla de barra es enterarse
+   * tarde: quien captura es quien a veces ya trae el vaso en la mano.
+   * El tamaño sale del catálogo, no de una lista de nombres aquí adentro.
+   */
+  const vaso = Math.max(
+    producto.onzas ?? 0,
+    ...elegidosDeGrupo.map((e) => e.onzas ?? 0),
+    ...(proteinaElegida ? [proteinaElegida.onzas ?? 0] : []),
+  )
+  const vasoCambia = vaso > (producto.onzas ?? 0)
 
   function confirmar() {
     // La base gratis viaja pegada al shake como nota (verla suelta en la
@@ -402,19 +431,52 @@ export function ModalExtras({ producto, extras, observaciones: catalogoObs, onCe
             // vaciar: si no, tocar una opción por error deja $56 puestos
             // sin manera de quitarlos más que cerrando el modal.
             const opcional = grupoEsOpcional(opciones)
+            const opcionElegida = opciones.find((o) => o.extra_id === elegido) ?? null
+            // Los grupos LARGOS se pliegan, como las leches y las proteínas:
+            // los once "Preparado: …" de El Clásico hacían que el menú de ese
+            // producto no cupiera en pantalla y hubiera que bajar con la
+            // rueda para llegar a lo demás. Los grupos cortos —los de combo,
+            // "¿qué wrap?", "¿qué café?"— se quedan a la vista como estaban:
+            // plegar dos botones no ahorra nada y agrega un toque.
+            const plegable = opciones.length > GRUPO_LARGO
+            const abierto = !plegable || grupoAbierto === g
             return (
               <section key={g}>
                 <h3 className="font-display text-xl text-sa-green-ink">{g}</h3>
                 <p className="font-mono text-[10px] uppercase tracking-wide text-sa-green-ink/40 mb-3">
-                  {opcional ? 'Opcional · toca otra vez para quitarlo' : 'Elige una'}
+                  {plegable && !abierto
+                    ? 'Toca para elegir'
+                    : opcional ? 'Opcional · toca otra vez para quitarlo' : 'Elige una'}
                 </p>
+                {plegable && !abierto ? (
+                  <button
+                    onClick={() => setGrupoAbierto(g)}
+                    className={`w-full flex items-center justify-between gap-3 px-4 py-4 rounded-sa border-2 text-left ${
+                      opcionElegida
+                        ? 'border-sa-green bg-sa-green text-sa-cream'
+                        : 'border-sa-green-ink/15 bg-white text-sa-green-ink'
+                    }`}
+                  >
+                    <span className="font-display text-lg leading-tight">
+                      {opcionElegida ? opcionElegida.nombre : `Elegir ${g.toLowerCase()}`}
+                      {opcionElegida && opcionElegida.precio > 0 && (
+                        <span className="font-mono text-xs opacity-80 block">
+                          +{mxn(opcionElegida.precio)}
+                        </span>
+                      )}
+                    </span>
+                    <span className="font-mono text-[10px] uppercase tracking-wide opacity-80 flex-shrink-0">
+                      {opcionElegida ? 'Cambiar ▾' : 'Ver los ' + opciones.length + ' ▾'}
+                    </span>
+                  </button>
+                ) : (
                 <div className="grid grid-cols-2 gap-2">
                   {opciones.map((o) => {
                     const activa = elegido === o.extra_id
                     return (
                       <button
                         key={o.extra_id}
-                        onClick={() =>
+                        onClick={() => {
                           setPorGrupo((prev) => {
                             if (opcional && activa) {
                               const next = { ...prev }
@@ -423,7 +485,11 @@ export function ModalExtras({ producto, extras, observaciones: catalogoObs, onCe
                             }
                             return { ...prev, [g]: o.extra_id }
                           })
-                        }
+                          // Elegir cierra la lista, igual que la leche y la
+                          // proteína: quedarse abierta obliga a buscar con la
+                          // rueda para ver lo que sigue.
+                          if (plegable && !(opcional && activa)) setGrupoAbierto(null)
+                        }}
                         className={`px-4 py-3 rounded-sa text-left transition-all border-2 ${
                           activa
                             ? 'bg-sa-green text-sa-cream border-sa-green'
@@ -438,6 +504,7 @@ export function ModalExtras({ producto, extras, observaciones: catalogoObs, onCe
                     )
                   })}
                 </div>
+                )}
               </section>
             )
           })}
@@ -545,6 +612,18 @@ export function ModalExtras({ producto, extras, observaciones: catalogoObs, onCe
             </section>
           )}
         </div>
+
+        {/* El vaso, cuando lo elegido lo cambia. Solo se pinta si CAMBIA:
+            repetir "16 oz" en cada shake es ruido que se deja de leer, y
+            entonces el día que diga 20 tampoco se lee. */}
+        {vasoCambia && (
+          <div className="px-6 pt-3 -mb-1">
+            <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-sa bg-sa-banana/30 text-sa-coffee font-mono text-xs uppercase tracking-wide">
+              Vaso {vaso} oz
+              <span className="opacity-60 normal-case tracking-normal">· lo pide el preparado</span>
+            </span>
+          </div>
+        )}
 
         <footer className="px-6 py-4 border-t border-sa-green-ink/10 flex items-center gap-3">
           <button
