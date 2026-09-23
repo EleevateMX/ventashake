@@ -155,7 +155,7 @@ export function Pago() {
       : 0
     const conSello = Math.max(0, bruto - gratis)
     return Math.max(0, conSello - rewards.mancuernas / 10)
-  }, [items, total, rewards, descuentoPromo])
+  }, [items, total, rewards, descuentoPromo, descuentoPersonal])
   const [estado, setEstado] = useState<EstadoPago>('cargando')
   const [modo, setModo] = useState<ModoPagoKiosko | null>(null)
   const [almacen, setAlmacen] = useState<Almacen | null>(null)

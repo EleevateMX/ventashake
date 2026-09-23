@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { sb } from '../lib/sb'
-import { ticketsDeCorte, detalleDeTicket } from '@shake/supabase'
+import { ticketsDeCorte, detalleDeTicket, trabajosDeOrden, reimprimirTrabajo } from '@shake/supabase'
 import type { TicketDeCorte, TicketDetalle, RenglonTicket } from '@shake/supabase'
+import type { TrabajoImpresion } from '@shake/types'
 import { mxn, mensajeDeError, lecheDeTicket } from '@shake/utils'
 import { cx } from '../ui'
 
@@ -84,6 +85,20 @@ function Renglon({ r, sangria = false }: { r: RenglonTicket; sangria?: boolean }
 function Detalle({ ordenId, onCerrar }: { ordenId: string; onCerrar: () => void }) {
   const [t, setT] = useState<TicketDetalle | null>(null)
   const [error, setError] = useState<string | null>(null)
+  /**
+   * Reimprimir la comanda **desde el folio**, sin ir a buscarla a la cola.
+   *
+   * La cola de Admin → Impresoras está ordenada por hora y llena de
+   * trabajos de todas las órdenes: encontrar el del folio 5184 ahí es
+   * buscar una aguja, y el momento en que alguien lo necesita es justo
+   * cuando está mirando este ticket.
+   *
+   * Sale marcada como REIMPRESIÓN y queda auditada — no reencola el
+   * original, crea una copia.
+   */
+  const [trabajos, setTrabajos] = useState<TrabajoImpresion[] | null>(null)
+  const [imprimiendo, setImprimiendo] = useState(false)
+  const [aviso, setAviso] = useState<string | null>(null)
 
   useEffect(() => {
     let vivo = true
@@ -92,6 +107,29 @@ function Detalle({ ordenId, onCerrar }: { ordenId: string; onCerrar: () => void 
       .catch((e) => { if (vivo) setError(mensajeDeError(e)) })
     return () => { vivo = false }
   }, [ordenId])
+
+  useEffect(() => {
+    let vivo = true
+    // Aparte del ticket y sin bloquearlo: si la cola de impresión no
+    // responde, el ticket se sigue pudiendo consultar.
+    trabajosDeOrden(sb, ordenId)
+      .then((j) => { if (vivo) setTrabajos(j) })
+      .catch(() => { if (vivo) setTrabajos([]) })
+    return () => { vivo = false }
+  }, [ordenId])
+
+  async function reimprimir() {
+    const job = (trabajos ?? [])[0]
+    if (!job) return
+    setImprimiendo(true); setAviso(null)
+    try {
+      await reimprimirTrabajo(sb, job.id, { motivo: 'Reimpresión desde Admin (ticket)' })
+      setAviso('Mandada a la impresora. Sale marcada como REIMPRESIÓN.')
+      setTrabajos(await trabajosDeOrden(sb, ordenId))
+    } catch (e) {
+      setAviso(mensajeDeError(e))
+    } finally { setImprimiendo(false) }
+  }
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-6" onClick={onCerrar}>
@@ -173,6 +211,32 @@ function Detalle({ ordenId, onCerrar }: { ordenId: string; onCerrar: () => void 
                 ))}
               </div>
             )}
+
+            <div className="mt-5 pt-4 border-t border-sa-green-ink/10">
+              {trabajos === null ? (
+                <p className={`${cx.muted} font-mono text-[11px]`}>Buscando la comanda…</p>
+              ) : trabajos.length === 0 ? (
+                <p className={`${cx.muted} font-mono text-[11px]`}>
+                  Este folio no generó comanda (su categoría no va a pantalla).
+                </p>
+              ) : (
+                <>
+                  <button
+                    onClick={() => void reimprimir()}
+                    disabled={imprimiendo}
+                    className="text-xs text-sa-green underline disabled:opacity-50"
+                  >
+                    {imprimiendo ? 'Mandando…' : 'Reimprimir la comanda'}
+                  </button>
+                  <span className={`${cx.muted} font-mono text-[10px] ml-3`}>
+                    {trabajos.length} impresión{trabajos.length === 1 ? '' : 'es'} de este folio
+                  </span>
+                </>
+              )}
+              {aviso && (
+                <p className="text-[11px] text-sa-green-ink/70 mt-1.5 leading-snug">{aviso}</p>
+              )}
+            </div>
           </>
         )}
       </div>
