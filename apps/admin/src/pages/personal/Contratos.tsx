@@ -6,6 +6,7 @@ import {
 } from '@shake/supabase'
 import { mensajeDeError, llenarContrato } from '@shake/utils'
 import { sb } from '../../lib/sb'
+import { hojaContratoHtml } from './hoja-contrato'
 import { Panel, Loading, ErrorMsg, OkMsg, Chip, cx } from '../../ui'
 
 /**
@@ -113,13 +114,12 @@ export default function Contratos() {
       const texto = await textoDeContrato(sb, id)
       const w = window.open('', '_blank')
       if (!w) { setError('El navegador bloqueó la ventana. Permite las ventanas emergentes.'); return }
-      w.document.write(
-        `<pre style="font-family:Georgia,serif;white-space:pre-wrap;padding:3rem;line-height:1.6">${
-          texto.replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c] as string))
-        }</pre>`,
-      )
+      w.document.write(hojaContratoHtml(texto))
       w.document.close()
-      w.print()
+      // Se espera a que carguen las fuentes antes de abrir el diálogo: si
+      // se imprime antes, la primera hoja sale en la letra de repuesto y
+      // nadie entiende por qué el documento se ve distinto cada vez.
+      w.onload = () => { w.focus(); w.print() }
     } catch (e) { setError(mensajeDeError(e)) }
   }
 
@@ -311,9 +311,16 @@ export default function Contratos() {
                     </p>
                   </div>
                 )}
-                <pre className="bg-white border border-sa-green-ink/10 rounded-sa p-5 text-[13px] whitespace-pre-wrap font-body leading-relaxed max-h-[45vh] overflow-y-auto">
-                  {previa.texto}
-                </pre>
+                <div className="bg-sa-green-ink/10 rounded-sa p-4">
+                  {/* Es exactamente el mismo documento que se va a imprimir, no
+                      una aproximación: así lo que se revisa es lo que se firma. */}
+                  <iframe
+                    title="Vista previa del contrato"
+                    srcDoc={hojaContratoHtml(previa.texto)}
+                    sandbox=""
+                    className="w-full h-[60vh] bg-white rounded-sa shadow-lg border-0"
+                  />
+                </div>
                 <button
                   onClick={() => void guardarGenerado()}
                   disabled={previa.faltantes.length > 0}
@@ -359,8 +366,15 @@ export default function Contratos() {
           <div className="bg-sa-cream-paper rounded-sa-lg max-w-3xl w-full p-7 max-h-[88vh] overflow-y-auto">
             <p className="font-display text-3xl text-sa-green-ink leading-tight">La plantilla</p>
             <p className="text-sm text-sa-green-ink/60 mt-1 mb-4 leading-relaxed">
-              Pega aquí el texto que te dé tu abogado. Donde vaya un dato, escribe
-              la variable entre llaves. Disponibles:{' '}
+              Pega aquí el texto que te dé tu abogado — así tal cual queda bien:
+              los encabezados en mayúsculas y las cláusulas que empiezan con
+              «PRIMERA.-» se acomodan solas. Si quieres mandar tú, hay cuatro
+              marcas: <code className="font-mono text-[11px]">{'# Título'}</code>,{' '}
+              <code className="font-mono text-[11px]">{'## Sección'}</code>,{' '}
+              <code className="font-mono text-[11px]">---</code> para una raya y{' '}
+              <code className="font-mono text-[11px]">{'[[FIRMAS: {{EMPRESA}} | {{NOMBRE}}]]'}</code>{' '}
+              para el renglón de firmas. Donde vaya un dato, la variable entre
+              llaves. Disponibles:{' '}
               <code className="font-mono text-[11px]">
                 {'{{NOMBRE}} {{EL_LA}} {{TRABAJADOR}} {{PUESTO}} {{SALARIO_DIARIO}} ' +
                  '{{FECHA_INGRESO}} {{TIPO_CONTRATO}} {{JORNADA}} {{DIAS_DESCANSO}} ' +

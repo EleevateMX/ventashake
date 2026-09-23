@@ -102,7 +102,7 @@ export function totalRefrescado(items: LineaRefrescable[]): number {
  * Si `localStorage` no está disponible, se devuelve un nombre efímero: el
  * vistazo es para mirar de lejos, y perderlo no le cuesta nada a la venta.
  */
-export function idDePantalla(app: 'kiosko' | 'pos'): string {
+export function idDePantalla(app: 'kiosko' | 'pos' | 'telefono'): string {
   const llave = `shake.${app}.id-pantalla`
   try {
     const guardado = localStorage.getItem(llave)

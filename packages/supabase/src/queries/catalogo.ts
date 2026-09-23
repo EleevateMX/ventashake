@@ -665,23 +665,47 @@ export interface Checada {
   repetida: boolean
   /** Solo al salir: cuánto duró el turno. */
   minutos: number | null
+  /** Solo desde el teléfono: a qué distancia de la tienda quedó. */
+  distancia_m: number | null
+}
+
+/**
+ * Lo que el teléfono manda del GPS, **crudo**. La pantalla no decide si
+ * eso cae dentro de la geocerca: eso lo resuelve el servidor contra el
+ * punto de la tienda. Una pantalla que se aprueba su propia checada no
+ * es un control.
+ */
+export interface UbicacionChecada {
+  lat: number
+  lon: number
+  precision_m: number | null
 }
 
 /**
  * Checar. El servidor **valida la transición** aunque la pantalla ya haya
  * filtrado los botones: una pantalla vieja podría mandar «salida» de
  * alguien que ya se fue y partir el histórico en dos.
+ *
+ * Con `ubicacion` la checada se marca como hecha **desde el teléfono** y
+ * pasa por la geocerca. Sin ella es la de la barra, como siempre. Son la
+ * misma función a propósito: las reglas de transición no pueden tener dos
+ * copias que se separen solas.
  */
 export async function checar(
   sb: ShakeClient,
   pin: string,
   pantalla: string,
   tipo?: TipoChecada,
+  ubicacion?: UbicacionChecada,
 ): Promise<Checada> {
   const { data, error } = await (sb.rpc as unknown as RpcCatalogo)('fn_asistencia_checar', {
     p_pin: pin,
     p_pantalla: pantalla,
     p_tipo: tipo ?? null,
+    p_origen: ubicacion ? 'telefono' : 'kiosko',
+    p_lat: ubicacion?.lat ?? null,
+    p_lon: ubicacion?.lon ?? null,
+    p_precision_m: ubicacion?.precision_m ?? null,
   })
   if (error) throw error
   const filas = (data ?? []) as Checada[]
@@ -719,6 +743,15 @@ export interface ConfigChecador {
   comida_max_min: number
   /** Una entrada más vieja que esto ya no cuenta como turno abierto. */
   turno_max_horas: number
+  /** Si se puede checar desde el teléfono. Nace apagado a propósito. */
+  telefono_activo: boolean
+  /** Dónde está la tienda. Sin esto la geocerca no puede medir nada. */
+  tienda_lat: number | null
+  tienda_lon: number | null
+  /** Qué tan lejos de ese punto se acepta una checada de teléfono. */
+  radio_m: number
+  /** Si el teléfono reporta un error mayor a esto, no se acepta. */
+  precision_max_m: number
 }
 
 export async function configChecador(sb: ShakeClient): Promise<ConfigChecador> {
@@ -738,6 +771,11 @@ export async function guardarConfigChecador(
     p_comida_se_paga: c.comida_se_paga,
     p_comida_max_min: c.comida_max_min,
     p_turno_max_horas: c.turno_max_horas,
+    p_telefono_activo: c.telefono_activo,
+    p_tienda_lat: c.tienda_lat,
+    p_tienda_lon: c.tienda_lon,
+    p_radio_m: c.radio_m,
+    p_precision_max_m: c.precision_max_m,
   })
   if (error) throw error
 }
@@ -769,6 +807,9 @@ export interface ChecadaDelDia {
   corrige_evento_id: string | null
   reemplazado: boolean
   autorizo: string | null
+  /** Solo las de teléfono: a cuántos metros quedó y con qué error el GPS. */
+  distancia_m: number | null
+  precision_m: number | null
 }
 
 export async function asistenciaDelDia(sb: ShakeClient, dia: string): Promise<ChecadaDelDia[]> {
