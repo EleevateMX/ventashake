@@ -11,9 +11,11 @@ import type { ModoPagoKiosko } from '@shake/types'
 import { useCarrito, type ItemCarrito } from '@/store/carritoStore'
 import { TecladoNombre } from '@/components/TecladoNombre'
 import { PrepararDespues } from '@/components/PrepararDespues'
+import { ClavePersonal } from '@/components/ClavePersonal'
 import { sb } from '@/lib/sb'
 import { resolverModoKiosko } from '@/lib/modoKiosko'
-import { canjearMancuernas, canjearSellos } from '@shake/supabase'
+import { canjearMancuernas, canjearSellos, cotizarPersonal } from '@shake/supabase'
+import type { IdentidadPersonal } from '@shake/supabase'
 import { PanelRewards, SIN_REWARDS, type DecisionRewards } from '@/components/PanelRewards'
 import { CobroEfectivo } from '@/components/CobroEfectivo'
 import { CobroMixto, type TerminalTarjeta } from '@/components/CobroMixto'
@@ -108,8 +110,46 @@ export function Pago() {
    * ANTES de pedir el dinero, no después.
    */
   const { aplicadas: promosAplicadas, descuento: descuentoPromo } = usePromos(items)
+
+  /**
+   * Precio de personal. El descuento lo calcula el SERVIDOR: aquí solo se
+   * pregunta cuánto sería (`cotizarPersonal`) para poder enseñar el total
+   * correcto antes de tomar el dinero. Si la pantalla dijera $349 y la
+   * caja cobrara $253, el cajero pediría de más y eso se descubre hasta
+   * cuadrar.
+   *
+   * Corre la misma función que el cobro, así que lo cotizado y lo cobrado
+   * no pueden diferir — es el mismo código dos veces.
+   *
+   * ⚠ Hoy las promos y el precio de personal NO se enciman porque la única
+   * promo viva es de cookies y las cookies no tienen precio de personal.
+   * El día que una promo caiga sobre un producto que sí lo tiene, se
+   * restarían las dos.
+   */
+  const [personal, setPersonal] = useState<IdentidadPersonal | null>(null)
+  const [clavePersonal, setClavePersonal] = useState<string | null>(null)
+  const [descuentoPersonal, setDescuentoPersonal] = useState(0)
+  const [avisoPersonal, setAvisoPersonal] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!clavePersonal) { setDescuentoPersonal(0); setAvisoPersonal(null); return }
+    let vivo = true
+    cotizarPersonal(sb, clavePersonal, items.map((i) => ({
+      producto_id: i.producto_id,
+      cantidad: i.cantidad,
+      linea: i.linea,
+      padre_linea: i.padreLinea,
+    })))
+      .then((c) => {
+        if (!vivo) return
+        setDescuentoPersonal(c.descuento)
+        setAvisoPersonal(c.motivo)
+      })
+      .catch((e) => { if (vivo) { setDescuentoPersonal(0); setAvisoPersonal(mensajeDeError(e)) } })
+    return () => { vivo = false }
+  }, [clavePersonal, items])
   const totalConCanjes = useMemo(() => {
-    const bruto = Math.max(0, total() - descuentoPromo)
+    const bruto = Math.max(0, total() - descuentoPromo - descuentoPersonal)
     const gratis = rewards.sello
       ? items.find((i) => i.producto_id === rewards.sello!.productoId)?.precio ?? 0
       : 0
@@ -382,6 +422,7 @@ export function Pago() {
           nombre_cliente: nombrePedido.trim() || usuario?.nombre?.split(' ')[0] || null,
           para_llevar: paraLlevar,
           preparar_a: prepararA,
+          clave_personal: clavePersonal,
         },
         items.map(lineaParaOrden),
       )
@@ -493,6 +534,7 @@ export function Pago() {
           nombre_cliente: nombrePedido.trim() || usuario?.nombre?.split(' ')[0] || null,
           para_llevar: paraLlevar,
           preparar_a: prepararA,
+          clave_personal: clavePersonal,
         },
         items.map(lineaParaOrden),
       )
@@ -567,6 +609,7 @@ export function Pago() {
           nombre_cliente: nombrePedido.trim() || usuario?.nombre?.split(' ')[0] || null,
           para_llevar: paraLlevar,
           preparar_a: prepararA,
+          clave_personal: clavePersonal,
         },
         items.map(lineaParaOrden),
       )
@@ -606,6 +649,7 @@ export function Pago() {
           nombre_cliente: nombrePedido.trim() || usuario?.nombre?.split(' ')[0] || null,
           para_llevar: paraLlevar,
           preparar_a: prepararA,
+          clave_personal: clavePersonal,
         },
         items.map(lineaParaOrden),
       )
@@ -819,20 +863,37 @@ export function Pago() {
             como se acaba empacando lo que no iba empacado. */}
         <PrepararDespues valor={prepararA} onCambio={setPrepararA} />
 
+        {modo === 'cajero' && (
+          <ClavePersonal
+            valor={personal}
+            onCambio={(id, clave) => { setPersonal(id); setClavePersonal(clave) }}
+          />
+        )}
+        {avisoPersonal && (
+          <div className="w-full max-w-md bg-sa-strawberry/10 border border-sa-strawberry/30 rounded-sa px-4 py-3">
+            <p className="text-sm text-sa-strawberry leading-relaxed">{avisoPersonal}</p>
+          </div>
+        )}
+
         <div className="text-center">
           <p className="font-mono text-xs uppercase tracking-[0.25em] text-sa-green/70">
             Total a soltar
           </p>
           {/* Con promo, el precio de lista se queda tachado arriba: el
               cajero tiene que poder explicar el numero si preguntan. */}
-          {descuentoPromo > 0 && (
+          {(descuentoPromo > 0 || descuentoPersonal > 0) && (
             <p className="font-mono text-lg text-sa-green-ink/40 line-through mt-2">
               ${total().toFixed(2)}
             </p>
           )}
           <p className="font-display text-7xl text-sa-green-ink leading-none mt-2">
-            ${Math.max(0, total() - descuentoPromo).toFixed(2)}
+            ${Math.max(0, total() - descuentoPromo - descuentoPersonal).toFixed(2)}
           </p>
+          {descuentoPersonal > 0 && (
+            <p className="font-mono text-xs uppercase tracking-wider text-sa-mint mt-2">
+              Precio de personal · -${descuentoPersonal.toFixed(2)}
+            </p>
+          )}
           {promosAplicadas.map((a) => (
             <p key={a.promo.id} className="font-mono text-xs uppercase tracking-wider text-sa-strawberry mt-2">
               {a.promo.nombre} · -${a.descuento.toFixed(2)}
@@ -901,7 +962,7 @@ export function Pago() {
                 <PanelRewards
                   clienteId={usuario.clienteId}
                   items={items}
-                  total={Math.max(0, total() - descuentoPromo)}
+                  total={Math.max(0, total() - descuentoPromo - descuentoPersonal)}
                   decision={rewards}
                   onCambiar={setRewards}
                 />

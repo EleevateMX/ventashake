@@ -713,6 +713,70 @@ Valores de arranque: radio **120 m**, precisión exigida **150 m**.
 > convierte la geocerca en el segundo candado en vez del único. Está sin
 > hacer, a propósito, porque primero conviene ver si el teléfono se usa.
 
+### 2.10 El descuento de personal lo calcula el servidor, como el dinero
+
+Admin → **Personal → Descuentos**: quién lo tiene, qué cuesta, qué se
+consumió y con qué reglas. Se cobra desde el kiosko tecleando la **clave**
+de quien se lo lleva, que es distinta del PIN de caja.
+
+> **`fn_crear_orden` NO se toca.** Es el camino del dinero, le pasan ~145
+> órdenes al día y ya tuvimos tres versiones viejas conviviendo que no
+> cobraban sobreprecios. `fn_crear_orden_personal` la **envuelve**: valida
+> la clave, el turno y los límites, saca el descuento de
+> `productos.precio_personal` y se lo pasa como `p_descuento`. La pantalla
+> manda una clave, nunca un precio.
+
+Cómo está armado, y por qué así:
+
+- **`productos.precio_personal`** = cuánto paga el personal. **Sin precio
+  se cobra completo**, y ese es el valor por omisión de todo el catálogo.
+  Por eso los boosters, extras, leches vegetales y combos quedan fuera sin
+  tener que enumerarlos — y un producto nuevo no nace regalado.
+- **`productos.grupo_personal`** (`shake` / `alimento` / `bebida`) = qué
+  lugar del límite diario consume, **aparte del precio**. Si hubiera que
+  deducirlo del nombre de la categoría, el día que se cree «Shakes de
+  temporada» dejaría de contar sin que nadie se entere.
+- **Los límites son por grupo y no se sustituyen**: no pedir alimento no
+  da derecho a un segundo shake. Y el tope (**$263**) cuenta solo el
+  precio de personal del **producto base**.
+- **El descuento solo toca los renglones base, nunca los extras.** Lo pidió
+  gerencia así, y además es obligatorio: el precio de un extra no es
+  `productos.precio` sino el del **vínculo** — la leche de almendras vale
+  $0 como producto y $10 colgada de un shake. Calcularlo desde el producto
+  daría un número que no es el que se cobra, y mirar el vínculo sería
+  copiar aquí la lógica de precios de `fn_crear_orden`.
+- **El beneficio exige turno abierto en el checador**, con gracia
+  configurable (60 min) para «al terminar su turno». Es el enganche que
+  vuelve útil al checador más allá de la nómina.
+- **La clave se guarda con bcrypt** y el servidor rechaza una repetida:
+  dos personas con la misma clave rompen lo único que sostiene el
+  «personal e intransferible» — el historial diría que consumió quien no
+  fue. Una vez escrita **ya no se puede volver a leer**, solo cambiar.
+- `personal_consumos` es **append-only**, con el día de Mérida ya resuelto
+  porque el límite es diario y el día del negocio no es el de UTC.
+
+> **Lo cotizado y lo cobrado son el mismo código.** El cajero tiene que ver
+> el total con descuento **antes** de tomar el dinero: si la pantalla dice
+> $349 y la caja cobra $253, pide de más y eso se descubre hasta cuadrar.
+> Por eso existe `fn_personal_cotizar` — y por eso las dos, la que cotiza y
+> la que cobra, llaman a **`fn_personal_calcular`**. Dos copias de una
+> regla de precios se separan solas: así fue como el doble scoop cobró $10
+> de menos durante semanas.
+
+> ⚠ **Promos y precio de personal se restan los dos.** Hoy no choca porque
+> la única promo viva es de cookies y las cookies no tienen precio de
+> personal. El día que una promo caiga sobre un producto que sí lo tiene,
+> se aplicarían las dos — hay que decidir cuál gana antes de que pase.
+
+**Lo que quedó pendiente de decidir** está levantado en Admin →
+**Peticiones**, no escrito a ojo: Jugo Verde (está en *Shakes* a $69 y la
+lista lo pone en bebidas a $49), Shake Mexa ($79, fuera de la lista), El
+Clásico con Sascha (da $61 y la lista dice $65) y «Hazlo Crunchy» (no
+existe como extra). Todos ésos **se cobran completos** mientras tanto, que
+es el lado seguro: un producto que debería tener beneficio y no lo tiene
+se reporta el mismo día; uno que lo tiene y no debería se va en silencio,
+venta tras venta.
+
 ### 2.5 La identidad es una sola, y vive en `packages/brand`
 
 `packages/brand/tokens.css` es la **fuente de la verdad**: los colores y
@@ -830,6 +894,9 @@ empaquetador y se desvían solas:
 | Ver las horas del personal | Admin → **Personal** → *Reloj checador*. Por persona y por día, con la comida descontada. Exporta a Excel |
 | Cambiar las reglas del checador | Admin → Personal → *Reloj checador* → **Reglas**. Ojo con «la comida se paga»: esa mueve la nómina |
 | Que el personal cheque desde su celular | Admin → Personal → *Reloj checador* → **Reglas** → *Desde el teléfono*: parado en la barra, «Marcar este punto como la tienda», prender la casilla, guardar. Luego repartir el link `shake-checador.pages.dev` |
+| Dar de alta el precio de personal de alguien | Admin → **Personal** → *Descuentos* → «Dar clave». La clave no se puede volver a leer: anótala y dásela en persona |
+| Cambiar el tope o los límites del beneficio | Admin → Personal → *Descuentos* → **Reglas**. Ojo con «solo con turno checado»: apagarlo deja usarlo en el día libre |
+| Cobrar con precio de personal | Kiosko → pantalla de cobro → **«Es para personal»** → su clave. El total baja solo y dice cuánto le queda |
 | Ver qué papeles le faltan a alguien | Admin → **Personal** → *Expediente*. Sube el archivo o márcalo como entregado en físico |
 | Hacer el contrato de alguien | Admin → **Personal** → *Contratos*. Llena los datos, marca sus días de descanso, «Ver cómo queda» y guarda. **La plantilla la revisa tu abogado antes de firmar nada** |
 | Ver qué ventas están apartadas, a distancia | Admin → **En vivo**, arriba del todo. Toca una para ver qué lleva, de qué hora es el ticket y a qué hora entró cada producto |

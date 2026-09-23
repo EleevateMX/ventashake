@@ -196,3 +196,125 @@ export const contratosDe = (sb: ShakeClient, empleadoId: string) =>
 
 export const textoDeContrato = (sb: ShakeClient, id: string) =>
   rpc<string>(sb, 'fn_contrato_texto', { p_id: id })
+
+// -------------------------- descuento de personal --------------------------
+//
+// El motor vive en el servidor: `fn_crear_orden_personal` valida la clave,
+// el turno y los limites, y calcula el descuento. Aqui solo se pregunta y
+// se administra — la pantalla nunca decide cuanto vale algo.
+
+export interface RestanteDePersonal {
+  usado_shake: number
+  usado_alimento: number
+  usado_bebida: number
+  usado_importe: number
+  tope: number
+  max_shake: number
+  max_alimento: number
+  max_bebida: number
+}
+
+export interface QuienUsaBeneficio extends RestanteDePersonal {
+  empleado_id: string
+  nombre: string
+  tiene_clave: boolean
+  activo: boolean
+}
+
+/**
+ * Identificar por clave, desde el kiosko. Devuelve quien es y **cuanto le
+ * queda hoy**, para poder ensenarlo ANTES de capturar: enterarse del
+ * limite al cobrar es enterarse tarde, con el cliente enfrente.
+ *
+ * `motivo` viene lleno cuando NO puede usarlo ahora (sin turno checado,
+ * por ejemplo). Es texto listo para mostrar, no un codigo.
+ */
+export interface IdentidadPersonal extends RestanteDePersonal {
+  empleado_id: string
+  nombre: string
+  motivo: string | null
+}
+
+export async function identificarPersonal(
+  sb: ShakeClient,
+  clave: string,
+): Promise<IdentidadPersonal> {
+  const filas = await rpc<IdentidadPersonal[]>(sb, 'fn_personal_identificar', { p_clave: clave })
+  if (!filas || filas.length === 0) throw new Error('No se pudo leer tu beneficio.')
+  const f = filas[0]
+  return { ...f, usado_importe: Number(f.usado_importe), tope: Number(f.tope) }
+}
+
+export interface ProductoConPrecioPersonal {
+  id: string
+  nombre: string
+  categoria: string | null
+  precio: number
+  precio_personal: number | null
+  grupo_personal: 'shake' | 'alimento' | 'bebida' | null
+  es_extra: boolean
+}
+
+export const catalogoPersonal = (sb: ShakeClient, texto?: string) =>
+  rpc<ProductoConPrecioPersonal[]>(sb, 'fn_personal_catalogo', { p_texto: texto?.trim() || null })
+
+export const guardarPrecioPersonal = (
+  sb: ShakeClient, productoId: string, precio: number | null, grupo: string | null,
+) =>
+  rpc<void>(sb, 'fn_personal_precio_guardar', {
+    p_producto_id: productoId, p_precio_personal: precio, p_grupo: grupo,
+  })
+
+export const guardarClavePersonal = (
+  sb: ShakeClient, empleadoId: string, clave: string | null, activo: boolean | null,
+) =>
+  rpc<void>(sb, 'fn_personal_clave_guardar', {
+    p_empleado_id: empleadoId, p_clave: clave, p_activo: activo,
+  })
+
+export const quienesUsanBeneficio = (sb: ShakeClient) =>
+  rpc<QuienUsaBeneficio[]>(sb, 'fn_personal_quienes')
+
+export interface ConsumoDePersonal {
+  id: string
+  dia: string
+  nombre: string
+  grupo: string
+  producto: string
+  cantidad: number
+  importe_personal: number
+  precio_publico: number
+  folio: number | null
+  created_at: string
+}
+
+export const historialPersonal = (
+  sb: ShakeClient, desde: string, hasta: string, empleadoId?: string | null,
+) =>
+  rpc<ConsumoDePersonal[]>(sb, 'fn_personal_historial', {
+    p_desde: desde, p_hasta: hasta, p_empleado_id: empleadoId ?? null,
+  })
+
+export interface ConfigBeneficio {
+  tope_diario: number
+  max_shake: number
+  max_alimento: number
+  max_bebida: number
+  /** El beneficio es de quien esta trabajando: exige turno en el checador. */
+  exige_turno: boolean
+  /** Minutos despues de checar salida en que todavia aplica. */
+  gracia_min: number
+}
+
+export const configBeneficio = (sb: ShakeClient) =>
+  rpc<ConfigBeneficio>(sb, 'fn_personal_config')
+
+export const guardarConfigBeneficio = (sb: ShakeClient, c: ConfigBeneficio) =>
+  rpc<void>(sb, 'fn_personal_config_guardar', {
+    p_tope: c.tope_diario,
+    p_max_shake: c.max_shake,
+    p_max_alimento: c.max_alimento,
+    p_max_bebida: c.max_bebida,
+    p_exige_turno: c.exige_turno,
+    p_gracia_min: c.gracia_min,
+  })
