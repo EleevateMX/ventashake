@@ -66,20 +66,44 @@ export async function crearOrden(
      * dejaría una comanda sin hora y nadie sabría por qué.
      */
     preparar_a?: string | null
+    /**
+     * Clave de personal. Con ella la orden se crea por
+     * `fn_crear_orden_personal`, que valida la clave, el turno abierto y
+     * los limites del dia, y **calcula el descuento en el servidor** desde
+     * `productos.precio_personal`. La pantalla manda una clave, nunca un
+     * precio ni un descuento — la misma regla de siempre.
+     */
+    clave_personal?: string | null
   },
   items: NuevaOrdenItem[],
 ): Promise<Orden> {
-  const creada = await rpc<Orden>(sb, 'fn_crear_orden', {
+  const lineas = items.map((i) => ({
+    producto_id: i.producto_id,
+    cantidad: i.cantidad,
+    personalizacion: i.personalizacion ?? null,
+    ...(i.linea ? { linea: i.linea } : {}),
+    ...(i.padre_linea ? { padre_linea: i.padre_linea } : {}),
+  }))
+
+  const creada = orden.clave_personal
+    ? await rpc<Orden>(sb, 'fn_crear_orden_personal', {
+        p_clave: orden.clave_personal,
+        p_sucursal_id: orden.sucursal_id ?? null,
+        p_almacen_id: orden.almacen_id ?? null,
+        p_canal: orden.canal,
+        p_items: lineas,
+        p_corte_id: orden.corte_id ?? null,
+        p_empleado_id: orden.empleado_id ?? null,
+        p_cliente_id: orden.cliente_id ?? null,
+        p_es_demo: orden.es_demo ?? false,
+        p_nombre_cliente: orden.nombre_cliente ?? null,
+        p_para_llevar: orden.para_llevar ?? null,
+      })
+    : await rpc<Orden>(sb, 'fn_crear_orden', {
     p_sucursal_id: orden.sucursal_id ?? null,
     p_almacen_id: orden.almacen_id ?? null,
     p_canal: orden.canal,
-    p_items: items.map((i) => ({
-      producto_id: i.producto_id,
-      cantidad: i.cantidad,
-      personalizacion: i.personalizacion ?? null,
-      ...(i.linea ? { linea: i.linea } : {}),
-      ...(i.padre_linea ? { padre_linea: i.padre_linea } : {}),
-    })),
+    p_items: lineas,
     p_corte_id: orden.corte_id ?? null,
     p_empleado_id: orden.empleado_id ?? null,
     p_cliente_id: orden.cliente_id ?? null,
@@ -88,7 +112,7 @@ export async function crearOrden(
     p_nombre_cliente: orden.nombre_cliente ?? null,
     // null = no se preguntó. No es lo mismo que 'para comer aquí'.
     p_para_llevar: orden.para_llevar ?? null,
-  })
+      })
 
   if (orden.preparar_a) {
     // Si esto fallara, la venta ya está creada y es válida: lo único que
@@ -329,4 +353,39 @@ export interface PanelEnVivo {
  */
 export async function panelEnVivo(sb: ShakeClient, todosLosPedidos = false): Promise<PanelEnVivo> {
   return rpc<PanelEnVivo>(sb, 'fn_panel_en_vivo', { p_todos_los_pedidos: todosLosPedidos })
+}
+
+/**
+ * Cuanto se le va a descontar a esta cuenta con precio de personal, **sin
+ * crear nada**.
+ *
+ * Existe porque el cajero tiene que ver el total con descuento antes de
+ * tomar el dinero: si la pantalla dice $349 y la caja cobra $253, pide de
+ * mas y eso se descubre al cuadrar. Corre exactamente la misma funcion
+ * que el cobro (`fn_personal_calcular`), asi que lo cotizado y lo cobrado
+ * no pueden diferir — son el mismo codigo dos veces.
+ */
+export interface CotizacionPersonal {
+  nombre: string
+  descuento: number
+  /** Lleno cuando NO se va a poder, con el texto listo para mostrar. */
+  motivo: string | null
+}
+
+export async function cotizarPersonal(
+  sb: ShakeClient,
+  clave: string,
+  items: NuevaOrdenItem[],
+): Promise<CotizacionPersonal> {
+  const filas = await rpc<CotizacionPersonal[]>(sb, 'fn_personal_cotizar', {
+    p_clave: clave,
+    p_items: items.map((i) => ({
+      producto_id: i.producto_id,
+      cantidad: i.cantidad,
+      ...(i.linea ? { linea: i.linea } : {}),
+      ...(i.padre_linea ? { padre_linea: i.padre_linea } : {}),
+    })),
+  })
+  if (!filas || filas.length === 0) throw new Error('No se pudo cotizar el precio de personal.')
+  return { ...filas[0], descuento: Number(filas[0].descuento) }
 }

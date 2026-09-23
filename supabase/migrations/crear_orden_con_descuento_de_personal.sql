@@ -1,5 +1,11 @@
 -- Crear una orden con precio de personal.
 --
+-- ⚠ SUPERSEDIDA en parte por
+-- `el_cobro_de_personal_usa_la_misma_cuenta_que_la_cotizacion.sql`: el
+-- descuento ya no se calcula aqui adentro, sale de `fn_personal_calcular`,
+-- que es la misma funcion que usa la cotizacion. Este archivo se queda
+-- como registro de por que la funcion existe y de que envuelve.
+--
 -- ENVUELVE a `fn_crear_orden` en vez de modificarla. El descuento se
 -- calcula aqui, en el servidor, a partir de `productos.precio_personal` —
 -- el cajero manda una clave, no un precio ni un descuento.

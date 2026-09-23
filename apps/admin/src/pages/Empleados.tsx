@@ -4,6 +4,7 @@ import Personas from './personal/Personas'
 import Asistencia from './personal/Asistencia'
 import Expediente from './personal/Expediente'
 import Contratos from './personal/Contratos'
+import Descuentos from './personal/Descuentos'
 
 /**
  * Todo lo del personal en un solo lugar.
@@ -24,6 +25,7 @@ const PESTANAS = [
   { id: 'asistencia', label: 'Reloj checador', ayuda: 'Horas, comidas y reglas' },
   { id: 'expediente', label: 'Expediente', ayuda: 'Qué papeles tiene cada quien' },
   { id: 'contratos', label: 'Contratos', ayuda: 'Datos laborales y documento' },
+  { id: 'descuentos', label: 'Descuentos', ayuda: 'Precio de personal, claves y consumos' },
 ] as const
 
 type Pestana = (typeof PESTANAS)[number]['id']
@@ -59,6 +61,7 @@ export default function Empleados() {
       {tab === 'asistencia' && <Asistencia />}
       {tab === 'expediente' && <Expediente />}
       {tab === 'contratos' && <Contratos />}
+      {tab === 'descuentos' && <Descuentos />}
     </div>
   )
 }
