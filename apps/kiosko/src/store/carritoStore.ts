@@ -76,6 +76,14 @@ interface CarritoStore {
   paraLlevar: boolean | null
   setParaLlevar: (v: boolean | null) => void
   /**
+   * «Preparar después»: a qué hora lo va a recoger (ISO), o null para
+   * prepararlo ya. Es **independiente** de para llevar — un pedido puede
+   * ser para comer aquí a las 8:30, y confundirlos haría que barra
+   * empaque lo que no va empacado.
+   */
+  prepararA: string | null
+  setPrepararA: (v: string | null) => void
+  /**
    * Se mantiene entre pedidos a propósito: el cajero abre turno una vez y
    * levanta pedidos toda su jornada. `limpiar()` vacía el carrito y al
    * cliente, pero NO cierra el turno.
@@ -165,6 +173,8 @@ export const useCarrito = create<CarritoStore>((set, get) => ({
   nombrePedido: '',
   setNombrePedido: (nombrePedido) => set({ nombrePedido }),
   paraLlevar: null,
+  prepararA: null,
+  setPrepararA: (prepararA) => set({ prepararA }),
   setParaLlevar: (paraLlevar) => set({ paraLlevar }),
   cajero: null,
 
@@ -266,7 +276,7 @@ export const useCarrito = create<CarritoStore>((set, get) => ({
   extrasDe: (linea) => get().items.filter((i) => i.padreLinea === linea),
 
   limpiar: () => {
-    set({ items: [], usuario: null, nombrePedido: '', paraLlevar: null })
+    set({ items: [], usuario: null, nombrePedido: '', paraLlevar: null, prepararA: null })
     displayCartCleared()
   },
 

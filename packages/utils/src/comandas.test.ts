@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { urgenciaComanda, UMBRAL_MINUTOS, vasoDeItem } from './comandas'
+import { urgenciaComanda, UMBRAL_MINUTOS, vasoDeItem, estadoProgramado, horaDeEntrega } from './comandas'
 
 const AHORA = new Date('2026-08-26T12:00:00Z').getTime()
 const haceMinutos = (m: number) => new Date(AHORA - m * 60000).toISOString()
@@ -66,5 +66,45 @@ describe('vasoDeItem', () => {
 
   it('un producto sin tamaño hereda el del extra', () => {
     expect(vasoDeItem(oz(null), [oz(20)])).toBe(20)
+  })
+})
+
+describe('estadoProgramado', () => {
+  const ahora = new Date('2026-09-23T02:00:00Z').getTime()
+  const enMin = (m: number) => new Date(ahora + m * 60000).toISOString()
+
+  it('sin hora, es una comanda normal', () => {
+    expect(estadoProgramado(null, ahora)).toBe('ninguna')
+    expect(estadoProgramado(undefined, ahora)).toBe('ninguna')
+  })
+
+  it('falta mucho: programada, para que NO se prepare todavía', () => {
+    expect(estadoProgramado(enMin(45), ahora)).toBe('programada')
+  })
+
+  it('ya casi es hora: se comporta como comanda nueva', () => {
+    expect(estadoProgramado(enMin(5), ahora)).toBe('es_hora')
+  })
+
+  it('la hora ya pasó: sigue siendo "es_hora", no desaparece', () => {
+    // Que se le haya pasado la hora es justo cuando MÁS tiene que verse.
+    expect(estadoProgramado(enMin(-30), ahora)).toBe('es_hora')
+  })
+
+  it('una fecha ilegible se trata como comanda normal', () => {
+    // El camino que no pierde pedidos: ante un dato roto, se prepara.
+    expect(estadoProgramado('no es una fecha', ahora)).toBe('ninguna')
+  })
+})
+
+describe('horaDeEntrega', () => {
+  it('la escribe como la diría el cliente, en hora de Mérida', () => {
+    // 02:30 UTC son las 20:30 del día anterior en Mérida (UTC−6).
+    expect(horaDeEntrega('2026-09-24T02:30:00Z')).toBe('8:30 P.M.')
+  })
+
+  it('sin hora no inventa texto', () => {
+    expect(horaDeEntrega(null)).toBe('')
+    expect(horaDeEntrega('cualquier cosa')).toBe('')
   })
 })

@@ -10,6 +10,7 @@ import type { Almacen, CajaCorte, MetodoPago } from '@shake/types'
 import type { ModoPagoKiosko } from '@shake/types'
 import { useCarrito, type ItemCarrito } from '@/store/carritoStore'
 import { TecladoNombre } from '@/components/TecladoNombre'
+import { PrepararDespues } from '@/components/PrepararDespues'
 import { sb } from '@/lib/sb'
 import { resolverModoKiosko } from '@/lib/modoKiosko'
 import { canjearMancuernas, canjearSellos } from '@shake/supabase'
@@ -92,7 +93,7 @@ function ProcesandoOverlay({ monto }: { monto: number }) {
 export function Pago() {
   const navigate = useNavigate()
   const { items, total, usuario, cajero, nombrePedido, setNombrePedido,
-          paraLlevar, setParaLlevar, limpiar } = useCarrito()
+          paraLlevar, setParaLlevar, prepararA, setPrepararA, limpiar } = useCarrito()
   const [rewards, setRewards] = useState<DecisionRewards>(SIN_REWARDS)
   // Efectivo pasa por la calculadora de cambio antes de cobrar.
   const [enEfectivo, setEnEfectivo] = useState(false)
@@ -380,6 +381,7 @@ export function Pago() {
           cliente_id: usuario?.clienteId ?? null,
           nombre_cliente: nombrePedido.trim() || usuario?.nombre?.split(' ')[0] || null,
           para_llevar: paraLlevar,
+          preparar_a: prepararA,
         },
         items.map(lineaParaOrden),
       )
@@ -490,6 +492,7 @@ export function Pago() {
           cliente_id: usuario?.clienteId ?? null,
           nombre_cliente: nombrePedido.trim() || usuario?.nombre?.split(' ')[0] || null,
           para_llevar: paraLlevar,
+          preparar_a: prepararA,
         },
         items.map(lineaParaOrden),
       )
@@ -563,6 +566,7 @@ export function Pago() {
           descuento: 0,
           nombre_cliente: nombrePedido.trim() || usuario?.nombre?.split(' ')[0] || null,
           para_llevar: paraLlevar,
+          preparar_a: prepararA,
         },
         items.map(lineaParaOrden),
       )
@@ -601,6 +605,7 @@ export function Pago() {
           es_demo: true,
           nombre_cliente: nombrePedido.trim() || usuario?.nombre?.split(' ')[0] || null,
           para_llevar: paraLlevar,
+          preparar_a: prepararA,
         },
         items.map(lineaParaOrden),
       )
@@ -808,6 +813,11 @@ export function Pago() {
             })}
           </div>
         </div>
+
+        {/* Va DESPUES de "como se lo lleva" y separado: son dos preguntas
+            distintas -cuando se prepara y en que se entrega- y juntarlas es
+            como se acaba empacando lo que no iba empacado. */}
+        <PrepararDespues valor={prepararA} onCambio={setPrepararA} />
 
         <div className="text-center">
           <p className="font-mono text-xs uppercase tracking-[0.25em] text-sa-green/70">

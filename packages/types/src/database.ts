@@ -1604,6 +1604,7 @@ export type Database = {
           nombre_cliente: string | null
           pagado: boolean
           para_llevar: boolean | null
+          preparar_a: string | null
           sucursal_id: string | null
           total: number
           updated_at: string
@@ -1628,6 +1629,7 @@ export type Database = {
           nombre_cliente?: string | null
           pagado?: boolean
           para_llevar?: boolean | null
+          preparar_a?: string | null
           sucursal_id?: string | null
           total?: number
           updated_at?: string
@@ -1652,6 +1654,7 @@ export type Database = {
           nombre_cliente?: string | null
           pagado?: boolean
           para_llevar?: boolean | null
+          preparar_a?: string | null
           sucursal_id?: string | null
           total?: number
           updated_at?: string
