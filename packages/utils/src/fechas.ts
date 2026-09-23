@@ -60,3 +60,18 @@ export function hace(desde: Date, ahora: Date = new Date()): string {
   const h = Math.round(m / 60)
   return `hace ${h} h`
 }
+
+/**
+ * El día de Mérida de hace N días, en AAAA-MM-DD.
+ *
+ * Se ancla al **mediodía UTC** antes de restar, no a la medianoche: con
+ * medianoche, un `new Date('2026-09-17')` se lee como las 18:00 del 16 en
+ * Mérida y el rango se recorre un día entero. Es la misma trampa que ya
+ * nos comimos en el Dashboard y en la fecha de los contratos.
+ */
+export function diasAntesEnMerida(dias: number, cuando: Date = new Date()): string {
+  const hoy = hoyEnMerida(cuando)
+  const t = new Date(`${hoy}T12:00:00Z`)
+  t.setUTCDate(t.getUTCDate() - dias)
+  return hoyEnMerida(t)
+}

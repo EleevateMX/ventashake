@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { sb } from '../lib/sb'
 import { ticketsDeCorte, detalleDeTicket } from '@shake/supabase'
 import type { TicketDeCorte, TicketDetalle, RenglonTicket } from '@shake/supabase'
-import { mxn, mensajeDeError } from '@shake/utils'
+import { mxn, mensajeDeError, lecheDeTicket } from '@shake/utils'
 import { cx } from '../ui'
 
 /**
@@ -27,22 +27,56 @@ const ETIQUETA_METODO: Record<string, string> = {
   otro: 'Otro',
 }
 
+/**
+ * Un renglón del ticket.
+ *
+ * La **leche va con su propia etiqueta**, y no de adorno: es lo que
+ * gerencia revisa cuando quiere saber si se cobró lo que el cliente pidió.
+ * El problema era que la misma pregunta tenía dos respuestas en lugares
+ * distintos — la leche incluida viajaba como nota chiquita entre las
+ * observaciones, y la de pago como un renglón hijo perdido entre la
+ * creatina y los toppings. Quien revisaba tenía que saber de antemano
+ * cuál de los dos mirar. `lecheDeTicket` las devuelve iguales y aquí se
+ * pintan iguales, con su precio.
+ */
 function Renglon({ r, sangria = false }: { r: RenglonTicket; sangria?: boolean }) {
+  const leche = sangria ? null : lecheDeTicket(r)
+  // La que se cobró ya sale como renglón hijo con su importe; repetirla
+  // abajo sería enseñar el mismo dinero dos veces y hacer dudar de si se
+  // cobró doble.
+  const otros = r.extras.filter((e) => !(leche?.cobrada && e.producto === leche.nombre))
+  // Lo que queda de la nota una vez apartada la leche: las observaciones
+  // de verdad ("Sin hielo"), que siguen siendo útiles.
+  const notaSinLeche = (r.personalizacion ?? '')
+    .split(',')
+    .map((x) => x.trim())
+    .filter((x) => x && !(leche && !leche.cobrada && x === leche.nombre))
+    .join(', ')
+
   return (
     <>
       <div className={`flex items-baseline gap-3 py-1 ${sangria ? 'pl-6' : ''}`}>
         <span className="font-mono text-xs opacity-60 w-8 shrink-0">×{r.cantidad}</span>
         <span className="flex-1 min-w-0">
           <span className={sangria ? 'opacity-80' : ''}>{sangria ? '· ' : ''}{r.producto}</span>
-          {r.personalizacion && (
-            <span className={`${cx.muted} block font-mono text-[10px]`}>{r.personalizacion}</span>
+          {leche && (
+            <span className="block text-xs text-sa-green-ink/75 mt-0.5">
+              <span className="font-mono text-[10px] uppercase tracking-wider opacity-60">Leche</span>
+              {' '}{leche.nombre}
+              <span className="font-mono text-[10px] opacity-60">
+                {leche.cobrada ? ` · cobrada ${mxn(leche.precio)}` : ' · incluida'}
+              </span>
+            </span>
+          )}
+          {notaSinLeche && (
+            <span className={`${cx.muted} block font-mono text-[10px]`}>{notaSinLeche}</span>
           )}
         </span>
         <span className="font-mono text-xs tabular-nums opacity-70">
           {mxn(r.precio_unitario * r.cantidad)}
         </span>
       </div>
-      {r.extras.map((e) => <Renglon key={e.id} r={e} sangria />)}
+      {otros.map((e) => <Renglon key={e.id} r={e} sangria />)}
     </>
   )
 }

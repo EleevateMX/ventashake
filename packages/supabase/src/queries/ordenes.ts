@@ -51,10 +51,25 @@ export async function crearOrden(
   sb: ShakeClient,
   // `nombre_cliente` va aparte del tipo generado: es "a nombre de quién va
   // el pedido" (para gritar/etiquetar), independiente de la ficha de lealtad.
-  orden: OrdenInsert & { nombre_cliente?: string | null; para_llevar?: boolean | null },
+  orden: OrdenInsert & {
+    nombre_cliente?: string | null
+    para_llevar?: boolean | null
+    /**
+     * «Preparar después»: a qué hora lo va a recoger el cliente (ISO).
+     *
+     * Va por una llamada APARTE y no como parámetro de `fn_crear_orden`, a
+     * propósito. Esa función es el camino del dinero y ya tuvimos tres
+     * versiones viejas conviviendo que no cobraban sobreprecios; cambiarle
+     * la firma para colgarle un dato de logística es barato hoy y caro el
+     * día que falle. Y va aquí adentro y no en cada pantalla porque hay
+     * cuatro caminos distintos que crean órdenes: el que se olvidara
+     * dejaría una comanda sin hora y nadie sabría por qué.
+     */
+    preparar_a?: string | null
+  },
   items: NuevaOrdenItem[],
 ): Promise<Orden> {
-  return rpc<Orden>(sb, 'fn_crear_orden', {
+  const creada = await rpc<Orden>(sb, 'fn_crear_orden', {
     p_sucursal_id: orden.sucursal_id ?? null,
     p_almacen_id: orden.almacen_id ?? null,
     p_canal: orden.canal,
@@ -74,6 +89,19 @@ export async function crearOrden(
     // null = no se preguntó. No es lo mismo que 'para comer aquí'.
     p_para_llevar: orden.para_llevar ?? null,
   })
+
+  if (orden.preparar_a) {
+    // Si esto fallara, la venta ya está creada y es válida: lo único que
+    // se pierde es la marca de «para después», y la comanda sale como una
+    // normal. Prefiero eso a tirar una orden buena por un dato de apoyo,
+    // pero NO en silencio — el cajero tiene que poder volver a marcarla.
+    await rpc<string>(sb, 'fn_orden_programar', {
+      p_orden_id: creada.id,
+      p_preparar_a: orden.preparar_a,
+    })
+  }
+
+  return creada
 }
 
 /**

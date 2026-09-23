@@ -10,6 +10,7 @@ import type { Almacen, CajaCorte, MetodoPago } from '@shake/types'
 import type { ModoPagoKiosko } from '@shake/types'
 import { useCarrito, type ItemCarrito } from '@/store/carritoStore'
 import { TecladoNombre } from '@/components/TecladoNombre'
+import { PrepararDespues } from '@/components/PrepararDespues'
 import { sb } from '@/lib/sb'
 import { resolverModoKiosko } from '@/lib/modoKiosko'
 import { canjearMancuernas, canjearSellos } from '@shake/supabase'
@@ -19,7 +20,7 @@ import { CobroMixto, type TerminalTarjeta } from '@/components/CobroMixto'
 import { CobroNoPaso } from '@/components/CobroNoPaso'
 import { apartar } from '@/store/espera'
 import { usePromos } from '@/lib/usePromos'
-import { mensajeDeError, mxn } from '@shake/utils'
+import { sugerirNombres, mezclarConSemilla, mensajeDeError, mxn } from '@shake/utils'
 
 type EstadoPago = 'cargando' | 'eligiendo' | 'procesando' | 'no_disponible'
 
@@ -48,10 +49,6 @@ const NOMBRES_BASE = [
   'Pedro', 'Adrián', 'Manuel', 'Carlos', 'Luis', 'José',
   'Juan', 'Miguel', 'Jorge', 'Ana', 'María', 'Sofía',
 ]
-
-/** Para comparar nombres sin pelearse con acentos ni mayúsculas. */
-const clave = (s: string) =>
-  s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
 
 const IconCard = () => (
   <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -96,7 +93,7 @@ function ProcesandoOverlay({ monto }: { monto: number }) {
 export function Pago() {
   const navigate = useNavigate()
   const { items, total, usuario, cajero, nombrePedido, setNombrePedido,
-          paraLlevar, setParaLlevar, limpiar } = useCarrito()
+          paraLlevar, setParaLlevar, prepararA, setPrepararA, limpiar } = useCarrito()
   const [rewards, setRewards] = useState<DecisionRewards>(SIN_REWARDS)
   // Efectivo pasa por la calculadora de cambio antes de cobrar.
   const [enEfectivo, setEnEfectivo] = useState(false)
@@ -156,21 +153,14 @@ export function Pago() {
 
   /**
    * Chips de nombre para el cajero: los aprendidos primero (por frecuencia),
-   * la semilla rellena mientras hay poca historia. Al teclear se vuelven
-   * predictivos: solo quedan los que empiezan como lo escrito, sin
-   * distinguir acentos ("adri" también encuentra "Adrián").
+   * la semilla rellena mientras hay poca historia. La regla de empate vive
+   * en `@shake/utils` con pruebas — lo que decide qué nombres existen para
+   * quien está en la barra no se escribe dentro de una pantalla.
    */
-  const sugerenciasNombre = useMemo(() => {
-    const lista = [...nombresGuardados]
-    for (const n of NOMBRES_BASE) {
-      if (!lista.some((g) => clave(g) === clave(n))) lista.push(n)
-    }
-    const escrito = clave(nombrePedido)
-    const visibles = escrito
-      ? lista.filter((n) => clave(n).startsWith(escrito) && clave(n) !== escrito)
-      : lista
-    return visibles.slice(0, 12)
-  }, [nombresGuardados, nombrePedido])
+  const sugerenciasNombre = useMemo(
+    () => sugerirNombres(mezclarConSemilla(nombresGuardados, NOMBRES_BASE), nombrePedido),
+    [nombresGuardados, nombrePedido],
+  )
 
   useEffect(() => {
     ;(async () => {
@@ -191,7 +181,7 @@ export function Pago() {
           setCorte(caja ? await corteAbierto(sb, caja.id) : null)
           // Sin await ni catch ruidoso: si esto falla, el cajero escribe el
           // nombre a mano como siempre y la venta no se entera.
-          nombresPedidoFrecuentes(sb).then(setNombresGuardados).catch(() => {})
+          nombresPedidoFrecuentes(sb, 1000).then(setNombresGuardados).catch(() => {})
         }
 
         setEstado('eligiendo')
@@ -391,6 +381,7 @@ export function Pago() {
           cliente_id: usuario?.clienteId ?? null,
           nombre_cliente: nombrePedido.trim() || usuario?.nombre?.split(' ')[0] || null,
           para_llevar: paraLlevar,
+          preparar_a: prepararA,
         },
         items.map(lineaParaOrden),
       )
@@ -501,6 +492,7 @@ export function Pago() {
           cliente_id: usuario?.clienteId ?? null,
           nombre_cliente: nombrePedido.trim() || usuario?.nombre?.split(' ')[0] || null,
           para_llevar: paraLlevar,
+          preparar_a: prepararA,
         },
         items.map(lineaParaOrden),
       )
@@ -574,6 +566,7 @@ export function Pago() {
           descuento: 0,
           nombre_cliente: nombrePedido.trim() || usuario?.nombre?.split(' ')[0] || null,
           para_llevar: paraLlevar,
+          preparar_a: prepararA,
         },
         items.map(lineaParaOrden),
       )
@@ -612,6 +605,7 @@ export function Pago() {
           es_demo: true,
           nombre_cliente: nombrePedido.trim() || usuario?.nombre?.split(' ')[0] || null,
           para_llevar: paraLlevar,
+          preparar_a: prepararA,
         },
         items.map(lineaParaOrden),
       )
@@ -819,6 +813,11 @@ export function Pago() {
             })}
           </div>
         </div>
+
+        {/* Va DESPUES de "como se lo lleva" y separado: son dos preguntas
+            distintas -cuando se prepara y en que se entrega- y juntarlas es
+            como se acaba empacando lo que no iba empacado. */}
+        <PrepararDespues valor={prepararA} onCambio={setPrepararA} />
 
         <div className="text-center">
           <p className="font-mono text-xs uppercase tracking-[0.25em] text-sa-green/70">

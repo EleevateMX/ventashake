@@ -8,7 +8,10 @@ import {
 } from '@shake/supabase'
 import type { PedidoConItems } from '@shake/supabase'
 import type { EstadoCocina, TrabajoImpresion } from '@shake/types'
-import { mensajeDeError, urgenciaComanda, UMBRAL_MINUTOS } from '@shake/utils'
+import {
+  mensajeDeError, urgenciaComanda, UMBRAL_MINUTOS, vasoDeItem,
+  estadoProgramado, horaDeEntrega,
+} from '@shake/utils'
 
 // Indicador de estado de impresión de la comanda de este pedido.
 function EstadoImpresion({ trabajo, onReimprimir }: { trabajo: TrabajoImpresion | undefined; onReimprimir: () => void }) {
@@ -60,7 +63,16 @@ const ETIQUETA_ESTADO: Record<string, string> = {
  * El estado por sí solo no alcanza para elegir el color: hace falta
  * también cuánto lleva, por eso esto es una función y no un mapa.
  */
-function acentoDe(estado: string, actualizadoEn: string | null | undefined, ahora: number): string {
+function acentoDe(
+  estado: string,
+  actualizadoEn: string | null | undefined,
+  ahora: number,
+  prepararA?: string | null,
+): string {
+  // Una comanda programada a la que todavia le falta NO parpadea: el
+  // parpadeo verde existe para que alguien la tome ya, que es justo lo
+  // contrario de lo que hay que hacer con esta. Se marca en azul, quieta.
+  if (estadoProgramado(prepararA, ahora) === 'programada') return 'bg-sa-blueberry'
   const urgencia = urgenciaComanda(estado, actualizadoEn, ahora, UMBRAL_MINUTOS.alimentos)
   if (urgencia === 'nueva') return 'bg-sa-mint animate-parpadeo'
   if (urgencia === 'tarde') return 'bg-sa-strawberry animate-parpadeo'
@@ -259,7 +271,7 @@ export default function App() {
                   className="bg-sa-cream rounded-sa-lg shadow-sa overflow-hidden flex flex-col"
                 >
                   {/* Franja de acento por estado */}
-                  <div className={`h-1.5 w-full ${acentoDe(pedido.estado, pedido.updated_at, ahora)}`} />
+                  <div className={`h-1.5 w-full ${acentoDe(pedido.estado, pedido.updated_at, ahora, pedido.ordenes?.preparar_a)}`} />
 
                   {/* Cabecera: folio + canal */}
                   <div className="flex items-start justify-between px-5 pt-4">
@@ -301,6 +313,35 @@ export default function App() {
                       )}
                     </div>
                   </div>
+
+                  {/* «Preparar después»: el cliente ya pagó y pasa más
+                      tarde. La comanda sale de inmediato y NO se esconde
+                      —una que aparece sola a las 8:25 es una que nadie vio
+                      venir, y en un cambio de turno se pierde— pero la hora
+                      va en una banda que no se puede pasar por alto, para
+                      que no se prepare antes de tiempo. Cuando llega la
+                      hora, la banda cambia de tono y grita. */}
+                  {(() => {
+                    const prog = estadoProgramado(pedido.ordenes?.preparar_a, ahora)
+                    if (prog === 'ninguna') return null
+                    const esHora = prog === 'es_hora'
+                    return (
+                      <div
+                        className={`mx-3 mt-2 px-4 py-2.5 rounded-sa flex items-center justify-between gap-3 ${
+                          esHora
+                            ? 'bg-sa-strawberry text-white animate-parpadeo'
+                            : 'bg-sa-blueberry/20 text-sa-green-ink border-2 border-sa-blueberry'
+                        }`}
+                      >
+                        <span className="font-mono text-[11px] uppercase tracking-widest">
+                          {esHora ? '🔥 Ya es hora' : '🕒 Pendiente · no preparar'}
+                        </span>
+                        <span className="font-display text-2xl leading-none">
+                          {horaDeEntrega(pedido.ordenes?.preparar_a)}
+                        </span>
+                      </div>
+                    )
+                  })()}
 
                   {/* Tiempo + estado */}
                   <div className="px-5 pt-3 pb-2 flex items-end justify-between">
@@ -344,9 +385,13 @@ export default function App() {
                             {/* Que vaso agarrar, antes de leer la receta. Solo
                                 aqui: la etiqueta impresa no lo lleva (pedido
                                 explicito de la sucursal). */}
-                            {item.productos?.onzas != null && (
+                            {/* El vaso cuenta lo que se le agregó: El Clásico
+                                es de 16 oz, pero con un «Preparado» encima es
+                                un signature y va en el de 20. Leer solo el
+                                producto base mandaba por el vaso chico. */}
+                            {vasoDeItem(item, extras) != null && (
                               <span className="ml-2 align-middle inline-flex px-1.5 py-0.5 rounded font-mono text-[10px] font-semibold tracking-wide bg-sa-banana/30 text-sa-coffee">
-                                {item.productos.onzas} OZ
+                                {vasoDeItem(item, extras)} OZ
                               </span>
                             )}
                           </p>

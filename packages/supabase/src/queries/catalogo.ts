@@ -320,6 +320,12 @@ export interface ExtraDeProducto {
    */
   requiere_grupo: string | null
   activo: boolean
+  /**
+   * Vaso que impone este extra, si impone alguno. Un «Preparado» convierte
+   * a El Clásico (16 oz) en un signature de 20: el vaso lo sube el extra,
+   * no el producto base. Null = no cambia el vaso, que es lo normal.
+   */
+  onzas: number | null
 }
 
 /**

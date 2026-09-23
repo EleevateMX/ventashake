@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   claseExtra, esBase, esProteina, esGalleta, esDobleScoop,
   ordenarBases, baseDeCasa, opcionDeGrupo, grupoEsOpcional, extraDisponible, gruposDeExtras,
-  notaDeBase, baseCobrada,
+  notaDeBase, baseCobrada, lecheDeTicket,
   type OpcionExtra,
   dobleScoopDe,
 } from './extras'
@@ -263,5 +263,51 @@ describe('dobleScoopDe', () => {
 
   it('sin dobles ofrecidos, no hay nada que elegir', () => {
     expect(dobleScoopDe([], d('Proteína OPTIMUM - Vainilla', 0, 'OPTIMUM'))).toBeNull()
+  })
+})
+
+describe('lecheDeTicket', () => {
+  it('encuentra la leche cobrada entre los extras', () => {
+    expect(lecheDeTicket({
+      personalizacion: null,
+      extras: [
+        { producto: 'Proteína OPTIMUM - Chocolate', precio_unitario: 0 },
+        { producto: 'Leche de Almendras', precio_unitario: 10 },
+      ],
+    })).toEqual({ nombre: 'Leche de Almendras', precio: 10, cobrada: true })
+  })
+
+  it('encuentra la leche sin costo en la nota', () => {
+    expect(lecheDeTicket({ personalizacion: 'Leche Deslactosada', extras: [] }))
+      .toEqual({ nombre: 'Leche Deslactosada', precio: 0, cobrada: false })
+  })
+
+  it('la nota trae la base primero y las observaciones después', () => {
+    expect(lecheDeTicket({ personalizacion: 'Leche Entera, Sin hielo', extras: [] })?.nombre)
+      .toBe('Leche Entera')
+  })
+
+  it('una observación suelta NO se confunde con leche', () => {
+    // Llamarle leche a "Sin hielo" seria peor que no decir nada: haria
+    // que gerencia revisara un cobro que nunca existio.
+    expect(lecheDeTicket({ personalizacion: 'Sin hielo', extras: [] })).toBeNull()
+  })
+
+  it('si no hay nada que decir, no inventa', () => {
+    expect(lecheDeTicket({ personalizacion: null, extras: [] })).toBeNull()
+    expect(lecheDeTicket({})).toBeNull()
+  })
+
+  it('la cobrada le gana a la nota: es la que se pagó', () => {
+    const r = lecheDeTicket({
+      personalizacion: 'Leche Entera',
+      extras: [{ producto: 'Leche de Coco', precio_unitario: 10 }],
+    })
+    expect(r).toEqual({ nombre: 'Leche de Coco', precio: 10, cobrada: true })
+  })
+
+  it('el agua mineral también es base', () => {
+    expect(lecheDeTicket({ extras: [{ producto: 'Agua Mineral - Canada Dry', precio_unitario: 10 }] })?.cobrada)
+      .toBe(true)
   })
 })
