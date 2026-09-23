@@ -44,79 +44,49 @@ export function ClavePersonal({
     } finally { setEnviando(false) }
   }
 
+  // Aplicado: cabe en media fila. Lo que de verdad hay que ver al cobrar
+  // es el nombre y cuánto le queda; el desglose por grupo ya se vio al
+  // teclear la clave y repetirlo aquí solo empuja el teclado de efectivo
+  // fuera de la pantalla.
   if (valor) {
     const restante = Math.max(valor.tope - valor.usado_importe, 0)
     return (
-      <div className="w-full max-w-md">
-        <label className="font-mono text-xs uppercase tracking-[0.25em] text-sa-green/70 block mb-2">
-          Precio de personal
-        </label>
-        <div className="px-4 py-4 rounded-sa-lg border-2 border-sa-mint bg-sa-mint/15">
-          <div className="flex items-start justify-between gap-3">
-            <span>
-              <span className="font-display text-2xl text-sa-green-ink leading-tight block">
-                {valor.nombre}
-              </span>
-              {valor.motivo ? (
-                <span className="font-mono text-[11px] text-sa-strawberry block mt-1">
-                  {valor.motivo}
-                </span>
-              ) : (
-                <span className="font-mono text-[11px] text-sa-green-ink/60 block mt-1">
-                  Le quedan {mxn(restante)} de {mxn(valor.tope)} hoy
-                </span>
-              )}
+      <div className="flex-1 min-w-[45%]">
+        <div className="px-3 py-2.5 rounded-sa border-2 border-sa-mint bg-sa-mint/15 flex items-center justify-between gap-2">
+          <span className="min-w-0">
+            <span className="font-body text-sm text-sa-green-ink leading-tight block truncate">
+              {valor.nombre}
             </span>
-            <button
-              onClick={() => { onCambio(null, null); setError(null) }}
-              className="font-mono text-xs uppercase tracking-wide text-sa-strawberry underline flex-shrink-0"
+            <span
+              className={`font-mono text-[10px] block leading-none mt-0.5 ${
+                valor.motivo ? 'text-sa-strawberry' : 'text-sa-green-ink/60'
+              }`}
             >
-              Quitar
-            </button>
-          </div>
-
-          {/* Lo que ya usó, por grupo. Los límites no se sustituyen entre
-              sí, así que hay que verlos separados: "no pedí alimento" no
-              da derecho a un segundo shake. */}
-          <div className="flex gap-2 mt-3 flex-wrap">
-            {([
-              ['Shake', valor.usado_shake, valor.max_shake],
-              ['Alimento', valor.usado_alimento, valor.max_alimento],
-              ['Bebida', valor.usado_bebida, valor.max_bebida],
-            ] as const).map(([etiqueta, usado, max]) => (
-              <span
-                key={etiqueta}
-                className={`px-3 py-1 rounded-sa font-mono text-[11px] uppercase tracking-wide ${
-                  usado >= max
-                    ? 'bg-sa-strawberry/20 text-sa-strawberry line-through'
-                    : 'bg-white text-sa-green-ink/70'
-                }`}
-              >
-                {etiqueta} {usado}/{max}
-              </span>
-            ))}
-          </div>
+              {valor.motivo ?? `Le quedan ${mxn(restante)}`}
+            </span>
+          </span>
+          <button
+            onClick={() => { onCambio(null, null); setError(null) }}
+            className="font-mono text-[10px] uppercase tracking-wide text-sa-strawberry underline flex-shrink-0"
+          >
+            Quitar
+          </button>
         </div>
       </div>
     )
   }
 
+  // Igual que el de la hora: cerrado ocupa media fila, abierto se lleva el
+  // renglón entero. Lo resuelve el `flex-wrap` del padre.
   return (
-    <div className="w-full max-w-md">
-      <label className="font-mono text-xs uppercase tracking-[0.25em] text-sa-green/70 block mb-2">
-        Precio de personal
-      </label>
-
+    <div className={abierto ? 'w-full' : 'flex-1 min-w-[45%]'}>
       {!abierto ? (
         <button
           type="button"
           onClick={() => setAbierto(true)}
-          className="w-full px-4 py-4 rounded-sa-lg border-2 border-sa-green-ink/15 bg-white text-sa-green-ink hover:border-sa-mint active:scale-95 transition-all"
+          className="w-full px-3 py-2.5 rounded-sa border border-sa-green-ink/15 bg-white text-sa-green-ink hover:border-sa-mint active:scale-95 transition-all text-left"
         >
-          <span className="font-display text-xl leading-tight">Es para personal</span>
-          <span className="block font-mono text-[11px] text-sa-green-ink/50 mt-0.5 normal-case">
-            Con su clave. Si no, se cobra normal
-          </span>
+          <span className="font-body text-sm leading-tight">👤 Es para personal</span>
         </button>
       ) : (
         <div className="p-4 rounded-sa-lg bg-white border border-sa-green-ink/10">

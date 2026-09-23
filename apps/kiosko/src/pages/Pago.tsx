@@ -856,22 +856,32 @@ export function Pago() {
               )
             })}
           </div>
+
+          {/* Las dos opcionales, en UNA fila, chiquitas y DENTRO de este
+              bloque — no como dos secciones aparte.
+              Ocupaban dos bloques del ancho completo, con titulo y
+              subtitulo cada uno, y eso empujaba el teclado de efectivo
+              fuera de la pantalla: en la tienda se reporto como "no se ven
+              los botones de pagar". Son cosas poco frecuentes; lo que tiene
+              que estar grande y siempre a la vista es el cobro.
+              Colgarlas aqui adentro ahorra ademas la separacion de 32 px
+              que gastaria una seccion propia.
+              Con `flex-wrap`, la que se abre se lleva el renglon entero y
+              la otra se acomoda sola; no hace falta subir el estado. */}
+          <div className="flex flex-wrap gap-2 items-start mt-3">
+            <PrepararDespues valor={prepararA} onCambio={setPrepararA} />
+            {modo === 'cajero' && (
+              <ClavePersonal
+                valor={personal}
+                onCambio={(id, clave) => { setPersonal(id); setClavePersonal(clave) }}
+              />
+            )}
+          </div>
         </div>
 
-        {/* Va DESPUES de "como se lo lleva" y separado: son dos preguntas
-            distintas -cuando se prepara y en que se entrega- y juntarlas es
-            como se acaba empacando lo que no iba empacado. */}
-        <PrepararDespues valor={prepararA} onCambio={setPrepararA} />
-
-        {modo === 'cajero' && (
-          <ClavePersonal
-            valor={personal}
-            onCambio={(id, clave) => { setPersonal(id); setClavePersonal(clave) }}
-          />
-        )}
         {avisoPersonal && (
-          <div className="w-full max-w-md bg-sa-strawberry/10 border border-sa-strawberry/30 rounded-sa px-4 py-3">
-            <p className="text-sm text-sa-strawberry leading-relaxed">{avisoPersonal}</p>
+          <div className="w-full max-w-md bg-sa-strawberry/10 border border-sa-strawberry/30 rounded-sa px-3 py-2">
+            <p className="text-xs text-sa-strawberry leading-snug">{avisoPersonal}</p>
           </div>
         )}
 
