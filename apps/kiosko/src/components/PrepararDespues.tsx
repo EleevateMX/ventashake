@@ -54,41 +54,39 @@ export function PrepararDespues({
     setVerHora(false)
   }
 
-  return (
-    <div className="w-full max-w-md">
-      <label className="font-mono text-xs uppercase tracking-[0.25em] text-sa-green/70 block mb-2">
-        ¿Cuándo se prepara?
-      </label>
+  // Cerrado ocupa media fila; abierto se lleva el renglón entero. Con
+  // `flex-wrap` en el padre eso lo resuelve el CSS solo, sin subir el
+  // estado: el panel de la hora necesita ancho, el botón no.
+  const ancho = verHora && !valor ? 'w-full' : 'flex-1 min-w-[45%]'
 
+  return (
+    <div className={ancho}>
       {!valor ? (
         <button
           type="button"
           onClick={() => setVerHora(true)}
-          className={`w-full px-4 py-4 rounded-sa-lg border-2 transition-all active:scale-95 ${
+          className={`w-full px-3 py-2.5 rounded-sa border transition-all active:scale-95 text-left ${
             verHora
               ? 'border-sa-blueberry bg-white text-sa-green-ink'
               : 'border-sa-green-ink/15 bg-white text-sa-green-ink hover:border-sa-blueberry/60'
           }`}
         >
-          <span className="font-display text-xl leading-tight">🕒 Preparar después</span>
-          <span className="block font-mono text-[11px] text-sa-green-ink/50 mt-0.5 normal-case">
-            Si no lo tocas, se prepara ahora — como siempre
-          </span>
+          <span className="font-body text-sm leading-tight">🕒 Preparar después</span>
         </button>
       ) : (
-        <div className="px-4 py-4 rounded-sa-lg border-2 border-sa-blueberry bg-sa-blueberry/10 flex items-center justify-between gap-3">
-          <span>
-            <span className="font-mono text-[11px] uppercase tracking-widest text-sa-blueberry block">
+        <div className="px-3 py-2.5 rounded-sa border-2 border-sa-blueberry bg-sa-blueberry/10 flex items-center justify-between gap-2">
+          <span className="min-w-0">
+            <span className="font-mono text-[10px] uppercase tracking-widest text-sa-blueberry block leading-none">
               Lo recoge a las
             </span>
-            <span className="font-display text-3xl text-sa-green-ink leading-none">
+            <span className="font-display text-lg text-sa-green-ink leading-tight">
               {horaDeEntrega(valor)}
             </span>
           </span>
           <button
             type="button"
             onClick={() => { onCambio(null); setVerHora(false); setHhmm('') }}
-            className="font-mono text-xs uppercase tracking-wide text-sa-strawberry underline flex-shrink-0"
+            className="font-mono text-[10px] uppercase tracking-wide text-sa-strawberry underline flex-shrink-0"
           >
             Quitar
           </button>
