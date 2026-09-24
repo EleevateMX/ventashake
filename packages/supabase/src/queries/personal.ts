@@ -318,3 +318,49 @@ export const guardarConfigBeneficio = (sb: ShakeClient, c: ConfigBeneficio) =>
     p_exige_turno: c.exige_turno,
     p_gracia_min: c.gracia_min,
   })
+
+/**
+ * Las categorias del menu con cuantos productos suyos ya tienen beneficio.
+ *
+ * Es la vista que faltaba para administrar el descuento sin ir producto por
+ * producto: la lista que manda el negocio esta escrita por categoria
+ * ("todos los shakes a X"), no por nombre.
+ */
+export interface CategoriaDePersonal {
+  id: string
+  nombre: string
+  /** Productos activos que no son extras. Un extra se cobra completo. */
+  productos: number
+  con_beneficio: number
+  publico_min: number
+  publico_max: number
+}
+
+export const categoriasPersonal = (sb: ShakeClient) =>
+  rpc<CategoriaDePersonal[]>(sb, 'fn_personal_categorias')
+
+/**
+ * Pone precio de personal a una categoria entera: **o** un precio parejo
+ * **o** un porcentaje, nunca los dos.
+ *
+ * Los productos que valen menos que el precio parejo se dejan como estan y
+ * salen contados en `omitidos`: recortar el precio para que quepa dejaria a
+ * gerencia creyendo que puso un numero que no puso.
+ */
+export const precioPersonalPorCategoria = (
+  sb: ShakeClient,
+  categoriaId: string,
+  grupo: 'shake' | 'alimento' | 'bebida',
+  opts: { precio?: number | null; descuentoPct?: number | null; soloSinPrecio?: boolean },
+) =>
+  rpc<{ aplicados: number; omitidos: number }>(sb, 'fn_personal_precio_categoria', {
+    p_categoria_id: categoriaId,
+    p_grupo: grupo,
+    p_precio: opts.precio ?? null,
+    p_descuento_pct: opts.descuentoPct ?? null,
+    p_solo_sin_precio: opts.soloSinPrecio ?? false,
+  })
+
+/** Quita el beneficio de toda una categoria. Sin precio se cobra completo. */
+export const quitarBeneficioCategoria = (sb: ShakeClient, categoriaId: string) =>
+  rpc<number>(sb, 'fn_personal_quitar_categoria', { p_categoria_id: categoriaId })

@@ -1,5 +1,11 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  /* Las variantes `dark:` se activan por CLASE, no por la preferencia del
+   * sistema. Por omision Tailwind las prende con `prefers-color-scheme`, y
+   * nadie pone esa clase en ninguna parte: eso hacia que Admin se pintara
+   * a medias de oscuro cuando la laptop cambiaba sola. Quedan inertes, que
+   * es lo correcto mientras la marca no tenga version oscura. */
+  darkMode: 'class',
   theme: {
     extend: {
       colors: {

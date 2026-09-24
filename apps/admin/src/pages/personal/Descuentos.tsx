@@ -2,8 +2,9 @@ import { useCallback, useEffect, useState } from 'react'
 import {
   catalogoPersonal, guardarPrecioPersonal, quienesUsanBeneficio, guardarClavePersonal,
   historialPersonal, configBeneficio, guardarConfigBeneficio,
+  categoriasPersonal, precioPersonalPorCategoria, quitarBeneficioCategoria,
   type ProductoConPrecioPersonal, type QuienUsaBeneficio,
-  type ConsumoDePersonal, type ConfigBeneficio,
+  type ConsumoDePersonal, type ConfigBeneficio, type CategoriaDePersonal,
 } from '@shake/supabase'
 import { mxn, mensajeDeError, hoyEnMerida, diasAntesEnMerida } from '@shake/utils'
 import { sb } from '../../lib/sb'
@@ -239,6 +240,8 @@ function Precios({ onError, onOk }: { onError: (m: string) => void; onOk: (m: st
         </p>
       </Panel>
 
+      <PorCategoria onError={onError} onOk={onOk} onListo={() => void cargar(texto)} />
+
       <div className="flex gap-3 flex-wrap items-center mb-4">
         <input
           value={texto}
@@ -322,16 +325,199 @@ function FilaPrecio({
         </select>
       </td>
       <td className={cx.tdNum}>
-        {cambio && (
+        {cambio ? (
           <button
             onClick={() => onGuardar(p, precio.trim() === '' ? null : Number(precio), grupo || null)}
             className="text-xs text-sa-green underline"
           >
             Guardar
           </button>
+        ) : p.precio_personal != null && (
+          // Quitar es vaciar el precio, y sin precio se cobra completo: nunca
+          // deja a nadie pagando mas que el publico. Por eso no pide confirmar.
+          <button
+            onClick={() => { setPrecio(''); setGrupo(''); onGuardar(p, null, null) }}
+            className="text-xs text-sa-strawberry underline"
+          >
+            Quitar
+          </button>
         )}
       </td>
     </tr>
+  )
+}
+
+/**
+ * Agregar o quitar el beneficio de una **categoria entera**.
+ *
+ * La lista que manda el negocio esta escrita por categoria («todos los
+ * shakes a X»), no producto por producto: sin esto, ponerle precio a los
+ * 20 shakes son 20 guardados y una oportunidad de equivocarse en cada uno.
+ *
+ * No da de alta productos ni categorias — eso vive en **Costeos**, que es
+ * la fuente de la verdad del catalogo. Un producto creado desde aqui lo
+ * apagaria el siguiente guardado de Costeos.
+ */
+function PorCategoria({
+  onError, onOk, onListo,
+}: {
+  onError: (m: string) => void
+  onOk: (m: string) => void
+  onListo: () => void
+}) {
+  const [abierto, setAbierto] = useState(false)
+  const [cats, setCats] = useState<CategoriaDePersonal[] | null>(null)
+  const [cat, setCat] = useState('')
+  const [grupo, setGrupo] = useState<'shake' | 'alimento' | 'bebida'>('shake')
+  const [modo, setModo] = useState<'precio' | 'pct'>('precio')
+  const [valor, setValor] = useState('')
+  const [soloSinPrecio, setSoloSinPrecio] = useState(false)
+  const [ocupado, setOcupado] = useState(false)
+
+  const cargar = useCallback(async () => {
+    try { setCats(await categoriasPersonal(sb)) } catch (e) { onError(mensajeDeError(e)) }
+  }, [onError])
+
+  useEffect(() => { if (abierto) void cargar() }, [abierto, cargar])
+
+  const elegida = (cats ?? []).find((c) => c.id === cat)
+
+  async function aplicar() {
+    if (!elegida || valor.trim() === '') return
+    setOcupado(true)
+    try {
+      const r = await precioPersonalPorCategoria(sb, elegida.id, grupo,
+        modo === 'precio'
+          ? { precio: Number(valor), soloSinPrecio }
+          : { descuentoPct: Number(valor), soloSinPrecio })
+      onOk(
+        `${elegida.nombre}: ${r.aplicados} ${r.aplicados === 1 ? 'producto' : 'productos'} con precio de personal` +
+        (r.omitidos > 0
+          ? ` · ${r.omitidos} se quedaron como estaban porque valen menos de ${mxn(Number(valor))} al publico`
+          : ''),
+      )
+      await cargar()
+      onListo()
+    } catch (e) { onError(mensajeDeError(e)) } finally { setOcupado(false) }
+  }
+
+  async function quitar() {
+    if (!elegida) return
+    if (!window.confirm(
+      `Quitar el beneficio de los ${elegida.con_beneficio} productos de «${elegida.nombre}». ` +
+      'A partir de ahi se cobran completos. Seguimos?')) return
+    setOcupado(true)
+    try {
+      const n = await quitarBeneficioCategoria(sb, elegida.id)
+      onOk(`${elegida.nombre}: ${n} ${n === 1 ? 'producto se cobra' : 'productos se cobran'} completo de ahora en adelante.`)
+      await cargar()
+      onListo()
+    } catch (e) { onError(mensajeDeError(e)) } finally { setOcupado(false) }
+  }
+
+  if (!abierto) {
+    return (
+      <button onClick={() => setAbierto(true)} className={`${cx.btnSec} mb-4`}>
+        Agregar o quitar una categoria entera
+      </button>
+    )
+  }
+
+  return (
+    <Panel className="mb-4">
+      <div className="flex items-start justify-between gap-4 mb-4">
+        <p className={cx.h3}>Una categoria entera</p>
+        <button onClick={() => setAbierto(false)} className="text-xs text-sa-green-ink/50 underline">
+          cerrar
+        </button>
+      </div>
+
+      <div className="flex gap-3 flex-wrap items-end">
+        <label className="text-xs text-sa-green-ink/60">
+          Categoria
+          <select
+            value={cat}
+            onChange={(e) => setCat(e.target.value)}
+            className={`${cx.input} !py-2 block mt-1 w-64`}
+          >
+            <option value="">Elige una…</option>
+            {(cats ?? []).map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.nombre} — {c.productos} productos, {c.con_beneficio} con beneficio
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="text-xs text-sa-green-ink/60">
+          Consume el lugar de
+          <select
+            value={grupo}
+            onChange={(e) => setGrupo(e.target.value as typeof grupo)}
+            className={`${cx.input} !py-2 block mt-1`}
+          >
+            {GRUPOS.map((g) => <option key={g.id} value={g.id}>{g.label}</option>)}
+          </select>
+        </label>
+
+        <label className="text-xs text-sa-green-ink/60">
+          Como
+          <select
+            value={modo}
+            onChange={(e) => { setModo(e.target.value as typeof modo); setValor('') }}
+            className={`${cx.input} !py-2 block mt-1`}
+          >
+            <option value="precio">Precio parejo</option>
+            <option value="pct">% de descuento</option>
+          </select>
+        </label>
+
+        <label className="text-xs text-sa-green-ink/60">
+          {modo === 'precio' ? 'Precio de personal' : 'Descuento (%)'}
+          <input
+            type="number" min="0" step="1" value={valor}
+            onChange={(e) => setValor(e.target.value)}
+            className={`${cx.input} !py-2 block mt-1 w-32 text-right font-mono`}
+          />
+        </label>
+
+        <button onClick={() => void aplicar()} disabled={ocupado || !elegida || valor.trim() === ''} className={cx.btnPrimary}>
+          Aplicar
+        </button>
+        {elegida && elegida.con_beneficio > 0 && (
+          <button onClick={() => void quitar()} disabled={ocupado} className={`${cx.btnSec} !text-sa-strawberry`}>
+            Quitar el beneficio de esta categoria
+          </button>
+        )}
+      </div>
+
+      <label className="flex items-center gap-2 text-sm text-sa-green-ink/70 mt-3">
+        <input
+          type="checkbox" checked={soloSinPrecio}
+          onChange={(e) => setSoloSinPrecio(e.target.checked)}
+          className="w-4 h-4 accent-sa-green"
+        />
+        Solo los que todavia no tienen precio (no pisar lo ya puesto a mano)
+      </label>
+
+      {elegida && (
+        <p className="text-[12px] text-sa-green-ink/60 mt-3 leading-relaxed">
+          «{elegida.nombre}» tiene {elegida.productos} productos de venta, de{' '}
+          {mxn(elegida.publico_min)} a {mxn(elegida.publico_max)} al publico.
+          {modo === 'precio' && valor.trim() !== '' && Number(valor) > elegida.publico_min && (
+            <> Los que valen menos de {mxn(Number(valor))} <b>se quedan como estan</b>:
+            un precio de personal mayor al publico no es un beneficio, y recortarlo
+            en silencio te dejaria creyendo que pusiste un numero que no pusiste.</>
+          )}
+        </p>
+      )}
+
+      <p className="text-[11px] text-sa-green-ink/45 mt-3 leading-snug">
+        Los extras no entran: el descuento solo toca los renglones base, y el
+        precio de un extra sale del vinculo con su producto, no del catalogo.
+        Para dar de alta un producto nuevo, eso sigue siendo <b>Costeos</b>.
+      </p>
+    </Panel>
   )
 }
 

@@ -738,6 +738,17 @@ export interface DiaDeAsistencia {
   comida_abierta: boolean
   comida_larga: boolean
   corregido: boolean
+  /** Con qué regla se calculó esta fila. null = la general. */
+  regla: string | null
+  jornada_min: number
+  /** Los minutos de comida que se esperaban. NO es lo que se restó. */
+  comida_esperada_min: number
+  comida_se_paga: boolean
+  /**
+   * null = esa persona no tiene horario de reloj, así que no hay con qué
+   * decir si llegó tarde. 0 = llegó dentro de la tolerancia.
+   */
+  minutos_tarde: number | null
 }
 
 /** Las reglas del checador, que escribe gerencia desde Admin. */
@@ -1378,6 +1389,100 @@ export async function pedirRecargaPantallas(
 ): Promise<void> {
   const { error } = await (sb.rpc as unknown as RpcCatalogo)('fn_pantallas_recargar', {
     p_pantalla: pantalla,
+  })
+  if (error) throw error
+}
+
+/**
+ * Una regla del checador con nombre, que se le asigna a la gente.
+ *
+ * **Un campo en `null` hereda el de la regla general.** Es la misma regla
+ * de respaldo que las observaciones y el «solo si…»: quien no tenga regla
+ * asignada se comporta exactamente como antes de que existieran, así que
+ * el día del despliegue no se mueve un solo número de nómina.
+ */
+export interface ReglaChecador {
+  id: string
+  nombre: string
+  jornada_min: number | null
+  tolerancia_min: number | null
+  comida_min: number | null
+  comida_max_min: number | null
+  comida_se_paga: boolean | null
+  /** El horario de reloj. Es lo único que permite decir «llegó tarde». */
+  hora_entrada: string | null
+  hora_salida: string | null
+  personas: number
+}
+
+/** Una persona con su regla y con los valores YA resueltos por el servidor. */
+export interface PersonaConRegla {
+  empleado_id: string
+  nombre: string
+  activo: boolean
+  regla_id: string | null
+  regla: string | null
+  jornada_min: number
+  tolerancia_min: number
+  comida_min: number
+  comida_max_min: number
+  comida_se_paga: boolean
+  hora_entrada: string | null
+  hora_salida: string | null
+}
+
+export async function reglasChecador(sb: ShakeClient): Promise<ReglaChecador[]> {
+  const { data, error } = await (sb.rpc as unknown as RpcCatalogo)('fn_asistencia_reglas', {})
+  if (error) throw error
+  return (data ?? []) as ReglaChecador[]
+}
+
+export async function personasConRegla(sb: ShakeClient): Promise<PersonaConRegla[]> {
+  const { data, error } = await (sb.rpc as unknown as RpcCatalogo)('fn_asistencia_personas', {})
+  if (error) throw error
+  return (data ?? []) as PersonaConRegla[]
+}
+
+/** `id` en null da de alta; con id, actualiza. Devuelve el id de la regla. */
+export type ReglaChecadorBorrador = Omit<ReglaChecador, 'id' | 'personas'> & {
+  id: string | null
+}
+
+export async function guardarReglaChecador(
+  sb: ShakeClient,
+  r: ReglaChecadorBorrador,
+): Promise<string> {
+  const { data, error } = await (sb.rpc as unknown as RpcCatalogo)('fn_asistencia_regla_guardar', {
+    p_id: r.id,
+    p_nombre: r.nombre,
+    p_jornada_min: r.jornada_min,
+    p_tolerancia_min: r.tolerancia_min,
+    p_comida_min: r.comida_min,
+    p_comida_max_min: r.comida_max_min,
+    p_comida_se_paga: r.comida_se_paga,
+    p_hora_entrada: r.hora_entrada,
+    p_hora_salida: r.hora_salida,
+  })
+  if (error) throw error
+  return data as string
+}
+
+/** Apaga la regla y devuelve a su gente a la general. No borra historia. */
+export async function borrarReglaChecador(sb: ShakeClient, id: string): Promise<void> {
+  const { error } = await (sb.rpc as unknown as RpcCatalogo)('fn_asistencia_regla_borrar', {
+    p_id: id,
+  })
+  if (error) throw error
+}
+
+export async function asignarReglaChecador(
+  sb: ShakeClient,
+  empleadoId: string,
+  reglaId: string | null,
+): Promise<void> {
+  const { error } = await (sb.rpc as unknown as RpcCatalogo)('fn_asistencia_asignar_regla', {
+    p_empleado_id: empleadoId,
+    p_regla_id: reglaId,
   })
   if (error) throw error
 }
