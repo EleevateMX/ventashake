@@ -557,10 +557,42 @@ nadie cerró. Estaban escritas dentro de la función —las 16 horas— y
 cambiarlas obligaba a desplegar. El servidor valida topes de cordura: un
 turno máximo de 200 horas no es una configuración, es un error de dedo.
 
-> **La casilla que mueve la nómina es «la comida se paga».** Apagada, los
-> minutos de comida se restan de las horas trabajadas. El histórico
-> muestra **bruto** y **trabajado** por separado a propósito, para que los
-> dos se puedan comparar sin confiar en uno solo.
+> **La casilla que mueve la nómina es «la comida se paga».** Apagada, se
+> resta de las horas trabajadas el **tiempo REAL** entre `inicio_comida` y
+> `fin_comida` —no los «minutos de comida esperados» de la
+> configuración—. Ese número es solo referencia, y `comida_max_min` solo
+> marca «comida larga». Comprobado en producción: 6:02 a 13:20 con 52
+> minutos de comida da **438 − 52 = 386**, no 438 − 30. Una comida sin
+> regreso suma 0 y sale marcada aparte: inventarle la hora de vuelta sería
+> inventar el dato. El histórico muestra **bruto** y **trabajado** por
+> separado a propósito, para que los dos se puedan comparar sin confiar en
+> uno solo.
+
+**Y las reglas no son una sola: son varias, con nombre, y se le asignan a
+la gente** (Admin → Personal → Reloj checador → **Reglas por persona**).
+La mayoría hace 8 horas con 35 minutos de comida; Silvana entra 5:45 y
+sale 1:15, y hay medios turnos. Con una regla global el sistema calcula
+bien a la mayoría y **mal a todos los demás**, y un número equivocado en
+nómina se firma igual que uno bueno.
+
+- Son **grupos, no individuos**: «Turno completo», «Medio turno». Así lo
+  dijo el negocio, y cambiar el medio turno de 4 a 5 horas se hace una vez
+  en vez de persona por persona. Quien necesita lo suyo tiene su regla de
+  una sola persona.
+- **Un campo vacío hereda el de la regla general**, y quien no tenga regla
+  asignada se comporta exactamente como antes. Misma regla de respaldo que
+  las observaciones y el «solo si…»: el día del despliegue no se movió ni
+  un número.
+- La mezcla la hace **el servidor** (`fn_asistencia_personas`,
+  `fn_asistencia_resumen`), no la pantalla. Dos copias de la misma mezcla
+  se separan solas — es la lección del doble scoop.
+- Con eso ya existe **«llegó tarde»**: `hora_entrada` en la regla es lo
+  único que permite compararlo, y `minutos_tarde` sale del resumen (null =
+  esa persona no tiene horario, 0 = dentro de la tolerancia). Sin horario
+  la columna queda vacía, que es exactamente lo que hay que decir.
+- Borrar una regla la **apaga** y devuelve a su gente a la general; no
+  borra historia. Y cambiar una regla **recalcula lo que se muestra**: las
+  checadas no se tocan, lo que cambia es contra qué se comparan.
 
 - `fn_asistencia_checar` y `fn_asistencia_estado` están abiertas a `anon`
   porque **el kiosko en modo cajero corre como `anon`** (sección 2.2) y el
@@ -732,6 +764,16 @@ Cómo está armado, y por qué así:
   se cobra completo**, y ese es el valor por omisión de todo el catálogo.
   Por eso los boosters, extras, leches vegetales y combos quedan fuera sin
   tener que enumerarlos — y un producto nuevo no nace regalado.
+- **Se administra desde Admin → Personal → Descuentos → *Precios***, y ya
+  no solo producto por producto: **«Agregar o quitar una categoría
+  entera»** pone precio parejo o un porcentaje a toda una categoría, y la
+  quita. La lista del negocio está escrita por categoría («todos los
+  shakes a X»), así que hacerlo de uno en uno son veinte guardados y
+  veinte oportunidades de equivocarse. Lo que **no** hace es dar de alta
+  productos: eso sigue siendo Costeos, y un producto creado aquí lo apaga
+  el siguiente guardado de allá. Y si un producto vale menos que el precio
+  parejo **se queda como está** y se reporta aparte: recortarlo en
+  silencio dejaría a gerencia creyendo que puso un número que no puso.
 - **`productos.grupo_personal`** (`shake` / `alimento` / `bebida`) = qué
   lugar del límite diario consume, **aparte del precio**. Si hubiera que
   deducirlo del nombre de la categoría, el día que se cree «Shakes de
@@ -800,6 +842,16 @@ Esa regla **se rompía en Costeos** hasta el 07/09: usaba Bagel Fat One a
 tabla. Una display gorda en chico se emborrona sola, y eso era la mitad de
 la sensación de "burdo". Ahora ahí va DM Sans, y las cifras y versalitas
 en DM Mono.
+
+> **La marca no tiene versión oscura, y hay que decirlo dos veces.**
+> Perla reportó Admin «oscuro»: era la laptop cambiando sola al anochecer.
+> Dos cosas lo causaban, y las dos había que apagar. `color-scheme: light`
+> en `:root` de `tokens.css` evita que el navegador pinte por su cuenta
+> inputs, selects y barras de desplazamiento; y `darkMode: 'class'` en
+> `tailwind-preset.js` hace que las variantes `dark:` dejen de activarse
+> con `prefers-color-scheme` —nadie pone esa clase en ninguna parte, así
+> que se pintaban a medias—. Queda en la fuente de la verdad, para las 8
+> apps de Vite; las dos excepciones de abajo llevan su copia a mano.
 
 **Las dos excepciones que hay que vigilar**, porque no pasan por el
 empaquetador y se desvían solas:
@@ -892,7 +944,9 @@ empaquetador y se desvían solas:
 | Algo del menú no sale y no se sabe por qué | Admin → **Revisión del menú**. Enumera lo que está chueco con nombre y apellido, y trae el botón **«Actualizar el kiosko»** |
 | Checar entrada, comida o salida | Kiosko → botón **«Checar»** → PIN → el botón que aplique. La hora la pone el sistema |
 | Ver las horas del personal | Admin → **Personal** → *Reloj checador*. Por persona y por día, con la comida descontada. Exporta a Excel |
-| Cambiar las reglas del checador | Admin → Personal → *Reloj checador* → **Reglas**. Ojo con «la comida se paga»: esa mueve la nómina |
+| Cambiar las reglas del checador | Admin → Personal → *Reloj checador* → **Regla general**. Ojo con «la comida se paga»: apagada resta el tiempo **real** de comida, no los minutos esperados |
+| Alguien tiene otro horario (medio turno, Silvana) | Admin → Personal → *Reloj checador* → **Reglas por persona**. Crea la regla, ponle su horario y asígnasela. Lo que dejes vacío usa la general |
+| Poner o quitar el beneficio de toda una categoría | Admin → Personal → *Descuentos* → *Precios* → **«Agregar o quitar una categoría entera»** |
 | Que el personal cheque desde su celular | Admin → Personal → *Reloj checador* → **Reglas** → *Desde el teléfono*: parado en la barra, «Marcar este punto como la tienda», prender la casilla, guardar. Luego repartir el link `shake-checador.pages.dev` |
 | Dar de alta el precio de personal de alguien | Admin → **Personal** → *Descuentos* → «Dar clave». La clave no se puede volver a leer: anótala y dásela en persona |
 | Cambiar el tope o los límites del beneficio | Admin → Personal → *Descuentos* → **Reglas**. Ojo con «solo con turno checado»: apagarlo deja usarlo en el día libre |

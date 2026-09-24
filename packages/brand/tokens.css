@@ -4,6 +4,13 @@
 @import url('https://fonts.googleapis.com/css2?family=Bagel+Fat+One&family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&display=swap');
 
 :root {
+  /* La marca es crema y verde, y no tiene version oscura. Sin esto el
+   * navegador aplica su modo oscuro por su cuenta —fondos de inputs,
+   * selects, barras de desplazamiento— en cuanto la laptop cambia sola al
+   * anochecer, y Admin amanece con un ticket negro que nadie pidio. Se
+   * declara aqui, en la fuente de la verdad, para las 8 apps de Vite. */
+  color-scheme: light;
+
   /* Core duo — never replaced */
   --sa-green:       #2C4A3E;
   --sa-green-deep:  #1A2E26;

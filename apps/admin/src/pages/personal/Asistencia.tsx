@@ -7,6 +7,7 @@ import {
 import { mensajeDeError, hoyEnMerida } from '@shake/utils'
 import { sb } from '../../lib/sb'
 import { PageHeader, Panel, Loading, ErrorMsg, OkMsg, Chip, cx } from '../../ui'
+import { ReglasPorPersona } from './ReglasPorPersona'
 
 /**
  * El histórico del reloj checador.
@@ -37,6 +38,7 @@ export default function Asistencia() {
   const [detalle, setDetalle] = useState<{ dia: string; filas: ChecadaDelDia[] } | null>(null)
   const [cfg, setCfg] = useState<ConfigChecador | null>(null)
   const [verReglas, setVerReglas] = useState(false)
+  const [verPorPersona, setVerPorPersona] = useState(false)
   const [ubicando, setUbicando] = useState(false)
   const [guardando, setGuardando] = useState(false)
 
@@ -158,13 +160,17 @@ export default function Asistencia() {
 
   function exportar() {
     const filas = [
-      ['Empleado', 'Día', 'Entrada', 'Salida', 'Min. bruto', 'Min. comida',
-       'Min. trabajados', 'Sin salida', 'Comida abierta', 'Comida larga', 'Corregido'],
+      ['Empleado', 'Regla', 'Día', 'Entrada', 'Min. tarde', 'Salida', 'Min. bruto', 'Min. comida',
+       'Min. trabajados', 'Jornada esperada', 'Comida se paga',
+       'Sin salida', 'Comida abierta', 'Comida larga', 'Corregido'],
       ...(dias ?? []).map((d) => [
-        d.nombre, d.dia, d.entrada_hora ?? '', d.salida_hora ?? '',
+        d.nombre, d.regla ?? 'general', d.dia, d.entrada_hora ?? '',
+        d.minutos_tarde == null ? '' : String(d.minutos_tarde),
+        d.salida_hora ?? '',
         d.minutos_bruto == null ? '' : String(d.minutos_bruto),
         String(d.minutos_comida),
         d.minutos_trabajados == null ? '' : String(d.minutos_trabajados),
+        String(d.jornada_min), d.comida_se_paga ? 'sí' : 'no',
         d.sin_salida ? 'sí' : '', d.comida_abierta ? 'sí' : '',
         d.comida_larga ? 'sí' : '', d.corregido ? 'sí' : '',
       ]),
@@ -193,7 +199,14 @@ export default function Asistencia() {
               disabled={!cfg}
               className="px-5 py-3 rounded-sa-lg bg-white border border-sa-green-ink/15 text-sa-green-ink font-display text-lg disabled:opacity-40"
             >
-              Reglas
+              Regla general
+            </button>
+            <button
+              onClick={() => setVerPorPersona(true)}
+              disabled={!cfg}
+              className="px-5 py-3 rounded-sa-lg bg-white border border-sa-green-ink/15 text-sa-green-ink font-display text-lg disabled:opacity-40"
+            >
+              Reglas por persona
             </button>
             <button
               onClick={exportar}
@@ -263,6 +276,7 @@ export default function Asistencia() {
               <tr>
                 <th className={cx.th}>Día</th>
                 <th className={cx.th}>Quién</th>
+                <th className={cx.th}>Regla</th>
                 <th className={cx.th}>Entrada</th>
                 <th className={cx.th}>Salida</th>
                 <th className={cx.thNum}>Comida</th>
@@ -275,7 +289,18 @@ export default function Asistencia() {
                 <tr key={`${d.empleado_id}-${d.dia}`} className={cx.tr}>
                   <td className={`${cx.td} font-mono text-xs`}>{d.dia}</td>
                   <td className={cx.td}>{d.nombre}</td>
-                  <td className={`${cx.td} font-mono`}>{d.entrada_hora ?? '—'}</td>
+                  <td className={`${cx.td} font-mono text-[11px] text-sa-green-ink/60`}>
+                    {d.regla ?? 'general'}
+                  </td>
+                  <td className={`${cx.td} font-mono`}>
+                    {d.entrada_hora ?? '—'}
+                    {/* Solo se puede decir «llegó tarde» de quien tiene horario
+                        de reloj en su regla. Sin horario no hay contra qué
+                        comparar, y una columna vacía dice justo eso. */}
+                    {d.minutos_tarde != null && d.minutos_tarde > 0 && (
+                      <span className="text-sa-strawberry"> +{d.minutos_tarde}′</span>
+                    )}
+                  </td>
                   <td className={`${cx.td} font-mono`}>
                     {d.salida_hora ?? (
                       <Chip tone="no">sin checar salida</Chip>
@@ -318,7 +343,7 @@ export default function Asistencia() {
 
             <div className="space-y-4">
               {([
-                ['comida_min', 'Minutos de comida esperados', 'Solo referencia, para comparar contra lo real.'],
+                ['comida_min', 'Minutos de comida esperados', 'Solo referencia. Lo que se descuenta de las horas es el tiempo REAL entre salida y regreso, no este numero.'],
                 ['comida_max_min', 'Comida larga a partir de', 'Una comida más larga sale marcada en el histórico.'],
                 ['jornada_min', 'Jornada esperada (minutos)', 'Cuánto debería durar un turno completo.'],
                 ['tolerancia_min', 'Tolerancia (minutos)', 'Margen antes de contar un retardo.'],
@@ -350,9 +375,11 @@ export default function Asistencia() {
                 <span>
                   <span className="text-sm text-sa-green-ink">La comida se paga</span>
                   <p className="text-[11px] text-sa-green-ink/50 mt-0.5 leading-snug">
-                    Si está apagado, los minutos de comida se restan de las horas
-                    trabajadas. Es la casilla que mueve el número de la nómina, así
-                    que conviene confirmarla con tu contador.
+                    Si está apagado, se resta de las horas trabajadas el{' '}
+                    <b>tiempo real</b> entre que checó «salgo a comer» y «regresé»
+                    —no los minutos esperados de arriba—. Es la casilla que mueve
+                    el número de la nómina, así que conviene confirmarla con tu
+                    contador.
                   </p>
                 </span>
               </label>
@@ -446,6 +473,14 @@ export default function Asistencia() {
             </div>
           </div>
         </div>
+      )}
+
+      {verPorPersona && cfg && (
+        <ReglasPorPersona
+          general={cfg}
+          onCerrar={() => setVerPorPersona(false)}
+          onCambio={() => void cargar()}
+        />
       )}
 
       {detalle && (

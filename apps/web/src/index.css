@@ -5,6 +5,9 @@
    ========================================================= */
 
 :root {
+  /* Copiado de packages/brand/tokens.css. */
+  color-scheme: light;
+
   --green:        #2C4A3E;
   --green-deep:   #1A2E26;
   --green-ink:    #14241D;
