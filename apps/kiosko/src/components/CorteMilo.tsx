@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react'
 import {
   listarAlmacenes, listarCajas, corteAbierto, abrirCaja, cerrarCaja, resumenCorte,
-  entrarConPin, salirDeSesion, empleadoDeLaSesion,
+  entrarConPin, salirDeSesion, empleadoDeLaSesion, misPermisos, RequiereAutorizacion,
 } from '@shake/supabase'
-import type { EmpleadoSesion } from '@shake/supabase'
+import type { EmpleadoSesion, Permiso } from '@shake/supabase'
 import type { Caja, CajaCorte, CorteResumen } from '@shake/types'
 import {
   mxn, mensajeDeError,
@@ -56,11 +56,23 @@ export function CorteMilo({ abierto, onCerrar }: Props) {
   const [conteoApertura, setConteoApertura] = useState<Conteo>(CONTEO_VACIO)
   const [guardando, setGuardando] = useState(false)
   const [resultado, setResultado] = useState<'abierto' | 'cerrado' | null>(null)
+  /**
+   * Lo que puede quien está en la caja. Solo decide qué se ENSEÑA: el
+   * servidor lo vuelve a revisar al abrir y al cerrar. `null` = no se pudo
+   * leer, y entonces la pantalla se comporta como antes y deja que el
+   * servidor conteste.
+   */
+  const [permisos, setPermisos] = useState<Record<Permiso, boolean> | null>(null)
+  /** El corte lo intentó alguien sin permiso: se pide el PIN de quien sí. */
+  const [pidiendoAutorizacion, setPidiendoAutorizacion] = useState(false)
+  const [pinAutoriza, setPinAutoriza] = useState('')
+  const [autorizo, setAutorizo] = useState<string | null>(null)
 
   useEffect(() => {
     if (!abierto) return
     setPin(''); setError(null); setConteo(CONTEO_VACIO); setConteoApertura(CONTEO_VACIO)
     setResultado(null); setResumen(null); setCorte(null)
+    setPermisos(null); setPidiendoAutorizacion(false); setPinAutoriza(''); setAutorizo(null)
     setFase('cargando')
     empleadoDeLaSesion(sb)
       .then((emp) => {
@@ -89,6 +101,7 @@ export function CorteMilo({ abierto, onCerrar }: Props) {
       const c = cajas.find((x) => x.sucursal_id === alm.sucursal_id) ?? cajas[0]
       if (!c) throw new Error('No hay cajas configuradas.')
       setCaja(c)
+      setPermisos(await misPermisos(sb).catch(() => null))
       const abierta = await corteAbierto(sb, c.id)
       setCorte(abierta)
       if (abierta) {
@@ -151,17 +164,31 @@ export function CorteMilo({ abierto, onCerrar }: Props) {
     }
   }
 
-  async function cerrarTurno() {
+  /**
+   * El candado del corte vive en el servidor (`fn_cerrar_corte`). Si quien
+   * cierra no tiene permiso, el servidor contesta «hace falta autorización»
+   * y aquí se pide el PIN de quien sí pueda — no es un error, es el candado
+   * haciendo su trabajo. Lo contado no se pierde en el camino.
+   */
+  async function cerrarTurno(pinDeAutorizacion?: string) {
     if (!corte || guardando) return
     setGuardando(true)
     setError(null)
     try {
-      await cerrarCaja(sb, corte.id, sumaConteo(conteo), empleado?.id, undefined, conteo)
+      const r = await cerrarCaja(sb, corte.id, sumaConteo(conteo), empleado?.id, undefined, conteo, pinDeAutorizacion)
+      setAutorizo(r.autorizo)
+      setPidiendoAutorizacion(false)
+      setPinAutoriza('')
       setCorte(null)
       setResultado('cerrado')
       setFase('listo')
     } catch (e) {
-      setError(mensajeDeError(e))
+      if (e instanceof RequiereAutorizacion) {
+        setPidiendoAutorizacion(true)
+      } else {
+        setError(mensajeDeError(e))
+      }
+      setPinAutoriza('')
     } finally {
       setGuardando(false)
     }
@@ -284,10 +311,16 @@ export function CorteMilo({ abierto, onCerrar }: Props) {
                   pierden los faltantes. Y el desglose se guarda, asi que
                   el dia que falte un billete de 500 se puede ver cuantos
                   habia al arrancar. */}
+              {permisos && !permisos.abrir_caja && (
+                <p className="font-body text-sm text-sa-strawberry bg-sa-strawberry/10 border border-sa-strawberry/30 rounded-sa px-4 py-3 mt-3">
+                  Tu usuario no tiene permiso de abrir la caja. Pídeselo a gerencia
+                  (Admin → Personal → Permisos) o que la abra alguien que sí pueda.
+                </p>
+              )}
               <ConteoDeCaja conteo={conteoApertura} onCambiar={setConteoApertura} etiqueta="Fondo inicial en caja" />
               <button
                 onClick={() => void abrirTurno()}
-                disabled={guardando || sumaConteo(conteoApertura) <= 0}
+                disabled={guardando || sumaConteo(conteoApertura) <= 0 || (permisos != null && !permisos.abrir_caja)}
                 className="w-full mt-5 bg-sa-green hover:brightness-110 disabled:opacity-50 text-sa-cream py-4 rounded-sa-lg font-display text-xl shadow-sa-sm transition-all"
               >
                 {guardando
@@ -329,13 +362,31 @@ export function CorteMilo({ abierto, onCerrar }: Props) {
                   Diferencia: {mxn(dif)} {dif === 0 ? '(cuadra)' : dif > 0 ? '(sobrante)' : '(faltante)'}
                 </p>
               )}
-              <button
-                onClick={() => void cerrarTurno()}
-                disabled={guardando}
-                className="w-full mt-5 bg-sa-strawberry hover:brightness-110 disabled:opacity-50 text-white py-4 rounded-sa-lg font-display text-xl shadow-sa-sm transition-all"
-              >
-                {guardando ? 'Cerrando…' : 'Cerrar caja'}
-              </button>
+              {/* Se avisa ANTES de contar, no después: enterarse del
+                  candado con el cajón ya contado es enterarse tarde. */}
+              {permisos && !permisos.cerrar_caja && !pidiendoAutorizacion && (
+                <p className="font-body text-sm text-sa-green-ink bg-sa-banana/25 border border-sa-banana rounded-sa px-4 py-3 mt-4">
+                  🔒 Tu usuario no hace cortes. Cuenta el cajón y al cerrar se pedirá
+                  el PIN de quien sí pueda autorizarlo.
+                </p>
+              )}
+              {pidiendoAutorizacion ? (
+                <AutorizarConPin
+                  pin={pinAutoriza}
+                  onCambiar={setPinAutoriza}
+                  ocupado={guardando}
+                  onAutorizar={() => void cerrarTurno(pinAutoriza)}
+                  onCancelar={() => { setPidiendoAutorizacion(false); setPinAutoriza('') }}
+                />
+              ) : (
+                <button
+                  onClick={() => void cerrarTurno()}
+                  disabled={guardando}
+                  className="w-full mt-5 bg-sa-strawberry hover:brightness-110 disabled:opacity-50 text-white py-4 rounded-sa-lg font-display text-xl shadow-sa-sm transition-all"
+                >
+                  {guardando ? 'Cerrando…' : 'Cerrar caja'}
+                </button>
+              )}
               <p className="font-mono text-[10px] uppercase tracking-wide text-sa-green-ink/40 mt-3 text-center">
                 Para cambio de turno: cierra y en seguida abre el nuevo
               </p>
@@ -361,6 +412,11 @@ export function CorteMilo({ abierto, onCerrar }: Props) {
                   <h3 className="font-display text-3xl text-sa-green-ink mt-3">Buen turno, campeón</h3>
                   <p className="font-mono text-xs uppercase tracking-widest text-sa-green-ink/50 mt-2">Total cobrado</p>
                   <p className="font-display text-3xl text-sa-strawberry">{mxn(resumen?.total_pagado ?? 0)}</p>
+                  {autorizo && autorizo !== empleado?.nombre && (
+                    <p className="font-mono text-[11px] uppercase tracking-widest text-sa-green-ink/55 mt-2">
+                      Corte autorizado por {autorizo}
+                    </p>
+                  )}
                 </>
               )}
               <div className="flex gap-3 mt-6 w-full">
@@ -383,6 +439,79 @@ export function CorteMilo({ abierto, onCerrar }: Props) {
           )}
         </div>
       </div>
+    </div>
+  )
+}
+
+/**
+ * El PIN de quien SÍ puede hacer el corte. El servidor lo compara y deja
+ * anotado quién autorizó (`caja_cortes.cierre_autorizado_por`); aquí solo
+ * se teclea. Mismo teclado que el PIN de entrada para no enseñar dos.
+ */
+function AutorizarConPin({
+  pin, onCambiar, ocupado, onAutorizar, onCancelar,
+}: {
+  pin: string
+  onCambiar: (p: string) => void
+  ocupado: boolean
+  onAutorizar: () => void
+  onCancelar: () => void
+}) {
+  const tecla = (d: string) => { if (!ocupado) onCambiar((pin + d).slice(0, 6)) }
+  return (
+    <div className="mt-5 bg-white border-2 border-sa-banana rounded-sa-lg p-4 flex flex-col items-center">
+      <p className="font-display text-xl text-sa-green-ink">Autorización del corte</p>
+      <p className="font-body text-sm text-sa-green-ink/65 text-center mt-1">
+        Tu usuario no hace cortes. Que ponga su PIN quien sí pueda autorizarlo.
+      </p>
+      <div className="flex gap-2.5 mt-4 h-4">
+        {[0, 1, 2, 3, 4, 5].map((i) => (
+          <span
+            key={i}
+            className={`w-3.5 h-3.5 rounded-full ${i < pin.length ? 'bg-sa-green' : 'bg-sa-green-ink/15'}`}
+          />
+        ))}
+      </div>
+      <div className="grid grid-cols-3 gap-2.5 mt-4">
+        {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((d) => (
+          <button
+            key={d}
+            onClick={() => tecla(d)}
+            disabled={ocupado}
+            className="w-16 h-16 rounded-full bg-sa-green-deep text-sa-cream active:scale-95 transition-all font-display text-2xl disabled:opacity-40"
+          >
+            {d}
+          </button>
+        ))}
+        <button
+          onClick={() => onCambiar('')}
+          disabled={ocupado}
+          className="w-16 h-16 rounded-full border border-sa-green-ink/20 text-sa-green-ink font-mono text-[10px] uppercase tracking-wide disabled:opacity-40"
+        >
+          Borrar
+        </button>
+        <button
+          onClick={() => tecla('0')}
+          disabled={ocupado}
+          className="w-16 h-16 rounded-full bg-sa-green-deep text-sa-cream active:scale-95 transition-all font-display text-2xl disabled:opacity-40"
+        >
+          0
+        </button>
+        <button
+          onClick={onAutorizar}
+          disabled={ocupado || pin.length < 4}
+          className="w-16 h-16 rounded-full bg-sa-banana text-sa-green-ink font-display text-xs leading-tight disabled:opacity-30"
+        >
+          {ocupado ? '…' : 'Cerrar'}
+        </button>
+      </div>
+      <button
+        onClick={onCancelar}
+        disabled={ocupado}
+        className="mt-3 font-mono text-[11px] uppercase tracking-wide text-sa-green-ink/50 underline"
+      >
+        Volver
+      </button>
     </div>
   )
 }

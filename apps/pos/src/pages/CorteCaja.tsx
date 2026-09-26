@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { usePosStore } from '@/store/posStore'
 import { sb } from '../lib/sb'
-import { resumenCorte, cerrarCaja } from '@shake/supabase'
+import { resumenCorte, cerrarCaja, RequiereAutorizacion } from '@shake/supabase'
 import { mxn, mensajeDeError } from '@shake/utils'
 import type { CorteResumen } from '@shake/types'
+import { ModalAutorizacion } from '@/components/pos/ModalAutorizacion'
 
 export function CorteCaja() {
   const navigate = useNavigate()
@@ -17,6 +18,9 @@ export function CorteCaja() {
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [cortado, setCortado] = useState(false)
+  /** Quien cierra no tiene permiso de corte: se pide el PIN de quien sí. */
+  const [pidiendoAutorizacion, setPidiendoAutorizacion] = useState(false)
+  const [autorizo, setAutorizo] = useState<string | null>(null)
 
   useEffect(() => {
     if (!corte) {
@@ -30,17 +34,28 @@ export function CorteCaja() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  async function realizarCorte() {
+  /**
+   * El candado del corte vive en el servidor (`fn_cerrar_corte`). Sin
+   * permiso, contesta «hace falta autorización» y aquí se pide el PIN de
+   * quien sí pueda; el servidor lo vuelve a validar y deja anotado quién
+   * autorizó.
+   */
+  async function realizarCorte(pinDeAutorizacion?: string) {
     if (!corte || guardando) return
     setGuardando(true)
     setError(null)
     try {
-      await cerrarCaja(sb, corte.id, Number(efectivoContado) || 0, empleado?.id, notas.trim() || undefined)
+      const r = await cerrarCaja(
+        sb, corte.id, Number(efectivoContado) || 0, empleado?.id,
+        notas.trim() || undefined, undefined, pinDeAutorizacion,
+      )
+      setAutorizo(r.autorizo)
       setCorte(null)
       limpiarOrden()
       setCortado(true)
     } catch (e) {
-      setError(mensajeDeError(e))
+      if (e instanceof RequiereAutorizacion) setPidiendoAutorizacion(true)
+      else setError(mensajeDeError(e))
     } finally {
       setGuardando(false)
     }
@@ -55,6 +70,11 @@ export function CorteCaja() {
           <h1 className="font-display text-5xl text-sa-cream leading-tight">Buen turno, campeón</h1>
           <p className="font-mono text-sm uppercase tracking-widest text-sa-cream/60 mt-3">Total cobrado</p>
           <p className="font-display text-4xl text-sa-banana mt-1">{mxn(resumen.total_pagado)}</p>
+          {autorizo && autorizo !== empleado?.nombre && (
+            <p className="font-mono text-xs uppercase tracking-widest text-sa-cream/55 mt-3">
+              Corte autorizado por {autorizo}
+            </p>
+          )}
         </div>
         <div className="flex gap-3 mt-4">
           <button
@@ -226,6 +246,16 @@ export function CorteCaja() {
           </>
         )}
       </div>
+      <ModalAutorizacion
+        open={pidiendoAutorizacion}
+        accion="hacer el corte de caja (tu usuario no hace cortes)"
+        permiso="cerrar_caja"
+        onClose={() => setPidiendoAutorizacion(false)}
+        onAutorizado={(_nombre, pin) => {
+          setPidiendoAutorizacion(false)
+          void realizarCorte(pin)
+        }}
+      />
     </div>
   )
 }

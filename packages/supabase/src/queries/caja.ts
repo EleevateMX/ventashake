@@ -59,29 +59,131 @@ export async function abrirCaja(
     })
     .select()
     .single()
+  // Abrir caja exige el permiso `abrir_caja` en la base (RLS). Un rechazo
+  // de RLS dice «row-level security», que no le dice nada a quien está en
+  // la barra: se traduce a lo que sí pasa.
+  if (error && (error as { code?: string }).code === '42501') {
+    throw new Error('Tu usuario no tiene permiso de abrir la caja. Pídeselo a gerencia en Admin → Personal → Permisos.')
+  }
   if (error) throw error
   return data
 }
 
+/**
+ * El corte lo cerró alguien sin permiso y no trajo PIN de autorización.
+ * La pantalla lo atrapa para pedir el PIN de quien sí pueda, en vez de
+ * enseñar un error: no es una falla, es el candado haciendo su trabajo.
+ */
+export class RequiereAutorizacion extends Error {
+  constructor(mensaje: string) {
+    super(mensaje)
+    this.name = 'RequiereAutorizacion'
+  }
+}
+
+/**
+ * Cierra el corte con el candado DENTRO del servidor (`fn_cerrar_corte`).
+ *
+ * Antes era un UPDATE directo a `caja_cortes` que cualquiera del personal
+ * podía hacer. Ahora el servidor mira quién tiene la sesión: si tiene el
+ * permiso `cerrar_caja`, cierra; si no, exige `pinAutoriza` de alguien que
+ * lo tenga y deja anotado quién autorizó. El empleado lo pone la sesión, no
+ * la pantalla — el parámetro se conserva solo para no romper a quien llama.
+ */
 export async function cerrarCaja(
   sb: ShakeClient,
   corteId: string,
   efectivoContado: number,
-  empleadoId?: string,
+  _empleadoId?: string,
   notas?: string,
   desglose?: DesgloseEfectivo,
+  pinAutoriza?: string,
+): Promise<{ autorizo: string | null }> {
+  const { data, error } = await (sb.rpc as unknown as RpcCaja)('fn_cerrar_corte', {
+    p_corte_id: corteId,
+    p_efectivo: efectivoContado,
+    p_desglose: desglose ?? null,
+    p_notas: notas ?? null,
+    p_pin_autoriza: pinAutoriza ?? null,
+  })
+  if (error) {
+    const e = error as { message?: string; hint?: string }
+    if (e.hint === 'requiere_autorizacion') throw new RequiereAutorizacion(e.message ?? 'Hace falta autorización.')
+    throw error
+  }
+  return { autorizo: ((data ?? {}) as { autorizo?: string | null }).autorizo ?? null }
+}
+
+type RpcCaja = (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>
+
+/** Las acciones de caja que se pueden dar o quitar por persona. */
+export type Permiso = 'cobrar' | 'abrir_caja' | 'cerrar_caja' | 'descuento_manual'
+
+export const PERMISOS: { id: Permiso; etiqueta: string; ayuda: string }[] = [
+  { id: 'cobrar', etiqueta: 'Tomar y cobrar órdenes', ayuda: 'Entrar al kiosko en modo cajero y al POS.' },
+  { id: 'abrir_caja', etiqueta: 'Abrir / iniciar caja', ayuda: 'Abrir el turno con su fondo.' },
+  { id: 'cerrar_caja', etiqueta: 'Realizar cortes de caja', ayuda: 'Sin esto, el corte pide el PIN de quien sí pueda.' },
+  { id: 'descuento_manual', etiqueta: 'Aplicar descuentos manuales', ayuda: 'En el POS. Sin esto, pide PIN de quien sí pueda.' },
+]
+
+/** Lo que puede quien tiene la sesión abierta. Sin sesión, nada. */
+export async function misPermisos(sb: ShakeClient): Promise<Record<Permiso, boolean>> {
+  const { data, error } = await (sb.rpc as unknown as RpcCaja)('fn_mis_permisos', {})
+  if (error) throw error
+  return (data ?? {}) as Record<Permiso, boolean>
+}
+
+/**
+ * Autoriza con el PIN de alguien que tenga el permiso. El servidor compara
+ * el PIN y el permiso; aquí solo llega el nombre de quien autorizó.
+ */
+export async function autorizarConPin(
+  sb: ShakeClient,
+  pin: string,
+  permiso: Permiso,
+): Promise<{ empleado_id: string; nombre: string }> {
+  const { data, error } = await (sb.rpc as unknown as RpcCaja)('fn_autorizar_con_pin', {
+    p_pin: pin,
+    p_permiso: permiso,
+  })
+  if (error) throw error
+  const filas = (data ?? []) as { empleado_id: string; nombre: string }[]
+  if (!filas[0]) throw new Error('Ese PIN no puede autorizar esto.')
+  return filas[0]
+}
+
+/** Una celda de la matriz de Admin → Personal → Permisos. */
+export interface PermisoDePersona {
+  empleado_id: string
+  nombre: string
+  rol: string
+  es_gerencia: boolean
+  permiso: Permiso
+  permitido: boolean
+  /** Lo que traería por su rol si nadie hubiera decidido. */
+  por_rol: boolean
+  /** Si gerencia lo decidió a mano (y no viene del rol). */
+  a_mano: boolean
+}
+
+export async function permisosPersonal(sb: ShakeClient): Promise<PermisoDePersona[]> {
+  const { data, error } = await (sb.rpc as unknown as RpcCaja)('fn_permisos_personal', {})
+  if (error) throw error
+  return (data ?? []) as PermisoDePersona[]
+}
+
+/** `null` devuelve a la persona a lo que trae su rol. */
+export async function guardarPermiso(
+  sb: ShakeClient,
+  empleadoId: string,
+  permiso: Permiso,
+  permitido: boolean | null,
 ): Promise<void> {
-  const { error } = await sb
-    .from('caja_cortes')
-    .update({
-      estado: 'cerrada',
-      cerrado_en: new Date().toISOString(),
-      efectivo_contado: efectivoContado,
-      empleado_cierre_id: empleadoId ?? null,
-      notas: notas ?? null,
-      desglose_cierre: (desglose ?? null) as Json,
-    })
-    .eq('id', corteId)
+  const { error } = await (sb.rpc as unknown as RpcCaja)('fn_permiso_guardar', {
+    p_empleado_id: empleadoId,
+    p_permiso: permiso,
+    p_permitido: permitido,
+  })
   if (error) throw error
 }
 
@@ -100,6 +202,11 @@ export async function resumenCorte(sb: ShakeClient, corteId: string): Promise<Co
 export interface CorteConDetalle extends CorteResumen {
   abrio: string | null
   cerro: string | null
+  /**
+   * Quién autorizó el corte cuando lo hizo alguien sin permiso (con su
+   * PIN). Igual a `cerro` si quien cerró tenía permiso; null en los viejos.
+   */
+  autorizo: string | null
   desglose_apertura: DesgloseEfectivo | null
   desglose_cierre: DesgloseEfectivo | null
 }
@@ -129,7 +236,8 @@ export async function listarCortes(sb: ShakeClient, limite = 60): Promise<CorteC
     .select(`
       id, desglose_apertura, desglose_cierre,
       apertura:empleados!caja_cortes_empleado_apertura_id_fkey(nombre),
-      cierre:empleados!caja_cortes_empleado_cierre_id_fkey(nombre)
+      cierre:empleados!caja_cortes_empleado_cierre_id_fkey(nombre),
+      autorizacion:empleados!caja_cortes_cierre_autorizado_por_fkey(nombre)
     `)
     .in('id', ids)
   if (e2) throw e2
@@ -141,6 +249,7 @@ export async function listarCortes(sb: ShakeClient, limite = 60): Promise<CorteC
       ...r,
       abrio: (d?.apertura as { nombre: string } | null)?.nombre ?? null,
       cerro: (d?.cierre as { nombre: string } | null)?.nombre ?? null,
+      autorizo: (d?.autorizacion as { nombre: string } | null)?.nombre ?? null,
       desglose_apertura: (d?.desglose_apertura as DesgloseEfectivo | null) ?? null,
       desglose_cierre: (d?.desglose_cierre as DesgloseEfectivo | null) ?? null,
     }
