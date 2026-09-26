@@ -67,6 +67,23 @@ function Existencias({ stock, cargando, error }: {
     <div>
       {error && <ErrorMsg>{error}</ErrorMsg>}
 
+      {/* La pregunta que hizo gerencia al ver los rojos: sí, puede quedar en
+          negativo, y es a propósito. Un negativo se ve y se corrige; un
+          cero que nunca baja no se ve nunca. */}
+      <Panel className="mb-4">
+        <p className="text-sm text-sa-green-ink/75 leading-relaxed">
+          <b>Estas existencias ya descuentan cada venta.</b> Un número en
+          <span className="text-sa-strawberry font-semibold"> negativo </span>
+          quiere decir que se vendió más de lo que el sistema sabía que había —casi
+          siempre porque esa mercancía nunca se dio de alta, o porque en caja se
+          marcó un sabor por otro (uno queda en negativo y su gemelo sobra). Se
+          corrige con un <b>conteo físico</b>: Costeos → Inventario → columna
+          <i> Conteo</i> → «Aplicar conteo a existencias». Lo contado se vuelve la
+          existencia real. La mercancía que llega se mete desde el kiosko: «Caja y
+          turno» → «¿Llegó mercancía?».
+        </p>
+      </Panel>
+
       {stock.length === 0 ? (
         <Panel><p className={cx.muted}>Sin existencias registradas.</p></Panel>
       ) : (
@@ -86,7 +103,9 @@ function Existencias({ stock, cargando, error }: {
                 <tr key={s.id ?? Math.random()} className={`${cx.tr} ${s.bajo_minimo ? 'bg-sa-strawberry/5' : ''}`}>
                   <td className={`${cx.td} font-medium`}>{s.insumo ?? '—'}</td>
                   <td className={cx.td}>{s.almacen ?? '—'}</td>
-                  <td className={`${cx.tdNum} ${s.bajo_minimo ? 'text-sa-strawberry font-semibold' : ''}`}>{s.stock_actual ?? 0}</td>
+                  <td className={`${cx.tdNum} ${s.bajo_minimo ? 'text-sa-strawberry font-semibold' : ''}`}>
+                    {Number(s.stock_actual ?? 0).toLocaleString('es-MX')}
+                  </td>
                   <td className={cx.tdNum}>{s.stock_minimo ?? 0}</td>
                   <td className={cx.td}>{s.unidad ?? '—'}</td>
                 </tr>

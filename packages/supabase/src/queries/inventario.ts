@@ -1,5 +1,6 @@
 import type { StockAlmacen, Almacen, TipoMovimiento } from '@shake/types'
 import type { ShakeClient } from '../client'
+import { traerTodo } from './paginar'
 
 export async function listarAlmacenes(sb: ShakeClient): Promise<Almacen[]> {
   const { data, error } = await sb.from('almacenes').select('*').eq('activo', true).order('nombre')
@@ -7,15 +8,27 @@ export async function listarAlmacenes(sb: ShakeClient): Promise<Almacen[]> {
   return data
 }
 
+/**
+ * Las existencias por almacén, **todas** y solo de insumos vivos.
+ *
+ * Dos cosas que la dejaban ilegible (26/09): eran 1 302 renglones y sin
+ * paginar PostgREST entregaba los primeros 1 000 —lo del final del
+ * abecedario no existía para Admin—, y 630 de ellos eran fantasmas que
+ * Costeos creó mientras alguien escribía («Ad - Colágeno», «Advan -
+ * Colágeno»…), cada uno con una copia de la existencia del renglón real.
+ * Los fantasmas se apagaron (`insumos.activo = false`) y aquí se omiten.
+ */
 export async function stockPorAlmacen(
   sb: ShakeClient,
   almacenId?: string,
 ): Promise<StockAlmacen[]> {
-  let q = sb.from('vw_stock_almacen').select('*').order('insumo')
-  if (almacenId) q = q.eq('almacen_id', almacenId)
-  const { data, error } = await q
-  if (error) throw error
-  return data
+  return traerTodo<StockAlmacen>((desde, hasta) => {
+    let q = sb.from('vw_stock_almacen').select('*')
+      .eq('insumo_activo', true)
+      .order('insumo').order('id')
+    if (almacenId) q = q.eq('almacen_id', almacenId)
+    return q.range(desde, hasta)
+  })
 }
 
 /**

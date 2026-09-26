@@ -3088,6 +3088,7 @@ export type Database = {
           bajo_minimo: boolean | null
           id: string | null
           insumo: string | null
+          insumo_activo: boolean | null
           insumo_id: string | null
           insumo_tipo: Database["public"]["Enums"]["tipo_insumo"] | null
           stock_actual: number | null
