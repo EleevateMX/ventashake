@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import {
-  mxn, esBase, esGalleta, esProteina, esDobleScoop, dobleScoopDe,
+  mxn, esBase, esGalletaPromo, esProteina, esDobleScoop, dobleScoopDe,
   ordenarBases, baseDeCasa, opcionDeGrupo, grupoEsOpcional, extraDisponible, gruposDeExtras,
   notaDeBase, baseCobrada,
 } from '@shake/utils'
@@ -155,12 +155,12 @@ export function ModalExtras({ producto, extras, observaciones: catalogoObs, onCe
    * sobre un shake sin preparado es regalar la promo.
    */
   const galletas = extras.filter(
-    (e) => esGalleta(e.nombre) && extraDisponible(e, gruposElegidos),
+    (e) => esGalletaPromo(e) && extraDisponible(e, gruposElegidos),
   )
   const adicionales = extras.filter(
     (e) =>
       !esBase(e.nombre) &&
-      !esGalleta(e.nombre) &&
+      !esGalletaPromo(e) &&
       !esProteina(e.nombre) &&
       !esDobleScoop(e.nombre) &&
       !(e.grupo && gruposConfigurados.includes(e.grupo)) &&

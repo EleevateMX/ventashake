@@ -39,6 +39,24 @@ export const esProteina = (nombre: string) => /^prote[ií]na/i.test(nombre.trim(
  */
 export const esGalleta = (nombre: string) => /galleta/i.test(nombre.trim())
 
+/**
+ * La galleta **de promoción**: la que no tiene grupo escrito en Admin.
+ *
+ * Una galleta con grupo es una decisión de gerencia, y una decisión le gana
+ * al nombre. Nació de los combos Milo (26/09): Perla subió el precio del
+ * combo para que ya incluyera la galleta, las puso a $0 en el grupo
+ * «Galleta» para que el cliente eligiera una a fuerzas… y el kiosko las
+ * seguía pintando en la sección de promoción, «Opcional», porque el nombre
+ * decía «Galleta». Desde Admin no había forma de corregirlo: lo que ella
+ * configuró estaba bien y la pantalla lo ignoraba.
+ *
+ * Es la misma lección que las observaciones: el valor por omisión (el
+ * nombre) es para las que nadie acotó; **un valor por omisión no le gana a
+ * una decisión**.
+ */
+export const esGalletaPromo = (e: { nombre: string; grupo?: string | null }) =>
+  esGalleta(e.nombre) && !(e.grupo ?? '').trim()
+
 /** El extra que pide doble scoop; vive junto a la proteína, no entre los adicionales. */
 export const esDobleScoop = (nombre: string) => /doble\s+scoop/i.test(nombre.trim())
 
@@ -62,8 +80,10 @@ export const esSinLeche = (nombre: string) => /^sin leche/i.test(nombre.trim())
 export function claseExtra(nombre: string, grupo?: string | null): string | null {
   if (esBase(nombre)) return 'base'
   if (esProteina(nombre)) return 'proteina'
-  if (esGalleta(nombre)) return null
   const g = (grupo ?? '').trim()
+  // Galleta sin grupo = promoción, sin «de casa». Con grupo, compite como
+  // cualquier otra opción del grupo (ver `esGalletaPromo`).
+  if (esGalleta(nombre) && !g) return null
   return g ? `g:${g}` : null
 }
 
@@ -281,8 +301,9 @@ export function extraDisponible(
  *   arriba: la base sustituye la líquida de la receta, no se suma.
  * - **Las proteínas** van por marca y sabor, en dos pasos, así que `grupo
  *   = 'proteina'` se excluye aunque esté escrito.
- * - **Las galletas** son promoción con su propia sección; que no lleve
- *   ninguna es respuesta válida y un «elige una» diría lo contrario.
+ * - **Las galletas de promoción** (sin grupo) tienen su propia sección;
+ *   que no lleve ninguna es respuesta válida. Una galleta CON grupo sí es
+ *   un grupo: alguien en Admin decidió que hay que elegir una.
  */
 export function gruposDeExtras<T extends { nombre: string; grupo?: string | null }>(
   extras: T[],
@@ -291,7 +312,7 @@ export function gruposDeExtras<T extends { nombre: string; grupo?: string | null
     ...new Set(
       extras
         .filter(
-          (e) => e.grupo && e.grupo !== 'proteina' && !esBase(e.nombre) && !esGalleta(e.nombre),
+          (e) => e.grupo && e.grupo !== 'proteina' && !esBase(e.nombre) && !esGalletaPromo(e),
         )
         .map((e) => e.grupo as string),
     ),

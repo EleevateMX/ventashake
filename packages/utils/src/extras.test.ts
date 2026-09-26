@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  claseExtra, esBase, esProteina, esGalleta, esDobleScoop,
+  claseExtra, esBase, esProteina, esGalleta, esGalletaPromo, esDobleScoop,
   ordenarBases, baseDeCasa, opcionDeGrupo, grupoEsOpcional, extraDisponible, gruposDeExtras,
   notaDeBase, baseCobrada, lecheDeTicket,
   type OpcionExtra,
@@ -41,8 +41,13 @@ describe('clasificar', () => {
   it('deja sin clase lo que no tiene "de casa"', () => {
     expect(claseExtra('Extra Guacamole', null)).toBeNull()
     expect(claseExtra('Extra Guacamole', '')).toBeNull()
-    // Que no lleve galleta es una respuesta válida: no hay default.
-    expect(claseExtra('2 Galletas L&L Cremes (Mixto)', 'galletas')).toBeNull()
+    // La galleta de promoción (sin grupo) no tiene «de casa»: no llevar
+    // ninguna es respuesta válida.
+    expect(claseExtra('2 Galletas L&L Cremes (Mixto)', null)).toBeNull()
+  })
+
+  it('una galleta CON grupo compite en su grupo: el grupo es una decisión', () => {
+    expect(claseExtra('Galleta: Macadamia', 'Galleta')).toBe('g:Galleta')
   })
 })
 
@@ -168,8 +173,30 @@ describe('gruposDeExtras', () => {
     expect(gruposDeExtras([{ nombre: 'Proteína CBUM - Churro', grupo: 'proteina' }])).toEqual([])
   })
 
-  it('las galletas tampoco: no llevar ninguna es respuesta válida', () => {
-    expect(gruposDeExtras([{ nombre: '2 Galletas L&L Cremes (Mixto)', grupo: 'Postre' }])).toEqual([])
+  it('las galletas de promoción tampoco: no llevar ninguna es respuesta válida', () => {
+    expect(gruposDeExtras([{ nombre: '2 Galletas L&L Cremes (Mixto)', grupo: null }])).toEqual([])
+    expect(esGalletaPromo({ nombre: '2 Galletas L&L Cremes (Mixto)', grupo: '  ' })).toBe(true)
+  })
+
+  /**
+   * Los combos Milo el 26/09, tal como están en producción: Perla subió el
+   * precio del combo para que incluya la galleta y las puso a $0 en el
+   * grupo «Galleta». Tienen que salir como «Elige una», no como promoción
+   * opcional — que era lo que pasaba, porque el nombre le ganaba al grupo.
+   */
+  it('una galleta CON grupo sí es un grupo, y a $0 entra marcada la primera', () => {
+    const MILO = [
+      { nombre: 'Americano Caliente', grupo: 'Café', precio: 0 },
+      { nombre: 'Americano Helado', grupo: 'Café', precio: 0 },
+      { nombre: 'Galleta: Chispas de Chocolate', grupo: 'Galleta', precio: 0 },
+      { nombre: 'Galleta: Macadamia', grupo: 'Galleta', precio: 0 },
+    ]
+    const grupos = gruposDeExtras(MILO)
+    expect(grupos.map((g) => g.grupo)).toEqual(['Café', 'Galleta'])
+    const galleta = grupos[1].opciones.map((o) => op(o.nombre, { precio: o.precio }))
+    expect(grupoEsOpcional(galleta)).toBe(false)
+    expect(opcionDeGrupo(galleta)?.nombre).toBe('Galleta: Chispas de Chocolate')
+    expect(MILO.some(esGalletaPromo)).toBe(false)
   })
 
   it('un grupo de UNA sola opción se sigue devolviendo — el panel de revisión lo señala', () => {
