@@ -4,7 +4,7 @@ import { sb } from './lib/sb'
 import {
   listarPedidosCocina, suscribirPedidosCocina, cambiarEstadoPedido,
   trabajosDeVariosPedidos, suscribirTrabajosImpresion, reimprimirTrabajo,
-  etiquetaItem, agruparItemsComanda,
+  etiquetaItem, agruparItemsComanda, otrasPartes, esCombo,
 } from '@shake/supabase'
 import type { PedidoConItems } from '@shake/supabase'
 import type { EstadoCocina, TrabajoImpresion } from '@shake/types'
@@ -343,6 +343,47 @@ export default function App() {
                     )
                   })()}
 
+                  {/* Una orden con alimento y bebida sale en las dos
+                      pantallas y cada una ve solo lo suyo. Sin decir que
+                      existe la otra parte, se leen como pedidos distintos:
+                      barra entrega el café, el cliente se va y la chapata
+                      se queda en la barra. Por eso dice dónde está y cómo
+                      va — el folio queda listo solo cuando las dos
+                      terminan (así lo cuenta la TV de folios). */}
+                  {(() => {
+                    const otras = otrasPartes(pedido.id, pedido.ordenes?.pedidos_cocina)
+                    const combo = esCombo(pedido.cocina_items)
+                    if (!combo && otras.length === 0) return null
+                    return (
+                      <div className="mx-3 mt-2 space-y-1.5">
+                        {combo && (
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-sa font-mono text-[11px] font-semibold uppercase tracking-widest bg-sa-banana text-sa-coffee">
+                            Combo
+                          </span>
+                        )}
+                        {otras.map((o) => (
+                          <div
+                            key={o.slug}
+                            className={`px-3 py-2 rounded-sa flex items-center justify-between gap-2 border-2 ${
+                              o.lista ? 'border-sa-mint bg-sa-mint/15' : 'border-dashed border-sa-green-ink/25 bg-white/60'
+                            }`}
+                          >
+                            <span className="font-body text-sm text-sa-green-ink leading-tight">
+                              {o.slug === 'alimentos' ? '🥪 Alimento' : '🥤 Bebida'} se prepara en <b>{o.estacion}</b>
+                            </span>
+                            <span
+                              className={`font-mono text-[10px] uppercase tracking-widest shrink-0 ${
+                                o.lista ? 'text-sa-green font-semibold' : 'text-sa-green-ink/55'
+                              }`}
+                            >
+                              {o.lista ? '✓ Lista' : o.estado === 'en_preparacion' ? 'Preparando' : 'Pendiente'}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )
+                  })()}
+
                   {/* Tiempo + estado */}
                   <div className="px-5 pt-3 pb-2 flex items-end justify-between">
                     <div className="flex items-baseline gap-2">
@@ -395,6 +436,13 @@ export default function App() {
                               </span>
                             )}
                           </p>
+                          {/* La parte de un combo que se prepara aquí y
+                              el resto en la otra estación. */}
+                          {item.combo_nombre && (
+                            <p className="font-mono text-[10px] mt-0.5 text-sa-green-ink/55 uppercase tracking-wide">
+                              del {item.combo_nombre}
+                            </p>
+                          )}
                           {item.personalizacion && (
                             <p className="font-mono text-[11px] mt-1 text-sa-strawberry uppercase tracking-wide">
                               ↳ {item.personalizacion}

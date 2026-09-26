@@ -15,7 +15,7 @@ import {
   vincularExtraBebida,
   precioExtraEnProducto,
   grupoExtraEnProducto,
-  requiereGrupoEnProducto,
+  requiereGrupoEnProducto, estacionExtraEnProducto,
   defectoExtraEnProducto,
   listarObservacionesAdmin,
   guardarObservacion,
@@ -313,6 +313,38 @@ export default function Extras() {
         limpio === null
           ? `${prod.nombre}: vuelve a ofrecerse siempre.`
           : `${prod.nombre}: solo aparece cuando ya se eligió algo del grupo "${limpio}".`,
+      )
+      setTimeout(() => setOk(null), 4000)
+    } catch (e) {
+      setError(mensajeDeError(e))
+    } finally {
+      setCambiandoVinculo(null)
+    }
+  }
+
+  /**
+   * En qué estación se prepara esta opción cuando no es la de su producto.
+   *
+   * Nació del combo (26/09): la chapata se hace en cocina y el café en
+   * barra, pero todas las opciones viven en «Extras Bebidas» y todo caía en
+   * barra. Vacío = sigue a su producto, que es lo correcto para casi todo:
+   * la creatina va con su shake y el queso extra con su sándwich.
+   */
+  async function cambiarEstacionVinculo(extraId: string, prod: ProductoDeExtra, valor: string) {
+    const limpio: 'bebidas' | 'alimentos' | null =
+      valor === 'bebidas' || valor === 'alimentos' ? valor : null
+    if (limpio === (prod.estacion ?? null)) return
+    setCambiandoVinculo(prod.producto_id)
+    setError(null)
+    try {
+      await estacionExtraEnProducto(sb, extraId, prod.producto_id, limpio)
+      setProductosDelExtra((prev) =>
+        prev.map((p) => (p.producto_id === prod.producto_id ? { ...p, estacion: limpio } : p)),
+      )
+      setOk(
+        limpio === null
+          ? `${prod.nombre}: se prepara donde se prepara el producto.`
+          : `${prod.nombre}: se prepara en ${limpio === 'bebidas' ? 'la BARRA' : 'la COCINA'}, con su propia comanda.`,
       )
       setTimeout(() => setOk(null), 4000)
     } catch (e) {
@@ -1025,6 +1057,20 @@ export default function Extras() {
                                             onBlur={(ev) => void cambiarRequiereVinculo(e.id, pr, ev.target.value)}
                                             className="w-20 shrink-0 px-2 py-1 border border-sa-green-ink/15 rounded font-mono text-xs bg-sa-cream-soft/40"
                                           />
+                                        {/* Dónde se prepara: el café de un combo en
+                                            barra y la chapata en cocina, cada uno con
+                                            su comanda. Vacío = con su producto. */}
+                                          <select
+                                            title={`En ${pr.nombre}, en qué estación se prepara este extra. Vacío = donde se prepara ${pr.nombre}.`}
+                                            value={pr.estacion ?? ''}
+                                            disabled={cambiandoVinculo === pr.producto_id}
+                                            onChange={(ev) => void cambiarEstacionVinculo(e.id, pr, ev.target.value)}
+                                            className="w-24 shrink-0 px-1.5 py-1 border border-sa-green-ink/15 rounded font-mono text-xs bg-sa-cream-soft/40"
+                                          >
+                                            <option value="">con su producto</option>
+                                            <option value="bebidas">en barra</option>
+                                            <option value="alimentos">en cocina</option>
+                                          </select>
                                         </div>
                                       )}
                                     </div>

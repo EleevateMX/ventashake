@@ -522,6 +522,12 @@ export interface ProductoDeExtra {
   por_defecto: boolean
   /** Grupo del que depende este extra en ESTE producto. Null = siempre. */
   requiere_grupo: string | null
+  /**
+   * En qué estación se prepara cuando no es la de su producto (el café de
+   * un combo). Null = con su producto. Opcional: un servidor sin la
+   * columna todavía no la manda.
+   */
+  estacion?: 'bebidas' | 'alimentos' | null
 }
 
 /**
@@ -627,6 +633,25 @@ export async function requiereGrupoEnProducto(
     p_extra_id: extraId,
     p_producto_id: productoId,
     p_requiere: requiere,
+  })
+  if (error) throw error
+}
+
+/**
+ * En qué estación se prepara este extra en ese producto. `null` = con su
+ * producto. Con otra estación, la opción sale en su propia comanda con el
+ * nombre del combo y las notas que le tocan (`fn_crear_pedidos_cocina`).
+ */
+export async function estacionExtraEnProducto(
+  sb: ShakeClient,
+  extraId: string,
+  productoId: string,
+  estacion: 'bebidas' | 'alimentos' | null,
+): Promise<void> {
+  const { error } = await (sb.rpc as unknown as RpcCatalogo)('fn_extra_bebida_estacion', {
+    p_extra_id: extraId,
+    p_producto_id: productoId,
+    p_estacion: estacion,
   })
   if (error) throw error
 }
