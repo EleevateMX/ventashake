@@ -1,22 +1,31 @@
 import React, { useState } from 'react'
 import { sb } from '../../lib/sb'
-import { loginCajero } from '@shake/supabase'
+import { autorizarConPin, type Permiso } from '@shake/supabase'
+import { mensajeDeError } from '@shake/utils'
 
 interface Props {
   open: boolean
   /** Qué se está autorizando, p. ej. "aplicar un descuento" */
   accion: string
+  /**
+   * El permiso que tiene que tener quien autoriza (Admin → Personal →
+   * Permisos). Antes se revisaba el ROL en esta pantalla —gerente o admin—,
+   * así que no había forma de confiarle un descuento a un cajero de
+   * confianza sin hacerlo gerente de todo.
+   */
+  permiso?: Permiso
   onClose: () => void
-  onAutorizado: (nombreAutorizador: string) => void
+  /** Se entrega el PIN porque hay acciones que el servidor vuelve a validar con él (el corte). */
+  onAutorizado: (nombreAutorizador: string, pin: string) => void
 }
 
 /**
- * Candado de gerente: pide un PIN y solo deja pasar si pertenece a un
- * empleado activo con rol Gerente o Administrador. La validación es la
- * misma del login (fn_login_cajero, SECURITY DEFINER) — el PIN nunca se
- * compara en el navegador ni sale el hash a la app.
+ * Candado: pide un PIN y solo deja pasar si pertenece a un empleado activo
+ * con ESE permiso. La comparación la hace el servidor (`fn_autorizar_con_pin`,
+ * con el mismo freno de intentos que el checador) — el PIN nunca se compara
+ * en el navegador ni sale el hash a la app.
  */
-export function ModalAutorizacion({ open, accion, onClose, onAutorizado }: Props) {
+export function ModalAutorizacion({ open, accion, permiso = 'descuento_manual', onClose, onAutorizado }: Props) {
   const [pin, setPin] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [validando, setValidando] = useState(false)
@@ -28,18 +37,12 @@ export function ModalAutorizacion({ open, accion, onClose, onAutorizado }: Props
     setValidando(true)
     setError(null)
     try {
-      const emp = await loginCajero(sb, pin)
-      const rol = (emp as unknown as { rol?: string } | null)?.rol
-      if (!emp || (rol !== 'gerente' && rol !== 'admin')) {
-        setError('Solo un gerente o administrador puede autorizar esto.')
-        setPin('')
-        return
-      }
-      const nombre = emp.nombre
+      const quien = await autorizarConPin(sb, pin, permiso)
+      const tecleado = pin
       setPin('')
-      onAutorizado(nombre)
-    } catch {
-      setError('No se pudo validar el PIN, revisa la conexión.')
+      onAutorizado(quien.nombre, tecleado)
+    } catch (e) {
+      setError(mensajeDeError(e))
       setPin('')
     } finally {
       setValidando(false)
@@ -58,7 +61,7 @@ export function ModalAutorizacion({ open, accion, onClose, onAutorizado }: Props
       <div className="relative bg-sa-cream-soft rounded-sa-lg shadow-sa w-full max-w-xs p-6">
         <h3 className="font-display text-2xl text-sa-green-ink leading-tight">Autorización</h3>
         <p className="font-body text-sm text-sa-green-ink/60 mt-1 mb-4">
-          Pide a un gerente o administrador su PIN para {accion}.
+          Pide a quien tenga permiso su PIN para {accion}.
         </p>
         <input
           type="password"

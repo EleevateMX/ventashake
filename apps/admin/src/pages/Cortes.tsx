@@ -180,7 +180,12 @@ export default function Cortes() {
                       <td className={cx.td}>
                         <span className="block">{c.abrio ?? '—'}</span>
                         {c.cerro && c.cerro !== c.abrio && (
-                          <span className={`${cx.muted} font-mono text-[10px]`}>cerró {c.cerro}</span>
+                          <span className={`${cx.muted} font-mono text-[10px] block`}>cerró {c.cerro}</span>
+                        )}
+                        {/* Quien no hace cortes cierra con el PIN de quien sí:
+                            aquí queda quién lo autorizó. */}
+                        {c.autorizo && c.autorizo !== c.cerro && (
+                          <span className="font-mono text-[10px] block text-sa-coffee">🔒 autorizó {c.autorizo}</span>
                         )}
                       </td>
                       <td className={cx.tdNum}>{c.num_ordenes ?? 0}</td>

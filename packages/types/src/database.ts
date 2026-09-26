@@ -156,6 +156,7 @@ export type Database = {
           abierto_en: string
           caja_id: string
           cerrado_en: string | null
+          cierre_autorizado_por: string | null
           desglose_apertura: Json | null
           desglose_cierre: Json | null
           efectivo_contado: number | null
@@ -170,6 +171,7 @@ export type Database = {
           abierto_en?: string
           caja_id: string
           cerrado_en?: string | null
+          cierre_autorizado_por?: string | null
           desglose_apertura?: Json | null
           desglose_cierre?: Json | null
           efectivo_contado?: number | null
@@ -184,6 +186,7 @@ export type Database = {
           abierto_en?: string
           caja_id?: string
           cerrado_en?: string | null
+          cierre_autorizado_por?: string | null
           desglose_apertura?: Json | null
           desglose_cierre?: Json | null
           efectivo_contado?: number | null
@@ -200,6 +203,13 @@ export type Database = {
             columns: ["caja_id"]
             isOneToOne: false
             referencedRelation: "cajas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "caja_cortes_cierre_autorizado_por_fkey"
+            columns: ["cierre_autorizado_por"]
+            isOneToOne: false
+            referencedRelation: "empleados"
             referencedColumns: ["id"]
           },
           {

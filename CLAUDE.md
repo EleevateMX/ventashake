@@ -210,6 +210,37 @@ como extra de $10 sin costear, las dos con la clave `CANDAM`. Se vende el
 extra 50 veces y la bebida 5, y el inventario solo ve las 5. El arreglo no
 es inventarle una receta al extra: es decidir en Costeos cuál se vende.
 
+**Costeos lleva su propio número y ese número no ve las ventas** (26/09).
+El 25/09 se tecleó 10 barras Think! en Costeos; el sistema decía −16
+(30 vendidas desde el 24/08 sin que nadie diera de alta existencia) y
+quedó en −6: el guardado de Costeos manda la **diferencia** contra su
+propio número anterior (`costos_stock_sync.ultimo_valor`), no fija la
+existencia. Se vendió una y Costeos seguía diciendo 10 — «no descuenta»,
+pero sí descontaba. Dos arreglos:
+
+- La pestaña **Inventario de Costeos enseña la existencia real**
+  (`fn_costos_existencias`) y, en gris, lo que Costeos tenía apuntado.
+- **«Aplicar conteo a existencias» FIJA lo contado** como existencia real
+  (`fn_costos_aplicar_conteo`), con un movimiento que dice cuánto decía el
+  sistema. Es un **evento**, no un estado que se reconcilia al guardar: la
+  primera idea —reescribir el número de Costeos con el real al abrir— con
+  dos pestañas abiertas (como las tiene Perla) hacía que una pestaña vieja
+  **deshiciera ventas** al guardar. Solo fija lo que Costeos y el sistema
+  miden igual: bodega en todo, kiosko en bebidas y snacks. Los scoops y
+  porciones siguen siendo solo de Costeos.
+
+**Y los fantasmas de Costeos** (26/09): Costeos guarda mientras uno
+escribe, y cada pausa creaba un insumo con el nombre a medias («Ad -
+Colágeno», «Advan - Colágeno»…) **con copia de la existencia del
+renglón**. Eran 630 renglones y 1 422 piezas que no existen, y Admin →
+Inventario pasaba de 1 000 filas (cortado). Se llevaron a 0 con su
+movimiento y se apagaron (`insumos.activo = false`); cada guardado de
+Costeos hace lo mismo con los nuevos. Criterio estrecho a propósito:
+nombre que ya no está en Costeos, **ningún movimiento que no sea del
+propio sync** y ninguna receta activa — un insumo que se vendió o se
+recibió por el kiosko nunca cae. Si el nombre vuelve a Costeos, se
+reactiva solo.
+
 **Meter mercancía se hace desde el kiosko, no desde Costeos.** Costeos es
 una hoja de costeo: se escribe el número final y el trigger deduce la
 diferencia. Para recibir cajas es pésimo — el agua Kirkland pasó por
@@ -376,6 +407,40 @@ que hay preparado elegido, y desaparece si lo quitan.
   `requiere_grupo`. Es merchandising, no precio — lo que el servidor sí
   protege (que el cliente no mande precios) sigue en pie, y el riesgo aquí
   son $5 de una galleta.
+
+### 2.4.11 El combo se reparte por estación, y cada parte sabe de la otra
+
+Cada renglón ya iba a la estación de su categoría (un sándwich con un
+latte salía en las dos pantallas). Lo roto eran **los combos**: todas sus
+opciones viven en «Extras Bebidas» y el combo en «Combos», así que la
+chapata se anunciaba en barra y en cocina no salía (26/09).
+
+- **Un extra sigue a su PRODUCTO**, salvo que el vínculo diga otra cosa
+  (`producto_extras.estacion`, Admin → Extras → «se prepara en»). Antes
+  seguía a su propia categoría: el chipotle de un wrap se iba a barra y
+  jalaba el wrap con él.
+- La parte que se va a otra estación **viaja sola** (sin arrastrar al combo
+  como si hubiera que prepararlo dos veces), con `cocina_items.combo_nombre`
+  y **las notas del combo que le tocan**: una nota que es observación de la
+  OTRA estación no se copia; lo que no es observación (la leche, texto
+  libre) va a las dos. La leche cobrada del latte se escribe EN el latte, no
+  como etiqueta suelta. La etiqueta impresa dice «COMBO» por el campo que el
+  agente ya imprime — no hubo que tocar la PC.
+- Cada tarjeta dice **COMBO** y «🥪 Alimento se prepara en COCINA · ✓ LISTA»
+  (`otrasPartes`, con pruebas). Vale para cualquier orden mixta. La TV de
+  folios ya daba el folio por listo solo cuando todas las partes terminan.
+- Los 5 combos: el combo y su comida en **alimentos** (se cambió la
+  categoría Combos), el café, el té y su leche o agua en **bebidas**.
+
+### 2.4.12 Una galleta con grupo es un grupo
+
+Las galletas son promoción (sección propia, siempre opcional) **por el
+nombre**. Perla puso las galletas de los combos Milo en el grupo «Galleta»
+a $0 para que fueran obligatorias, y el kiosko lo ignoraba: el nombre le
+ganaba al grupo, y desde Admin no había forma de arreglarlo. Ahora una
+galleta **con grupo** compite en su grupo (`esGalletaPromo`, y su espejo
+`fn_clase_extra`). Misma lección que las observaciones: un valor por
+omisión no le gana a una decisión.
 
 ### 2.4.10 Admin revisa el menú y nombra lo que está chueco
 
@@ -701,6 +766,31 @@ pantalla: son casillas de Dom a Sáb en los datos laborales y se escriben en
 el contrato en palabras («domingo y sábado»). Sin días marcados **no
 inventa uno**: escribe «los que acuerden las partes».
 
+### 2.9.2 Permisos por persona, y el corte con candado
+
+Admin → Personal → **Permisos** (26/09). Cada quien entra con su PIN y
+trabaja normal; lo sensible lo hace solo quien tenga el permiso. Hasta ese
+día la base solo preguntaba «es del personal»: cualquier cajero cerraba el
+corte con un UPDATE directo.
+
+- Cuatro permisos, **solo los que existen en la caja**: cobrar, abrir
+  caja, hacer el corte, descuento manual (POS). Devoluciones, cambiar
+  precios y editar órdenes cobradas **no existen** en el kiosko ni el POS;
+  cancelar ventas vive en Admin. Una casilla que no controla nada miente.
+- Por rol: cajero cobra y abre caja. **Gerencia puede todo siempre** y no
+  se le quita desde la pantalla (se dejaría fuera sola). Lo decidido a mano
+  va en `empleado_permisos`; sin fila, manda el rol.
+- **El corte lo exige el servidor**: `fn_cerrar_corte`. Sin permiso
+  contesta con `hint = 'requiere_autorizacion'`, y el kiosko y el POS piden
+  el PIN de quien sí pueda (`fn_autorizar_con_pin`, con el freno de 15
+  intentos). Queda en `caja_cortes.cierre_autorizado_por` y se ve en Admin
+  → Cortes. El UPDATE directo a `caja_cortes` quedó solo para gerencia, y
+  abrir caja exige el permiso en la política de INSERT.
+- **Cobrar y descuento manual se revisan en la pantalla**, no en el
+  servidor: el cobro corre como `anon` a propósito (sección 2.2) y
+  `fn_crear_orden` no se toca. Es un candado de pantalla y hay que decirlo
+  así.
+
 ### 2.9.1 El checador del teléfono no finge ser el de la barra
 
 `apps/checador` es una app aparte —su propio link, su propio bundle— con
@@ -946,6 +1036,9 @@ empaquetador y se desvían solas:
 | Ver las horas del personal | Admin → **Personal** → *Reloj checador*. Por persona y por día, con la comida descontada. Exporta a Excel |
 | Cambiar las reglas del checador | Admin → Personal → *Reloj checador* → **Regla general**. Ojo con «la comida se paga»: apagada resta el tiempo **real** de comida, no los minutos esperados |
 | Alguien tiene otro horario (medio turno, Silvana) | Admin → Personal → *Reloj checador* → **Reglas por persona**. Crea la regla, ponle su horario y asígnasela. Lo que dejes vacío usa la general |
+| Quién puede hacer el corte, abrir caja o dar descuentos | Admin → Personal → **Permisos**. Sin permiso, el corte pide el PIN de quien sí pueda |
+| Contar el inventario físico | Costeos → Inventario → columna *Conteo* → «Aplicar conteo a existencias». Lo contado se vuelve la existencia real |
+| En qué estación se prepara cada parte de un combo | Admin → Extras → en el producto, columna **«se prepara en»** |
 | Poner o quitar el beneficio de toda una categoría | Admin → Personal → *Descuentos* → *Precios* → **«Agregar o quitar una categoría entera»** |
 | Que el personal cheque desde su celular | Admin → Personal → *Reloj checador* → **Reglas** → *Desde el teléfono*: parado en la barra, «Marcar este punto como la tienda», prender la casilla, guardar. Luego repartir el link `shake-checador.pages.dev` |
 | Dar de alta el precio de personal de alguien | Admin → **Personal** → *Descuentos* → «Dar clave». La clave no se puede volver a leer: anótala y dásela en persona |

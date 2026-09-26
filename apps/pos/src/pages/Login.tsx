@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { usePosStore } from '@/store/posStore'
 import { sb } from '../lib/sb'
-import { listarEmpleadosActivos, entrarConPin } from '@shake/supabase'
+import { listarEmpleadosActivos, entrarConPin, misPermisos, salirDeSesion } from '@shake/supabase'
 import type { Empleado } from '@shake/supabase'
 
 export function Login() {
@@ -56,6 +56,15 @@ export function Login() {
       const r = await entrarConPin(sb, pin)
       // El PIN es la autoridad: si hay tile seleccionado, debe coincidir.
       if (r.ok && r.empleado && (!seleccionado || r.empleado.id === seleccionado.id)) {
+        // Sin permiso de cobrar no se entra a la caja (Admin → Personal →
+        // Permisos). Si no se pudo leer, se entra como siempre.
+        const permisos = await misPermisos(sb).catch(() => null)
+        if (permisos && !permisos.cobrar) {
+          try { await salirDeSesion(sb) } catch { /* sin sesión ya es salir */ }
+          setError(`${r.empleado.nombre}: tu usuario no tiene permiso de cobrar`)
+          setPin('')
+          return
+        }
         iniciarSesion(r.empleado)
         navigate('/')
         return

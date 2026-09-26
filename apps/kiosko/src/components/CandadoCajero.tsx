@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 // `Empleado` de @shake/supabase (id/nombre/rol), no la fila cruda de la tabla
 // que expone @shake/types: fn_login_cajero devuelve el rol ya resuelto y
 // jamás el pin_hash.
-import { entrarConPin, type EmpleadoSesion } from '@shake/supabase'
+import { entrarConPin, misPermisos, salirDeSesion, type EmpleadoSesion } from '@shake/supabase'
 import { sb } from '@/lib/sb'
 import { mensajeDeError } from '@shake/utils'
 
@@ -43,6 +43,17 @@ export function CandadoCajero({ onEntrar }: Props) {
       const r = await entrarConPin(sb, pinCompleto)
       if (!r.ok || !r.empleado) {
         setError(r.error ?? 'PIN incorrecto')
+        setPin('')
+        return
+      }
+      // Quien no tiene permiso de cobrar no entra a la caja (Admin →
+      // Personal → Permisos). Si el permiso no se pudo leer, se entra como
+      // siempre: dejar la caja cerrada por una consulta que falló es peor
+      // que el candado que se quería poner.
+      const permisos = await misPermisos(sb).catch(() => null)
+      if (permisos && !permisos.cobrar) {
+        try { await salirDeSesion(sb) } catch { /* sin sesión ya es salir */ }
+        setError(`${r.empleado.nombre}: tu usuario no tiene permiso de cobrar. Pídeselo a gerencia.`)
         setPin('')
         return
       }
