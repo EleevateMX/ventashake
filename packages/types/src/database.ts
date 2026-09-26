@@ -369,6 +369,7 @@ export type Database = {
       cocina_items: {
         Row: {
           cantidad: number
+          combo_nombre: string | null
           estado: Database["public"]["Enums"]["estado_cocina"]
           id: string
           orden_item_id: string
@@ -378,6 +379,7 @@ export type Database = {
         }
         Insert: {
           cantidad?: number
+          combo_nombre?: string | null
           estado?: Database["public"]["Enums"]["estado_cocina"]
           id?: string
           orden_item_id: string
@@ -387,6 +389,7 @@ export type Database = {
         }
         Update: {
           cantidad?: number
+          combo_nombre?: string | null
           estado?: Database["public"]["Enums"]["estado_cocina"]
           id?: string
           orden_item_id?: string

@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { agruparItemsComanda, type CocinaItemConProducto } from './cocina'
+import {
+  agruparItemsComanda, otrasPartes, esCombo,
+  type CocinaItemConProducto, type ParteDeOrden,
+} from './cocina'
 
 /** Un renglón de comanda mínimo, con la forma que devuelve la consulta. */
 function item(
@@ -110,5 +113,59 @@ describe('agruparItemsComanda', () => {
 
   it('una comanda vacía no truena', () => {
     expect(agruparItemsComanda([])).toEqual([])
+  })
+})
+
+describe('otrasPartes', () => {
+  /**
+   * El combo del 26/09: la chapata en cocina, el latte en barra. Cada
+   * tarjeta tiene que decir dónde está la otra parte y cómo va.
+   */
+  const partes: ParteDeOrden[] = [
+    { id: 'barra', estado: 'en_preparacion', cocinas: { slug: 'bebidas', nombre: 'Bebidas' } },
+    { id: 'cocina', estado: 'listo', cocinas: { slug: 'alimentos', nombre: 'Alimentos' } },
+  ]
+
+  it('desde barra se ve la cocina, en el idioma de la tienda', () => {
+    expect(otrasPartes('barra', partes)).toEqual([
+      { slug: 'alimentos', estacion: 'COCINA', estado: 'listo', lista: true },
+    ])
+  })
+
+  it('desde cocina se ve la barra, todavía sin terminar', () => {
+    const [p] = otrasPartes('cocina', partes)
+    expect(p.estacion).toBe('BARRA')
+    expect(p.lista).toBe(false)
+  })
+
+  it('entregada también cuenta como lista: ya no hay nada que esperar', () => {
+    const [p] = otrasPartes('cocina', [{ ...partes[0], estado: 'entregado' }, partes[1]])
+    expect(p.lista).toBe(true)
+  })
+
+  it('una orden de una sola estación no tiene otra parte', () => {
+    expect(otrasPartes('barra', [partes[0]])).toEqual([])
+    expect(otrasPartes('barra', null)).toEqual([])
+  })
+
+  it('la parte cancelada no se anuncia', () => {
+    expect(otrasPartes('barra', [partes[0], { ...partes[1], estado: 'cancelado' }])).toEqual([])
+  })
+})
+
+describe('esCombo', () => {
+  it('la parte que el servidor separó de su combo', () => {
+    const latte = { ...item('l', 'Latte Helado'), combo_nombre: "Milo's Chapata-Latte Combo" }
+    expect(esCombo([latte])).toBe(true)
+  })
+
+  it('el combo mismo, por su categoría', () => {
+    const combo = item('c', "Milo's Chapata-Latte Combo")
+    combo.productos = { nombre: combo.productos!.nombre, onzas: null, categorias: { nombre: 'Combos' } }
+    expect(esCombo([combo])).toBe(true)
+  })
+
+  it('un shake cualquiera no', () => {
+    expect(esCombo([item('s', '#1 Choco Killer')])).toBe(false)
   })
 })

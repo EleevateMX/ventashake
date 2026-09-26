@@ -101,6 +101,64 @@ export function agruparItemsComanda<T extends CocinaItemConProducto>(
   return grupos
 }
 
+/** Una parte de la orden: lo que le toca a una estación. */
+export interface ParteDeOrden {
+  id: string
+  estado: EstadoCocina
+  cocinas: { slug: string; nombre?: string | null } | null
+}
+
+/** Lo que se ve de la otra estación en la tarjeta de ésta. */
+export interface OtraParte {
+  slug: string
+  /** Como se dice en la tienda: «BARRA» y «COCINA», no el nombre técnico. */
+  estacion: string
+  estado: EstadoCocina
+  lista: boolean
+}
+
+const NOMBRE_ESTACION: Record<string, string> = { bebidas: 'BARRA', alimentos: 'COCINA' }
+
+/**
+ * Las partes de la MISMA orden que se preparan en otra estación.
+ *
+ * Nació del combo (26/09): la chapata se prepara en cocina y el café en
+ * barra, y cada pantalla ve solo lo suyo. Sin decir que existe la otra
+ * parte, las dos comandas se leen como pedidos independientes: barra
+ * entrega el café, el cliente se va, y la chapata se queda en la barra.
+ * Vale igual para cualquier orden con alimento y bebida, no solo combos.
+ *
+ * La cancelada no cuenta: no hay nada que esperar de ella.
+ */
+export function otrasPartes(
+  pedidoId: string,
+  partes: ParteDeOrden[] | null | undefined,
+): OtraParte[] {
+  return (partes ?? [])
+    .filter((p) => p.id !== pedidoId && p.estado !== 'cancelado' && p.cocinas?.slug)
+    .map((p) => {
+      const slug = p.cocinas!.slug
+      return {
+        slug,
+        estacion: NOMBRE_ESTACION[slug] ?? (p.cocinas?.nombre ?? slug).toUpperCase(),
+        estado: p.estado,
+        lista: p.estado === 'listo' || p.estado === 'entregado',
+      }
+    })
+    .sort((a, b) => a.slug.localeCompare(b.slug))
+}
+
+/**
+ * Si la tarjeta es (parte de) un combo: por la categoría del producto, o
+ * porque el servidor marcó que el renglón se separó de su combo
+ * (`cocina_items.combo_nombre`).
+ */
+export function esCombo(items: CocinaItemConProducto[]): boolean {
+  return items.some(
+    (i) => !!i.combo_nombre || /^combos?$/i.test(i.productos?.categorias?.nombre?.trim() ?? ''),
+  )
+}
+
 /**
  * Cómo se nombra un item en la pantalla de cocina.
  *
@@ -133,8 +191,22 @@ export interface PedidoConItems extends PedidoCocina {
     para_llevar: boolean | null
     /** Hora a la que el cliente lo va a recoger. Null = se prepara ya. */
     preparar_a: string | null
+    /**
+     * Todas las partes de la orden, una por estación (incluida ésta). Es
+     * de donde sale «la otra parte se prepara en COCINA · ✓ LISTA».
+     * Opcional: si la consulta no lo trae, la tarjeta se pinta como antes.
+     */
+    pedidos_cocina?: ParteDeOrden[] | null
   } | null
 }
+
+/**
+ * Lo que piden las pantallas de estación y la de folios. Uno solo para las
+ * tres: si una lo pidiera distinto, dejaría de saber de la otra parte.
+ */
+const SELECT_PEDIDO =
+  '*, cocina_items(*, orden_items(padre_item_id), productos(nombre, onzas, categorias(*))), ' +
+  'ordenes(folio, canal, nombre_cliente, para_llevar, preparar_a, pedidos_cocina(id, estado, cocinas(slug, nombre)))'
 
 /** Pedidos activos de una estación ('alimentos' | 'bebidas'). */
 export async function listarPedidosCocina(
@@ -150,23 +222,25 @@ export async function listarPedidosCocina(
 
   const { data, error } = await sb
     .from('pedidos_cocina')
-    .select('*, cocina_items(*, orden_items(padre_item_id), productos(nombre, onzas, categorias(*))), ordenes(folio, canal, nombre_cliente, para_llevar, preparar_a)')
+    .select(SELECT_PEDIDO)
     .eq('cocina_id', cocina.id)
     .in('estado', ['pendiente', 'en_preparacion', 'listo'])
     .order('created_at')
   if (error) throw error
-  return data as PedidoConItems[]
+  // El tipo generado no sigue el embebido ordenes -> pedidos_cocina; la
+  // forma real la describe PedidoConItems (y la prueba por HTTP del 26/09).
+  return data as unknown as PedidoConItems[]
 }
 
 /** Pedidos activos de TODAS las estaciones (cliente-display). */
 export async function listarPedidosActivos(sb: ShakeClient): Promise<PedidoConItems[]> {
   const { data, error } = await sb
     .from('pedidos_cocina')
-    .select('*, cocina_items(*, orden_items(padre_item_id), productos(nombre, onzas, categorias(*))), ordenes(folio, canal, nombre_cliente, para_llevar, preparar_a)')
+    .select(SELECT_PEDIDO)
     .in('estado', ['pendiente', 'en_preparacion', 'listo'])
     .order('created_at')
   if (error) throw error
-  return data as PedidoConItems[]
+  return data as unknown as PedidoConItems[]
 }
 
 export async function cambiarEstadoPedido(
