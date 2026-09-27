@@ -442,6 +442,19 @@ galleta **con grupo** compite en su grupo (`esGalletaPromo`, y su espejo
 `fn_clase_extra`). Misma lección que las observaciones: un valor por
 omisión no le gana a una decisión.
 
+### 2.4.13 La doble proteína de los alimentos es un grupo «Doble»
+
+El botón rojo de **Doble scoop** de los shakes existe también en los
+alimentos (27/09): **«Doble proteína»**, la carne por dos. No es un extra
+nuevo: es el «Extra Roast Beef» / «Extra Atún» que el platillo ya tenía,
+con **grupo `Doble`** en Admin → Extras (`esDobleProteina` en
+`@shake/utils`). Por eso cobra, descuenta y sale en la comanda igual que
+antes; solo cambia cómo se pinta. Nacieron marcados 8 platillos; para otro,
+se escribe `Doble` en la columna *grupo* de su extra de carne. Un grupo
+«Doble» no es un «elige una» (`gruposDeExtras` lo salta) y Revisión del
+menú no lo reporta como grupo de una sola opción. El POS lo sigue listando
+como extra suelto.
+
 ### 2.4.10 Admin revisa el menú y nombra lo que está chueco
 
 **Admin → Revisión del menú** (`fn_revision_menu`) enumera lo que las

@@ -44,6 +44,10 @@ export function ClavePersonal({
     } finally { setEnviando(false) }
   }
 
+  function tecla(d: string) {
+    setClave((c) => (c + d).slice(0, 8)); setError(null)
+  }
+
   // Aplicado: cabe en media fila. Lo que de verdad hay que ver al cobrar
   // es el nombre y cuánto le queda; el desglose por grupo ya se vio al
   // teclear la clave y repetirlo aquí solo empuja el teclado de efectivo
@@ -95,32 +99,67 @@ export function ClavePersonal({
               <p className="text-sm text-sa-strawberry leading-snug">{error}</p>
             </div>
           )}
+          {/* Tapada, como un PIN: la clave es personal y la pantalla la ve la fila.
+              `inputMode="none"` para que Windows no abra su teclado encima del
+              nuestro; un teclado físico sigue funcionando. */}
           <input
             value={clave}
             onChange={(e) => { setClave(e.target.value.replace(/\D/g, '').slice(0, 8)); setError(null) }}
             onKeyDown={(e) => { if (e.key === 'Enter') void identificar() }}
-            inputMode="numeric"
+            type="password"
+            inputMode="none"
+            autoComplete="off"
             autoFocus
             placeholder="Su clave"
             className="w-full px-4 py-3 rounded-sa border-2 border-sa-green-ink/10 font-mono text-2xl text-center tracking-widest"
           />
-          <div className="flex gap-2 mt-3">
+          {/* El kiosko no tiene teclado: sin este pad la clave no se podía
+              escribir. Solo existe con «Es para personal» abierto, para no
+              estorbar en los cobros de siempre. */}
+          <div className="grid grid-cols-3 gap-2 mt-3">
+            {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((d) => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => tecla(d)}
+                disabled={enviando}
+                className="h-14 rounded-sa bg-sa-green-deep text-sa-cream active:scale-95 transition-all font-display text-2xl disabled:opacity-40"
+              >
+                {d}
+              </button>
+            ))}
             <button
               type="button"
-              onClick={() => { setAbierto(false); setClave(''); setError(null) }}
-              className="px-5 py-3 rounded-sa font-mono text-xs uppercase tracking-wide text-sa-green-ink/60"
+              onClick={() => { setClave((c) => c.slice(0, -1)); setError(null) }}
+              disabled={enviando || clave.length === 0}
+              className="h-14 rounded-sa border border-sa-green-ink/20 text-sa-green-ink font-mono text-xs uppercase tracking-wide disabled:opacity-40"
             >
-              Cancelar
+              ⌫ Borrar
+            </button>
+            <button
+              type="button"
+              onClick={() => tecla('0')}
+              disabled={enviando}
+              className="h-14 rounded-sa bg-sa-green-deep text-sa-cream active:scale-95 transition-all font-display text-2xl disabled:opacity-40"
+            >
+              0
             </button>
             <button
               type="button"
               onClick={() => void identificar()}
               disabled={enviando || clave.trim().length < 4}
-              className="flex-1 py-3 rounded-sa bg-sa-green text-sa-cream font-display text-lg disabled:opacity-40"
+              className="h-14 rounded-sa bg-sa-green text-sa-cream font-display text-lg disabled:opacity-40"
             >
               {enviando ? 'Viendo…' : 'Aplicar'}
             </button>
           </div>
+          <button
+            type="button"
+            onClick={() => { setAbierto(false); setClave(''); setError(null) }}
+            className="w-full mt-2 py-2 font-mono text-xs uppercase tracking-wide text-sa-green-ink/60"
+          >
+            Cancelar
+          </button>
         </div>
       )}
     </div>

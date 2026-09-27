@@ -57,6 +57,22 @@ export const esGalleta = (nombre: string) => /galleta/i.test(nombre.trim())
 export const esGalletaPromo = (e: { nombre: string; grupo?: string | null }) =>
   esGalleta(e.nombre) && !(e.grupo ?? '').trim()
 
+/**
+ * La proteína de un ALIMENTO que se puede pedir doble: la carne del
+ * platillo (doble roast beef, doble pollo). Es el mismo botón que el doble
+ * scoop de los shakes, pedido por gerencia el 27/09.
+ *
+ * Se marca con el grupo «Doble» en el vínculo (Admin → Extras → grupo), no
+ * con una lista de carnes aquí adentro: qué carne es la proteína de cada
+ * platillo lo decide el negocio, y una lista en el código se queda vieja
+ * el día que entra un platillo nuevo.
+ */
+export const esDobleProteina = (e: { grupo?: string | null }) =>
+  (e.grupo ?? '').trim().toLowerCase() === 'doble'
+
+/** "Extra Roast Beef" → "Roast Beef": lo que dice el botón. */
+export const carneDeDoble = (nombre: string) => nombre.replace(/^\s*extra\s+/i, '').trim()
+
 /** El extra que pide doble scoop; vive junto a la proteína, no entre los adicionales. */
 export const esDobleScoop = (nombre: string) => /doble\s+scoop/i.test(nombre.trim())
 
@@ -312,7 +328,9 @@ export function gruposDeExtras<T extends { nombre: string; grupo?: string | null
     ...new Set(
       extras
         .filter(
-          (e) => e.grupo && e.grupo !== 'proteina' && !esBase(e.nombre) && !esGalletaPromo(e),
+          (e) =>
+            e.grupo && e.grupo !== 'proteina' && !esDobleProteina(e) &&
+            !esBase(e.nombre) && !esGalletaPromo(e),
         )
         .map((e) => e.grupo as string),
     ),
