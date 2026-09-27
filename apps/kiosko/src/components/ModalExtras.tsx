@@ -273,7 +273,7 @@ export function ModalExtras({ producto, extras, observaciones: catalogoObs, onCe
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-sa-green-deep/70 backdrop-blur-sm flex items-end sm:items-center justify-center p-4">
+    <div data-no-recargar className="fixed inset-0 z-50 bg-sa-green-deep/70 backdrop-blur-sm flex items-end sm:items-center justify-center p-4">
       <div className="bg-sa-cream-paper rounded-sa-lg w-full max-w-lg max-h-[88vh] flex flex-col shadow-2xl">
         <header className="px-6 pt-6 pb-4 border-b border-sa-green-ink/10">
           <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-sa-green/70">

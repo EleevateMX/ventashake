@@ -209,7 +209,7 @@ export function CorteMilo({ abierto, onCerrar }: Props) {
   const dif = totalContado - (resumen?.efectivo_esperado ?? 0)
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-6">
+    <div data-no-recargar className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-6">
       <div className="bg-sa-cream-paper rounded-3xl shadow-2xl w-[440px] max-w-full max-h-full overflow-y-auto">
         {/* Encabezado */}
         <div className="bg-sa-green-deep text-sa-cream rounded-t-3xl px-6 py-5 flex items-center justify-between">
@@ -531,8 +531,13 @@ function AutorizarConPin({
  * copias se separan en cuanto alguien toca una.
  */
 function FilaDenominacion({
-  den, cuantos, onCambiar, moneda,
-}: { den: number; cuantos: number; onCambiar: (n: number) => void; moneda?: boolean }) {
+  den, cuantos, onCambiar, onTeclear, moneda,
+}: {
+  den: number; cuantos: number; onCambiar: (n: number) => void
+  /** Abre el pad numérico para esta fila. */
+  onTeclear: () => void
+  moneda?: boolean
+}) {
   const subtotal = den * (cuantos || 0)
   return (
     <div className="flex items-center gap-2">
@@ -553,13 +558,18 @@ function FilaDenominacion({
       >
         −
       </button>
-      <input
-        value={cuantos || ''}
-        onChange={(e) => onCambiar(Math.max(0, Math.min(999, Number(e.target.value.replace(/\D/g, '')) || 0)))}
-        inputMode="numeric"
-        placeholder="0"
-        className="w-14 h-11 text-center rounded-sa border border-sa-green-ink/15 font-mono text-lg"
-      />
+      {/* Tocar el número abre el pad: 52 monedas de $5 son 52 toques al
+          «+», o tres en el pad. El kiosko no tiene teclado. */}
+      <button
+        type="button"
+        onClick={onTeclear}
+        aria-label={`Escribir cuántos de ${den}`}
+        className={`w-14 h-11 text-center rounded-sa border border-sa-green-ink/15 bg-white font-mono text-lg active:scale-95 transition-transform ${
+          cuantos ? 'text-sa-green-ink' : 'text-sa-green-ink/30'
+        }`}
+      >
+        {cuantos || 0}
+      </button>
       <button
         onClick={() => onCambiar(Math.min(999, (cuantos || 0) + 1))}
         className="shrink-0 w-11 h-11 rounded-sa bg-sa-cream-soft border border-sa-green-ink/10 font-display text-xl text-sa-green-ink active:scale-95 transition-transform"
@@ -581,8 +591,37 @@ function ConteoDeCaja({
   const subtotal = (especie: 'billetes' | 'monedas', lista: readonly number[]) =>
     lista.reduce((t, d) => t + d * piezasDe(conteo, especie, d), 0)
 
+  /**
+   * Qué fila se está tecleando en el pad (índice en `filas`). El pad
+   * recorre el cajón en orden —billetes de mayor a menor, luego monedas—
+   * porque así se cuenta: «Siguiente» guarda y pasa a la que sigue, sin
+   * volver a buscar la fila en la lista.
+   */
+  const filas = [
+    ...BILLETES.map((d) => ({ especie: 'billetes' as const, den: d })),
+    ...MONEDAS.map((d) => ({ especie: 'monedas' as const, den: d })),
+  ]
+  const [tecleando, setTecleando] = useState<number | null>(null)
+  const abrir = (especie: 'billetes' | 'monedas', den: number) =>
+    setTecleando(filas.findIndex((f) => f.especie === especie && f.den === den))
+
   return (
     <div className="mt-4">
+      {tecleando !== null && filas[tecleando] && (
+        <PadConteo
+          key={tecleando}
+          den={filas[tecleando].den}
+          moneda={filas[tecleando].especie === 'monedas'}
+          actual={piezasDe(conteo, filas[tecleando].especie, filas[tecleando].den)}
+          hayOtra={tecleando < filas.length - 1}
+          onGuardar={(n, seguir) => {
+            const f = filas[tecleando]
+            onCambiar(ponerPiezas(conteo, f.especie, f.den, n))
+            setTecleando(seguir && tecleando < filas.length - 1 ? tecleando + 1 : null)
+          }}
+          onCerrar={() => setTecleando(null)}
+        />
+      )}
       <p className="font-mono text-xs uppercase tracking-wide text-sa-green-ink/60 mb-2">
         {etiqueta}
       </p>
@@ -604,6 +643,7 @@ function ConteoDeCaja({
             den={d}
             cuantos={piezasDe(conteo, 'billetes', d)}
             onCambiar={(n) => onCambiar(ponerPiezas(conteo, 'billetes', d, n))}
+            onTeclear={() => abrir('billetes', d)}
           />
         ))}
 
@@ -619,6 +659,7 @@ function ConteoDeCaja({
             den={d}
             cuantos={piezasDe(conteo, 'monedas', d)}
             onCambiar={(n) => onCambiar(ponerPiezas(conteo, 'monedas', d, n))}
+            onTeclear={() => abrir('monedas', d)}
             moneda
           />
         ))}
@@ -627,6 +668,110 @@ function ConteoDeCaja({
       <div className="flex items-baseline justify-between gap-3 mt-3 px-1">
         <span className="font-mono text-xs uppercase tracking-wide text-sa-green-ink/60">Total contado</span>
         <span className="font-display text-3xl text-sa-green-ink leading-none">{mxn(total)}</span>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * El pad de una denominación. Se escribe el número de piezas y listo:
+ * sin sumar de cabeza y sin cincuenta toques al «+».
+ *
+ * Arranca vacío, con lo que ya había escrito en gris: teclear reemplaza,
+ * que es lo que uno espera al recontar. Si no se teclea nada, «Siguiente»
+ * y «Listo» dejan el número como estaba — pasar por una fila sin tocarla
+ * no la borra.
+ */
+function PadConteo({
+  den, moneda, actual, hayOtra, onGuardar, onCerrar,
+}: {
+  den: number; moneda: boolean; actual: number; hayOtra: boolean
+  onGuardar: (n: number, seguir: boolean) => void
+  onCerrar: () => void
+}) {
+  const [texto, setTexto] = useState('')
+  const valor = texto === '' ? actual : Math.min(999, Number(texto))
+  const tecla = (d: string) => setTexto((t) => (t === '0' ? d : (t + d).slice(0, 3)))
+
+  return (
+    <div
+      className="fixed inset-0 z-[60] bg-sa-green-deep/70 backdrop-blur-sm flex items-center justify-center p-4"
+      onClick={(e) => { if (e.target === e.currentTarget) onCerrar() }}
+    >
+      <div className="w-full max-w-xs p-5 rounded-sa-lg bg-sa-cream-paper shadow-2xl">
+        <div className="flex items-center justify-center gap-2">
+          <span
+            className={`px-3 py-1.5 rounded-sa font-display text-2xl leading-none ${
+              moneda ? 'bg-sa-banana/25' : 'bg-sa-mint/25'
+            } text-sa-green-ink`}
+          >
+            ${den}
+          </span>
+          <span className="font-mono text-xs uppercase tracking-wide text-sa-green-ink/60">
+            {moneda ? 'monedas' : 'billetes'}
+          </span>
+        </div>
+
+        <div className="mt-4 h-16 rounded-sa border-2 border-sa-green-ink/10 bg-white flex items-center justify-center">
+          <span className={`font-mono text-4xl ${texto === '' ? 'text-sa-green-ink/30' : 'text-sa-green-ink'}`}>
+            {texto === '' ? actual : texto}
+          </span>
+        </div>
+        <p className="font-mono text-xs text-center text-sa-green-ink/60 mt-1.5 h-4">
+          {valor ? `= ${mxn(valor * den)}` : ''}
+        </p>
+
+        <div className="grid grid-cols-3 gap-2 mt-3">
+          {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((d) => (
+            <button
+              key={d}
+              type="button"
+              onClick={() => tecla(d)}
+              className="h-14 rounded-sa bg-sa-green-deep text-sa-cream active:scale-95 transition-all font-display text-2xl"
+            >
+              {d}
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={() => setTexto((t) => t.slice(0, -1))}
+            disabled={texto === ''}
+            className="h-14 rounded-sa border border-sa-green-ink/20 text-sa-green-ink font-mono text-xs uppercase tracking-wide disabled:opacity-40"
+          >
+            ⌫ Borrar
+          </button>
+          <button
+            type="button"
+            onClick={() => tecla('0')}
+            className="h-14 rounded-sa bg-sa-green-deep text-sa-cream active:scale-95 transition-all font-display text-2xl"
+          >
+            0
+          </button>
+          <button
+            type="button"
+            onClick={() => onGuardar(valor, false)}
+            className="h-14 rounded-sa bg-sa-green text-sa-cream font-display text-lg active:scale-95 transition-all"
+          >
+            Listo
+          </button>
+        </div>
+
+        {hayOtra && (
+          <button
+            type="button"
+            onClick={() => onGuardar(valor, true)}
+            className="w-full mt-2 h-12 rounded-sa bg-sa-banana text-sa-green-ink font-display text-lg active:scale-95 transition-all"
+          >
+            Siguiente ›
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={onCerrar}
+          className="w-full mt-1 py-2 font-mono text-xs uppercase tracking-wide text-sa-green-ink/60"
+        >
+          Cancelar
+        </button>
       </div>
     </div>
   )

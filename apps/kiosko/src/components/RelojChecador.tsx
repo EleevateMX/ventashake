@@ -90,7 +90,7 @@ export function RelojChecador({ onCerrar }: { onCerrar: () => void }) {
       fin_comida: 'Bienvenido de vuelta',
     }
     return (
-      <div className="fixed inset-0 z-50 bg-sa-green-ink/70 flex items-center justify-center p-6">
+      <div data-no-recargar className="fixed inset-0 z-50 bg-sa-green-ink/70 flex items-center justify-center p-6">
         <div className="bg-sa-cream-paper rounded-sa-lg max-w-md w-full p-10 text-center">
           <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-sa-green/70">
             {hecho.repetida ? 'Ya habías checado' : TITULOS[hecho.tipo]}
@@ -139,7 +139,7 @@ export function RelojChecador({ onCerrar }: { onCerrar: () => void }) {
       comiendo: 'Saliste a comer a las',
     }
     return (
-      <div className="fixed inset-0 z-50 bg-sa-green-ink/70 flex items-center justify-center p-6">
+      <div data-no-recargar className="fixed inset-0 z-50 bg-sa-green-ink/70 flex items-center justify-center p-6">
         <div className="bg-sa-cream-paper rounded-sa-lg max-w-md w-full p-8">
           <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-sa-green/70">
             Hola, {estado.nombre.split(' ')[0]}
@@ -183,7 +183,7 @@ export function RelojChecador({ onCerrar }: { onCerrar: () => void }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-sa-green-ink/70 flex items-center justify-center p-6">
+    <div data-no-recargar className="fixed inset-0 z-50 bg-sa-green-ink/70 flex items-center justify-center p-6">
       <div className="bg-sa-cream-paper rounded-sa-lg max-w-md w-full p-8">
         <div className="flex items-start justify-between gap-4 mb-1">
           <p className="font-display text-3xl text-sa-green-ink leading-tight">

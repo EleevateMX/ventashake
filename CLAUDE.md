@@ -1250,7 +1250,13 @@ empaquetador y se desvían solas:
   funcionando en los dos modos**: si el modo no se pudo leer, el botón no
   aparece, y sin el gesto la caja se quedaría sin poder abrir turno.
 - El kiosko **no se recarga a media venta**: la señal de recarga espera a
-  que la pantalla esté en el menú y sin carrito.
+  que la pantalla esté en el menú, sin carrito **y sin ventana abierta**.
+  Lo último faltaba: el corte, el checador y personalizar se abren encima
+  del menú con el carrito vacío, así que una recarga podía borrar un
+  conteo de caja a medias. Toda ventana que no deba perderse lleva
+  `data-no-recargar` (27/09).
+- El conteo del corte se teclea con **pad numérico** (tocar el número de
+  la fila); «Siguiente» recorre el cajón en orden. Los `+`/`−` siguen.
 - Un error que aparece y se va solo en un segundo es peor que ningún
   error: si algo se recupera con un reintento, reintenta en silencio
   (fue el rojo del login de Rewards).
