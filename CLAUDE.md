@@ -1175,6 +1175,16 @@ empaquetador y se desvían solas:
   cerrarla, el kiosko tiene que sostener su sesión — y la prueba válida
   es cobrar desde la caja real, no desde una sesión recién nacida.
 
+- **`crypt()` vive en el esquema `extensions`.** Una función con
+  `set search_path to 'public'` que compara un PIN o una clave revienta con
+  *"function crypt(text, text) does not exist"* — y solo al usarla de
+  verdad. `fn_personal_identificar` nació así y nadie lo vio en un mes
+  porque el kiosko no tenía cómo teclear la clave; el primer día con pad
+  numérico (27/09) la tienda recibió el error en pantalla. Sus dos gemelas
+  (`fn_personal_cotizar`, `fn_crear_orden_personal`) sí traían
+  `extensions`. Regla: `search_path to 'public', 'extensions'` en toda
+  función que use `crypt`/`gen_salt`, y prueba con la clave correcta **y**
+  con una equivocada.
 - Para parchear una función grande sin reescribirla: leer
   `pg_get_functiondef`, **verificar que el ancla aparece exactamente N
   veces**, reemplazar y `execute`. Si el ancla no cuadra, abortar — así el
