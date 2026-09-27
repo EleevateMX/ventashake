@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import {
-  mxn, esBase, esGalletaPromo, esProteina, esDobleScoop, dobleScoopDe,
+  mxn, esBase, esGalletaPromo, esProteina, esDobleScoop, dobleScoopDe, esDobleProteina, carneDeDoble,
   ordenarBases, baseDeCasa, opcionDeGrupo, grupoEsOpcional, extraDisponible, gruposDeExtras,
   notaDeBase, baseCobrada,
 } from '@shake/utils'
@@ -106,6 +106,8 @@ export function ModalExtras({ producto, extras, observaciones: catalogoObs, onCe
   const [marcaAbierta, setMarcaAbierta] = useState<string | null>(null)
   const [galleta, setGalleta] = useState<string | null>(null)
   const [dobleScoop, setDobleScoop] = useState(false)
+  /** Doble carne de los alimentos ({extra_id: puesto}). */
+  const [dobleCarne, setDobleCarne] = useState<Record<string, boolean>>({})
   /** Qué grupo largo está desplegado. Solo uno a la vez. */
   const [grupoAbierto, setGrupoAbierto] = useState<string | null>(null)
 
@@ -119,6 +121,13 @@ export function ModalExtras({ producto, extras, observaciones: catalogoObs, onCe
   const leches = ordenarBases(extras.filter((e) => esBase(e.nombre)))
   const proteinas = extras.filter((e) => esProteina(e.nombre))
   const dobles = extras.filter((e) => esDobleScoop(e.nombre))
+  /**
+   * El «doble scoop» de los alimentos: la carne por dos. Es el extra de
+   * carne del platillo con grupo «Doble» en Admin -> Extras, y se pinta
+   * con el mismo botón que el doble scoop del shake para que la caja no
+   * tenga que aprender dos gestos para la misma idea.
+   */
+  const doblesCarne = extras.filter(esDobleProteina)
   /**
    * Grupos armados desde Admin (producto_extras.grupo): los extras que
    * comparten grupo se eligen entre sí, uno solo. Es lo que permite
@@ -163,6 +172,7 @@ export function ModalExtras({ producto, extras, observaciones: catalogoObs, onCe
       !esGalletaPromo(e) &&
       !esProteina(e.nombre) &&
       !esDobleScoop(e.nombre) &&
+      !esDobleProteina(e) &&
       !(e.grupo && gruposConfigurados.includes(e.grupo)) &&
       extraDisponible(e, gruposElegidos),
   )
@@ -202,6 +212,7 @@ export function ModalExtras({ producto, extras, observaciones: catalogoObs, onCe
     (proteinaElegida?.precio ?? 0) +
     (galletaElegida?.precio ?? 0) +
     (dobleScoop && doble ? doble.precio : 0) +
+    doblesCarne.reduce((s, e) => s + (dobleCarne[e.extra_id] ? e.precio : 0), 0) +
     elegidosDeGrupo.reduce((s, e) => s + e.precio, 0) +
     adicionales.reduce((s, e) => s + e.precio * (cantidades[e.extra_id] ?? 0), 0)
 
@@ -218,7 +229,7 @@ export function ModalExtras({ producto, extras, observaciones: catalogoObs, onCe
   function limpiar() {
     setLeche(null); setVerLeches(false); setProteina(null); setVerProteinas(false)
     setMarcaAbierta(null); setGalleta(null); setCantidades({}); setObservaciones([])
-    setDobleScoop(false); setPorGrupo({}); setGrupoAbierto(null)
+    setDobleScoop(false); setDobleCarne({}); setPorGrupo({}); setGrupoAbierto(null)
   }
 
   /**
@@ -250,6 +261,7 @@ export function ModalExtras({ producto, extras, observaciones: catalogoObs, onCe
       ...(cobrada ? [cobrada] : []),
       ...(proteinaElegida ? [proteinaElegida] : []),
       ...(dobleScoop && doble ? [doble] : []),
+      ...doblesCarne.filter((e) => dobleCarne[e.extra_id]),
       ...(galletaElegida ? [galletaElegida] : []),
       ...elegidosDeGrupo,
       ...adicionales.flatMap((e) =>
@@ -421,6 +433,35 @@ export function ModalExtras({ producto, extras, observaciones: catalogoObs, onCe
                 </span>
                 <span className="font-display text-2xl flex-shrink-0">{dobleScoop ? '2×' : '+'}</span>
               </button>
+            </section>
+          )}
+
+          {doblesCarne.length > 0 && (
+            <section className="space-y-2">
+              <h3 className="font-display text-xl text-sa-green-ink mb-3">Proteína</h3>
+              {doblesCarne.map((e) => {
+                const puesto = !!dobleCarne[e.extra_id]
+                const carne = carneDeDoble(e.nombre)
+                return (
+                  <button
+                    key={e.extra_id}
+                    onClick={() => setDobleCarne((prev) => ({ ...prev, [e.extra_id]: !prev[e.extra_id] }))}
+                    className={`w-full flex items-center justify-between gap-3 px-4 py-3.5 rounded-sa border-2 text-left transition-all ${
+                      puesto
+                        ? 'bg-sa-strawberry text-white border-sa-strawberry'
+                        : 'bg-white border-sa-green-ink/10 text-sa-green-ink hover:border-sa-strawberry/40'
+                    }`}
+                  >
+                    <span>
+                      <span className="font-display text-lg leading-tight block">Doble proteína</span>
+                      <span className={`font-mono text-xs ${puesto ? 'opacity-90' : 'opacity-60'}`}>
+                        {puesto ? `Va con doble ${carne}` : `El doble de ${carne} · +${mxn(e.precio)}`}
+                      </span>
+                    </span>
+                    <span className="font-display text-2xl flex-shrink-0">{puesto ? '2×' : '+'}</span>
+                  </button>
+                )
+              })}
             </section>
           )}
 

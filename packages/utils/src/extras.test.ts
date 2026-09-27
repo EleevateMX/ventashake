@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   claseExtra, esBase, esProteina, esGalleta, esGalletaPromo, esDobleScoop,
+  esDobleProteina, carneDeDoble,
   ordenarBases, baseDeCasa, opcionDeGrupo, grupoEsOpcional, extraDisponible, gruposDeExtras,
   notaDeBase, baseCobrada, lecheDeTicket,
   type OpcionExtra,
@@ -336,5 +337,31 @@ describe('lecheDeTicket', () => {
   it('el agua mineral también es base', () => {
     expect(lecheDeTicket({ extras: [{ producto: 'Agua Mineral - Canada Dry', precio_unitario: 10 }] })?.cobrada)
       .toBe(true)
+  })
+})
+
+describe('esDobleProteina', () => {
+  /**
+   * El Honey Roast Deli el 27/09: la carne lleva el grupo «Doble» y sale
+   * como el botón de doble scoop, no como «elige una» ni como adicional.
+   */
+  const HONEY = [
+    { nombre: 'Extra Roast Beef', grupo: 'Doble', precio: 50 },
+    { nombre: 'Extra Queso Cheddar', grupo: null, precio: 20 },
+  ]
+
+  it('se reconoce por el grupo, sin importar mayúsculas ni espacios', () => {
+    expect(esDobleProteina(HONEY[0])).toBe(true)
+    expect(esDobleProteina({ grupo: ' doble ' })).toBe(true)
+    expect(esDobleProteina(HONEY[1])).toBe(false)
+  })
+
+  it('no es un grupo de «elige una»', () => {
+    expect(gruposDeExtras(HONEY)).toEqual([])
+  })
+
+  it('el botón dice la carne, sin el «Extra»', () => {
+    expect(carneDeDoble('Extra Roast Beef')).toBe('Roast Beef')
+    expect(carneDeDoble('Extra Pechuga de Pollo')).toBe('Pechuga de Pollo')
   })
 })
