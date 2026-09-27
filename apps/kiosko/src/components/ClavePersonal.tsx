@@ -80,20 +80,30 @@ export function ClavePersonal({
     )
   }
 
-  // Igual que el de la hora: cerrado ocupa media fila, abierto se lleva el
-  // renglón entero. Lo resuelve el `flex-wrap` del padre.
+  function cerrar() {
+    setAbierto(false); setClave(''); setError(null)
+  }
+
+  // El botón se queda siempre en su media fila. La clave se teclea en una
+  // ventana ENCIMA de la pantalla, no dentro: abierta en la página, el pad
+  // empujaba el total y los botones de cobro hacia abajo y la pantalla
+  // brincaba (lo reportó la tienda: «que no se mueva nada»).
   return (
-    <div className={abierto ? 'w-full' : 'flex-1 min-w-[45%]'}>
-      {!abierto ? (
-        <button
-          type="button"
-          onClick={() => setAbierto(true)}
-          className="w-full px-3 py-2.5 rounded-sa border border-sa-green-ink/15 bg-white text-sa-green-ink hover:border-sa-mint active:scale-95 transition-all text-left"
+    <div className="flex-1 min-w-[45%]">
+      <button
+        type="button"
+        onClick={() => setAbierto(true)}
+        className="w-full px-3 py-2.5 rounded-sa border border-sa-green-ink/15 bg-white text-sa-green-ink hover:border-sa-mint active:scale-95 transition-all text-left"
+      >
+        <span className="font-body text-sm leading-tight">👤 Es para personal</span>
+      </button>
+      {abierto && (
+        <div
+          className="fixed inset-0 z-50 bg-sa-green-deep/70 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={(e) => { if (e.target === e.currentTarget && !enviando) cerrar() }}
         >
-          <span className="font-body text-sm leading-tight">👤 Es para personal</span>
-        </button>
-      ) : (
-        <div className="p-4 rounded-sa-lg bg-white border border-sa-green-ink/10">
+        <div className="w-full max-w-sm p-5 rounded-sa-lg bg-sa-cream-paper shadow-2xl">
+          <p className="font-display text-2xl text-sa-green-ink text-center mb-3">Precio de personal</p>
           {error && (
             <div className="bg-sa-strawberry/10 border border-sa-strawberry/30 rounded-sa px-3 py-2 mb-3">
               <p className="text-sm text-sa-strawberry leading-snug">{error}</p>
@@ -111,7 +121,7 @@ export function ClavePersonal({
             autoComplete="off"
             autoFocus
             placeholder="Su clave"
-            className="w-full px-4 py-3 rounded-sa border-2 border-sa-green-ink/10 font-mono text-2xl text-center tracking-widest"
+            className="w-full px-4 py-3 rounded-sa border-2 border-sa-green-ink/10 bg-white font-mono text-2xl text-center tracking-widest"
           />
           {/* El kiosko no tiene teclado: sin este pad la clave no se podía
               escribir. Solo existe con «Es para personal» abierto, para no
@@ -123,7 +133,7 @@ export function ClavePersonal({
                 type="button"
                 onClick={() => tecla(d)}
                 disabled={enviando}
-                className="h-14 rounded-sa bg-sa-green-deep text-sa-cream active:scale-95 transition-all font-display text-2xl disabled:opacity-40"
+                className="h-16 rounded-sa bg-sa-green-deep text-sa-cream active:scale-95 transition-all font-display text-2xl disabled:opacity-40"
               >
                 {d}
               </button>
@@ -132,7 +142,7 @@ export function ClavePersonal({
               type="button"
               onClick={() => { setClave((c) => c.slice(0, -1)); setError(null) }}
               disabled={enviando || clave.length === 0}
-              className="h-14 rounded-sa border border-sa-green-ink/20 text-sa-green-ink font-mono text-xs uppercase tracking-wide disabled:opacity-40"
+              className="h-16 rounded-sa border border-sa-green-ink/20 text-sa-green-ink font-mono text-xs uppercase tracking-wide disabled:opacity-40"
             >
               ⌫ Borrar
             </button>
@@ -140,7 +150,7 @@ export function ClavePersonal({
               type="button"
               onClick={() => tecla('0')}
               disabled={enviando}
-              className="h-14 rounded-sa bg-sa-green-deep text-sa-cream active:scale-95 transition-all font-display text-2xl disabled:opacity-40"
+              className="h-16 rounded-sa bg-sa-green-deep text-sa-cream active:scale-95 transition-all font-display text-2xl disabled:opacity-40"
             >
               0
             </button>
@@ -148,18 +158,20 @@ export function ClavePersonal({
               type="button"
               onClick={() => void identificar()}
               disabled={enviando || clave.trim().length < 4}
-              className="h-14 rounded-sa bg-sa-green text-sa-cream font-display text-lg disabled:opacity-40"
+              className="h-16 rounded-sa bg-sa-green text-sa-cream font-display text-lg disabled:opacity-40"
             >
               {enviando ? 'Viendo…' : 'Aplicar'}
             </button>
           </div>
           <button
             type="button"
-            onClick={() => { setAbierto(false); setClave(''); setError(null) }}
+            onClick={cerrar}
+            disabled={enviando}
             className="w-full mt-2 py-2 font-mono text-xs uppercase tracking-wide text-sa-green-ink/60"
           >
             Cancelar
           </button>
+        </div>
         </div>
       )}
     </div>
