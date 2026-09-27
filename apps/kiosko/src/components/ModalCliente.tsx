@@ -80,7 +80,7 @@ export function ModalCliente({ onCerrar, onElegir }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center p-0 sm:p-8">
+    <div data-no-recargar className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center p-0 sm:p-8">
       <div className="bg-sa-cream-paper w-full sm:max-w-lg rounded-t-sa-lg sm:rounded-sa-lg shadow-sa max-h-[90vh] overflow-y-auto">
         <header className="flex items-center justify-between px-6 py-5 bg-sa-green-deep text-sa-cream sm:rounded-t-sa-lg">
           <div>

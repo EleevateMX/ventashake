@@ -70,7 +70,12 @@ export default function App() {
     const esSeguro = () => {
       const ruta = window.location.pathname
       const enCatalogo = ruta === '/' || ruta.startsWith('/catalogo')
-      return enCatalogo && useCarrito.getState().items.length === 0
+      // El corte y el modal de personalizar se abren ENCIMA del catálogo,
+      // con el carrito vacío: sin esta marca, una recarga borraba un conteo
+      // de caja a medias. Toda ventana que no deba perderse lleva
+      // `data-no-recargar`.
+      const ventanaAbierta = document.querySelector('[data-no-recargar]') !== null
+      return enCatalogo && !ventanaAbierta && useCarrito.getState().items.length === 0
     }
     const intentar = () => {
       if (!pendiente) return
