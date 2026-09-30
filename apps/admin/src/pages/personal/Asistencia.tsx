@@ -8,6 +8,7 @@ import { mensajeDeError, hoyEnMerida } from '@shake/utils'
 import { sb } from '../../lib/sb'
 import { PageHeader, Panel, Loading, ErrorMsg, OkMsg, Chip, cx } from '../../ui'
 import { ReglasPorPersona } from './ReglasPorPersona'
+import { ExcepcionesHorario } from './ExcepcionesHorario'
 
 /**
  * El histórico del reloj checador.
@@ -39,6 +40,7 @@ export default function Asistencia() {
   const [cfg, setCfg] = useState<ConfigChecador | null>(null)
   const [verReglas, setVerReglas] = useState(false)
   const [verPorPersona, setVerPorPersona] = useState(false)
+  const [verExcepciones, setVerExcepciones] = useState(false)
   const [ubicando, setUbicando] = useState(false)
   const [guardando, setGuardando] = useState(false)
 
@@ -160,19 +162,23 @@ export default function Asistencia() {
 
   function exportar() {
     const filas = [
-      ['Empleado', 'Regla', 'Día', 'Entrada', 'Min. tarde', 'Salida', 'Min. bruto', 'Min. comida',
+      ['Empleado', 'Regla', 'Día', 'Entrada esperada', 'Entrada', 'Min. tarde',
+       'Salida esperada', 'Salida', 'Min. salida antes', 'Min. bruto', 'Min. comida',
        'Min. trabajados', 'Jornada esperada', 'Comida se paga',
-       'Sin salida', 'Comida abierta', 'Comida larga', 'Corregido'],
+       'Sin salida', 'Comida abierta', 'Comida larga', 'Corregido', 'Excepción'],
       ...(dias ?? []).map((d) => [
-        d.nombre, d.regla ?? 'general', d.dia, d.entrada_hora ?? '',
+        d.nombre, d.regla ?? 'general', d.dia,
+        d.entrada_esperada ?? '', d.entrada_hora ?? '',
         d.minutos_tarde == null ? '' : String(d.minutos_tarde),
-        d.salida_hora ?? '',
+        d.salida_esperada ?? '', d.salida_hora ?? '',
+        d.minutos_antes == null ? '' : String(d.minutos_antes),
         d.minutos_bruto == null ? '' : String(d.minutos_bruto),
         String(d.minutos_comida),
         d.minutos_trabajados == null ? '' : String(d.minutos_trabajados),
         String(d.jornada_min), d.comida_se_paga ? 'sí' : 'no',
         d.sin_salida ? 'sí' : '', d.comida_abierta ? 'sí' : '',
         d.comida_larga ? 'sí' : '', d.corregido ? 'sí' : '',
+        d.excepcion ?? '',
       ]),
     ]
     // El BOM es lo que hace que Excel en español no parta los acentos.
@@ -207,6 +213,12 @@ export default function Asistencia() {
               className="px-5 py-3 rounded-sa-lg bg-white border border-sa-green-ink/15 text-sa-green-ink font-display text-lg disabled:opacity-40"
             >
               Reglas por persona
+            </button>
+            <button
+              onClick={() => setVerExcepciones(true)}
+              className="px-5 py-3 rounded-sa-lg bg-white border border-sa-green-ink/15 text-sa-green-ink font-display text-lg"
+            >
+              Excepción de un día
             </button>
             <button
               onClick={exportar}
@@ -292,7 +304,10 @@ export default function Asistencia() {
                   <td className={`${cx.td} font-mono text-[11px] text-sa-green-ink/60`}>
                     {d.regla ?? 'general'}
                   </td>
-                  <td className={`${cx.td} font-mono`}>
+                  <td
+                    className={`${cx.td} font-mono`}
+                    title={d.entrada_esperada ? `Le tocaba entrar a las ${d.entrada_esperada}` : 'Sin horario de reloj'}
+                  >
                     {d.entrada_hora ?? '—'}
                     {/* Solo se puede decir «llegó tarde» de quien tiene horario
                         de reloj en su regla. Sin horario no hay contra qué
@@ -301,9 +316,17 @@ export default function Asistencia() {
                       <span className="text-sa-strawberry"> +{d.minutos_tarde}′</span>
                     )}
                   </td>
-                  <td className={`${cx.td} font-mono`}>
+                  <td
+                    className={`${cx.td} font-mono`}
+                    title={d.salida_esperada ? `Le tocaba salir a las ${d.salida_esperada}` : 'Sin horario de reloj'}
+                  >
                     {d.salida_hora ?? (
                       <Chip tone="no">sin checar salida</Chip>
+                    )}
+                    {/* Salida anticipada: contra el horario de ESE día (su día
+                        de la semana o su excepción), con la misma tolerancia. */}
+                    {d.minutos_antes != null && d.minutos_antes > 0 && (
+                      <span className="text-sa-strawberry"> −{d.minutos_antes}′</span>
                     )}
                   </td>
                   <td className={cx.tdNum}>
@@ -315,6 +338,9 @@ export default function Asistencia() {
                   </td>
                   <td className={cx.td}>
                     {d.corregido && <Chip tone="neutral">corregido</Chip>}{' '}
+                    {d.excepcion && (
+                      <span title={d.excepcion}><Chip tone="neutral">excepción</Chip></span>
+                    )}{' '}
                     {d.comida_abierta && <Chip tone="no">sin regreso de comida</Chip>}{' '}
                     <button
                       onClick={() => void verDia(d.dia)}
@@ -479,6 +505,13 @@ export default function Asistencia() {
         <ReglasPorPersona
           general={cfg}
           onCerrar={() => setVerPorPersona(false)}
+          onCambio={() => void cargar()}
+        />
+      )}
+
+      {verExcepciones && (
+        <ExcepcionesHorario
+          onCerrar={() => setVerExcepciones(false)}
           onCambio={() => void cargar()}
         />
       )}

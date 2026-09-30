@@ -802,6 +802,17 @@ export interface DiaDeAsistencia {
    * decir si llegó tarde. 0 = llegó dentro de la tolerancia.
    */
   minutos_tarde: number | null
+  /**
+   * El horario contra el que se comparó ESE día: excepción de la fecha →
+   * el día de la semana de su regla → la regla → la general. null = sin
+   * horario de reloj.
+   */
+  entrada_esperada: string | null
+  salida_esperada: string | null
+  /** Salida anticipada, con la misma tolerancia que el retardo. */
+  minutos_antes: number | null
+  /** El motivo, si ese día tuvo una excepción de horario. */
+  excepcion: string | null
 }
 
 /** Las reglas del checador, que escribe gerencia desde Admin. */
@@ -1548,5 +1559,112 @@ export async function asignarReglaChecador(
     p_empleado_id: empleadoId,
     p_regla_id: reglaId,
   })
+  if (error) throw error
+}
+
+// ------------------- horario por día y excepciones (30/09) -------------------
+//
+// Una regla puede traer un horario distinto por día de la semana (el turno de
+// tarde entra 14:30 entre semana y 14:00 el fin), y una persona puede tener
+// una excepción de UNA fecha. Lo resuelve el servidor en
+// `fn_asistencia_resumen`: excepción → día de la semana → regla → general.
+
+/** 0 = domingo … 6 = sábado, igual que `extract(dow)` en la base. */
+export interface DiaDeRegla {
+  regla_id: string
+  dow: number
+  hora_entrada: string | null
+  hora_salida: string | null
+  jornada_min: number | null
+  tolerancia_min: number | null
+  comida_min: number | null
+  comida_max_min: number | null
+  comida_se_paga: boolean | null
+}
+
+export type HorarioDeDias = Omit<DiaDeRegla, 'regla_id' | 'dow'>
+
+export async function diasDeReglas(sb: ShakeClient): Promise<DiaDeRegla[]> {
+  const { data, error } = await (sb.rpc as unknown as RpcCatalogo)('fn_asistencia_reglas_dias', {})
+  if (error) throw error
+  return (data ?? []) as DiaDeRegla[]
+}
+
+/** El MISMO horario a varios días a la vez («S y D → 14:00 a 22:00»). */
+export async function guardarDiasDeRegla(
+  sb: ShakeClient, reglaId: string, dias: number[], h: HorarioDeDias,
+): Promise<void> {
+  const { error } = await (sb.rpc as unknown as RpcCatalogo)('fn_asistencia_regla_dias_guardar', {
+    p_regla_id: reglaId,
+    p_dias: dias,
+    p_hora_entrada: h.hora_entrada,
+    p_hora_salida: h.hora_salida,
+    p_jornada_min: h.jornada_min,
+    p_tolerancia_min: h.tolerancia_min,
+    p_comida_min: h.comida_min,
+    p_comida_max_min: h.comida_max_min,
+    p_comida_se_paga: h.comida_se_paga,
+  })
+  if (error) throw error
+}
+
+/** Esos días vuelven al horario de la regla. */
+export async function quitarDiasDeRegla(sb: ShakeClient, reglaId: string, dias: number[]): Promise<void> {
+  const { error } = await (sb.rpc as unknown as RpcCatalogo)('fn_asistencia_regla_dias_quitar', {
+    p_regla_id: reglaId,
+    p_dias: dias,
+  })
+  if (error) throw error
+}
+
+export interface ExcepcionHorario {
+  id: string
+  empleado_id: string
+  nombre: string
+  dia: string
+  hora_entrada: string | null
+  hora_salida: string | null
+  jornada_min: number | null
+  tolerancia_min: number | null
+  nota: string
+  creada_por: string | null
+  creada_en: string
+}
+
+export async function excepcionesHorario(
+  sb: ShakeClient, desde: string, hasta: string,
+): Promise<ExcepcionHorario[]> {
+  const { data, error } = await (sb.rpc as unknown as RpcCatalogo)('fn_asistencia_excepciones', {
+    p_desde: desde,
+    p_hasta: hasta,
+  })
+  if (error) throw error
+  return (data ?? []) as ExcepcionHorario[]
+}
+
+/** Una por persona y fecha: guardar otra vez la misma fecha la reemplaza. */
+export async function guardarExcepcionHorario(
+  sb: ShakeClient,
+  x: {
+    empleadoId: string; dia: string
+    horaEntrada: string | null; horaSalida: string | null
+    jornadaMin: number | null; toleranciaMin: number | null
+    nota: string
+  },
+): Promise<void> {
+  const { error } = await (sb.rpc as unknown as RpcCatalogo)('fn_asistencia_excepcion_guardar', {
+    p_empleado_id: x.empleadoId,
+    p_dia: x.dia,
+    p_hora_entrada: x.horaEntrada,
+    p_hora_salida: x.horaSalida,
+    p_jornada_min: x.jornadaMin,
+    p_tolerancia_min: x.toleranciaMin,
+    p_nota: x.nota,
+  })
+  if (error) throw error
+}
+
+export async function borrarExcepcionHorario(sb: ShakeClient, id: string): Promise<void> {
+  const { error } = await (sb.rpc as unknown as RpcCatalogo)('fn_asistencia_excepcion_borrar', { p_id: id })
   if (error) throw error
 }

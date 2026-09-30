@@ -698,6 +698,16 @@ nómina se firma igual que uno bueno.
 - Borrar una regla la **apaga** y devuelve a su gente a la general; no
   borra historia. Y cambiar una regla **recalcula lo que se muestra**: las
   checadas no se tocan, lo que cambia es contra qué se comparan.
+- **Una regla puede cambiar por día de la semana** (30/09,
+  `asistencia_regla_dias`): el vespertino entra 14:30 L–V y 14:00 S–D. Se
+  captura por grupos de días y se guarda día por día. **Y una persona
+  puede tener una excepción de UNA fecha** (`asistencia_excepciones`,
+  motivo obligatorio, queda quién la puso). `fn_asistencia_resumen`
+  resuelve cada campo así: **excepción → día de la semana → regla →
+  general**, y ya calcula también la **salida anticipada**
+  (`minutos_antes`, misma tolerancia; un turno que cruza la medianoche
+  sale al día siguiente). El día del despliegue se comparó la huella del
+  resumen de 60 días antes y después: idéntica.
 
 - `fn_asistencia_checar` y `fn_asistencia_estado` están abiertas a `anon`
   porque **el kiosko en modo cajero corre como `anon`** (sección 2.2) y el
@@ -706,10 +716,6 @@ nómina se firma igual que uno bueno.
   (`fn_pin_registrar_intento`): 15 fallos en 15 minutos y se cierra, o un
   PIN de 4 dígitos se adivina en una tarde. Todo lo demás pide gerencia y
   está cerrado a `anon` **y** a PUBLIC.
-- **Lo que todavía NO hace: decir «llegó tarde».** Para eso hace falta un
-  **horario por persona**, que es otra pieza y no existe. `tolerancia_min`
-  y `jornada_min` ya se guardan, pero hoy son informativos — prometerlo a
-  medias sería peor que no tenerlo.
 - Lo que sí falta y es barato: los **avisos** por WhatsApp/Telegram
   («Ana entró 9:12», «son las 11 pm y nadie checó salida»), que es el uso
   para el que ese canal sí sirve.
