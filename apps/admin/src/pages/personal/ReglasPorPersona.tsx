@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
   reglasChecador, personasConRegla, guardarReglaChecador,
-  borrarReglaChecador, asignarReglaChecador,
-  type ReglaChecador, type PersonaConRegla, type ConfigChecador,
+  borrarReglaChecador, asignarReglaChecador, diasDeReglas,
+  type ReglaChecador, type PersonaConRegla, type ConfigChecador, type DiaDeRegla,
 } from '@shake/supabase'
 import { mensajeDeError } from '@shake/utils'
 import { sb } from '../../lib/sb'
 import { ErrorMsg, Chip, cx } from '../../ui'
+import { HorarioPorDia, agruparDias, nombreDias, resumenHorario } from './HorarioPorDia'
 
 /**
  * Reglas del checador **por persona**, no una sola para todos.
@@ -87,6 +88,7 @@ export function ReglasPorPersona({
 }) {
   const [reglas, setReglas] = useState<ReglaChecador[] | null>(null)
   const [personas, setPersonas] = useState<PersonaConRegla[]>([])
+  const [dias, setDias] = useState<DiaDeRegla[]>([])
   const [error, setError] = useState<string | null>(null)
   const [edita, setEdita] = useState<Borrador | null>(null)
   const [guardando, setGuardando] = useState(false)
@@ -94,9 +96,10 @@ export function ReglasPorPersona({
   const cargar = useCallback(async () => {
     setError(null)
     try {
-      const [rs, ps] = await Promise.all([reglasChecador(sb), personasConRegla(sb)])
+      const [rs, ps, ds] = await Promise.all([reglasChecador(sb), personasConRegla(sb), diasDeReglas(sb)])
       setReglas(rs)
       setPersonas(ps)
+      setDias(ds)
     } catch (e) {
       setError(mensajeDeError(e))
       setReglas([])
@@ -296,6 +299,19 @@ export function ReglasPorPersona({
               </label>
             </div>
 
+            {edita.id ? (
+              <HorarioPorDia
+                reglaId={edita.id}
+                dias={dias.filter((d) => d.regla_id === edita.id)}
+                onCambio={async () => { await cargar(); onCambio() }}
+              />
+            ) : (
+              <p className="text-[11px] text-sa-green-ink/55 mt-5 leading-snug">
+                ¿Algún día tiene otro horario (el fin de semana, por ejemplo)? Guarda la
+                regla primero y luego, con <b>Editar</b>, aparece «Horario distinto por día».
+              </p>
+            )}
+
             <div className="flex gap-3 mt-6">
               <button
                 onClick={() => setEdita(null)}
@@ -349,6 +365,11 @@ export function ReglasPorPersona({
                     ? ' comida como la general'
                     : r.comida_se_paga ? ' comida pagada' : ' comida descontada'}
                 </p>
+                {agruparDias(dias.filter((d) => d.regla_id === r.id)).map((g) => (
+                  <p key={g.dows.join(',')} className="font-mono text-[11px] text-sa-green mt-0.5">
+                    {nombreDias(g.dows)}: {resumenHorario(g.h)}
+                  </p>
+                ))}
               </div>
             ))}
           </div>
