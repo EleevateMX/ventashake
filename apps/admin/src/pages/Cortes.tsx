@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { sb } from '../lib/sb'
-import { listarCortes } from '@shake/supabase'
+import { listarCortes, fondoEstablecido, guardarFondoEstablecido } from '@shake/supabase'
 import type { CorteConDetalle } from '@shake/supabase'
 import { mxn, mensajeDeError, BILLETES, MONEDAS, leerDesglose } from '@shake/utils'
 import { PageHeader, Loading, ErrorMsg, Panel, cx } from '../ui'
@@ -100,6 +100,66 @@ function Desglose({ titulo, raw }: { titulo: string; raw: unknown }) {
   )
 }
 
+/**
+ * El fondo estándar con el que se abre la caja. Se sugiere al abrir turno
+ * (kiosko y POS), se puede abrir con otro monto, y cada corte guarda los
+ * dos: el recomendado y el real.
+ */
+function FondoEstablecido() {
+  const [valor, setValor] = useState<number | null | undefined>(undefined)
+  const [texto, setTexto] = useState('')
+  const [editando, setEditando] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    fondoEstablecido(sb).then((f) => { setValor(f); setTexto(f == null ? '' : String(f)) })
+      .catch((e) => setError(mensajeDeError(e)))
+  }, [])
+
+  async function guardar() {
+    setError(null)
+    try {
+      const monto = texto.trim() === '' ? null : Number(texto)
+      await guardarFondoEstablecido(sb, monto)
+      setValor(monto)
+      setEditando(false)
+    } catch (e) { setError(mensajeDeError(e)) }
+  }
+
+  if (valor === undefined) return null
+  return (
+    <Panel className="mb-4">
+      <div className="flex items-center gap-4 flex-wrap">
+        <div className="flex-1 min-w-[220px]">
+          <p className="font-medium text-sa-green-ink">Fondo de caja establecido</p>
+          <p className={`${cx.muted} text-xs mt-0.5`}>
+            Se sugiere al abrir turno. Si un día se abre con otro monto, el corte guarda los dos.
+          </p>
+        </div>
+        {editando ? (
+          <>
+            <input
+              type="number" min="0" value={texto} autoFocus
+              onChange={(e) => setTexto(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') void guardar() }}
+              placeholder="sin fondo"
+              className={`${cx.input} !py-2 w-32 text-right font-mono`}
+            />
+            <button className={cx.btnPrimary} onClick={() => void guardar()}>Guardar</button>
+            <button className={cx.btnSec} onClick={() => { setEditando(false); setTexto(valor == null ? '' : String(valor)) }}>Cancelar</button>
+          </>
+        ) : (
+          <>
+            <span className="font-mono text-xl text-sa-green-ink">{valor == null ? 'sin fondo' : mxn(valor)}</span>
+            <button className={cx.btnSec} onClick={() => setEditando(true)}>Cambiar</button>
+          </>
+        )}
+      </div>
+      {error && <p className="text-sm text-red-600 mt-2">{error}</p>}
+    </Panel>
+  )
+}
+
 export default function Cortes() {
   const [cortes, setCortes] = useState<CorteConDetalle[]>([])
   /** Que se esta viendo de cual corte: el desglose o los tickets. */
@@ -126,6 +186,8 @@ export default function Cortes() {
       />
 
       {error && <ErrorMsg>{error}</ErrorMsg>}
+
+      <FondoEstablecido />
 
       {/* Un turno que lleva demasiado abierto no es un turno: es un corte
           que nadie cerró, y su arqueo no significa nada porque mezcla
@@ -155,7 +217,11 @@ export default function Cortes() {
                 <th className={cx.th}>Turno</th>
                 <th className={cx.th}>Quién</th>
                 <th className={cx.thNum}>Pedidos</th>
-                <th className={cx.thNum}>Fondo</th>
+                {/* Se lee de izquierda a derecha como una suma:
+                    Fondo inicial + Efectivo vendido = Efectivo esperado,
+                    y contra eso se compara lo Contado. */}
+                <th className={cx.thNum}>Fondo inicial</th>
+                <th className={cx.thNum}>Efectivo vendido</th>
                 <th className={cx.thNum}>Efectivo esperado</th>
                 <th className={cx.thNum}>Contado</th>
                 <th className={cx.thNum}>Diferencia</th>
@@ -189,7 +255,16 @@ export default function Cortes() {
                         )}
                       </td>
                       <td className={cx.tdNum}>{c.num_ordenes ?? 0}</td>
-                      <td className={cx.tdNum}>{mxn(Number(c.fondo_inicial ?? 0))}</td>
+                      <td className={cx.tdNum}>
+                        {mxn(Number(c.fondo_inicial ?? 0))}
+                        {/* Abrió con otro monto que el establecido: se dice. */}
+                        {c.fondo_sugerido != null && Number(c.fondo_sugerido) !== Number(c.fondo_inicial ?? 0) && (
+                          <span className={`${cx.muted} font-mono text-[10px] block`}>
+                            recomendado {mxn(Number(c.fondo_sugerido))}
+                          </span>
+                        )}
+                      </td>
+                      <td className={`${cx.tdNum} font-semibold`}>{mxn(Number(c.total_efectivo ?? 0))}</td>
                       <td className={cx.tdNum}>{mxn(Number(c.efectivo_esperado ?? 0))}</td>
                       <td className={cx.tdNum}>
                         {cerrado ? mxn(Number(c.efectivo_contado ?? 0)) : '—'}
@@ -228,14 +303,14 @@ export default function Cortes() {
                     </tr>
                     {abiertoAqui === 'tickets' && (
                       <tr key={`${c.corte_id}-t`}>
-                        <td className={cx.td} colSpan={8}>
+                        <td className={cx.td} colSpan={9}>
                           <TicketsDelTurno corteId={c.corte_id as string} />
                         </td>
                       </tr>
                     )}
                     {abiertoAqui === 'desglose' && (
                       <tr key={`${c.corte_id}-d`}>
-                        <td className={cx.td} colSpan={8}>
+                        <td className={cx.td} colSpan={9}>
                           <div className="grid gap-6 sm:grid-cols-3 py-2">
                             <Desglose titulo="Con qué se abrió" raw={c.desglose_apertura} />
                             <Desglose titulo="Con qué se cerró" raw={c.desglose_cierre} />

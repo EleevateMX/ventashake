@@ -1895,6 +1895,7 @@ export type Database = {
       }
       parametros: {
         Row: {
+          fondo_caja: number | null
           clave_compras: string
           clave_traspaso: string
           food_cost_meta: number
@@ -1905,6 +1906,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          fondo_caja?: number | null
           clave_compras?: string
           clave_traspaso?: string
           food_cost_meta?: number
@@ -1915,6 +1917,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          fondo_caja?: number | null
           clave_compras?: string
           clave_traspaso?: string
           food_cost_meta?: number
@@ -2994,6 +2997,7 @@ export type Database = {
           efectivo_esperado: number | null
           estado: Database["public"]["Enums"]["estado_corte"] | null
           fondo_inicial: number | null
+          fondo_sugerido: number | null
           num_ordenes: number | null
           total_clip: number | null
           total_cortesia: number | null
