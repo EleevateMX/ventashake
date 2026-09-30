@@ -455,6 +455,25 @@ se escribe `Doble` en la columna *grupo* de su extra de carne. Un grupo
 menú no lo reporta como grupo de una sola opción. El POS lo sigue listando
 como extra suelto.
 
+### 2.4.14 Eliminar no siempre es borrar
+
+Admin elimina **extras y combos apagados** y **categorías sin nada
+activo** (30/09). `fn_producto_eliminar` borra de verdad lo que nunca se
+vendió y **archiva** (`productos.archivado_en`) lo que tiene historia:
+`orden_items.producto_id` es RESTRICT y borrarlo rompería tickets y
+reportes. Lo archivado sale de todas las listas de Admin y pierde sus
+vínculos; para Perla es lo mismo, desaparece. Costeos no lo revive:
+`fn_sync_app_data` filtra `not es_extra` / `not es_combo` en todo.
+
+- **Renombrar una categoría va por `fn_categoria_renombrar`**, que cambia
+  el nombre en la tabla **y en el JSON de Costeos** (que guarda la
+  categoría por nombre). El update directo dejaba el nombre viejo allá y
+  el siguiente alta nacía sin categoría. Renombrar la familia («Snacks»)
+  **no** renombra sus subcategorías («Snacks - Nuts»): son nombres aparte.
+- «Ofrecer en: **Ninguno**» crea el extra sin colgarlo de ningún shake,
+  para los de alimentos. Y `fn_extra_bebida_guardar` ya pide personal:
+  estaba abierta a `anon` sin candado.
+
 ### 2.4.10 Admin revisa el menú y nombra lo que está chueco
 
 **Admin → Revisión del menú** (`fn_revision_menu`) enumera lo que las

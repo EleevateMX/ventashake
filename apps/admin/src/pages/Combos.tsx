@@ -9,6 +9,7 @@ import {
   agregarComponenteCombo,
   quitarComponenteCombo,
   moverCategoriaProducto,
+  eliminarProducto,
 } from '@shake/supabase'
 import type { ComboVista, Producto, Categoria } from '@shake/types'
 import { mxn, mensajeDeError } from '@shake/utils'
@@ -174,6 +175,24 @@ export default function Combos() {
     try {
       await actualizarProducto(sb, combo.id, { activo: !combo.activo })
       await cargar()
+    } catch (e) {
+      setError(mensajeDeError(e))
+    }
+  }
+
+  /** Eliminar un combo desactivado. Si ya se vendió, se archiva en vez de borrarse. */
+  async function eliminarCombo(combo: ComboVista) {
+    if (!combo.id) return
+    if (!window.confirm(`¿Eliminar el combo «${combo.nombre}»? No se puede deshacer.`)) return
+    setError(null)
+    try {
+      const r = await eliminarProducto(sb, combo.id)
+      setOk(r === 'borrado'
+        ? `«${combo.nombre}» se eliminó.`
+        : `«${combo.nombre}» se eliminó de la lista. Como ya se había vendido, los tickets viejos lo siguen mostrando.`)
+      if (comboEditando === combo.id) setComboEditando(null)
+      await cargar()
+      setTimeout(() => setOk(null), 5000)
     } catch (e) {
       setError(mensajeDeError(e))
     }
@@ -374,6 +393,14 @@ export default function Combos() {
                             <button className={cx.btnSec} onClick={() => void toggleActivo(c)}>
                               {c.activo ? 'Desactivar' : 'Activar'}
                             </button>
+                            {!c.activo && (
+                              <button
+                                className={`${cx.btnSec} !text-sa-strawberry`}
+                                onClick={() => void eliminarCombo(c)}
+                              >
+                                Eliminar
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>

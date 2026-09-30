@@ -231,9 +231,9 @@ export async function guardarReceta(
 // el servidor (triggers, ver supabase/migrations/costeo_combos_productos.sql)
 // — aquí solo se gestiona la cabecera y los componentes.
 
-/** Todos los combos (activos e inactivos, para poder gestionarlos). */
+/** Todos los combos (activos e inactivos, para poder gestionarlos) menos los eliminados. */
 export async function listarCombos(sb: ShakeClient): Promise<ComboVista[]> {
-  const { data, error } = await sb.from('vw_combos').select('*').order('nombre')
+  const { data, error } = await sb.from('vw_combos').select('*').is('archivado_en', null).order('nombre')
   if (error) throw error
   return data
 }
@@ -481,11 +481,13 @@ export async function listarExtrasBebidaAdmin(sb: ShakeClient): Promise<ExtraBeb
 /**
  * Crea (o repara) un extra de bebida y lo liga a sus productos. Idempotente:
  * guardar dos veces el mismo nombre no duplica — reutiliza y re-liga.
- * `aplicar`: 'shakes' = todos los shakes activos · 'clasico' = solo El Clásico.
+ * `aplicar`: 'shakes' = todos los shakes activos · 'clasico' = solo El Clásico
+ * · 'ninguno' = sin colgarlo de nada (un extra de alimentos, que después se
+ * liga desde "Dónde se ofrece" sin tener que ir a quitarlo de 250 shakes).
  */
 export async function guardarExtraBebida(
   sb: ShakeClient,
-  input: { nombre: string; precio: number; aplicar: 'shakes' | 'clasico' },
+  input: { nombre: string; precio: number; aplicar: 'shakes' | 'clasico' | 'ninguno' },
 ): Promise<void> {
   const { error } = await (sb.rpc as unknown as RpcCatalogo)('fn_extra_bebida_guardar', {
     p_nombre: input.nombre,
@@ -505,6 +507,32 @@ export async function activarExtraBebida(sb: ShakeClient, id: string, activo: bo
     p_id: id,
     p_activo: activo,
   })
+  if (error) throw error
+}
+
+/**
+ * Elimina un extra o un combo YA APAGADO. Si nunca se vendió se borra de
+ * verdad; si tiene ventas se archiva (desaparece de Admin pero los tickets
+ * viejos lo siguen nombrando). Devuelve cuál de las dos pasó.
+ */
+export async function eliminarProducto(sb: ShakeClient, id: string): Promise<'borrado' | 'archivado'> {
+  const { data, error } = await (sb.rpc as unknown as RpcCatalogo)('fn_producto_eliminar', { p_id: id })
+  if (error) throw error
+  return data as 'borrado' | 'archivado'
+}
+
+/** Renombra la categoría en la tabla Y en Costeos, que la guarda por nombre. */
+export async function renombrarCategoria(sb: ShakeClient, id: string, nombre: string): Promise<void> {
+  const { error } = await (sb.rpc as unknown as RpcCatalogo)('fn_categoria_renombrar', {
+    p_id: id,
+    p_nombre: nombre,
+  })
+  if (error) throw error
+}
+
+/** Elimina una categoría sin productos activos. */
+export async function eliminarCategoria(sb: ShakeClient, id: string): Promise<void> {
+  const { error } = await (sb.rpc as unknown as RpcCatalogo)('fn_categoria_eliminar', { p_id: id })
   if (error) throw error
 }
 

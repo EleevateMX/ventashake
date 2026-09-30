@@ -11,6 +11,7 @@ import {
   listarCategorias,
   guardarExtraBebida,
   activarExtraBebida,
+  eliminarProducto,
   productosDeExtra,
   vincularExtraBebida,
   precioExtraEnProducto,
@@ -66,7 +67,7 @@ export default function Extras() {
   const [bebida, setBebida] = useState<ExtraBebidaAdmin[]>([])
   const [nuevoNombre, setNuevoNombre] = useState('')
   const [nuevoPrecio, setNuevoPrecio] = useState('0')
-  const [nuevoAplicar, setNuevoAplicar] = useState<'shakes' | 'clasico'>('shakes')
+  const [nuevoAplicar, setNuevoAplicar] = useState<'shakes' | 'clasico' | 'ninguno'>('shakes')
   const [guardandoBebida, setGuardandoBebida] = useState(false)
   // Panel "dónde se ofrece": un extra abierto a la vez, con su checklist.
   const [extraAbierto, setExtraAbierto] = useState<string | null>(null)
@@ -138,7 +139,9 @@ export default function Extras() {
         precio: Number(nuevoPrecio) || 0,
         aplicar: nuevoAplicar,
       })
-      setOk(`"${nuevoNombre.trim()}" ya se ofrece en el kiosko.`)
+      setOk(nuevoAplicar === 'ninguno'
+        ? `"${nuevoNombre.trim()}" quedó creado sin colgarse de nada. Ábrelo con «Dónde se ofrece» y marca los productos.`
+        : `"${nuevoNombre.trim()}" ya se ofrece en el kiosko.`)
       setNuevoNombre('')
       setNuevoPrecio('0')
       await cargar()
@@ -511,6 +514,26 @@ export default function Extras() {
     }
   }
 
+  /**
+   * Eliminar un extra apagado. Se pregunta antes porque no tiene regreso;
+   * el servidor decide si lo borra o lo archiva (si ya se vendió) y aquí
+   * solo se dice cuál pasó.
+   */
+  async function eliminarExtra(e: ExtraBebidaAdmin) {
+    if (!window.confirm(`¿Eliminar «${e.nombre}»? Deja de aparecer en esta lista y no se puede deshacer.`)) return
+    setError(null)
+    try {
+      const r = await eliminarProducto(sb, e.id)
+      setOk(r === 'borrado'
+        ? `«${e.nombre}» se eliminó.`
+        : `«${e.nombre}» se eliminó de la lista. Como ya se había vendido, los tickets viejos lo siguen mostrando.`)
+      await cargar()
+      setTimeout(() => setOk(null), 5000)
+    } catch (err) {
+      setError(mensajeDeError(err))
+    }
+  }
+
   async function toggleBebida(e: ExtraBebidaAdmin) {
     setError(null)
     try {
@@ -829,11 +852,14 @@ export default function Extras() {
       {/* cuando un sabor se acaba, lo apaga al momento sin borrar nada.     */}
       {/* ------------------------------------------------------------------ */}
       <Panel className="mb-6">
-        <h3 className={cx.h3}>Leches, proteínas y agua de los shakes</h3>
+        <h3 className={cx.h3}>Extras del kiosko</h3>
         <p className={`${cx.muted} text-sm mt-1 mb-4`}>
-          El nombre decide dónde sale en el kiosko: <b>Leche …</b> entra al grupo de
+          Los extras de shakes <b>y</b> de alimentos: leches, proteínas, aderezos, toppings.
+          En los shakes el nombre decide dónde sale: <b>Leche …</b> entra al grupo de
           leches, <b>Proteína MARCA - Sabor</b> al de proteínas (agrupadas por marca),
           y <b>Agua</b> a la base. Todo lo demás sale como adicional.
+          {' '}Para un extra de <b>alimentos</b>, elige <b>Ofrecer en: Ninguno</b> y luego
+          márcale sus platillos con «Dónde se ofrece».
         </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
@@ -861,10 +887,11 @@ export default function Extras() {
             <select
               className={cx.input}
               value={nuevoAplicar}
-              onChange={(e) => setNuevoAplicar(e.target.value as 'shakes' | 'clasico')}
+              onChange={(e) => setNuevoAplicar(e.target.value as 'shakes' | 'clasico' | 'ninguno')}
             >
               <option value="shakes">Todos los shakes</option>
               <option value="clasico">Solo El Clásico</option>
+              <option value="ninguno">Ninguno (lo marco después)</option>
             </select>
           </div>
         </div>
@@ -928,6 +955,16 @@ export default function Extras() {
                           <button className={cx.btnSec} onClick={() => void toggleBebida(e)}>
                             {e.activo ? 'Apagar' : 'Prender'}
                           </button>
+                          {/* Solo lo apagado se elimina: así nadie borra de un
+                              clic algo que el kiosko está ofreciendo. */}
+                          {!e.activo && (
+                            <button
+                              className={`${cx.btnSec} !text-sa-strawberry`}
+                              onClick={() => void eliminarExtra(e)}
+                            >
+                              Eliminar
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
