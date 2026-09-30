@@ -1,23 +1,21 @@
 import { useEffect, useState } from 'react'
 import { sb } from '../lib/sb'
-import { ventasDiarias, productosMasVendidos } from '@shake/supabase'
-import type { VentaDiaria, ProductoVendido } from '@shake/types'
+import { productosMasVendidos } from '@shake/supabase'
+import type { ProductoVendido } from '@shake/types'
 import { mxn, mensajeDeError } from '@shake/utils'
 import { PageHeader, Loading, ErrorMsg, Panel, cx } from '../ui'
 import { ProductosVendidos } from '../components/ProductosVendidos'
 import { CancelarVentas } from '../components/CancelarVentas'
+import { CierreDiario } from '../components/CierreDiario'
 
 export default function Ventas() {
-  const [dias, setDias] = useState<VentaDiaria[]>([])
   const [top, setTop] = useState<ProductoVendido[]>([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    Promise.all([ventasDiarias(sb, 30), productosMasVendidos(sb, 10)])
-      .then(([d, t]) => {
-        // Más recientes primero para la vista.
-        setDias([...d].reverse())
+    productosMasVendidos(sb, 10)
+      .then((t) => {
         setTop(t)
         setError(null)
       })
@@ -35,43 +33,12 @@ export default function Ventas() {
 
       <div className="space-y-6">
         <div>
-          <h3 className={`${cx.h3} mb-4`}>Ventas diarias (últimos 30 días)</h3>
-          {dias.length === 0 ? (
-            <Panel><p className={cx.muted}>Sin ventas registradas en el periodo.</p></Panel>
-          ) : (
-            <div className={cx.tableWrap}>
-              <table className={cx.table}>
-                <thead>
-                  <tr className={cx.thead}>
-                    <th className={cx.th}>Día</th>
-                    <th className={cx.thNum}>Órdenes</th>
-                    <th className={cx.thNum}>Total</th>
-                    <th className={cx.thNum}>Ticket prom.</th>
-                    <th className={cx.thNum}>Efectivo</th>
-                    <th className={cx.thNum}>Tarjeta</th>
-                    <th className={cx.thNum}>Clip</th>
-                    <th className={cx.thNum}>Cortesía</th>
-                    <th className={cx.thNum}>Otro</th>
-                  </tr>
-                </thead>
-                <tbody className={cx.tbody}>
-                  {dias.map((d) => (
-                    <tr key={d.dia ?? Math.random()} className={cx.tr}>
-                      <td className={`${cx.td} font-medium`}>{d.dia ?? '—'}</td>
-                      <td className={cx.tdNum}>{d.num_ordenes ?? 0}</td>
-                      <td className={cx.tdNum}>{mxn(d.total_ventas)}</td>
-                      <td className={cx.tdNum}>{mxn(d.ticket_promedio)}</td>
-                      <td className={cx.tdNum}>{mxn(d.efectivo)}</td>
-                      <td className={cx.tdNum}>{mxn(d.tarjeta)}</td>
-                      <td className={cx.tdNum}>{mxn(d.clip)}</td>
-                      <td className={cx.tdNum}>{mxn(d.cortesia)}</td>
-                      <td className={cx.tdNum}>{mxn(d.otro)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <h3 className={`${cx.h3} mb-1`}>Historial y cierre del día</h3>
+          <p className={`${cx.muted} text-sm mb-4`}>
+            Por semana, mes, año o rango. Cada día dice si cuadró: el efectivo contra lo contado en
+            los cortes, y la tarjeta y Clip contra lo que reporta Clip.
+          </p>
+          <CierreDiario />
         </div>
 
         <div>

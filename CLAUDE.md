@@ -155,6 +155,32 @@ los tickets de ese turno.
 > repartir ese `20` a ojo sería inventar. `leerDesglose` acepta las dos y
 > marca las viejas.
 
+### 2.2.5 El cierre del día se calcula, no se guarda
+
+Admin → **Ventas** → *Historial y cierre del día* (30/09). Semana, mes,
+año o rango; una fila por día con su estatus (**Cuadrado / Con diferencia
+/ Aclarado / Pendiente**) y Exportar a Excel con la fila de totales.
+
+- Todo sale de **una** función, `fn_cierre_dias`, **en vivo**. No hay
+  cierre guardado: si mañana se cancela una venta de hoy, el historial se
+  entera solo. Lo único que se guarda son las **aclaraciones**
+  (`cierres_dia_notas`, solo se agregan, con quién).
+- **Un corte es del día de SUS VENTAS**, no del día en que se abrió: el
+  turno de la mañana se abre la noche anterior, con el fondo ya contado.
+  Por `abierto_en` el efectivo de la mañana caía en el día equivocado.
+- **El fondo inicial no es venta**: solo explica el esperado
+  (fondo + efectivo vendido). En el Excel no se suma.
+- **La terminal chica se concilia sin número de serie.** La API de
+  Transacciones de Clip (`GET api-gw.payclip.com/payments`, Edge Function
+  `clip-transacciones`, solo gerencia) trae TODAS las transacciones de la
+  cuenta. Lo que empata con un pago integrado nuestro (por referencia
+  `Folio-N`, o mismo monto a ±3 min) es la terminal principal; **lo que no
+  empata con nada es la chica**, y eso se compara contra «Tarjeta». Un día
+  con tarjeta o Clip y sin bajar de Clip queda *Pendiente*.
+- **Fondo de caja establecido**: `parametros.fondo_caja`, se edita en
+  Admin → Cortes. Se sugiere al abrir (kiosko y POS) pero se registra lo
+  contado; `caja_cortes.fondo_sugerido` guarda lo que se sugirió.
+
 ### 2.3 Clip: la verdad se pregunta, no se escucha
 
 El webhook `PINPAD_INTENT_STATUS_CHANGED` **no viene firmado**: es un
@@ -1068,6 +1094,7 @@ empaquetador y se desvían solas:
 | Abrir/cerrar caja o cambiar turno | Kiosko → botón **"Caja y turno"** (arriba, junto a Historial) → PIN. Se cuenta **por denominación** y el total sale solo |
 | Cobrar | **Efectivo** · **Terminal** (Clip) · **Mixto** (efectivo + terminal). Abajo, *Terminal del banco*, que solo registra lo ya cobrado allá |
 | El cliente no puede pagar ahora | Pantalla de pago → **"Dejar esta venta en espera"**. Se retoma desde el chip amarillo del menú |
+| Saber si un día cuadró, o ventas de la semana/mes/año | Admin → **Ventas** → *Historial y cierre del día*. Toca el día; «Bajar de Clip» para conciliar tarjeta y Clip; si no cuadró, deja una aclaración |
 | Revisar el arqueo de un turno | Admin → **Cortes de caja** (desglose de billetes, y **Tickets** del turno) |
 | Consultar un ticket | Admin → **Cortes de caja** → *Tickets* → buscar por folio o nombre |
 | Ver si algo se está atorando ahora | Admin → **Pulso** (solo rol `desarrollo`) |
