@@ -260,3 +260,80 @@ export async function cargarInventario(
   if (error) throw error
   return data as ResultadoEntrada
 }
+
+// ── Salidas, kardex y reinicio (30/09) ──────────────────────────────────
+
+type Rpc = (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>
+
+export type MotivoSalida =
+  | 'merma' | 'caducado' | 'danado' | 'error_preparacion' | 'consumo_interno' | 'ajuste' | 'otro'
+
+export interface LineaSalida {
+  insumo_id: string
+  cantidad: number
+  motivo: MotivoSalida
+  nota?: string
+}
+
+/**
+ * Salidas que no son venta (merma, caducado, consumo interno…). Resta del
+ * almacén y queda en el kardex con quién, por qué y cuánto dinero fue.
+ * `fecha` vacía = ahora; puede ser de días pasados, nunca futura.
+ */
+export async function registrarSalida(
+  sb: ShakeClient, almacenId: string, lineas: LineaSalida[], fecha?: string,
+): Promise<{ lineas: number; valor: number }> {
+  const { data, error } = await (sb.rpc as unknown as Rpc)('fn_inventario_salida', {
+    p_almacen_id: almacenId, p_lineas: lineas, p_fecha: fecha || null,
+  })
+  if (error) throw error
+  return data as { lineas: number; valor: number }
+}
+
+/**
+ * Pone en 0 las existencias elegidas. No borra historia: cada renglón deja
+ * un movimiento «reinicio» con lo que había. Pide el PIN de gerencia.
+ */
+export async function reiniciarInventario(sb: ShakeClient, p: {
+  almacenes: string[]; tipos: string[] | null; insumos: string[] | null; motivo: string; pin: string
+}): Promise<{ renglones: number; piezas: number; autorizo: string }> {
+  const { data, error } = await (sb.rpc as unknown as Rpc)('fn_inventario_reiniciar', {
+    p_almacenes: p.almacenes, p_tipos: p.tipos, p_insumos: p.insumos, p_motivo: p.motivo, p_pin: p.pin,
+  })
+  if (error) throw error
+  const r = data as { renglones: number; piezas: number | string; autorizo: string }
+  return { ...r, piezas: Number(r.piezas) }
+}
+
+export interface FilaKardex {
+  id: string
+  fecha: string
+  almacen: string
+  /** venta · compra · entrada · traspaso · conteo · costeos · reinicio · produccion · ajuste · merma · caducado · … */
+  clase: string
+  entrada: number | null
+  salida: number | null
+  saldo: number
+  responsable: string | null
+  folio: number | null
+  orden_id: string | null
+  motivo: string | null
+  nota: string | null
+  costo_unitario: number | null
+  valor: number
+}
+
+export async function kardex(
+  sb: ShakeClient, insumoId: string, almacenId?: string | null, desde?: string, hasta?: string,
+): Promise<FilaKardex[]> {
+  const { data, error } = await (sb.rpc as unknown as Rpc)('fn_kardex', {
+    p_insumo_id: insumoId, p_almacen_id: almacenId ?? null, p_desde: desde || null, p_hasta: hasta || null,
+  })
+  if (error) throw error
+  const n = (v: unknown) => (v == null ? null : Number(v))
+  return ((data ?? []) as Record<string, unknown>[]).map((f) => ({
+    ...(f as unknown as FilaKardex),
+    entrada: n(f.entrada), salida: n(f.salida), saldo: Number(f.saldo ?? 0),
+    costo_unitario: n(f.costo_unitario), valor: Number(f.valor ?? 0),
+  }))
+}
