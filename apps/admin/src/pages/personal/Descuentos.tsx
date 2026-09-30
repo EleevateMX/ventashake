@@ -3,8 +3,9 @@ import {
   catalogoPersonal, guardarPrecioPersonal, quienesUsanBeneficio, guardarClavePersonal,
   historialPersonal, configBeneficio, guardarConfigBeneficio,
   categoriasPersonal, precioPersonalPorCategoria, quitarBeneficioCategoria,
+  gruposPersonal, guardarGrupoPersonal, borrarGrupoPersonal,
   type ProductoConPrecioPersonal, type QuienUsaBeneficio,
-  type ConsumoDePersonal, type ConfigBeneficio, type CategoriaDePersonal,
+  type ConsumoDePersonal, type ConfigBeneficio, type CategoriaDePersonal, type GrupoPersonal,
 } from '@shake/supabase'
 import { mxn, mensajeDeError, hoyEnMerida, diasAntesEnMerida } from '@shake/utils'
 import { sb } from '../../lib/sb'
@@ -29,11 +30,19 @@ import { Panel, Loading, ErrorMsg, OkMsg, Chip, cx } from '../../ui'
  *   precio. Un producto puede tener precio y no consumir lugar.
  */
 
-const GRUPOS = [
-  { id: 'shake', label: 'Shake / Clásico' },
-  { id: 'alimento', label: 'Alimento' },
-  { id: 'bebida', label: 'Bebida' },
-] as const
+/**
+ * Los grupos del límite diario vienen de la base (`personal_grupos`):
+ * gerencia crea los suyos en Reglas —«Snacks» aparte de «Alimentos»— y
+ * aparecen aquí solos. Estaban escritos en el código como tres fijos.
+ */
+function useGrupos(onError: (m: string) => void) {
+  const [grupos, setGrupos] = useState<GrupoPersonal[]>([])
+  const recargar = useCallback(async () => {
+    try { setGrupos(await gruposPersonal(sb)) } catch (e) { onError(mensajeDeError(e)) }
+  }, [onError])
+  useEffect(() => { void recargar() }, [recargar])
+  return { grupos, recargar }
+}
 
 const PESTANAS = [
   { id: 'quienes', label: 'Quién lo tiene' },
@@ -211,6 +220,7 @@ function Precios({ onError, onOk }: { onError: (m: string) => void; onOk: (m: st
   const [texto, setTexto] = useState('')
   const [filas, setFilas] = useState<ProductoConPrecioPersonal[] | null>(null)
   const [soloConPrecio, setSoloConPrecio] = useState(true)
+  const { grupos } = useGrupos(onError)
 
   const cargar = useCallback(async (q: string) => {
     setFilas(null)
@@ -240,7 +250,7 @@ function Precios({ onError, onOk }: { onError: (m: string) => void; onOk: (m: st
         </p>
       </Panel>
 
-      <PorCategoria onError={onError} onOk={onOk} onListo={() => void cargar(texto)} />
+      <PorCategoria grupos={grupos} onError={onError} onOk={onOk} onListo={() => void cargar(texto)} />
 
       <div className="flex gap-3 flex-wrap items-center mb-4">
         <input
@@ -277,7 +287,7 @@ function Precios({ onError, onOk }: { onError: (m: string) => void; onOk: (m: st
             </thead>
             <tbody className={cx.tbody}>
               {visibles.map((p) => (
-                <FilaPrecio key={p.id} p={p} onGuardar={guardar} />
+                <FilaPrecio key={p.id} p={p} grupos={grupos} onGuardar={guardar} />
               ))}
             </tbody>
           </table>
@@ -288,9 +298,10 @@ function Precios({ onError, onOk }: { onError: (m: string) => void; onOk: (m: st
 }
 
 function FilaPrecio({
-  p, onGuardar,
+  p, grupos, onGuardar,
 }: {
   p: ProductoConPrecioPersonal
+  grupos: GrupoPersonal[]
   onGuardar: (p: ProductoConPrecioPersonal, precio: number | null, grupo: string | null) => void
 }) {
   const [precio, setPrecio] = useState(p.precio_personal?.toString() ?? '')
@@ -321,7 +332,7 @@ function FilaPrecio({
           className={`${cx.input} !py-1.5 text-xs`}
         >
           <option value="">— nada —</option>
-          {GRUPOS.map((g) => <option key={g.id} value={g.id}>{g.label}</option>)}
+          {grupos.map((g) => <option key={g.slug} value={g.slug}>{g.nombre}</option>)}
         </select>
       </td>
       <td className={cx.tdNum}>
@@ -359,8 +370,9 @@ function FilaPrecio({
  * apagaria el siguiente guardado de Costeos.
  */
 function PorCategoria({
-  onError, onOk, onListo,
+  grupos, onError, onOk, onListo,
 }: {
+  grupos: GrupoPersonal[]
   onError: (m: string) => void
   onOk: (m: string) => void
   onListo: () => void
@@ -368,7 +380,7 @@ function PorCategoria({
   const [abierto, setAbierto] = useState(false)
   const [cats, setCats] = useState<CategoriaDePersonal[] | null>(null)
   const [cat, setCat] = useState('')
-  const [grupo, setGrupo] = useState<'shake' | 'alimento' | 'bebida'>('shake')
+  const [grupo, setGrupo] = useState<string>('shake')
   const [modo, setModo] = useState<'precio' | 'pct'>('precio')
   const [valor, setValor] = useState('')
   const [soloSinPrecio, setSoloSinPrecio] = useState(false)
@@ -453,10 +465,10 @@ function PorCategoria({
           Consume el lugar de
           <select
             value={grupo}
-            onChange={(e) => setGrupo(e.target.value as typeof grupo)}
+            onChange={(e) => setGrupo(e.target.value)}
             className={`${cx.input} !py-2 block mt-1`}
           >
-            {GRUPOS.map((g) => <option key={g.id} value={g.id}>{g.label}</option>)}
+            {grupos.map((g) => <option key={g.slug} value={g.slug}>{g.nombre}</option>)}
           </select>
         </label>
 
@@ -600,6 +612,7 @@ function Historial({ onError }: { onError: (m: string) => void }) {
 function Reglas({ onError, onOk }: { onError: (m: string) => void; onOk: (m: string) => void }) {
   const [cfg, setCfg] = useState<ConfigBeneficio | null>(null)
   const [guardando, setGuardando] = useState(false)
+  const { grupos, recargar } = useGrupos(onError)
 
   useEffect(() => {
     configBeneficio(sb).then(setCfg).catch((e) => onError(mensajeDeError(e)))
@@ -607,15 +620,23 @@ function Reglas({ onError, onOk }: { onError: (m: string) => void; onOk: (m: str
 
   if (!cfg) return <Loading>Cargando…</Loading>
 
+  /**
+   * Guardar las reglas generales también escribe el límite de los tres
+   * grupos de siempre (así lo pide la función del servidor). Se mandan los
+   * que tiene la tabla de grupos AHORA, no los que se leyeron al abrir: si
+   * no, cambiar «Alimentos» arriba y luego guardar aquí lo regresaba.
+   */
+  const maxDe = (slug: string, respaldo: number) => grupos.find((g) => g.slug === slug)?.max_diario ?? respaldo
+
   return (
-    <div className="max-w-lg">
+    <div className="max-w-2xl space-y-5">
+      <GruposDeLimite grupos={grupos} onCambio={recargar} onError={onError} onOk={onOk} />
+
       <Panel>
+        <p className={`${cx.h3} mb-4`}>Reglas generales</p>
         <div className="space-y-4">
           {([
             ['tope_diario', 'Tope diario en pesos', 'Cuenta solo el precio de personal del producto base. Los extras se cobran normal y quedan fuera.'],
-            ['max_shake', 'Shakes o Clásicos al día', 'Los límites son por grupo: no pedir alimento no da derecho a un segundo shake.'],
-            ['max_alimento', 'Alimentos al día', ''],
-            ['max_bebida', 'Bebidas al día', ''],
           ] as const).map(([campo, etiqueta, ayuda]) => (
             <div key={campo}>
               <label className="flex items-center justify-between gap-4">
@@ -666,7 +687,15 @@ function Reglas({ onError, onOk }: { onError: (m: string) => void; onOk: (m: str
         <button
           onClick={async () => {
             setGuardando(true)
-            try { await guardarConfigBeneficio(sb, cfg); onOk('Reglas guardadas.') }
+            try {
+              await guardarConfigBeneficio(sb, {
+                ...cfg,
+                max_shake: maxDe('shake', cfg.max_shake),
+                max_alimento: maxDe('alimento', cfg.max_alimento),
+                max_bebida: maxDe('bebida', cfg.max_bebida),
+              })
+              onOk('Reglas guardadas.')
+            }
             catch (e) { onError(mensajeDeError(e)) }
             finally { setGuardando(false) }
           }}
@@ -677,5 +706,134 @@ function Reglas({ onError, onOk }: { onError: (m: string) => void; onOk: (m: str
         </button>
       </Panel>
     </div>
+  )
+}
+
+/**
+ * Los grupos del límite diario, cada uno con su máximo. Aquí se crea
+ * «Snacks» aparte de «Alimentos»: un producto consume el lugar de UN
+ * grupo (se elige en Precios), y los límites no se sustituyen entre sí.
+ */
+function GruposDeLimite({
+  grupos, onCambio, onError, onOk,
+}: {
+  grupos: GrupoPersonal[]
+  onCambio: () => Promise<void>
+  onError: (m: string) => void
+  onOk: (m: string) => void
+}) {
+  const [editando, setEditando] = useState<Record<string, string>>({})
+  const [nuevoNombre, setNuevoNombre] = useState('')
+  const [nuevoMax, setNuevoMax] = useState('1')
+  const [ocupado, setOcupado] = useState(false)
+
+  async function guardar(g: GrupoPersonal) {
+    const max = Number(editando[g.slug])
+    setOcupado(true)
+    try {
+      await guardarGrupoPersonal(sb, g.slug, g.nombre, max)
+      setEditando((e) => { const n = { ...e }; delete n[g.slug]; return n })
+      await onCambio()
+      onOk(`${g.nombre}: máximo ${max} al día.`)
+    } catch (e) { onError(mensajeDeError(e)) } finally { setOcupado(false) }
+  }
+
+  async function crear() {
+    if (!nuevoNombre.trim()) return
+    setOcupado(true)
+    try {
+      await guardarGrupoPersonal(sb, null, nuevoNombre.trim(), Number(nuevoMax) || 0)
+      onOk(`«${nuevoNombre.trim()}» creado. Ahora en Precios elige qué productos consumen ese lugar.`)
+      setNuevoNombre('')
+      setNuevoMax('1')
+      await onCambio()
+    } catch (e) { onError(mensajeDeError(e)) } finally { setOcupado(false) }
+  }
+
+  async function borrar(g: GrupoPersonal) {
+    if (!window.confirm(`¿Borrar el grupo «${g.nombre}»?`)) return
+    setOcupado(true)
+    try {
+      await borrarGrupoPersonal(sb, g.slug)
+      await onCambio()
+      onOk(`«${g.nombre}» se borró.`)
+    } catch (e) { onError(mensajeDeError(e)) } finally { setOcupado(false) }
+  }
+
+  return (
+    <Panel>
+      <p className={cx.h3}>Grupos y límites al día</p>
+      <p className="text-[12px] text-sa-green-ink/55 mt-1 mb-4 leading-snug">
+        Cada producto con beneficio consume el lugar de <b>un</b> grupo (se elige en
+        Precios). Los límites no se sustituyen: no pedir alimento no da derecho a un
+        segundo shake. Crea uno nuevo —«Snacks» para muffins y galletas— y luego
+        asígnale sus productos en Precios.
+      </p>
+
+      <div className="space-y-2">
+        {grupos.map((g) => {
+          const valor = editando[g.slug] ?? String(g.max_diario)
+          const cambio = editando[g.slug] != null && editando[g.slug] !== String(g.max_diario)
+          return (
+            <div key={g.slug} className="flex items-center gap-3 flex-wrap">
+              <span className="flex-1 min-w-[160px] text-sm text-sa-green-ink">
+                {g.nombre}
+                <span className="ml-2 font-mono text-[10px] text-sa-green-ink/45">
+                  {g.productos} producto{g.productos === 1 ? '' : 's'}
+                </span>
+              </span>
+              <label className="flex items-center gap-2 text-xs text-sa-green-ink/60">
+                máximo al día
+                <input
+                  type="number" min="0" max="10"
+                  value={valor}
+                  onChange={(e) => setEditando((x) => ({ ...x, [g.slug]: e.target.value }))}
+                  className="w-20 px-3 py-1.5 border border-sa-green-ink/15 rounded text-right font-mono text-sm"
+                />
+              </label>
+              <span className="w-24 text-right">
+                {cambio ? (
+                  <button disabled={ocupado} onClick={() => void guardar(g)} className="text-xs text-sa-green underline">
+                    Guardar
+                  </button>
+                ) : !g.fijo && g.productos === 0 ? (
+                  <button disabled={ocupado} onClick={() => void borrar(g)} className="text-xs text-sa-strawberry underline">
+                    Borrar
+                  </button>
+                ) : null}
+              </span>
+            </div>
+          )
+        })}
+      </div>
+
+      <div className="flex items-end gap-3 flex-wrap mt-5 pt-4 border-t border-dashed border-sa-green-ink/15">
+        <label className="text-xs text-sa-green-ink/60 flex-1 min-w-[160px]">
+          Nuevo grupo
+          <input
+            value={nuevoNombre}
+            onChange={(e) => setNuevoNombre(e.target.value)}
+            placeholder="Snacks"
+            className={`${cx.input} !py-2 block mt-1 w-full`}
+          />
+        </label>
+        <label className="text-xs text-sa-green-ink/60">
+          máximo al día
+          <input
+            type="number" min="0" max="10"
+            value={nuevoMax}
+            onChange={(e) => setNuevoMax(e.target.value)}
+            className="block mt-1 w-20 px-3 py-2 border border-sa-green-ink/15 rounded text-right font-mono text-sm"
+          />
+        </label>
+        <button
+          disabled={ocupado || !nuevoNombre.trim()}
+          onClick={() => void crear()}
+          className={cx.btnPrimary}
+        >
+          Crear grupo
+        </button>
+      </div>
+    </Panel>
   )
 }

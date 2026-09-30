@@ -251,9 +251,36 @@ export interface ProductoConPrecioPersonal {
   categoria: string | null
   precio: number
   precio_personal: number | null
-  grupo_personal: 'shake' | 'alimento' | 'bebida' | null
+  /** El slug de su grupo en `personal_grupos` (shake, alimento, bebida, snacks…). */
+  grupo_personal: string | null
   es_extra: boolean
 }
+
+/**
+ * Los grupos del límite diario. Vivían escritos en el código (shake,
+ * alimento, bebida); ahora gerencia crea los suyos —«Snacks», por
+ * ejemplo— y cada uno trae su propio límite. Los tres de siempre (`fijo`)
+ * no se borran.
+ */
+export interface GrupoPersonal {
+  slug: string
+  nombre: string
+  max_diario: number
+  orden: number
+  /** Productos activos con precio de personal en este grupo. */
+  productos: number
+  fijo: boolean
+}
+
+export const gruposPersonal = (sb: ShakeClient) =>
+  rpc<GrupoPersonal[]>(sb, 'fn_personal_grupos')
+
+/** Crea (slug = null) o edita un grupo. Devuelve su slug. */
+export const guardarGrupoPersonal = (sb: ShakeClient, slug: string | null, nombre: string, max: number) =>
+  rpc<string>(sb, 'fn_personal_grupo_guardar', { p_slug: slug, p_nombre: nombre, p_max: max })
+
+export const borrarGrupoPersonal = (sb: ShakeClient, slug: string) =>
+  rpc<void>(sb, 'fn_personal_grupo_borrar', { p_slug: slug })
 
 export const catalogoPersonal = (sb: ShakeClient, texto?: string) =>
   rpc<ProductoConPrecioPersonal[]>(sb, 'fn_personal_catalogo', { p_texto: texto?.trim() || null })
@@ -350,7 +377,7 @@ export const categoriasPersonal = (sb: ShakeClient) =>
 export const precioPersonalPorCategoria = (
   sb: ShakeClient,
   categoriaId: string,
-  grupo: 'shake' | 'alimento' | 'bebida',
+  grupo: string,
   opts: { precio?: number | null; descuentoPct?: number | null; soloSinPrecio?: boolean },
 ) =>
   rpc<{ aplicados: number; omitidos: number }>(sb, 'fn_personal_precio_categoria', {
