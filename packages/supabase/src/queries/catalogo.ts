@@ -1091,6 +1091,17 @@ export async function borrarObservacion(sb: ShakeClient, id: string): Promise<vo
   if (error) throw error
 }
 
+/** Guarda el orden de UNA estación, tal como quedó al arrastrar. */
+export async function reordenarObservaciones(
+  sb: ShakeClient, estacion: 'bebidas' | 'alimentos', ids: string[],
+): Promise<void> {
+  const { error } = await (sb.rpc as unknown as RpcCatalogo)('fn_observaciones_reordenar', {
+    p_cocina_slug: estacion,
+    p_ids: ids,
+  })
+  if (error) throw error
+}
+
 /**
  * Cambia la categoría de un producto Y la deja escrita en el JSON de costeo
  * (app_data), que es la fuente de verdad del catálogo. Sin eso, mover en

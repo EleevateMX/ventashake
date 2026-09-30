@@ -21,6 +21,7 @@ import {
   guardarObservacion,
   activarObservacion,
   borrarObservacion,
+  reordenarObservaciones,
   alcanceDeObservacion,
   fijarAlcanceObservacion,
 } from '@shake/supabase'
@@ -53,6 +54,9 @@ export default function Extras() {
   // checklist de categorias y productos. Mismo patron que "donde se
   // ofrece" de los extras, a proposito: es la misma pregunta.
   const [obsAbierta, setObsAbierta] = useState<string | null>(null)
+  /** La observación que se está arrastrando, y sobre cuál va. */
+  const [obsArrastrada, setObsArrastrada] = useState<string | null>(null)
+  const [obsSobre, setObsSobre] = useState<string | null>(null)
   const [alcance, setAlcance] = useState<AlcanceObservacion[]>([])
   const [cargandoAlcance, setCargandoAlcance] = useState(false)
   const [filtroAlcance, setFiltroAlcance] = useState('')
@@ -191,6 +195,44 @@ export default function Extras() {
       setObservaciones(await listarObservacionesAdmin(sb))
     } catch (e) {
       setError(mensajeDeError(e))
+    }
+  }
+
+  /**
+   * Suelta `arrastrada` en el lugar de `destino` dentro de su estación y
+   * guarda el orden nuevo. Se pinta antes de que conteste el servidor
+   * —si no, la fila «brinca» de regreso medio segundo— y si falla se
+   * vuelve a leer lo que de verdad quedó.
+   */
+  async function soltarObservacion(arrastrada: string, destino: string) {
+    setObsArrastrada(null)
+    setObsSobre(null)
+    if (arrastrada === destino) return
+    const a = observaciones.find((o) => o.id === arrastrada)
+    const d = observaciones.find((o) => o.id === destino)
+    if (!a || !d || a.cocina !== d.cocina) return
+    const suyas = observaciones.filter((o) => o.cocina === a.cocina)
+    const sin = suyas.filter((o) => o.id !== arrastrada)
+    const i = sin.findIndex((o) => o.id === destino)
+    // Bajando, cae DEBAJO del destino; subiendo, ENCIMA. Es lo que se ve
+    // al arrastrar: la fila ocupa el lugar de la que tapó.
+    const bajando = suyas.findIndex((o) => o.id === arrastrada) < suyas.findIndex((o) => o.id === destino)
+    const nuevas = [...sin.slice(0, bajando ? i + 1 : i), a, ...sin.slice(bajando ? i + 1 : i)]
+    const conOrden = nuevas.map((o, n) => ({ ...o, orden: (n + 1) * 10 }))
+    setObservaciones((prev) => {
+      const otras = prev.filter((o) => o.cocina !== a.cocina)
+      return [...otras, ...conOrden]
+    })
+    setError(null)
+    try {
+      await reordenarObservaciones(
+        sb, a.cocina.toLowerCase() === 'alimentos' ? 'alimentos' : 'bebidas', nuevas.map((o) => o.id),
+      )
+      setOk('Listo: el kiosko ya las muestra en este orden.')
+      setTimeout(() => setOk(null), 2500)
+    } catch (e) {
+      setError(mensajeDeError(e))
+      setObservaciones(await listarObservacionesAdmin(sb))
     }
   }
 
@@ -558,6 +600,8 @@ export default function Extras() {
           {' '}Con <strong>Dónde aplica</strong> se acota cada una a las categorías o
           productos donde tiene sentido — «Sin plátano» no tiene por qué salir en un café.
           {' '}Una sin acotar sigue saliendo en toda su estación, como hasta hoy.
+          {' '}<strong>Arrastra</strong> una desde <span className="text-sa-green-ink/50">⠿</span> para
+          cambiar el orden en que salen en el kiosko.
         </p>
 
         <div className="flex flex-wrap items-end gap-3 mb-5">
@@ -606,10 +650,36 @@ export default function Extras() {
                   {suyas.map((o) => (
                     <div
                       key={o.id}
-                      className={`flex items-center gap-2 px-3 py-2 rounded-sa bg-white border text-sm ${
+                      draggable
+                      onDragStart={(ev) => {
+                        setObsArrastrada(o.id)
+                        ev.dataTransfer.effectAllowed = 'move'
+                        // Safari no arrastra nada si no hay dato puesto.
+                        ev.dataTransfer.setData('text/plain', o.id)
+                      }}
+                      onDragOver={(ev) => {
+                        const a = observaciones.find((x) => x.id === obsArrastrada)
+                        if (!a || a.cocina !== o.cocina) return
+                        ev.preventDefault()
+                        if (obsSobre !== o.id) setObsSobre(o.id)
+                      }}
+                      onDrop={(ev) => {
+                        ev.preventDefault()
+                        if (obsArrastrada) void soltarObservacion(obsArrastrada, o.id)
+                      }}
+                      onDragEnd={() => { setObsArrastrada(null); setObsSobre(null) }}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-sa bg-white border text-sm transition-colors ${
                         o.activa ? 'border-sa-green/40' : 'border-sa-green-ink/10 opacity-60'
+                      } ${obsArrastrada === o.id ? 'opacity-40' : ''} ${
+                        obsSobre === o.id && obsArrastrada !== o.id ? 'ring-2 ring-sa-banana' : ''
                       }`}
                     >
+                      <span
+                        className="cursor-grab active:cursor-grabbing select-none text-sa-green-ink/35 text-base leading-none"
+                        title="Arrastra para cambiar el orden en el kiosko"
+                      >
+                        ⠿
+                      </span>
                       <span className="flex-1 truncate text-sa-green-ink">{o.texto}</span>
                       <button
                         className={`font-mono text-[11px] uppercase tracking-wide ${
