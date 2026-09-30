@@ -75,3 +75,43 @@ export function diasAntesEnMerida(dias: number, cuando: Date = new Date()): stri
   t.setUTCDate(t.getUTCDate() - dias)
   return hoyEnMerida(t)
 }
+
+export type TipoPeriodo = 'semana' | 'mes' | 'anio'
+
+const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio',
+  'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
+
+/**
+ * La semana, el mes o el año de Mérida que contiene hoy, recorrido
+ * `atras` periodos hacia el pasado (0 = el actual, 1 = el anterior…).
+ *
+ * La semana empieza en **lunes**, como la cuenta el negocio. Todo se
+ * calcula sobre el mediodía UTC, por la misma razón que
+ * `diasAntesEnMerida`: con medianoche el rango se corre un día entero.
+ */
+export function periodoEnMerida(
+  tipo: TipoPeriodo, atras = 0, cuando: Date = new Date(),
+): { desde: string; hasta: string; etiqueta: string } {
+  const hoy = hoyEnMerida(cuando)
+  const t = new Date(`${hoy}T12:00:00Z`)
+  const iso = (d: Date) => d.toISOString().slice(0, 10)
+  if (tipo === 'semana') {
+    const lunes = new Date(t)
+    lunes.setUTCDate(t.getUTCDate() - ((t.getUTCDay() + 6) % 7) - 7 * atras)
+    const domingo = new Date(lunes)
+    domingo.setUTCDate(lunes.getUTCDate() + 6)
+    const corto = (d: Date) => `${d.getUTCDate()} ${MESES[d.getUTCMonth()].slice(0, 3)}`
+    return { desde: iso(lunes), hasta: iso(domingo), etiqueta: `Semana del ${corto(lunes)} al ${corto(domingo)}` }
+  }
+  if (tipo === 'mes') {
+    const ini = new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth() - atras, 1, 12))
+    const fin = new Date(Date.UTC(ini.getUTCFullYear(), ini.getUTCMonth() + 1, 0, 12))
+    const nombre = MESES[ini.getUTCMonth()]
+    return {
+      desde: iso(ini), hasta: iso(fin),
+      etiqueta: `${nombre[0].toUpperCase()}${nombre.slice(1)} ${ini.getUTCFullYear()}`,
+    }
+  }
+  const anio = t.getUTCFullYear() - atras
+  return { desde: `${anio}-01-01`, hasta: `${anio}-12-31`, etiqueta: String(anio) }
+}

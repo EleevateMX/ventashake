@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { diasAntesEnMerida, hoyEnMerida, horaEnMerida, hace } from './fechas'
+import { diasAntesEnMerida, hoyEnMerida, horaEnMerida, hace, periodoEnMerida } from './fechas'
 
 describe('hoyEnMerida', () => {
   it('a las 18:30 locales sigue siendo el MISMO día, aunque en UTC ya sea mañana', () => {
@@ -75,5 +75,31 @@ describe('diasAntesEnMerida', () => {
   it('no se recorre un día por el anclaje de la hora', () => {
     // Si se anclara a medianoche UTC en vez de mediodía, esto daría el 29.
     expect(diasAntesEnMerida(30, new Date('2026-09-30T18:00:00Z'))).toBe('2026-08-31')
+  })
+})
+
+describe('periodoEnMerida', () => {
+  // Martes 30/09/2026 a las 20:00 de Mérida = 02:00Z del 1/10: el "hoy"
+  // de UTC ya es octubre, el de la tienda sigue en septiembre.
+  const noche = new Date('2026-10-01T02:00:00Z')
+
+  it('la semana va de lunes a domingo, en el día de Mérida', () => {
+    expect(periodoEnMerida('semana', 0, noche)).toMatchObject({ desde: '2026-09-28', hasta: '2026-10-04' })
+    expect(periodoEnMerida('semana', 1, noche)).toMatchObject({ desde: '2026-09-21', hasta: '2026-09-27' })
+  })
+
+  it('un domingo pertenece a la semana que empezó el lunes anterior', () => {
+    const domingo = new Date('2026-09-27T18:00:00Z')
+    expect(periodoEnMerida('semana', 0, domingo)).toMatchObject({ desde: '2026-09-21', hasta: '2026-09-27' })
+  })
+
+  it('el mes es el de Mérida, y retrocede cruzando el año', () => {
+    expect(periodoEnMerida('mes', 0, noche)).toEqual({ desde: '2026-09-01', hasta: '2026-09-30', etiqueta: 'Septiembre 2026' })
+    expect(periodoEnMerida('mes', 9, noche)).toMatchObject({ desde: '2025-12-01', hasta: '2025-12-31' })
+    expect(periodoEnMerida('mes', 7, noche)).toMatchObject({ desde: '2026-02-01', hasta: '2026-02-28' })
+  })
+
+  it('el año completo', () => {
+    expect(periodoEnMerida('anio', 1, noche)).toEqual({ desde: '2025-01-01', hasta: '2025-12-31', etiqueta: '2025' })
   })
 })
