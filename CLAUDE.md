@@ -77,6 +77,14 @@ Consecuencias que hay que respetar:
   el timbre de las pantallas. Ojo: las pantallas leen `productos` **en
   vivo**, así que publicar sincroniza *cuándo* lo ven, no congela lo que
   ven; un reinicio del kiosko también trae lo no publicado.
+- **La categoría se elige en Costeos al dar de alta** (30/09): columna
+  «Categoría» en Bebidas y Snacks, y junto al nombre en Shakes y
+  Alimentos, con la **misma lista que Admin**. Se guarda como
+  `categoria` (por nombre) en el producto del JSON, que
+  `fn_sync_app_data` ya respetaba en alta y actualización. Vacía = la de
+  su pestaña, como siempre. Muestra la categoría real que el producto ya
+  tiene en Admin (leída paginada: son más de 1 000 productos). Las
+  proteínas siguen repartiéndose solas por nombre (Scoops/Suplementos - …).
 - **El precio es la intención de venta**: `precioScoop` > 0 lo vende por
   scoop, `precioBote` > 0 vende el bote. El sufijo `- B` / `- R` en el
   sabor es legado que sigue funcionando, pero ya no hace falta.
