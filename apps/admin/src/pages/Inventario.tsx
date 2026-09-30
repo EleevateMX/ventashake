@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { sb } from '../lib/sb'
 import { stockPorAlmacen } from '@shake/supabase'
 import type { StockAlmacen } from '@shake/types'
-import { PageHeader, Loading, ErrorMsg, Panel, cx } from '../ui'
+import { PageHeader, Loading, ErrorMsg, OkMsg, Panel, cx } from '../ui'
 import { mensajeDeError } from '@shake/utils'
 import { HuecosInventario } from '../components/HuecosInventario'
+import { KardexInsumo, RegistrarSalida, ReiniciarInventario, TIPOS_INSUMO } from '../components/InventarioHerramientas'
 
 /**
  * El inventario tiene dos preguntas y no son la misma.
@@ -21,12 +22,14 @@ export default function Inventario() {
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
+  const cargar = useCallback(() => {
     stockPorAlmacen(sb)
-      .then(setStock)
+      .then((s) => { setStock(s); setError(null) })
       .catch((e) => setError(mensajeDeError(e)))
       .finally(() => setCargando(false))
   }, [])
+
+  useEffect(() => { cargar() }, [cargar])
 
   const pestanas: { id: Vista; label: string }[] = [
     { id: 'existencias', label: 'Existencias' },
@@ -37,7 +40,7 @@ export default function Inventario() {
     <div>
       <PageHeader
         title="Inventario"
-        subtitle={vista === 'existencias' ? 'Stock por almacén' : 'Lo que se vende y no baja del almacén'}
+        subtitle={vista === 'existencias' ? 'Stock por almacén · toca un producto para ver su kardex' : 'Lo que se vende y no baja del almacén'}
         action={
           <div className="flex gap-1">
             {pestanas.map((p) => (
@@ -53,26 +56,53 @@ export default function Inventario() {
         }
       />
 
-      {vista === 'huecos' ? <HuecosInventario /> : <Existencias stock={stock} cargando={cargando} error={error} />}
+      {vista === 'huecos' ? <HuecosInventario /> : <Existencias stock={stock} cargando={cargando} error={error} onCambio={cargar} />}
     </div>
   )
 }
 
-function Existencias({ stock, cargando, error }: {
-  stock: StockAlmacen[]; cargando: boolean; error: string | null
+function Existencias({ stock, cargando, error, onCambio }: {
+  stock: StockAlmacen[]; cargando: boolean; error: string | null; onCambio: () => void
 }) {
+  const [q, setQ] = useState('')
+  const [almacen, setAlmacen] = useState('')
+  const [tipo, setTipo] = useState('')
+  const [soloConExistencia, setSoloConExistencia] = useState(false)
+  const [kardexDe, setKardexDe] = useState<StockAlmacen | null>(null)
+  const [modal, setModal] = useState<'salida' | 'reinicio' | null>(null)
+  const [aviso, setAviso] = useState<string | null>(null)
+
+  const almacenes = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const s of stock) if (s.almacen_id) m.set(s.almacen_id, s.almacen ?? '—')
+    return [...m.entries()].map(([id, nombre]) => ({ id, nombre })).sort((a, b) => a.nombre.localeCompare(b.nombre))
+  }, [stock])
+
+  const filtrado = useMemo(() => {
+    const t = q.trim().toLowerCase()
+    return stock.filter((s) =>
+      (!t || (s.insumo ?? '').toLowerCase().includes(t)) &&
+      (!almacen || s.almacen_id === almacen) &&
+      (!tipo || s.insumo_tipo === tipo) &&
+      (!soloConExistencia || Number(s.stock_actual ?? 0) !== 0))
+  }, [stock, q, almacen, tipo, soloConExistencia])
+
   if (cargando) return <Loading>Cargando inventario…</Loading>
+
+  const hecho = (msg: string) => { setModal(null); setAviso(msg); onCambio() }
 
   return (
     <div>
       {error && <ErrorMsg>{error}</ErrorMsg>}
+      {aviso && <OkMsg>{aviso}</OkMsg>}
 
       {/* La pregunta que hizo gerencia al ver los rojos: sí, puede quedar en
           negativo, y es a propósito. Un negativo se ve y se corrige; un
           cero que nunca baja no se ve nunca. */}
       <Panel className="mb-4">
         <p className="text-sm text-sa-green-ink/75 leading-relaxed">
-          <b>Estas existencias ya descuentan cada venta.</b> Un número en
+          <b>Estas existencias ya descuentan cada venta, y son las mismas que enseña Costeos → Inventario</b> (las
+          dos leen la misma tabla). Un número en
           <span className="text-sa-strawberry font-semibold"> negativo </span>
           quiere decir que se vendió más de lo que el sistema sabía que había —casi
           siempre porque esa mercancía nunca se dio de alta, o porque en caja se
@@ -84,8 +114,27 @@ function Existencias({ stock, cargando, error }: {
         </p>
       </Panel>
 
-      {stock.length === 0 ? (
-        <Panel><p className={cx.muted}>Sin existencias registradas.</p></Panel>
+      <div className="flex flex-wrap gap-2 items-center mb-4">
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar…" className={`${cx.input} w-56`} />
+        <select value={almacen} onChange={(e) => setAlmacen(e.target.value)} className={`${cx.input} w-auto`}>
+          <option value="">Todos los almacenes</option>
+          {almacenes.map((a) => <option key={a.id} value={a.id}>{a.nombre}</option>)}
+        </select>
+        <select value={tipo} onChange={(e) => setTipo(e.target.value)} className={`${cx.input} w-auto`}>
+          <option value="">Todas las categorías</option>
+          {Object.entries(TIPOS_INSUMO).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+        </select>
+        <label className="flex items-center gap-2 text-sm text-sa-green-ink">
+          <input type="checkbox" checked={soloConExistencia} onChange={(e) => setSoloConExistencia(e.target.checked)} />
+          Solo con existencia
+        </label>
+        <div className="flex-1" />
+        <button onClick={() => { setAviso(null); setModal('salida') }} className={cx.btnSec}>Registrar salida</button>
+        <button onClick={() => { setAviso(null); setModal('reinicio') }} className={cx.btnSec}>Reiniciar inventario</button>
+      </div>
+
+      {filtrado.length === 0 ? (
+        <Panel><p className={cx.muted}>Sin existencias que empaten.</p></Panel>
       ) : (
         <div className={cx.tableWrap}>
           <table className={cx.table}>
@@ -99,8 +148,9 @@ function Existencias({ stock, cargando, error }: {
               </tr>
             </thead>
             <tbody className={cx.tbody}>
-              {stock.map((s) => (
-                <tr key={s.id ?? Math.random()} className={`${cx.tr} ${s.bajo_minimo ? 'bg-sa-strawberry/5' : ''}`}>
+              {filtrado.map((s) => (
+                <tr key={s.id ?? Math.random()} onClick={() => setKardexDe(s)}
+                  className={`${cx.tr} cursor-pointer ${s.bajo_minimo ? 'bg-sa-strawberry/5' : ''}`}>
                   <td className={`${cx.td} font-medium`}>{s.insumo ?? '—'}</td>
                   <td className={cx.td}>{s.almacen ?? '—'}</td>
                   <td className={`${cx.tdNum} ${s.bajo_minimo ? 'text-sa-strawberry font-semibold' : ''}`}>
@@ -113,6 +163,17 @@ function Existencias({ stock, cargando, error }: {
             </tbody>
           </table>
         </div>
+      )}
+
+      {kardexDe?.insumo_id && (
+        <KardexInsumo insumoId={kardexDe.insumo_id} insumo={kardexDe.insumo ?? ''} unidad={kardexDe.unidad}
+          almacenes={almacenes} onCerrar={() => setKardexDe(null)} />
+      )}
+      {modal === 'salida' && (
+        <RegistrarSalida stock={stock} almacenes={almacenes} onCerrar={() => setModal(null)} onHecho={hecho} />
+      )}
+      {modal === 'reinicio' && (
+        <ReiniciarInventario stock={stock} almacenes={almacenes} onCerrar={() => setModal(null)} onHecho={hecho} />
       )}
     </div>
   )

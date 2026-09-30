@@ -288,6 +288,24 @@ caja salen de `presentacion` («Pack 21/1L» → 21).
 había solo sumaban en el destino, así que bodega seguía diciendo que tenía
 lo que ya había mandado.
 
+**Kardex, salidas y reinicio** (30/09). Admin → Inventario: tocar un
+renglón abre su **kardex** (`fn_kardex`: tipo, entrada, salida, saldo,
+responsable, ticket que se abre); «Registrar salida» apunta lo que sale
+sin venderse con motivo (`fn_inventario_salida`); «Reiniciar inventario»
+pone en 0 lo elegido con PIN de gerencia (`fn_inventario_reiniciar`,
+permiso `reiniciar_inventario`, que ningún rol de caja tiene).
+
+- `inventario_movimientos` ganó `empleado_id`, `motivo`,
+  `existencia_antes/despues` y los tipos `salida`, `conteo`, `reinicio`,
+  `produccion`. Todo null en lo viejo: **el descuento por venta no se
+  tocó**.
+- La historia **no se reescribe**: lo viejo no traía tipo fino (el ajuste
+  de Costeos y el conteo eran los dos `ajuste`, y la sincronización del
+  kiosko se escribía como `traspaso`), así que la **clase** se deduce en
+  `fn_kardex` por la nota. Lo nuevo ya nace con su tipo.
+- El saldo del kardex es la existencia de hoy menos lo movido después de
+  cada renglón.
+
 ### 2.4 La impresión vive fuera de la nube
 
 `agente-impresion/` es un programa Node que corre **en la PC de la tienda**
@@ -1106,6 +1124,9 @@ empaquetador y se desvían solas:
 | Instalar en una PC nueva | Admin → **Descargas** → "Instalar todo" |
 | Cambiar el rollo de etiquetas | Kiosko → **"Caja y turno"** → PIN → "¿Cambiaste el rollo?" → Calibrar |
 | Llegó mercancía | Kiosko → **"Caja y turno"** → PIN → **"¿Llegó mercancía?"** → por caja o por pieza. Di si vino de bodega: eso la resta allá |
+| Ver qué le pasó a un producto (kardex) | Admin → **Inventario** → toca el renglón. Ventas con su ticket, compras, traspasos, conteos, mermas, con quién |
+| Se tiró, caducó o se consumió algo | Admin → Inventario → **«Registrar salida»** → producto, cantidad y motivo |
+| Empezar de cero antes de un conteo | Admin → Inventario → **«Reiniciar inventario»** → ubicación, qué, motivo y PIN de gerencia. No borra historia |
 | Ver por qué el inventario no baja | Admin → Inventario → **"Lo que no descuenta"** |
 | Una observación sale donde no debe | Admin → Extras → *Observaciones* → **"Dónde aplica"**. Marca la categoría (un clic para los 250 shakes) o los productos sueltos |
 | Vender un extra suelto (chipotle, pepinillos) | Admin → **Extras** → *Vender solo* → precio y en qué botón del menú |

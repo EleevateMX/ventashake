@@ -4469,7 +4469,7 @@ export type Database = {
       tipo_documento_impresion: "comanda" | "ticket"
       tipo_insumo: "proteina" | "shake" | "alimento" | "empaque" | "reventa"
       tipo_mancuerna: "ganadas" | "canje" | "ajuste" | "promo" | "proximidad"
-      tipo_movimiento: "compra" | "venta" | "traspaso" | "ajuste" | "merma"
+      tipo_movimiento: "compra" | "venta" | "traspaso" | "ajuste" | "merma" | "salida" | "conteo" | "reinicio" | "produccion"
       tipo_promocion:
         | "descuento_pct"
         | "descuento_monto"
@@ -4662,7 +4662,7 @@ export const Constants = {
       tipo_documento_impresion: ["comanda", "ticket"],
       tipo_insumo: ["proteina", "shake", "alimento", "empaque", "reventa"],
       tipo_mancuerna: ["ganadas", "canje", "ajuste", "promo", "proximidad"],
-      tipo_movimiento: ["compra", "venta", "traspaso", "ajuste", "merma"],
+      tipo_movimiento: ["compra", "venta", "traspaso", "ajuste", "merma", "salida", "conteo", "reinicio", "produccion"],
       tipo_promocion: [
         "descuento_pct",
         "descuento_monto",

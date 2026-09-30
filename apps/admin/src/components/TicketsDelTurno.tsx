@@ -82,7 +82,7 @@ function Renglon({ r, sangria = false }: { r: RenglonTicket; sangria?: boolean }
   )
 }
 
-function Detalle({ ordenId, onCerrar }: { ordenId: string; onCerrar: () => void }) {
+export function DetalleDeTicket({ ordenId, onCerrar }: { ordenId: string; onCerrar: () => void }) {
   const [t, setT] = useState<TicketDetalle | null>(null)
   const [error, setError] = useState<string | null>(null)
   /**
@@ -321,7 +321,7 @@ export function TicketsDelTurno({ corteId }: { corteId: string }) {
         )}
       </div>
 
-      {viendo && <Detalle ordenId={viendo} onCerrar={() => setViendo(null)} />}
+      {viendo && <DetalleDeTicket ordenId={viendo} onCerrar={() => setViendo(null)} />}
     </div>
   )
 }
