@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { usePosStore } from '@/store/posStore'
 import { sb } from '../lib/sb'
-import { listarAlmacenes, listarCajas, corteAbierto, abrirCaja } from '@shake/supabase'
+import { listarAlmacenes, listarCajas, corteAbierto, abrirCaja, fondoEstablecido } from '@shake/supabase'
 import { CatalogoBusqueda } from '@/components/pos/CatalogoBusqueda'
 import { OrdenPanel } from '@/components/pos/OrdenPanel'
 import { useProductosPOS } from '@/hooks/useProductosPOS'
@@ -21,6 +21,8 @@ export function Caja() {
   const [cargandoCtx, setCargandoCtx] = useState(!corte)
   const [error, setError] = useState<string | null>(null)
   const [fondo, setFondo] = useState('0')
+  /** El fondo estándar de gerencia: llega ya escrito y se puede cambiar. */
+  const [sugerido, setSugerido] = useState<number | null>(null)
   const [abriendo, setAbriendo] = useState(false)
   const [verEspera, setVerEspera] = useState(false)
 
@@ -52,6 +54,11 @@ export function Caja() {
         const abierto = await corteAbierto(sb, c.id)
         if (!vivo) return
         setContexto({ almacen: kiosko, caja: c, corte: abierto })
+        if (!abierto) {
+          // Si no se puede leer, se abre como siempre: desde cero.
+          const f = await fondoEstablecido(sb).catch(() => null)
+          if (vivo && f != null) { setSugerido(f); setFondo(String(f)) }
+        }
       } catch (e) {
         if (vivo) setError(mensajeDeError(e))
       } finally {
@@ -114,6 +121,21 @@ export function Caja() {
                     className="w-full pl-10 pr-4 py-3 bg-white border border-sa-green-ink/10 rounded-sa font-mono text-2xl text-sa-green-ink focus:outline-none focus:ring-2 focus:ring-sa-green/30"
                   />
                 </div>
+                {/* Se puede abrir con otro monto (un día sin cambio): no se
+                    bloquea, se dice. La base guarda el real y el recomendado. */}
+                {sugerido != null && (() => {
+                  const dif = (Number(fondo) || 0) - sugerido
+                  return (
+                    <div className="mt-3 font-mono text-xs space-y-0.5">
+                      <div className="flex justify-between font-bold text-sa-green-ink"><span>Fondo recomendado</span><span>{mxn(sugerido)}</span></div>
+                      <div className="flex justify-between text-sa-green-ink/60"><span>Fondo ingresado</span><span>{mxn(Number(fondo) || 0)}</span></div>
+                      <div className={`flex justify-between ${dif === 0 ? 'text-sa-green' : 'text-sa-strawberry'}`}>
+                        <span>Diferencia</span>
+                        <span>{dif === 0 ? 'cuadra' : `${dif > 0 ? '+' : '−'}${mxn(Math.abs(dif))}`}</span>
+                      </div>
+                    </div>
+                  )
+                })()}
               </div>
               <button
                 onClick={() => void handleAbrir()}

@@ -37,6 +37,25 @@ export async function corteAbierto(sb: ShakeClient, cajaId: string): Promise<Caj
  */
 export type DesgloseEfectivo = Conteo
 
+/**
+ * El fondo estándar con el que se abre la caja (lo fija gerencia en Admin →
+ * Cortes). null = no hay fondo establecido y la pantalla no sugiere nada.
+ * Al abrir, la base anota sola cuánto era (`caja_cortes.fondo_sugerido`),
+ * así que lo que se abrió de verdad y lo que se esperaba quedan juntos.
+ */
+export async function fondoEstablecido(sb: ShakeClient): Promise<number | null> {
+  const { data, error } = await sb.from('parametros').select('fondo_caja').eq('id', 'default').maybeSingle()
+  if (error) throw error
+  return data?.fondo_caja == null ? null : Number(data.fondo_caja)
+}
+
+export async function guardarFondoEstablecido(sb: ShakeClient, monto: number | null): Promise<void> {
+  const { error } = await (sb.rpc as unknown as (
+    fn: string, args: Record<string, unknown>,
+  ) => Promise<{ error: unknown }>)('fn_fondo_caja_guardar', { p_monto: monto })
+  if (error) throw error
+}
+
 export async function abrirCaja(
   sb: ShakeClient,
   cajaId: string,

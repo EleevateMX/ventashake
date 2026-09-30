@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import {
   listarAlmacenes, listarCajas, corteAbierto, abrirCaja, cerrarCaja, resumenCorte,
   entrarConPin, salirDeSesion, empleadoDeLaSesion, misPermisos, RequiereAutorizacion,
+  fondoEstablecido,
 } from '@shake/supabase'
 import type { EmpleadoSesion, Permiso } from '@shake/supabase'
 import type { Caja, CajaCorte, CorteResumen } from '@shake/types'
@@ -54,6 +55,8 @@ export function CorteMilo({ abierto, onCerrar }: Props) {
    * no estan.
    */
   const [conteoApertura, setConteoApertura] = useState<Conteo>(CONTEO_VACIO)
+  /** El fondo estándar que fijó gerencia. null = no hay, no se sugiere nada. */
+  const [fondoSugerido, setFondoSugerido] = useState<number | null>(null)
   const [guardando, setGuardando] = useState(false)
   const [resultado, setResultado] = useState<'abierto' | 'cerrado' | null>(null)
   /**
@@ -108,6 +111,8 @@ export function CorteMilo({ abierto, onCerrar }: Props) {
         setResumen(await resumenCorte(sb, abierta.id))
         setFase('cerrar')
       } else {
+        // Si no se puede leer, se abre como siempre: sin sugerencia.
+        setFondoSugerido(await fondoEstablecido(sb).catch(() => null))
         setFase('abrir')
       }
     } catch (e) {
@@ -318,6 +323,23 @@ export function CorteMilo({ abierto, onCerrar }: Props) {
                 </p>
               )}
               <ConteoDeCaja conteo={conteoApertura} onCambiar={setConteoApertura} etiqueta="Fondo inicial en caja" />
+              {/* El fondo que fijó gerencia, contra lo contado. Se puede abrir
+                  con otro monto (hay días que falta cambio): no se bloquea,
+                  se dice. La base guarda los dos. */}
+              {fondoSugerido != null && (() => {
+                const contado = sumaConteo(conteoApertura)
+                const dif = contado - fondoSugerido
+                return (
+                  <div className="mt-3 rounded-sa border border-sa-green-ink/10 bg-white px-4 py-3 font-mono text-sm">
+                    <div className="flex justify-between"><span className="font-bold">Fondo recomendado</span><span className="font-bold">{mxn(fondoSugerido)}</span></div>
+                    <div className="flex justify-between text-sa-green-ink/70"><span>Fondo contado</span><span>{mxn(contado)}</span></div>
+                    <div className={`flex justify-between ${contado === 0 ? 'text-sa-green-ink/40' : dif === 0 ? 'text-sa-green' : 'text-sa-strawberry'}`}>
+                      <span>Diferencia</span>
+                      <span>{contado === 0 ? '—' : dif === 0 ? 'cuadra' : `${dif > 0 ? '+' : '−'}${mxn(Math.abs(dif))}`}</span>
+                    </div>
+                  </div>
+                )
+              })()}
               <button
                 onClick={() => void abrirTurno()}
                 disabled={guardando || sumaConteo(conteoApertura) <= 0 || (permisos != null && !permisos.abrir_caja)}
