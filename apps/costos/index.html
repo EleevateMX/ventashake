@@ -389,7 +389,7 @@ let currentUser=null;
    puerta. */
 let sessToken=null;
 /* ===== Auto-actualización (sin borrar caché a mano) ===== */
-const APP_VERSION="2026-07-19-02";
+const APP_VERSION="2026-09-30-01";
 async function checkForUpdate(){try{
   const r=await fetch(location.pathname+"?_="+Date.now(),{cache:"no-store"});
   if(!r.ok)return;const t=await r.text();
@@ -720,10 +720,47 @@ async function cargarVivo(){
   if(!sb||!sessToken)return;
   try{const r=await sb.rpc('fn_costos_existencias',{p_token:sessToken});if(!r.error&&r.data)vivoInv=r.data;}catch(e){}
 }
+/* Categoria desde el alta (30/09). Antes un producto nuevo nacia en la
+   categoria "de su pestana" (Shakes, Alimentos, Bebidas, Snacks) y habia que
+   ir a Admin a acomodarlo: si se olvidaba, los chicos no lo encontraban.
+   Aqui se elige de la MISMA lista que Admin, y se guarda en el producto
+   como `categoria` (por nombre): fn_sync_app_data ya la respeta al dar de
+   alta y al actualizar.
+   `catDeProducto` es la categoria que cada producto YA tiene en Admin, para
+   ensenar la verdad aunque nunca se haya elegido aqui. Se pagina: son mas
+   de 1000 productos y PostgREST corta en 1000 sin avisar. */
+let catsAdmin=null, catDeProducto={};
+const TABS_CON_CATEGORIA=["shakes","alimentos","bebidas","snacks"];
+async function cargarCategorias(){
+  if(!sb){catsAdmin=[];return;}
+  try{
+    const c=await sb.from("categorias").select("id,nombre,orden").order("orden").order("nombre");
+    if(c.error)throw c.error;
+    const porId={};(c.data||[]).forEach(x=>{porId[x.id]=x.nombre;});
+    const m={},activo={};
+    for(let d=0;;d+=1000){
+      const r=await sb.from("productos").select("id,nombre,categoria_id,activo").eq("es_extra",false).eq("es_combo",false).order("id").range(d,d+999);
+      if(r.error)throw r.error;
+      (r.data||[]).forEach(p=>{if(!p.categoria_id||!porId[p.categoria_id])return;const k=String(p.nombre||"").trim().toLowerCase();
+        if(m[k]&&activo[k]&&!p.activo)return;m[k]=porId[p.categoria_id];activo[k]=p.activo;});
+      if(!r.data||r.data.length<1000)break;}
+    catDeProducto=m;
+    catsAdmin=(c.data||[]).filter(x=>!/^Extras( Bebidas)?$/.test(x.nombre)&&x.nombre!=="Combos");
+  }catch(e){catsAdmin=catsAdmin||[];}
+}
+function catSelect(it,porDefecto,estilo){
+  if(!catsAdmin)return `<select disabled style="${estilo||""}"><option>Cargando categorías…</option></select>`;
+  const actual=it.categoria||catDeProducto[String(it.nombre||"").trim().toLowerCase()]||"";
+  const nombres=catsAdmin.map(c=>c.nombre);if(actual&&nombres.indexOf(actual)<0)nombres.unshift(actual);
+  const o=`<option value="">— ${esc(porDefecto)} —</option>`+nombres.map(n=>`<option value="${esc(n)}" ${n===actual?"selected":""}>${esc(n)}</option>`).join("");
+  return `<select data-f="categoria" style="${estilo||""}" title="Categoría en Admin y en el kiosko. La misma lista que Admin → Categorías.">${o}</select>`;
+}
 function renderNav(){
   document.getElementById("nav").innerHTML=TABS.map(([id,n])=>`<button data-tab="${id}" class="${id===tab?'active':''}">${n}</button>`).join("");
   document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{tab=b.dataset.tab;renderNav();render();window.scrollTo(0,0);});}
 function render(){const m=document.getElementById("main");
+  if(catsAdmin===null&&TABS_CON_CATEGORIA.indexOf(tab)>=0){catsAdmin=false;
+    cargarCategorias().then(()=>{if(TABS_CON_CATEGORIA.indexOf(tab)>=0)render();});}
   if(tab==="dash")return renderDash(m);
   if(tab==="param")return renderParams(m);
   if(tab==="prot")return renderProt(m);
@@ -1092,7 +1129,7 @@ function renderRecipes(m,type){
      ${pendientes.length?`<br><b>${pendientes.length} de ${list.length}</b> todavía no tienen ningún empaque asignado: ${pendientes.map(r=>esc(r.nombre)).join(", ")}.`:""}
    </div>`:"";
   m.innerHTML=`<h2>Costeo ${isShake?"Shakes":"Alimentos"}</h2>
-   <p class="hint">Cada uno tiene su <b>número de item</b>. Puedes editar el nombre, agregar o quitar ingredientes con los botones. “% merma” vacío usa el default (${pct(state.params.merma)}). El <b>precio de referencia</b> es solo orientativo; tu precio de venta manda. Si un ingrediente tiene <b>porciones</b> definidas (ej. pollo de Ensalada o Sándwich), elígelas en el menú (líneas con “↳”) y la cantidad se pone sola. Marca o desmarca <b>“El precio ya incluye IVA”</b> y el desglose (base, IVA y total) se ajusta solo.</p>
+   <p class="hint">Cada uno tiene su <b>número de item</b>. Puedes editar el nombre, agregar o quitar ingredientes con los botones. “% merma” vacío usa el default (${pct(state.params.merma)}). El <b>precio de referencia</b> es solo orientativo; tu precio de venta manda. Si un ingrediente tiene <b>porciones</b> definidas (ej. pollo de Ensalada o Sándwich), elígelas en el menú (líneas con “↳”) y la cantidad se pone sola. Marca o desmarca <b>“El precio ya incluye IVA”</b> y el desglose (base, IVA y total) se ajusta solo. Junto al nombre eliges su <b>categoría</b> (la misma lista que Admin): así nace ya acomodado en el kiosko.</p>
    ${migBanner}
    <div id="reclist"></div><button class="btn ghost" id="addrec">+ Agregar ${isShake?"shake":"alimento"}</button>`;
   const cont=m.querySelector("#reclist");
@@ -1117,6 +1154,7 @@ function recipeCard(r,ri,type,ingList,isShake){
      <input class="code" data-f="codigo" value="${esc(r.codigo)}" title="Clave / número de item" placeholder="Clave">
      <input class="code" data-f="codigoBarras" value="${esc(r.codigoBarras)}" title="Código de barras" placeholder="Cód. barras">
      <input class="name" data-f="nombre" value="${esc(r.nombre)}">
+     ${catSelect(r,isShake?"Shakes":"Alimentos","max-width:240px")}
      ${isShake?`<select data-f="protein" style="max-width:220px">${protOpts}</select><input class="n" data-f="scoops" value="${esc(r.scoops)}" style="width:58px" title="scoops">`:''}</div>
    <div class="ings"></div>
    <div class="addbar"><button class="btn ghost mini" data-act="adding">+ ingrediente</button></div>
@@ -1187,8 +1225,8 @@ function recipeCard(r,ri,type,ingList,isShake){
 function renderResale(m,key,title,unitLabel){
   unitLabel=unitLabel||"Beb";
   m.innerHTML=`<h2>${title} <span class="muted" style="font-size:13px">(reventa)</span></h2>
-   <p class="hint">Clave, proveedor, última compra y caducidad. <b>Costo caja</b> y <b>Pzas/caja</b> generan el <b>Costo/${unitLabel}</b> automático. Inventario doble (cajas en bodega / piezas en kiosko). Usa <b>⇄</b> para traspasar una caja a piezas con clave, y <b>⠿</b> / <b>↑ ↓</b> para acomodar el orden.</p>
-   <div class="scroll"><table><thead><tr><th class="sticky">Producto</th><th>Clave</th><th>Cód. barras</th><th>Marca</th><th>Proveedor</th>
+   <p class="hint">Clave, proveedor, última compra y caducidad. <b>Costo caja</b> y <b>Pzas/caja</b> generan el <b>Costo/${unitLabel}</b> automático. Inventario doble (cajas en bodega / piezas en kiosko). Usa <b>⇄</b> para traspasar una caja a piezas con clave, y <b>⠿</b> / <b>↑ ↓</b> para acomodar el orden. La <b>Categoría</b> es donde sale en Admin y en el kiosko: elígela al dar de alta y ya no hay que ir a acomodarlo después.</p>
+   <div class="scroll"><table><thead><tr><th class="sticky">Producto</th><th>Categoría</th><th>Clave</th><th>Cód. barras</th><th>Marca</th><th>Proveedor</th>
    <th>Pres. orig.</th><th class="num">Costo caja</th><th class="num">Pzas/caja</th><th class="num">Costo/${unitLabel}</th><th class="num">Precio/${unitLabel}</th><th class="num">Margen %</th>
    <th class="num">Inv cajas</th><th class="num">Mín cajas</th><th class="num">Inv piezas</th><th class="num">Mín piezas</th><th>Acción</th></tr></thead><tbody>
    ${state[key].map((p,i)=>{const pz=+p.equivPiezas||0;const costo=pz?(+p.costoCaja||0)/pz:0;const sin=(+p.precio||0)/(1+state.params.iva);const mp=sin?(sin-costo)/sin:0;
@@ -1196,6 +1234,7 @@ function renderResale(m,key,title,unitLabel){
      const mpInfo='<b>Margen %</b><br>(Precio/'+unitLabel+' sin IVA − Costo/'+unitLabel+') ÷ Precio sin IVA<br>Precio sin IVA = '+fmt(sin)+' → <b>'+pct(mp)+'</b>';
      return `<tr data-i="${i}">
      <td class="sticky"><input class="w-tx" data-f="nombre" value="${esc(p.nombre)}" style="font-weight:600"></td>
+     <td>${catSelect(p,key==="bebidas"?"Bebidas":"Snacks","min-width:180px")}</td>
      <td><input class="w-md" data-f="codigo" value="${esc(p.codigo)}"></td>
      <td><input class="w-md" data-f="codigoBarras" value="${esc(p.codigoBarras)}"></td>
      <td><input class="w-tx" data-f="marca" value="${esc(p.marca)}"></td>
