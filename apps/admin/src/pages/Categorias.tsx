@@ -7,6 +7,8 @@ import {
   crearCategoria,
   actualizarCategoria,
   moverCategoriaProducto,
+  renombrarCategoria,
+  eliminarCategoria,
 } from '@shake/supabase'
 import type { Producto, Categoria, Cocina } from '@shake/types'
 import { mxn, mensajeDeError } from '@shake/utils'
@@ -167,16 +169,39 @@ export default function Categorias() {
     setEditCocina(c.cocina_id ?? '')
   }
 
+  /**
+   * El nombre va por `renombrarCategoria` y no por un update directo:
+   * Costeos guarda la categoría de cada producto POR NOMBRE, y cambiarla
+   * solo aquí dejaba el nombre viejo allá — el siguiente producto dado de
+   * alta en Costeos con esa categoría nacía sin ninguna.
+   */
   async function guardarEdicion() {
     if (!editId || !editNombre.trim()) return
+    const actual = catPorId.get(editId)
     setError(null)
     try {
-      await actualizarCategoria(sb, editId, {
-        nombre: editNombre.trim(),
-        ...(editCocina ? { cocina_id: editCocina } : {}),
-      })
+      if (actual && actual.nombre !== editNombre.trim()) {
+        await renombrarCategoria(sb, editId, editNombre.trim())
+      }
+      if (editCocina && editCocina !== actual?.cocina_id) {
+        await actualizarCategoria(sb, editId, { cocina_id: editCocina })
+      }
       setEditId(null)
       await cargar()
+    } catch (e) {
+      setError(mensajeDeError(e))
+    }
+  }
+
+  async function eliminar(c: Categoria) {
+    if (!window.confirm(`¿Eliminar la categoría «${c.nombre}»? No se puede deshacer.`)) return
+    setError(null)
+    try {
+      await eliminarCategoria(sb, c.id)
+      setOk(`«${c.nombre}» se eliminó.`)
+      if (abierta === c.id) setAbierta(null)
+      await cargar()
+      setTimeout(() => setOk(null), 4000)
     } catch (e) {
       setError(mensajeDeError(e))
     }
@@ -338,7 +363,18 @@ export default function Categorias() {
                     <span className="font-mono text-[10px] uppercase tracking-wide text-sa-green-ink/40">
                       {cocinas.find((k) => k.id === c.cocina_id)?.nombre ?? 'sin estación'}
                     </span>
-                    <button className={cx.btnSec} onClick={() => empezarEdicion(c)}>Editar</button>
+                    <button className={cx.btnSec} onClick={() => empezarEdicion(c)}>Editar nombre</button>
+                    {/* Solo vacías: con algo activo adentro, eso desaparecería
+                        del kiosko sin que nadie lo decidiera. El servidor lo
+                        vuelve a revisar, extras incluidos. */}
+                    {dentro.length === 0 && (
+                      <button
+                        className={`${cx.btnSec} !text-sa-strawberry`}
+                        onClick={() => void eliminar(c)}
+                      >
+                        Eliminar
+                      </button>
+                    )}
                     <button className={cx.btnSec} onClick={() => { setAbierta(estaAbierta ? null : c.id); setFiltro('') }}>
                       {estaAbierta ? 'Cerrar' : 'Productos'}
                     </button>

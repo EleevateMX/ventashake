@@ -2956,6 +2956,7 @@ export type Database = {
       vw_combos: {
         Row: {
           activo: boolean | null
+          archivado_en: string | null
           categoria_id: string | null
           categoria_nombre: string | null
           componentes: Json | null
