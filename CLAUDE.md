@@ -903,6 +903,13 @@ Cómo está armado, y por qué así:
 - **Los límites son por grupo y no se sustituyen**: no pedir alimento no
   da derecho a un segundo shake. Y el tope (**$263**) cuenta solo el
   precio de personal del **producto base**.
+- **Los grupos viven en `personal_grupos`** (30/09), no en el código:
+  gerencia crea los suyos en Descuentos → Reglas («Snacks» aparte de
+  «Alimentos») con su límite. La revisión es **una** función,
+  `fn_personal_exceso`, que llaman la que cotiza y la que cobra. Los tres
+  de siempre (`shake`, `alimento`, `bebida`) no se borran y siguen
+  saliendo como columnas `usado_*`/`max_*` —el kiosko no cambió—;
+  `personal_config.max_*` se mantiene igual a la tabla.
 - **El descuento solo toca los renglones base, nunca los extras.** Lo pidió
   gerencia así, y además es obligatorio: el precio de un extra no es
   `productos.precio` sino el del **vínculo** — la leche de almendras vale
