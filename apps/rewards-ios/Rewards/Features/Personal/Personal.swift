@@ -24,6 +24,12 @@ final class Personal: ObservableObject {
     @Published var turno: EnTurno?
     @Published var actualizado: Date?
     @Published var error: String?
+    /// Mi beneficio: lo que llevo hoy, lo que me queda y los precios.
+    @Published var mi: MiPersonal?
+    @Published var miError: String?
+    /// El código vivo para la caja y cuándo vence (reloj del teléfono).
+    @Published var codigo: String?
+    @Published var codigoVence: Date?
 
     private let cliente = SupabaseClient(
         supabaseURL: Config.supabaseURL,
@@ -46,6 +52,7 @@ final class Personal: ObservableObject {
             nombre = r.empleado?.nombre
             activo = true
             await refrescar()
+            await cargarMi()
             Tacto.exito()
             return nil
         } catch let FunctionsError.httpError(_, data) {
@@ -65,6 +72,40 @@ final class Personal: ObservableObject {
         esJefe = false
         panel = nil
         turno = nil
+        mi = nil
+        codigo = nil
+        codigoVence = nil
+    }
+
+    // MARK: Mi beneficio
+
+    /// Se pide al entrar y al jalar para actualizar, no cada 15 s: trae la
+    /// lista de precios completa y no cambia a cada rato.
+    func cargarMi() async {
+        guard activo else { return }
+        do {
+            let m: MiPersonal = try await cliente.rpc("fn_mi_personal").execute().value
+            mi = m
+            miError = nil
+        } catch {
+            miError = Estado.amable(error)
+        }
+    }
+
+    /// Un código SHKP-… de un solo uso que vive 2 minutos. La caja lo
+    /// escanea en «Es para personal» en vez de teclear la clave.
+    func pedirCodigo() async -> String? {
+        do {
+            let filas: [CodigoPersonal] = try await cliente.rpc("fn_personal_codigo_emitir").execute().value
+            guard let c = filas.first else { return "No llegó el código. Intenta otra vez." }
+            codigo = c.codigo
+            codigoVence = Date().addingTimeInterval(TimeInterval(c.segundos))
+            Tacto.ligero()
+            return nil
+        } catch {
+            Tacto.error()
+            return Estado.amable(error)
+        }
     }
 
     /// Lo de cajero siempre; el panel con dinero solo si es gerencia. Que el
@@ -195,4 +236,36 @@ struct PanelEnVivo: Decodable {
         var items: String?
         var id: Int { folio }
     }
+}
+
+/// `fn_mi_personal()`: solo contesta al propio empleado.
+struct MiPersonal: Decodable {
+    var nombre: String?
+    var beneficio: Bool
+    var motivo: String?
+    var exige_turno: Bool?
+    var tope: Double?
+    var usado_importe: Double?
+    var grupos: [Grupo]
+    var hoy: [Consumo]
+    var precios: [Precio]
+
+    struct Grupo: Decodable, Identifiable {
+        var slug: String; var nombre: String; var max: Int; var usado: Int
+        var id: String { slug }
+    }
+    struct Consumo: Decodable, Identifiable {
+        var producto: String; var cantidad: Int; var importe: Double; var hora: String?
+        var id: String { "\(hora ?? "")-\(producto)" }
+    }
+    struct Precio: Decodable, Identifiable {
+        var nombre: String; var categoria: String?; var precio: Double; var precio_personal: Double; var grupo: String?
+        var id: String { "\(categoria ?? "")/\(nombre)" }
+    }
+}
+
+struct CodigoPersonal: Decodable {
+    var codigo: String
+    var expira_en: String?
+    var segundos: Int
 }

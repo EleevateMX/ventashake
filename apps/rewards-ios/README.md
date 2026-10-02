@@ -74,3 +74,47 @@ los siguientes de GitHub se rechazan hasta pasarlo.
 No hace falta: cada cambio que llega a GitHub se compila en una Mac de
 GitHub Actions, se abre en el simulador y deja una captura en el registro
 (busca `CAPTURA_INICIO` en el paso «Abrir en el simulador»).
+
+## Modo personal, discreto
+
+La pantalla de entrada es del cliente: no hay botón «Soy del equipo». El
+PIN se abre con **cinco toques seguidos a Milo** (el mismo pasadizo del kiosko) o,
+ya con sesión, con la línea pequeña «Equipo Shakeaholic» al final de
+*Cuenta*.
+
+## Mi beneficio (precio de personal desde la app)
+
+Con sesión de PIN, la pestaña *Personal* abre con «Mi beneficio»: cuántos
+shakes, alimentos y bebidas llevo hoy, cuánto del tope, los precios de
+personal y el botón **Mostrar mi código en la caja**: un QR `SHKP-…` de un
+solo uso que vive 2 minutos. En el kiosko, «Es para personal» → escanear.
+Lo valida y lo cobra el servidor con las mismas reglas que la clave.
+
+## Apple Wallet (el QR en el iPhone y en el Apple Watch)
+
+En «Tu tarjeta» hay un botón **Agregar a Apple Wallet**. El pase lo arma y
+lo firma la Edge Function `wallet-pase` con el certificado del Pass Type ID;
+la app solo lo pide y se lo entrega a Wallet. Lleva el QR `SHK-XXXXXX`, el
+nombre y, al reverso, cómo funciona. **No lleva saldo** a propósito: un pase
+no se actualiza solo y un número viejo en la muñeca es peor que ninguno.
+
+Una sola vez, en developer.apple.com → Certificates, Identifiers & Profiles:
+
+1. *Identifiers* → `+` → **Pass Type IDs** → identificador
+   `pass.mx.shakeaholic.rewards`.
+2. Entra a ese identificador → *Create Certificate* → sube
+   `~/Desktop/Shakeaholic-PassTypeID.certSigningRequest` (la llave privada
+   quedó en `~/.shakeaholic-wallet/`, respáldala) → descarga `pass.cer`.
+3. `bash apps/rewards-ios/wallet/subir-certificado.sh ~/Downloads/pass.cer`
+   convierte el `.cer` y manda los dos secrets a Supabase sin imprimirlos.
+
+Las imágenes del pase (icon, logo y la franja con Milo) las genera
+`wallet/imagenes.swift` desde las fuentes y el Milo del repo y quedan en
+base64 en `supabase/functions/wallet-pase/imagenes.ts`. Si cambia la marca:
+
+```bash
+cd apps/rewards-ios/wallet && swiftc -O imagenes.swift -o /tmp/imagenes && \
+  /tmp/imagenes ../Rewards/Resources/Fonts ../Rewards/Resources/Assets.xcassets/Milo.imageset/milo.png /tmp
+```
+
+y volver a embeber los PNG (`icon*.png`, `logo@2x/3x`, `strip@2x/3x`).

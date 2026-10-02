@@ -19,6 +19,7 @@ struct PersonalView: View {
                 if personal.esJefe, let p = personal.panel {
                     Ventas(panel: p)
                 }
+                Beneficio()
                 Caja(corte: personal.panel?.corte ?? personal.turno?.corte, conFondo: personal.esJefe)
                 EnPreparacion(pedidos: personal.panel?.en_cocina ?? personal.turno?.en_cocina ?? [])
                 Impresoras(
@@ -38,7 +39,7 @@ struct PersonalView: View {
             .padding(.horizontal, 18)
             .padding(.bottom, 30)
         }
-        .refreshable { await personal.refrescar() }
+        .refreshable { await personal.refrescar(); await personal.cargarMi() }
         .background(Marca.verdeProfundo.ignoresSafeArea())
         .onReceive(reloj) { _ in Task { await personal.refrescar() } }
         .alert(aviso ?? "", isPresented: Binding(get: { aviso != nil }, set: { if !$0 { aviso = nil } })) {
