@@ -11,6 +11,8 @@ export interface EmpleadoAdmin extends Empleado {
   rol_id: string
   activo: boolean
   tiene_pin: boolean
+  /** Correo de Google/Apple con el que entra a la app de Rewards (opcional). */
+  correo: string | null
 }
 
 export interface Rol {
@@ -62,6 +64,14 @@ export async function crearEmpleado(
     p_pin: datos.pin ?? null,
     p_sucursal: datos.sucursal_id ?? null,
   })
+}
+
+/**
+ * El correo de Google/Apple de la persona: con él la app de Rewards le
+ * enseña la pestaña Personal sola (la sesión sigue abriéndose con PIN).
+ */
+export async function guardarCorreoEmpleado(sb: ShakeClient, id: string, correo: string | null): Promise<void> {
+  await rpc<null>(sb, 'fn_empleado_correo_guardar', { p_id: id, p_correo: correo })
 }
 
 /** Edición. Campos opcionales; el PIN sólo cambia si se envía uno nuevo. */

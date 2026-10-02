@@ -49,6 +49,7 @@ targets:
         LSApplicationCategoryType: public.app-category.food-and-drink
         ITSAppUsesNonExemptEncryption: false
         UIUserInterfaceStyle: Light
+        NSFaceIDUsageDescription: Para abrir tu modo personal sin teclear el PIN cada vez.
         UIRequiresFullScreen: true
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         UILaunchScreen:

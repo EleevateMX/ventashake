@@ -1587,6 +1587,15 @@ PWA. No tiene reglas propias: llama a las mismas funciones
   Tarjeta · Menú · Aliados · Cuenta (+ Personal con PIN); la actividad
   (compras, favoritos, movimientos) vive dentro de Cuenta. Sin logo sale el nombre; sin promo no sale la tarjeta
   amarilla; sin dato de contacto no sale ese botón.
+- **El equipo se reconoce por su correo** (`personal_correo_y_face_id.sql`):
+  gerencia registra en Admin → Personal el correo de Google/Apple de cada
+  quien (`empleados.correo`, `fn_empleado_correo_guardar`). Si un cliente
+  entra con ese correo, `fn_soy_personal` dice sí y la pestaña Personal
+  aparece sola, **cerrada**: abrirla pide el PIN la primera vez y después
+  **Face ID**. La sesión del PIN se guarda en el llavero del iPhone con
+  `biometryCurrentSet` (`Llavero.swift`): sin la cara no se lee, y si
+  alguien agrega otra cara al teléfono se invalida sola. Reconocer no es
+  abrir: la cuenta de Google es del cliente y la de personal sigue aparte.
 - **Modo vitrina** (solo DEBUG): `xcrun simctl launch booted
   mx.shakeaholic.rewards -vitrina` pinta a Alejandro con 763 mancuernas
   para capturas; el menú sí es el real. En la versión de la tienda no
