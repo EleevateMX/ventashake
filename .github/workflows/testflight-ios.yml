@@ -53,13 +53,43 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Antes de gastar 15 minutos de Mac: si faltan los secrets, se sabe
+      # en el primer paso y no en el ultimo.
+      - name: Revisar los secrets
+        env:
+          APPSTORE_KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
+          APPSTORE_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
+          APPSTORE_PRIVATE_KEY: ${{ secrets.APPSTORE_PRIVATE_KEY }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          falta=""
+          [ -n "$APPSTORE_KEY_ID" ]      || falta="$falta APPSTORE_KEY_ID"
+          [ -n "$APPSTORE_ISSUER_ID" ]   || falta="$falta APPSTORE_ISSUER_ID"
+          [ -n "$APPSTORE_PRIVATE_KEY" ] || falta="$falta APPSTORE_PRIVATE_KEY"
+          [ -n "$APPLE_TEAM_ID" ]        || falta="$falta APPLE_TEAM_ID"
+          if [ -n "$falta" ]; then
+            echo "::error::Faltan estos secrets en GitHub:$falta"
+            exit 1
+          fi
+          echo "Los cuatro secrets estan puestos."
+
+      # Apple solo acepta compilaciones hechas con el SDK de iOS 26 (desde
+      # abril de 2026), y Capacitor 8 tambien pide Xcode 26. La imagen de
+      # macos-15 trae Xcode 16 por omision: sin este paso la subida se
+      # rechaza al final, despues de compilar todo.
+      - name: Xcode 26
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # Capacitor 8 pide Node 22: con 20, `cap add ios` se niega a correr.
+          node-version: 22
           cache: pnpm
 
       - name: Install deps
@@ -77,8 +107,9 @@ jobs:
       - name: Generar el proyecto de iOS
         working-directory: ${{ env.APP_DIR }}
         run: |
-          npx --yes cap add ios
-          npx --yes cap sync ios
+          xcodebuild -version
+          pnpm exec cap add ios
+          pnpm exec cap sync ios
 
       - name: Iconos y pantalla de arranque
         working-directory: ${{ env.APP_DIR }}
@@ -115,8 +146,13 @@ jobs:
           APPSTORE_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
           VERSION: ${{ github.event.inputs.version || '1.0.0' }}
         run: |
+          # Capacitor 8 genera el proyecto con Swift Package Manager: no hay
+          # App.xcworkspace (eso era de CocoaPods). Se usa el que exista.
+          if [ -d App.xcworkspace ]; then CONTENEDOR="-workspace App.xcworkspace"
+          else CONTENEDOR="-project App.xcodeproj"; fi
+          echo "Archivando con $CONTENEDOR"
           xcodebuild archive \
-            -workspace App.xcworkspace \
+            $CONTENEDOR \
             -scheme App \
             -configuration Release \
             -destination 'generic/platform=iOS' \
