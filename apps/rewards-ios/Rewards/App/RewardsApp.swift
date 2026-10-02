@@ -10,7 +10,12 @@ struct RewardsApp: App {
             RaizView()
                 .environmentObject(estado)
                 .environmentObject(personal)
-                .task { await estado.arrancar() }
+                .task {
+                    #if DEBUG
+                    if Vitrina.activa { personal.activarVitrina() }
+                    #endif
+                    await estado.arrancar()
+                }
                 .preferredColorScheme(.light)
         }
     }

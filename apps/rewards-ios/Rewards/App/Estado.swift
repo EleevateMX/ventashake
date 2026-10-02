@@ -23,6 +23,15 @@ final class Estado: ObservableObject {
     private var nombreApple: String?
 
     func arrancar() async {
+        #if DEBUG
+        if Vitrina.activa {
+            resumen = Vitrina.resumen
+            metas = Vitrina.metas
+            fase = .lista
+            await cargarMenu()
+            return
+        }
+        #endif
         if (try? await supabase.auth.session) != nil {
             await sincronizar()
         } else {
