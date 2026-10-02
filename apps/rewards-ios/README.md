@@ -90,6 +90,31 @@ personal y el botón **Mostrar mi código en la caja**: un QR `SHKP-…` de un
 solo uso que vive 2 minutos. En el kiosko, «Es para personal» → escanear.
 Lo valida y lo cobra el servidor con las mismas reglas que la clave.
 
+## Avisos push
+
+Una vez, en developer.apple.com → Keys → «+» → *Apple Push Notifications
+service (APNs)* → descarga `AuthKey_XXXXXXXXXX.p8`. Luego:
+
+```bash
+bash apps/rewards-ios/push/subir-secrets.sh ~/Downloads/AuthKey_XXXXXXXXXX.p8
+```
+
+Despliega `push-cola` y `push-enviar` y sube la llave como secret. La app
+pide permiso cuando ya hay tarjeta en pantalla y registra el token
+(`fn_push_registrar`). Lo automático («+12 mancuernas») lo encola la base;
+las campañas salen de Admin → **Avisos**. El simulador no recibe push: se
+prueba en un iPhone.
+
+## Capturas con datos de vitrina
+
+```bash
+xcrun simctl launch booted mx.shakeaholic.rewards -vitrina
+xcrun simctl io booted screenshot captura.png
+```
+
+Alejandro, 763 mancuernas, actividad y modo personal inventados; el menú
+es el real. Solo existe en compilaciones de desarrollo.
+
 ## Apple Wallet (el QR en el iPhone y en el Apple Watch)
 
 En «Tu tarjeta» hay un botón **Agregar a Apple Wallet**. El pase lo arma y

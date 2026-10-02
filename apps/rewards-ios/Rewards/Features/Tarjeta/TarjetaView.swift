@@ -47,6 +47,8 @@ struct TarjetaView: View {
                     MetasView()
                 }
 
+                AliadosView()
+
                 TarjetaDeRegalo()
 
                 let paquetes = estado.resumen?.paquetes ?? []

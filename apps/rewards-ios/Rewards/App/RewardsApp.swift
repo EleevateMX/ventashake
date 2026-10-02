@@ -2,6 +2,7 @@ import SwiftUI
 
 @main
 struct RewardsApp: App {
+    @UIApplicationDelegateAdaptor(Push.self) private var push
     @StateObject private var estado = Estado()
     @StateObject private var personal = Personal()
 

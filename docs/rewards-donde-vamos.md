@@ -180,3 +180,24 @@ Y en **Supabase → Authentication → URL Configuration → Redirect URLs**:
 `capacitor.config.ts` + `scripts/app-nativa-preparar.sh`. Si algún ajuste
 nativo hace falta, va en ese script — hecho a mano en Xcode se pierde en el
 siguiente `cap sync`, sin ningún error que lo delate.
+
+
+---
+
+## 9. Lo que sigue en la app nativa (decidido el 02/10/26)
+
+Lo que ya está: Apple/Google, Wallet, Menú con fotos, modo personal con
+«Mi beneficio» y QR para la caja, avisos push, aliados (Admin → Aliados),
+eliminar cuenta. Lo que
+sigue, en el orden en que vale la pena:
+
+| # | Qué | Cómo | Qué decide el negocio |
+|---|---|---|---|
+| 1 | **«Mi shake de siempre»** arriba de la tarjeta | Sale de `favoritos` del resumen, que ya existe: el más pedido con sus extras habituales (hay que agregar los extras al resumen). Un toque lo enseña grande para pedirlo en caja | Nada: es automático |
+| 2 | **Pedir desde la app y recoger en barra** | Botón «Lo quiero» en el Menú → `fn_crear_orden` con `canal = 'app'` y el nombre del cliente; **se paga al recoger** (sin dinero en la app en la v1). Sale en cocina como cualquier orden y la TV de folios lo da por listo. **Prendido/apagado desde Admin → Rewards** (`parametros.pedidos_app`): si está apagado, el botón no existe | Horario en que se acepta, tiempo de preparación que se promete |
+| 3 | **Referidos** | Código `SHK-…` del que invita; el nuevo lo escribe al entrar (`fn_vincular_cliente_auth` con `p_referido`) y los dos ganan al **primer cobro** del nuevo, por `mancuernas_movimientos` como todo. Un cliente solo puede ser referido una vez | Cuántas mancuernas gana cada uno |
+| 4 | **«Tu pedido está listo»** por push | Trigger sobre `pedidos_cocina` cuando **todas** las partes están `listo` y la orden tiene cliente con teléfono registrado → `push_cola`. Mismo camino que «+mancuernas» | Nada |
+| 5 | **Widget y Live Activity** | Widget con las mancuernas y el QR (App Group para compartir la sesión); Live Activity con Milo mientras preparan el pedido. Depende del 2 y del 4 | Nada |
+
+Lo que **no** va: feed social, chat, rachas, más tipos de puntos. Y la
+regla sigue: la sorpresa del 13+1 no se anuncia ni aquí ni en push.

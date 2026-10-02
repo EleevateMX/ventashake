@@ -50,7 +50,7 @@ platform :ios do
     UI.important("No se pudieron borrar perfiles viejos: #{e.message}")
   end
 
-  desc "Registra el bundle ID y prende Iniciar sesión con Apple. Se puede correr las veces que sea."
+  desc "Registra el bundle ID y prende Iniciar sesión con Apple y Push. Se puede correr las veces que sea."
   lane :preparar_identificador do
     conectar
     bid = Spaceship::ConnectAPI::BundleId.find(BUNDLE)
@@ -68,6 +68,13 @@ platform :ios do
         { key: "APPLE_ID_AUTH_APP_CONSENT", options: [{ key: "PRIMARY_APP_CONSENT" }] }
       ])
       UI.success("Iniciar sesión con Apple prendido en #{BUNDLE}")
+    end
+    push = Spaceship::ConnectAPI::BundleIdCapability::Type::PUSH_NOTIFICATIONS
+    if tipos.include?(push)
+      UI.message("Push ya estaba prendido")
+    else
+      bid.create_capability(push)
+      UI.success("Push prendido en #{BUNDLE}")
     end
   end
 

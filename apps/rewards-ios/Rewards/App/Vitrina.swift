@@ -106,5 +106,14 @@ enum Vitrina {
     )
 
     static let codigo = "SHKP-7A3F91C2"
+
+    static let aliados = [
+        Aliado(id: "a1", nombre: "ProDetail Auto Spa", descripcion: "Lavado y detallado de autos a domicilio en Mérida.",
+               logo_url: nil, promo_titulo: "10% en tu primer lavado", promo_texto: "Enseña tu tarjeta de Shakeaholic Rewards al pagar.",
+               web: "https://prodetail.mx", whatsapp: "9991234567", instagram: "prodetailmx", telefono: nil, direccion: "The Harbor, Mérida", orden: 1),
+        Aliado(id: "a2", nombre: "Harbor Fit", descripcion: "Gimnasio y clases funcionales.",
+               logo_url: nil, promo_titulo: "Primera clase gratis", promo_texto: "Con tu QR de Rewards en recepción.",
+               web: nil, whatsapp: "9997654321", instagram: "harborfit", telefono: nil, direccion: nil, orden: 2),
+    ]
     #endif
 }

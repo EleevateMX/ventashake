@@ -13,6 +13,7 @@ final class Estado: ObservableObject {
     @Published var resumen: Resumen?
     @Published var metas: [Meta] = []
     @Published var menu: [Producto]?
+    @Published var aliados: [Aliado]?
     @Published var error: String?
 
     /// El nonce del login de Apple: se manda cifrado a Apple y en claro a
@@ -28,6 +29,7 @@ final class Estado: ObservableObject {
             resumen = Vitrina.resumen
             metas = Vitrina.metas
             fase = .lista
+            aliados = Vitrina.aliados
             await cargarMenu()
             return
         }
@@ -38,6 +40,7 @@ final class Estado: ObservableObject {
             fase = .sinSesion
         }
         Task { await cargarMenu() }
+        Task { await cargarAliados() }
         for await (evento, sesion) in supabase.auth.authStateChanges {
             switch evento {
             case .signedIn:
@@ -68,6 +71,9 @@ final class Estado: ObservableObject {
             metas = lasMetas ?? []
             error = nil
             fase = .lista
+            // Ya hay tarjeta en pantalla: buen momento para pedir permiso de
+            // avisos (al abrir, sin contexto, la mitad dice que no).
+            await Push.shared.activar()
         } catch {
             if intento < 2 {
                 try? await Task.sleep(nanoseconds: 700_000_000)
@@ -110,6 +116,14 @@ final class Estado: ObservableObject {
         } catch {
             if menu == nil { menu = [] }
         }
+    }
+
+    func cargarAliados() async {
+        #if DEBUG
+        if Vitrina.activa { aliados = Vitrina.aliados; return }
+        #endif
+        let lista: [Aliado]? = try? await supabase.rpc("fn_aliados").execute().value
+        aliados = lista ?? []
     }
 
     // MARK: Entrar y salir
@@ -175,6 +189,7 @@ final class Estado: ObservableObject {
     }
 
     func salir() async {
+        await Push.quitar()
         try? await supabase.auth.signOut()
     }
 
