@@ -65,6 +65,20 @@ final class Personal: ObservableObject {
         }
     }
 
+    #if DEBUG
+    /// Modo vitrina (capturas): un cajero inventado, sin servidor.
+    func activarVitrina() {
+        activo = true
+        nombre = "Alejandro"
+        esJefe = false
+        turno = Vitrina.turno
+        mi = Vitrina.mi
+        codigo = Vitrina.codigo
+        codigoVence = Date().addingTimeInterval(118)
+        actualizado = Date()
+    }
+    #endif
+
     func salir() async {
         try? await cliente.auth.signOut()
         activo = false
@@ -83,6 +97,9 @@ final class Personal: ObservableObject {
     /// lista de precios completa y no cambia a cada rato.
     func cargarMi() async {
         guard activo else { return }
+        #if DEBUG
+        if Vitrina.activa { return }
+        #endif
         do {
             let m: MiPersonal = try await cliente.rpc("fn_mi_personal").execute().value
             mi = m
@@ -95,6 +112,9 @@ final class Personal: ObservableObject {
     /// Un código SHKP-… de un solo uso que vive 2 minutos. La caja lo
     /// escanea en «Es para personal» en vez de teclear la clave.
     func pedirCodigo() async -> String? {
+        #if DEBUG
+        if Vitrina.activa { codigoVence = Date().addingTimeInterval(118); return nil }
+        #endif
         do {
             let filas: [CodigoPersonal] = try await cliente.rpc("fn_personal_codigo_emitir").execute().value
             guard let c = filas.first else { return "No llegó el código. Intenta otra vez." }
@@ -112,6 +132,9 @@ final class Personal: ObservableObject {
     /// servidor rechace el panel a un cajero es lo esperado, no un error.
     func refrescar() async {
         guard activo else { return }
+        #if DEBUG
+        if Vitrina.activa { actualizado = Date(); return }
+        #endif
         do {
             let t: EnTurno = try await cliente.rpc("fn_personal_en_turno").execute().value
             turno = t

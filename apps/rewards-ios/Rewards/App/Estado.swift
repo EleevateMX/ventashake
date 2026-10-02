@@ -13,6 +13,7 @@ final class Estado: ObservableObject {
     @Published var resumen: Resumen?
     @Published var metas: [Meta] = []
     @Published var menu: [Producto]?
+    @Published var aliados: [Aliado]?
     @Published var error: String?
 
     /// El nonce del login de Apple: se manda cifrado a Apple y en claro a
@@ -23,12 +24,23 @@ final class Estado: ObservableObject {
     private var nombreApple: String?
 
     func arrancar() async {
+        #if DEBUG
+        if Vitrina.activa {
+            resumen = Vitrina.resumen
+            metas = Vitrina.metas
+            fase = .lista
+            aliados = Vitrina.aliados
+            await cargarMenu()
+            return
+        }
+        #endif
         if (try? await supabase.auth.session) != nil {
             await sincronizar()
         } else {
             fase = .sinSesion
         }
         Task { await cargarMenu() }
+        Task { await cargarAliados() }
         for await (evento, sesion) in supabase.auth.authStateChanges {
             switch evento {
             case .signedIn:
@@ -59,6 +71,9 @@ final class Estado: ObservableObject {
             metas = lasMetas ?? []
             error = nil
             fase = .lista
+            // Ya hay tarjeta en pantalla: buen momento para pedir permiso de
+            // avisos (al abrir, sin contexto, la mitad dice que no).
+            await Push.shared.activar()
         } catch {
             if intento < 2 {
                 try? await Task.sleep(nanoseconds: 700_000_000)
@@ -84,7 +99,7 @@ final class Estado: ObservableObject {
             while true {
                 let lote: [Producto] = try await supabase
                     .from("productos")
-                    .select("id,nombre,descripcion,precio,orden,categorias(nombre,orden)")
+                    .select("id,nombre,descripcion,precio,orden,imagen_url,categorias(nombre,orden)")
                     .eq("activo", value: true)
                     .eq("es_extra", value: false)
                     .order("orden")
@@ -101,6 +116,14 @@ final class Estado: ObservableObject {
         } catch {
             if menu == nil { menu = [] }
         }
+    }
+
+    func cargarAliados() async {
+        #if DEBUG
+        if Vitrina.activa { aliados = Vitrina.aliados; return }
+        #endif
+        let lista: [Aliado]? = try? await supabase.rpc("fn_aliados").execute().value
+        aliados = lista ?? []
     }
 
     // MARK: Entrar y salir
@@ -166,7 +189,27 @@ final class Estado: ObservableObject {
     }
 
     func salir() async {
+        await Push.quitar()
         try? await supabase.auth.signOut()
+    }
+
+    /// Borra la cuenta (App Store 5.1.1: quien puede crearla debe poder
+    /// borrarla desde la app). El servidor anonimiza el expediente y borra el
+    /// usuario de Auth; la historia de ventas se queda sin nombre.
+    func eliminarCuenta() async -> String? {
+        do {
+            _ = try await supabase.functions.invoke("cuenta-eliminar") { data, _ in data }
+            try? await supabase.auth.signOut()
+            resumen = nil
+            metas = []
+            fase = .sinSesion
+            return nil
+        } catch let FunctionsError.httpError(_, data) {
+            struct Falla: Decodable { struct E: Decodable { var mensaje: String? }; var error: E? }
+            return (try? JSONDecoder().decode(Falla.self, from: data))?.error?.mensaje ?? "No se pudo borrar la cuenta. Intenta otra vez."
+        } catch {
+            return Self.amable(error)
+        }
     }
 
     // MARK: Acciones de la tarjeta

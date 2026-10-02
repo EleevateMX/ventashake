@@ -14,6 +14,8 @@ import Metas from './pages/Metas'
 import Rewards from './pages/Rewards'
 import Menu from './pages/Menu'
 import Revision from './pages/Revision'
+import Avisos from './pages/Avisos'
+import Aliados from './pages/Aliados'
 import Categorias from './pages/Categorias'
 import Combos from './pages/Combos'
 import Extras from './pages/Extras'
@@ -27,7 +29,7 @@ import Empleados from './pages/Empleados'
 import Impresoras from './pages/Impresoras'
 import Sistema from './pages/Sistema'
 
-type Tab = 'dashboard' | 'envivo' | 'diagnostico' | 'menu' | 'revision' | 'categorias' | 'combos' | 'extras' | 'inventario' | 'promos' | 'ventas' | 'cortes' | 'clientes' | 'nombres' | 'metas' | 'rewards' | 'empleados' | 'impresoras' | 'descargas' | 'ayuda' | 'peticiones' | 'soporte' | 'pulso' | 'sistema'
+type Tab = 'dashboard' | 'envivo' | 'diagnostico' | 'menu' | 'revision' | 'categorias' | 'combos' | 'extras' | 'inventario' | 'promos' | 'ventas' | 'cortes' | 'clientes' | 'nombres' | 'metas' | 'rewards' | 'empleados' | 'impresoras' | 'descargas' | 'ayuda' | 'peticiones' | 'avisos' | 'aliados' | 'soporte' | 'pulso' | 'sistema'
 
 const w = 18
 
@@ -177,6 +179,19 @@ const IconMetas = () => (
   </svg>
 )
 
+const IconAvisos = () => (
+  <svg width={w} height={w} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z" />
+    <path d="M10 20a2 2 0 0 0 4 0" />
+  </svg>
+)
+
+const IconAliados = () => (
+  <svg width={w} height={w} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M8 12l-3 3a2.5 2.5 0 0 0 3.5 3.5l3-3" /><path d="M16 12l3-3a2.5 2.5 0 0 0-3.5-3.5l-3 3" /><path d="M9 15l6-6" />
+  </svg>
+)
+
 const navItems: { id: Tab; label: string; Icon: () => ReactElement; soloSoporte?: boolean }[] = [
   { id: 'dashboard', label: 'Dashboard', Icon: IconDashboard },
   { id: 'envivo', label: 'En vivo', Icon: IconEnVivo },
@@ -194,6 +209,8 @@ const navItems: { id: Tab; label: string; Icon: () => ReactElement; soloSoporte?
   { id: 'nombres', label: 'Nombres', Icon: IconNombres },
   { id: 'metas', label: 'Metas', Icon: IconMetas },
   { id: 'rewards', label: 'Rewards', Icon: IconRewards },
+  { id: 'avisos', label: 'Avisos', Icon: IconAvisos },
+  { id: 'aliados', label: 'Aliados', Icon: IconAliados },
   { id: 'empleados', label: 'Personal', Icon: IconEmpleados },
   { id: 'impresoras', label: 'Impresoras', Icon: IconImpresoras },
   { id: 'descargas', label: 'Descargas', Icon: IconDescargas },
@@ -261,6 +278,8 @@ export default function App() {
         {tab === 'diagnostico' && <Diagnostico />}
         {tab === 'metas' && <Metas />}
         {tab === 'rewards' && <Rewards />}
+        {tab === 'avisos' && <Avisos />}
+        {tab === 'aliados' && <Aliados />}
         {tab === 'menu' && <Menu />}
         {tab === 'revision' && <Revision />}
         {tab === 'categorias' && <Categorias />}

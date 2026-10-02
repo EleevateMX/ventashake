@@ -68,6 +68,9 @@ targets:
       path: Rewards/Rewards.entitlements
       properties:
         com.apple.developer.applesignin: [Default]
+        # Avisos push. «development» aquí; al exportar para la App Store el
+        # perfil de distribución lo vuelve «production» solo.
+        aps-environment: development
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: mx.shakeaholic.rewards

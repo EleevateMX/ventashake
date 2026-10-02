@@ -132,7 +132,7 @@ private struct EnPreparacion: View {
             }
             ForEach(pedidos) { p in
                 HStack {
-                    Text("#\(p.folio)").font(Marca.mono(15, .medium))
+                    Text("#\(String(p.folio))").font(Marca.mono(15, .medium))
                     Text(p.nombre ?? "").font(Marca.cuerpo(14)).lineLimit(1)
                     Spacer()
                     Text(p.estacion).font(Marca.cuerpo(12)).foregroundStyle(Marca.tinta.opacity(0.6))
@@ -201,7 +201,7 @@ private struct Recientes: View {
             ForEach(pedidos) { p in
                 VStack(alignment: .leading, spacing: 2) {
                     HStack {
-                        Text("#\(p.folio)").font(Marca.mono(14, .medium))
+                        Text("#\(String(p.folio))").font(Marca.mono(14, .medium))
                         Text(p.hora ?? "").font(Marca.mono(12)).foregroundStyle(Marca.tinta.opacity(0.5))
                         Spacer()
                         Text(mxn(p.total)).font(Marca.mono(14))

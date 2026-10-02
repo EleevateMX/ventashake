@@ -138,6 +138,7 @@ struct Producto: Decodable, Identifiable {
     var descripcion: String?
     var precio: Double
     var orden: Int?
+    var imagen_url: String?
     var categorias: Categoria?
 
     struct Categoria: Decodable {
@@ -160,3 +161,19 @@ struct ParamNombre: Encodable, Sendable { let p_nombre: String? }
 struct ParamClave: Encodable, Sendable { let p_clave: String }
 struct ParamTelefono: Encodable, Sendable { let p_telefono: String }
 struct ParamTarjeta: Encodable, Sendable { let p_codigo: String; let p_cliente_id: String? }
+
+/// `fn_aliados()`: las marcas con las que colaboramos.
+struct Aliado: Decodable, Identifiable {
+    var id: String
+    var nombre: String
+    var descripcion: String?
+    var logo_url: String?
+    var promo_titulo: String?
+    var promo_texto: String?
+    var web: String?
+    var whatsapp: String?
+    var instagram: String?
+    var telefono: String?
+    var direccion: String?
+    var orden: Int?
+}

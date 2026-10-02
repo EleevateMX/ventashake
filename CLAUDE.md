@@ -1566,6 +1566,30 @@ PWA. No tiene reglas propias: llama a las mismas funciones
   revienta la pila. La app habla con Supabase por **`api.shakeaholic.mx`**
   (dominio propio), que es lo que iOS enseña en el aviso del login.
 
+- **Avisos push** (02/10, `avisos_push.sql`). La app registra su token
+  con la sesión (`fn_push_registrar`, permiso pedido cuando ya hay tarjeta
+  en pantalla, no al abrir). Nada sale desde SQL: un trigger sobre
+  `mancuernas_movimientos` solo **encola** («+12 mancuernas») en
+  `push_cola`, dentro de un bloque que se traga cualquier error, y la Edge
+  Function `push-cola` (cron cada minuto, solo si hay pendientes) es la
+  única que habla con APNs: JWT ES256 con la llave `.p8` en los secrets
+  (`push/subir-secrets.sh`). Admin → **Avisos** manda campañas por
+  `push-enviar` (gerencia, 60/180 caracteres, historial a la vista). Los
+  tokens que Apple da por muertos (410, BadDeviceToken) se apagan solos.
+- **Eliminar mi cuenta** (App Store 5.1.1): `cuenta-eliminar` anonimiza
+  el expediente (la historia de ventas se queda sin nombre) y borra el
+  usuario de Auth. Las cuentas del personal no se borran desde ahí.
+- **Aliados** (`aliados.sql`): las marcas con las que colaboramos (logo,
+  qué son, contacto y la promo con Shakeaholic). Admin → **Aliados** las
+  administra (`fn_aliado_guardar`, bucket público `aliados` para logos);
+  la app las pinta en *Tu tarjeta* con `fn_aliados`, que es pública: es
+  publicidad. Sin logo sale el nombre; sin promo no sale la tarjeta
+  amarilla; sin dato de contacto no sale ese botón.
+- **Modo vitrina** (solo DEBUG): `xcrun simctl launch booted
+  mx.shakeaholic.rewards -vitrina` pinta a Alejandro con 763 mancuernas
+  para capturas; el menú sí es el real. En la versión de la tienda no
+  existe.
+
 `testflight-ios.yml` (la PWA envuelta con Capacitor) queda como respaldo;
 el camino es la nativa. Para retomar solo Rewards, el mapa está en
 `docs/rewards-donde-vamos.md`.

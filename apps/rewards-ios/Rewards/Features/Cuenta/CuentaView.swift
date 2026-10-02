@@ -6,6 +6,9 @@ struct CuentaView: View {
     @State private var telefono = ""
     @State private var mensaje: String?
     @State private var pidiendoPin = false
+    @State private var confirmandoBorrado = false
+    @State private var borrando = false
+    @State private var errorBorrado: String?
 
     var body: some View {
         Pantalla(titulo: "Cuenta") {
@@ -67,6 +70,33 @@ struct CuentaView: View {
 
             Button("Cerrar sesión") { Task { await estado.salir() } }
                 .buttonStyle(BotonPrincipal(fondo: Marca.tinta, texto: Marca.crema))
+
+            // La App Store exige poder borrar la cuenta desde la app (5.1.1).
+            Button(borrando ? "Borrando…" : "Eliminar mi cuenta") { confirmandoBorrado = true }
+                .font(Marca.cuerpo(13))
+                .foregroundStyle(Marca.fresa.opacity(0.85))
+                .frame(maxWidth: .infinity)
+                .disabled(borrando)
+                .confirmationDialog(
+                    "¿Borrar tu cuenta?",
+                    isPresented: $confirmandoBorrado,
+                    titleVisibility: .visible
+                ) {
+                    Button("Sí, borrar mi cuenta y mis mancuernas", role: .destructive) {
+                        borrando = true
+                        Task {
+                            errorBorrado = await estado.eliminarCuenta()
+                            borrando = false
+                        }
+                    }
+                    Button("Cancelar", role: .cancel) {}
+                } message: {
+                    Text("Se borran tu cuenta y tus mancuernas, y no se pueden recuperar. Si solo quieres salir, usa «Cerrar sesión».")
+                }
+            if let errorBorrado {
+                Text(errorBorrado).font(Marca.cuerpo(13, .medium)).foregroundStyle(Marca.fresa)
+                    .frame(maxWidth: .infinity)
+            }
 
             // Discreto a propósito: la pantalla es del cliente. El equipo sabe
             // que está aquí (y en la entrada, con cinco toques a Milo).
