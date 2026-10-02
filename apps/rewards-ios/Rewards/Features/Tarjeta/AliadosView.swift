@@ -31,7 +31,7 @@ struct AliadosView: View {
     }
 }
 
-private struct LogoAliado: View {
+struct LogoAliado: View {
     let aliado: Aliado
     let lado: CGFloat
 
@@ -62,7 +62,7 @@ private struct LogoAliado: View {
 
 /// La hoja del aliado: logo, qué son, la promo en amarillo y los botones de
 /// contacto que tengan dato (sin dato no hay botón).
-private struct AliadoDetalle: View {
+struct AliadoDetalle: View {
     let aliado: Aliado
     @Environment(\.dismiss) private var cerrar
 
@@ -141,6 +141,51 @@ private struct Contacto: View {
             .foregroundStyle(Marca.crema)
             .padding(.horizontal, 14).padding(.vertical, 12)
             .background(Marca.crema.opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        }
+    }
+}
+
+/// La pestaña «Aliados»: todas las marcas, con su promo a la vista.
+struct AliadosTab: View {
+    @EnvironmentObject var estado: Estado
+    @State private var abierto: Aliado?
+    private let columnas = [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
+
+    var body: some View {
+        Pantalla(titulo: "Aliados", alRefrescar: { await estado.cargarAliados() }) {
+            Etiqueta(texto: "Marcas que te consienten con tu tarjeta")
+            if let aliados = estado.aliados {
+                if aliados.isEmpty {
+                    Hoja {
+                        Text("Pronto.").font(Marca.cuerpo(16, .semibold))
+                        Text("Estamos cerrando alianzas con marcas de Mérida para que tu tarjeta valga también fuera de la barra.")
+                            .font(Marca.cuerpo(14)).foregroundStyle(Marca.tinta.opacity(0.65))
+                    }
+                } else {
+                    LazyVGrid(columns: columnas, spacing: 12) {
+                        ForEach(aliados) { a in
+                            Button { abierto = a } label: {
+                                VStack(alignment: .leading, spacing: 10) {
+                                    LogoAliado(aliado: a, lado: 64)
+                                    Text(a.nombre).font(Marca.cuerpo(15, .semibold)).foregroundStyle(Marca.tinta).lineLimit(2)
+                                    if let p = a.promo_titulo, !p.isEmpty {
+                                        Text(p).font(Marca.cuerpo(12, .medium)).foregroundStyle(Marca.verde).lineLimit(2)
+                                    }
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(14)
+                                .background(Marca.cremaPapel, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                            }
+                            .buttonStyle(Presionable())
+                        }
+                    }
+                }
+            } else {
+                ProgressView().tint(Marca.platano).frame(maxWidth: .infinity).padding(.top, 40)
+            }
+        }
+        .sheet(item: $abierto) { a in
+            AliadoDetalle(aliado: a).presentationDetents([.medium, .large])
         }
     }
 }

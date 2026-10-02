@@ -1,10 +1,12 @@
 import SwiftUI
 
-struct ActividadView: View {
+/// Las compras, los favoritos y los movimientos. Vive dentro de «Cuenta»:
+/// es la historia de la persona, no una pestaña aparte.
+struct ActividadContenido: View {
     @EnvironmentObject var estado: Estado
 
     var body: some View {
-        Pantalla(titulo: "Actividad") {
+        Group {
             let r = estado.resumen
             let historial = r?.historial ?? []
             let movimientos = r?.movimientos ?? []
