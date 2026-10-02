@@ -127,7 +127,19 @@ final class Estado: ObservableObject {
     func terminarApple(_ resultado: Result<ASAuthorization, Error>) async {
         switch resultado {
         case .failure(let e):
-            if (e as? ASAuthorizationError)?.code == .canceled { return }
+            if let codigo = (e as? ASAuthorizationError)?.code {
+                switch codigo {
+                case .canceled:
+                    return
+                case .unknown:
+                    // Sin cuenta de Apple en el teléfono (o en el simulador),
+                    // Apple no abre la hoja: contesta 1000 "unknown".
+                    error = "Para entrar con Apple, inicia sesión con tu cuenta de Apple en Configuración e intenta otra vez."
+                default:
+                    error = "Apple no pudo completar el inicio de sesión. Intenta otra vez o entra con Google."
+                }
+                return
+            }
             error = Self.amable(e)
         case .success(let autorizacion):
             guard
