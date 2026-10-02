@@ -178,6 +178,25 @@ final class Estado: ObservableObject {
         try? await supabase.auth.signOut()
     }
 
+    /// Borra la cuenta (App Store 5.1.1: quien puede crearla debe poder
+    /// borrarla desde la app). El servidor anonimiza el expediente y borra el
+    /// usuario de Auth; la historia de ventas se queda sin nombre.
+    func eliminarCuenta() async -> String? {
+        do {
+            _ = try await supabase.functions.invoke("cuenta-eliminar") { data, _ in data }
+            try? await supabase.auth.signOut()
+            resumen = nil
+            metas = []
+            fase = .sinSesion
+            return nil
+        } catch let FunctionsError.httpError(_, data) {
+            struct Falla: Decodable { struct E: Decodable { var mensaje: String? }; var error: E? }
+            return (try? JSONDecoder().decode(Falla.self, from: data))?.error?.mensaje ?? "No se pudo borrar la cuenta. Intenta otra vez."
+        } catch {
+            return Self.amable(error)
+        }
+    }
+
     // MARK: Acciones de la tarjeta
 
     func cobrarMeta(_ meta: Meta) async -> String {

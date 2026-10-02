@@ -153,7 +153,11 @@ struct CodigoParaCaja: View {
                     .padding(.horizontal, 40)
             }
         }
-        .task { if personal.codigo == nil || (personal.codigoVence ?? .distantPast) < Date() { error = await personal.pedirCodigo() } }
+        .task {
+            if personal.codigo == nil || (personal.codigoVence ?? .distantPast) < Date() || Vitrina.activa {
+                error = await personal.pedirCodigo()
+            }
+        }
         .onAppear { brilloAntes = UIScreen.main.brightness; UIScreen.main.brightness = 1 }
         .onDisappear {
             UIScreen.main.brightness = brilloAntes

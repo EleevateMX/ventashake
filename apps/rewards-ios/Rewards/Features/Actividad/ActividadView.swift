@@ -12,10 +12,11 @@ struct ActividadView: View {
 
             if let vida = r?.vida, (vida.visitas ?? 0) > 0 {
                 Hoja {
+                    // Visitas y mancuernas, nada de dinero: la app es de
+                    // recompensas, no un estado de cuenta.
                     HStack(spacing: 22) {
                         Cifra(valor: "\(Int(vida.visitas ?? 0))", pie: "visitas")
-                        Cifra(valor: mxn(vida.gastado), pie: "gastado")
-                        Cifra(valor: "\(Int(r?.ganadas_total ?? 0))", pie: "ganadas")
+                        Cifra(valor: "\(Int(r?.ganadas_total ?? 0))", pie: "mancuernas ganadas")
                     }
                 }
             }
@@ -45,7 +46,7 @@ struct ActividadView: View {
                     ForEach(historial) { c in
                         VStack(alignment: .leading, spacing: 2) {
                             HStack {
-                                Text("#\(c.folio)").font(Marca.mono(14, .medium))
+                                Text("#\(String(c.folio))").font(Marca.mono(14, .medium))
                                 Text(c.fecha).font(Marca.mono(12)).foregroundStyle(Marca.tinta.opacity(0.5))
                                 Spacer()
                                 Text(mxn(c.total)).font(Marca.mono(14))
