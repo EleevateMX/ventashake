@@ -5,6 +5,20 @@ de por qué está armada así vive en `CLAUDE.md` → sección 2.7.
 
 ## En una Mac (lo más rápido para probar)
 
+**Atajo:** con Xcode ya instalado (App Store) y abierto una vez,
+
+```bash
+git clone https://github.com/EleevateMX/ventashake.git
+cd ventashake
+bash apps/rewards-ios/preparar-mac.sh            # brew, xcodegen, gh; genera y abre el proyecto
+bash apps/rewards-ios/subir-secrets.sh ~/Downloads/AuthKey_XXXXXXXXXX.p8   # los 4 secrets de GitHub
+```
+
+El segundo lee la llave directo del archivo y la manda cifrada a GitHub:
+no se imprime ni se copia a ningún lado.
+
+Paso a paso, a mano:
+
 Una sola vez:
 
 ```bash
