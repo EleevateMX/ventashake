@@ -1542,6 +1542,16 @@ PWA. No tiene reglas propias: llama a las mismas funciones
   Store. La llave de App Store Connect necesita rol **Admin**.
 - La ficha de la app en App Store Connect se crea **a mano** una vez: la
   API no puede.
+- **Apple Wallet** (02/10): «Agregar a Apple Wallet» en *Tu tarjeta*. El
+  pase (`storeCard`, el QR `SHK-…` con Milo en la franja) lo firma la Edge
+  Function `wallet-pase` con el certificado del Pass Type ID
+  (`pass.mx.shakeaholic.rewards`; secrets `WALLET_PASS_CERT` y
+  `WALLET_PASS_KEY`, los sube `wallet/subir-certificado.sh`). Con eso el
+  QR está en el iPhone **y en el Apple Watch** sin abrir la app. **Sin
+  saldo a propósito**: un pase no se actualiza solo. La firma hashea con
+  Web Crypto y no con `forge.util`: con el strip de 140 KB ese camino
+  revienta la pila. La app habla con Supabase por **`api.shakeaholic.mx`**
+  (dominio propio), que es lo que iOS enseña en el aviso del login.
 
 `testflight-ios.yml` (la PWA envuelta con Capacitor) queda como respaldo;
 el camino es la nativa. Para retomar solo Rewards, el mapa está en

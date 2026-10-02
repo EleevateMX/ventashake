@@ -8,6 +8,7 @@ struct TarjetaView: View {
         Pantalla(titulo: "Tu tarjeta") {
             if let c = estado.resumen?.cliente {
                 Pase(cliente: c) { qrGrande = c.codigo }
+                if c.codigo != nil { FilaWallet() }
 
                 if let p = estado.resumen?.progreso, let meta = p.meta, meta > 0 {
                     Progreso(progreso: p)
