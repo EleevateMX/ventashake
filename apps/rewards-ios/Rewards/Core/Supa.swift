@@ -7,7 +7,11 @@ import Supabase
 /// paquete de la web de todas formas. La seguridad está en el servidor
 /// (RLS y las funciones), nunca aquí. Nada secreto puede vivir en la app.
 enum Config {
-    static let supabaseURL = URL(string: "https://zyjtnaystsporbuzcmqk.supabase.co")!
+    /// El dominio propio del proyecto (Custom Domain de Supabase), el mismo
+    /// que usa la PWA (`packages/supabase/src/client.ts`). Importa por una
+    /// razón visible: el aviso de iOS al entrar con Google dice «quiere
+    /// utilizar api.shakeaholic.mx» en vez del id del proyecto.
+    static let supabaseURL = URL(string: "https://api.shakeaholic.mx")!
     static let llavePublicable = "sb_publishable_cMUhN7qNUY_AY-E4U1dCnw_fR_C9sOb"
 
     /// El esquema con el que Supabase devuelve el login de Google a la app.
