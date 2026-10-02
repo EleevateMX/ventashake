@@ -57,6 +57,14 @@
 		</dict>
 	</array>
 	<key>NSPrivacyAccessedAPITypes</key>
-	<array/>
+	<array>
+		<!-- UserDefaults: el token de push, para no pedírselo a Apple cada vez. -->
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array><string>CA92.1</string></array>
+		</dict>
+	</array>
 </dict>
 </plist>

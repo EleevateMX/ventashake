@@ -11,6 +11,8 @@ struct LoginView: View {
     @EnvironmentObject var estado: Estado
     @State private var trabajando = false
     @State private var pidiendoPin = false
+    /// La entrada: Milo, el título y los botones llegan escalonados.
+    @State private var entro = false
 
     var body: some View {
         VStack(spacing: 22) {
@@ -24,6 +26,9 @@ struct LoginView: View {
                     Tacto.ligero()
                     pidiendoPin = true
                 }
+                .scaleEffect(entro ? 1 : 0.8)
+                .opacity(entro ? 1 : 0)
+                .animation(.spring(response: 0.6, dampingFraction: 0.65), value: entro)
             VStack(spacing: 8) {
                 Text("Shakeaholic Rewards")
                     .font(Marca.display(32))
@@ -34,6 +39,9 @@ struct LoginView: View {
                     .foregroundStyle(Marca.crema.opacity(0.75))
                     .multilineTextAlignment(.center)
             }
+            .offset(y: entro ? 0 : 18)
+            .opacity(entro ? 1 : 0)
+            .animation(.easeOut(duration: 0.5).delay(0.15), value: entro)
             Spacer()
 
             if let error = estado.error {
@@ -43,6 +51,7 @@ struct LoginView: View {
                     .multilineTextAlignment(.center)
             }
 
+            Group {
             SignInWithAppleButton(.continue) { peticion in
                 estado.pedirApple(peticion)
             } onCompletion: { resultado in
@@ -70,6 +79,10 @@ struct LoginView: View {
             }
             .buttonStyle(Presionable())
             .disabled(trabajando)
+            }
+            .offset(y: entro ? 0 : 28)
+            .opacity(entro ? 1 : 0)
+            .animation(.easeOut(duration: 0.55).delay(0.3), value: entro)
 
             Text("Al entrar aceptas que guardemos tu nombre y tus compras para darte tus recompensas.")
                 .font(Marca.cuerpo(12))
@@ -78,6 +91,7 @@ struct LoginView: View {
                 .padding(.bottom, 8)
         }
         .padding(.horizontal, 24)
+        .onAppear { entro = true }
         .sheet(isPresented: $pidiendoPin) { EntrarPersonal() }
     }
 }

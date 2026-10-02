@@ -33,25 +33,61 @@ struct RaizView: View {
             switch estado.fase {
             case .arrancando, .cargando:
                 Arranque()
+                    .transition(.opacity)
             case .sinSesion:
                 // Alguien del personal puede entrar solo con su PIN, sin
                 // cuenta de cliente: ve únicamente su pestaña.
                 if personal.activo { PersonalView() } else { LoginView() }
             case .lista:
                 Pestanas()
+                    .transition(.opacity.combined(with: .scale(scale: 0.97)))
             }
         }
-        .animation(.easeOut(duration: 0.3), value: estado.fase)
+        .animation(.easeOut(duration: 0.35), value: estado.fase)
         .animation(.easeOut(duration: 0.3), value: personal.activo)
     }
 }
 
+/// La pantalla de carga: Milo llega con un rebote y «camina» mientras se
+/// trae la tarjeta. Mismo Milo y mismo verde que la pantalla de lanzamiento
+/// del sistema, para que de ahí a aquí no se note el corte.
 private struct Arranque: View {
+    @State private var llego = false
+    @State private var paso = false
+
     var body: some View {
-        VStack(spacing: 18) {
+        VStack(spacing: 26) {
             Image("Milo").resizable().scaledToFit().frame(width: 140)
-            ProgressView().tint(Marca.platano)
+                .scaleEffect(llego ? 1 : 0.7)
+                .opacity(llego ? 1 : 0)
+                .rotationEffect(.degrees(paso ? 3 : -3), anchor: .bottom)
+                .offset(y: paso ? -5 : 0)
+            PuntosCargando()
+                .opacity(llego ? 1 : 0)
         }
+        .onAppear {
+            withAnimation(.spring(response: 0.55, dampingFraction: 0.6)) { llego = true }
+            withAnimation(.easeInOut(duration: 0.42).repeatForever(autoreverses: true).delay(0.3)) { paso = true }
+        }
+    }
+}
+
+/// Tres mancuernitas que se encienden por turnos, en vez de la rueda gris
+/// del sistema.
+private struct PuntosCargando: View {
+    @State private var activo = 0
+    private let reloj = Timer.publish(every: 0.28, on: .main, in: .common).autoconnect()
+
+    var body: some View {
+        HStack(spacing: 10) {
+            ForEach(0..<3, id: \.self) { i in
+                Capsule()
+                    .fill(i == activo ? Marca.platano : Marca.crema.opacity(0.25))
+                    .frame(width: i == activo ? 22 : 10, height: 10)
+                    .animation(.easeInOut(duration: 0.22), value: activo)
+            }
+        }
+        .onReceive(reloj) { _ in activo = (activo + 1) % 3 }
     }
 }
 
