@@ -84,7 +84,7 @@ final class Estado: ObservableObject {
             while true {
                 let lote: [Producto] = try await supabase
                     .from("productos")
-                    .select("id,nombre,descripcion,precio,orden,categorias(nombre,orden)")
+                    .select("id,nombre,descripcion,precio,orden,imagen_url,categorias(nombre,orden)")
                     .eq("activo", value: true)
                     .eq("es_extra", value: false)
                     .order("orden")

@@ -138,6 +138,7 @@ struct Producto: Decodable, Identifiable {
     var descripcion: String?
     var precio: Double
     var orden: Int?
+    var imagen_url: String?
     var categorias: Categoria?
 
     struct Categoria: Decodable {
