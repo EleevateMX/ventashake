@@ -157,6 +157,22 @@ con `git tag rewards-v1.0.0`. Cuatro secrets en GitHub:
 `APPSTORE_KEY_ID`, `APPSTORE_ISSUER_ID`, `APPSTORE_PRIVATE_KEY` (el
 contenido del `.p8`), `APPLE_TEAM_ID`.
 
+**Antes de la primera subida, en App Store Connect → Apps → «+» → Nueva
+app**, con el bundle ID `mx.shakeaholic.rewards`. Es el único paso que no
+puede hacer el workflow: la API de Apple registra el bundle ID y los
+certificados sola, pero **no crea la ficha de la app**, y sin ficha la
+subida falla al final con *"No suitable application records were found"*.
+Si el bundle ID no aparece en la lista al crear la ficha, se da de alta en
+developer.apple.com → Identifiers (o se corre una vez el workflow, que lo
+registra al archivar).
+
+**Tres cosas que tumbaban la primera corrida (02/10/26)** y ya están en el
+workflow: Capacitor 8 pide **Node 22** (con 20, `cap add ios` no corre);
+Apple pide el **SDK de iOS 26** desde abril de 2026, y la imagen
+`macos-15` trae Xcode 16 por omisión (`setup-xcode` → `latest-stable`); y
+Capacitor 8 genera el proyecto con **Swift Package Manager**, sin
+`App.xcworkspace`, así que se archiva con el que exista.
+
 Y en **Supabase → Authentication → URL Configuration → Redirect URLs**:
 `mx.shakeaholic.rewards://auth`. Sin eso el login se queda a medias.
 
