@@ -58,19 +58,24 @@ struct CuentaView: View {
                     .font(Marca.cuerpo(14)).foregroundStyle(Marca.tinta.opacity(0.75))
             }
 
-            Hoja {
-                if personal.activo {
+            if personal.activo {
+                Hoja {
                     Text("Estás en modo personal: tienes la pestaña «Personal».")
                         .font(Marca.cuerpo(14, .medium))
-                } else {
-                    Button("¿Eres del equipo Shakeaholic? Entra con tu PIN") { pidiendoPin = true }
-                        .font(Marca.cuerpo(15, .semibold))
-                        .foregroundStyle(Marca.verde)
                 }
             }
 
             Button("Cerrar sesión") { Task { await estado.salir() } }
                 .buttonStyle(BotonPrincipal(fondo: Marca.tinta, texto: Marca.crema))
+
+            // Discreto a propósito: la pantalla es del cliente. El equipo sabe
+            // que está aquí (y en la entrada, con cinco toques a Milo).
+            if !personal.activo {
+                Button("Equipo Shakeaholic") { pidiendoPin = true }
+                    .font(Marca.cuerpo(12))
+                    .foregroundStyle(Marca.crema.opacity(0.4))
+                    .frame(maxWidth: .infinity)
+            }
         }
         .sheet(isPresented: $pidiendoPin) { EntrarPersonal() }
     }

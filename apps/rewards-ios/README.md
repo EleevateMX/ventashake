@@ -75,6 +75,13 @@ No hace falta: cada cambio que llega a GitHub se compila en una Mac de
 GitHub Actions, se abre en el simulador y deja una captura en el registro
 (busca `CAPTURA_INICIO` en el paso «Abrir en el simulador»).
 
+## Modo personal, discreto
+
+La pantalla de entrada es del cliente: no hay botón «Soy del equipo». El
+PIN se abre con **cinco toques a Milo** (el mismo pasadizo del kiosko) o,
+ya con sesión, con la línea pequeña «Equipo Shakeaholic» al final de
+*Cuenta*.
+
 ## Apple Wallet (el QR en el iPhone y en el Apple Watch)
 
 En «Tu tarjeta» hay un botón **Agregar a Apple Wallet**. El pase lo arma y
