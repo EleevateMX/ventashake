@@ -992,6 +992,19 @@ Cómo está armado, y por qué así:
 > regla de precios se separan solas: así fue como el doble scoop cobró $10
 > de menos durante semanas.
 
+**El beneficio también se cobra escaneando la app** (02/10,
+`codigo_de_personal_para_la_caja.sql`). En modo personal la app enseña
+«Mi beneficio» (`fn_mi_personal`: lo de hoy por grupo, el tope, los
+precios de personal) y un QR `SHKP-XXXXXXXX` (`fn_personal_codigo_emitir`)
+que vive 2 minutos y se usa una vez. La cajera lo escanea en «Es para
+personal» igual que un QR de cliente; `fn_personal_empleado_por` lo cambia
+por el empleado (o valida la clave con bcrypt, en el mismo lugar para que
+identificar, cotizar y cobrar no se separen). Al escanearlo se **ancla** a
+esa venta (20 minutos más de vida, y pedir otro en la app ya no lo mata);
+al cobrar queda `usado_en` y `orden_id`. **No es la clave en un QR**: la
+clave es secreta y un QR en pantalla se fotografía; un código que caduca
+vale lo que un boleto. `fn_crear_orden` sigue sin tocarse.
+
 > ⚠ **Promos y precio de personal se restan los dos.** Hoy no choca porque
 > la única promo viva es de cookies y las cookies no tienen precio de
 > personal. El día que una promo caiga sobre un producto que sí lo tiene,

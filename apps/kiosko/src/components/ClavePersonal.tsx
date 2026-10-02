@@ -18,6 +18,13 @@ import { sb } from '@/lib/sb'
  * tarde, con la fila esperando: se vería como un rechazo del sistema
  * cuando en realidad es una regla del negocio que se podía haber dicho a
  * tiempo.
+ *
+ * **La clave o el código de la app.** El mismo campo acepta dos cosas: la
+ * clave tecleada en el pad (solo dígitos) o el código `SHKP-XXXXXXXX` que
+ * la app del personal enseña como QR y el lector teclea como si fuera un
+ * teclado, con Enter al final. El servidor distingue cuál es; aquí no se
+ * decide nada. El campo se enfoca al abrir, igual que en ModalCliente: si
+ * el foco no está ahí, lo que escanea el lector se pierde.
  */
 
 export function ClavePersonal({
@@ -32,8 +39,11 @@ export function ClavePersonal({
   const [error, setError] = useState<string | null>(null)
   const [enviando, setEnviando] = useState(false)
 
+  const esCodigo = /^SHKP-/i.test(clave.trim())
+  const lista = esCodigo ? clave.trim().length >= 9 : clave.trim().length >= 4
+
   async function identificar() {
-    if (clave.trim().length < 4) return
+    if (!lista) return
     setEnviando(true); setError(null)
     try {
       const id = await identificarPersonal(sb, clave.trim())
@@ -114,13 +124,19 @@ export function ClavePersonal({
               nuestro; un teclado físico sigue funcionando. */}
           <input
             value={clave}
-            onChange={(e) => { setClave(e.target.value.replace(/\D/g, '').slice(0, 8)); setError(null) }}
+            onChange={(e) => {
+              // Dígitos sueltos = clave del pad. Con letras = el código del
+              // lector: se deja tal cual (mayúsculas, sin espacios).
+              const v = e.target.value
+              setClave(/[A-Za-z]/.test(v) ? v.toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 13) : v.replace(/\D/g, '').slice(0, 8))
+              setError(null)
+            }}
             onKeyDown={(e) => { if (e.key === 'Enter') void identificar() }}
             type="password"
             inputMode="none"
             autoComplete="off"
             autoFocus
-            placeholder="Su clave"
+            placeholder="Su clave o escanea su código"
             className="w-full px-4 py-3 rounded-sa border-2 border-sa-green-ink/10 bg-white font-mono text-2xl text-center tracking-widest"
           />
           {/* El kiosko no tiene teclado: sin este pad la clave no se podía
@@ -157,7 +173,7 @@ export function ClavePersonal({
             <button
               type="button"
               onClick={() => void identificar()}
-              disabled={enviando || clave.trim().length < 4}
+              disabled={enviando || !lista}
               className="h-16 rounded-sa bg-sa-green text-sa-cream font-display text-lg disabled:opacity-40"
             >
               {enviando ? 'Viendo…' : 'Aplicar'}

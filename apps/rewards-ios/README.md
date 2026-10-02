@@ -82,6 +82,14 @@ PIN se abre con **cinco toques seguidos a Milo** (el mismo pasadizo del kiosko) 
 ya con sesión, con la línea pequeña «Equipo Shakeaholic» al final de
 *Cuenta*.
 
+## Mi beneficio (precio de personal desde la app)
+
+Con sesión de PIN, la pestaña *Personal* abre con «Mi beneficio»: cuántos
+shakes, alimentos y bebidas llevo hoy, cuánto del tope, los precios de
+personal y el botón **Mostrar mi código en la caja**: un QR `SHKP-…` de un
+solo uso que vive 2 minutos. En el kiosko, «Es para personal» → escanear.
+Lo valida y lo cobra el servidor con las mismas reglas que la clave.
+
 ## Apple Wallet (el QR en el iPhone y en el Apple Watch)
 
 En «Tu tarjeta» hay un botón **Agregar a Apple Wallet**. El pase lo arma y
