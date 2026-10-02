@@ -261,3 +261,69 @@ struct EntrarPersonal: View {
         .presentationDetents([.medium, .large])
     }
 }
+
+/// La pestaña: abierta, el panel; cerrada, la puerta con Face ID o PIN.
+struct PersonalTab: View {
+    @EnvironmentObject var personal: Personal
+    var body: some View {
+        if personal.activo { PersonalView() } else { PersonalBloqueado() }
+    }
+}
+
+/// La puerta del modo personal para quien ya sabemos que es del equipo
+/// (su correo está registrado): Face ID si hay sesión guardada, si no el
+/// PIN de siempre.
+struct PersonalBloqueado: View {
+    @EnvironmentObject var estado: Estado
+    @EnvironmentObject var personal: Personal
+    @State private var pidiendoPin = false
+    @State private var aviso: String?
+    @State private var abriendo = false
+
+    var body: some View {
+        VStack(spacing: 18) {
+            Spacer()
+            Image("Milo").resizable().scaledToFit().frame(width: 120)
+            VStack(spacing: 6) {
+                Text("Hola, \(estado.soyPersonal?.nombre ?? "equipo")").font(Marca.display(28)).foregroundStyle(Marca.crema)
+                if let rol = estado.soyPersonal?.rol {
+                    Etiqueta(texto: rol, color: Marca.platano)
+                }
+                Text("Tu modo personal está cerrado. Ábrelo cuando lo necesites.")
+                    .font(Marca.cuerpo(15)).foregroundStyle(Marca.crema.opacity(0.7)).multilineTextAlignment(.center)
+            }
+            Spacer()
+            if let aviso {
+                Text(aviso).font(Marca.cuerpo(14, .medium)).foregroundStyle(Marca.fresa).multilineTextAlignment(.center)
+            }
+            if personal.puedeFaceID {
+                Button {
+                    abriendo = true
+                    Task { aviso = await personal.restaurarConFaceID(); abriendo = false }
+                } label: {
+                    Label(abriendo ? "Abriendo…" : "Abrir con Face ID", systemImage: "faceid")
+                        .font(Marca.cuerpo(18, .semibold))
+                        .frame(maxWidth: .infinity).frame(height: 54)
+                }
+                .buttonStyle(BotonPrincipal())
+                .disabled(abriendo)
+            }
+            Button(personal.puedeFaceID ? "Entrar con mi PIN" : "Entrar con mi PIN") { pidiendoPin = true }
+                .buttonStyle(personal.puedeFaceID
+                    ? BotonPrincipal(fondo: Marca.tinta, texto: Marca.crema)
+                    : BotonPrincipal())
+            Text(personal.puedeFaceID
+                 ? "Tu sesión vive en el llavero del iPhone, bajo tu cara."
+                 : "La primera vez es con PIN; después se abre con Face ID.")
+                .font(Marca.cuerpo(12)).foregroundStyle(Marca.crema.opacity(0.5)).multilineTextAlignment(.center)
+                .padding(.bottom, 12)
+        }
+        .padding(.horizontal, 24)
+        .background(Marca.verdeProfundo.ignoresSafeArea())
+        .sheet(isPresented: $pidiendoPin) { EntrarPersonal() }
+        .task {
+            // Si hay Face ID listo, se ofrece de una vez al abrir la pestaña.
+            if personal.puedeFaceID && !personal.activo { aviso = await personal.restaurarConFaceID() }
+        }
+    }
+}

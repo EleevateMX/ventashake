@@ -93,6 +93,7 @@ private struct PuntosCargando: View {
 
 struct Pestanas: View {
     @EnvironmentObject var personal: Personal
+    @EnvironmentObject var estado: Estado
 
     var body: some View {
         TabView {
@@ -104,8 +105,10 @@ struct Pestanas: View {
                 .tabItem { Label("Aliados", systemImage: "tag.fill") }
             CuentaView()
                 .tabItem { Label("Cuenta", systemImage: "person.crop.circle") }
-            if personal.activo {
-                PersonalView()
+            // La pestaña existe si ya hay sesión de personal o si el correo
+            // con el que entró es del equipo; abrirla pide PIN o Face ID.
+            if personal.activo || estado.soyPersonal?.es_personal == true {
+                PersonalTab()
                     .tabItem { Label("Personal", systemImage: "storefront") }
             }
         }

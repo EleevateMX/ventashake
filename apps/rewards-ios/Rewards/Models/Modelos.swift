@@ -177,3 +177,10 @@ struct Aliado: Decodable, Identifiable {
     var direccion: String?
     var orden: Int?
 }
+
+/// `fn_soy_personal()`: ¿el correo de esta sesión es de alguien del equipo?
+struct SoyPersonal: Decodable {
+    var es_personal: Bool
+    var nombre: String?
+    var rol: String?
+}

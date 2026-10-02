@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { sb } from '../../lib/sb'
 import {
-  listarEmpleadosAdmin, listarRoles, crearEmpleado, actualizarEmpleado,
+  listarEmpleadosAdmin, listarRoles, crearEmpleado, actualizarEmpleado, guardarCorreoEmpleado,
   type EmpleadoAdmin, type Rol,
 } from '@shake/supabase'
 import { Loading, ErrorMsg, OkMsg, Panel, Field, cx } from '../../ui'
@@ -15,8 +15,8 @@ const ROL_COLOR: Record<string, string> = {
 }
 const colorRol = (r: string) => ROL_COLOR[r] ?? 'bg-sa-cream-warm text-sa-green-ink/70'
 
-interface FormState { id: string | null; nombre: string; rol_id: string; pin: string }
-const VACIO: FormState = { id: null, nombre: '', rol_id: '', pin: '' }
+interface FormState { id: string | null; nombre: string; rol_id: string; pin: string; correo: string }
+const VACIO: FormState = { id: null, nombre: '', rol_id: '', pin: '', correo: '' }
 
 export default function Personas() {
   const [empleados, setEmpleados] = useState<EmpleadoAdmin[]>([])
@@ -54,9 +54,11 @@ export default function Personas() {
     try {
       if (editando) {
         await actualizarEmpleado(sb, form.id!, { nombre: form.nombre, rol_id: form.rol_id, pin: form.pin || undefined })
+        await guardarCorreoEmpleado(sb, form.id!, form.correo.trim() || null)
         setOk('Empleado actualizado.')
       } else {
-        await crearEmpleado(sb, { nombre: form.nombre, rol_id: form.rol_id, pin: form.pin })
+        const id = await crearEmpleado(sb, { nombre: form.nombre, rol_id: form.rol_id, pin: form.pin })
+        if (form.correo.trim()) await guardarCorreoEmpleado(sb, id, form.correo.trim())
         setOk('Empleado agregado.')
       }
       setForm({ ...VACIO, rol_id: form.rol_id })
@@ -79,7 +81,7 @@ export default function Personas() {
   }
 
   function editar(emp: EmpleadoAdmin) {
-    setForm({ id: emp.id, nombre: emp.nombre, rol_id: emp.rol_id, pin: '' })
+    setForm({ id: emp.id, nombre: emp.nombre, rol_id: emp.rol_id, pin: '', correo: emp.correo ?? '' })
     setOk(null); setError(null)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
@@ -94,7 +96,7 @@ export default function Personas() {
 
       {/* Formulario alta / edición */}
       <Panel title={editando ? 'Editar empleado' : 'Nuevo empleado'} className="mb-6">
-        <form onSubmit={guardar} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+        <form onSubmit={guardar} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
           <Field label="Nombre">
             <input className={cx.input} value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} placeholder="Nombre y apellido" />
           </Field>
@@ -102,6 +104,10 @@ export default function Personas() {
             <select className={cx.input} value={form.rol_id} onChange={(e) => setForm({ ...form, rol_id: e.target.value })}>
               {roles.map((r) => <option key={r.id} value={r.id}>{r.nombre}</option>)}
             </select>
+          </Field>
+          <Field label="Correo de Google/Apple (app)">
+            <input className={cx.input} type="email" value={form.correo} autoComplete="off"
+              onChange={(e) => setForm({ ...form, correo: e.target.value })} placeholder="ana@gmail.com" />
           </Field>
           <Field label={editando ? 'Nuevo PIN (vacío = no cambia)' : 'PIN (4–6 dígitos)'}>
             <input className={cx.input} value={form.pin} inputMode="numeric" maxLength={6}
@@ -116,7 +122,10 @@ export default function Personas() {
             )}
           </div>
         </form>
-        <p className={`text-xs mt-3 ${cx.muted}`}>El PIN se guarda cifrado (hash) en el servidor; nunca se muestra.</p>
+        <p className={`text-xs mt-3 ${cx.muted}`}>
+          El PIN se guarda cifrado (hash) en el servidor; nunca se muestra. Con el correo, la app de Rewards le enseña
+          la pestaña Personal sola a esa persona (la sesión sigue abriéndose con PIN o Face ID).
+        </p>
       </Panel>
 
       {/* Tabla */}
@@ -129,6 +138,7 @@ export default function Personas() {
               <tr className={cx.thead}>
                 <th className={cx.th}>Empleado</th>
                 <th className={cx.th}>Rol</th>
+                <th className={cx.th}>Correo (app)</th>
                 <th className={cx.th}>PIN</th>
                 <th className={cx.th}>Estado</th>
                 <th className={cx.thNum}>Acciones</th>
@@ -147,6 +157,9 @@ export default function Personas() {
                   </td>
                   <td className={cx.td}>
                     <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${colorRol(e.rol)}`}>{e.rol}</span>
+                  </td>
+                  <td className={cx.td}>
+                    <span className={`text-xs ${e.correo ? 'font-mono text-sa-green-ink' : cx.muted}`}>{e.correo ?? '—'}</span>
                   </td>
                   <td className={cx.td}>
                     {e.tiene_pin

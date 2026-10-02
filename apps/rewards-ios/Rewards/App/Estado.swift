@@ -14,6 +14,9 @@ final class Estado: ObservableObject {
     @Published var metas: [Meta] = []
     @Published var menu: [Producto]?
     @Published var aliados: [Aliado]?
+    /// Si el correo con el que entró es de alguien del equipo, la pestaña
+    /// Personal aparece sola (abrirla sigue pidiendo PIN o Face ID).
+    @Published var soyPersonal: SoyPersonal?
     @Published var error: String?
 
     /// El nonce del login de Apple: se manda cifrado a Apple y en claro a
@@ -48,6 +51,7 @@ final class Estado: ObservableObject {
             case .signedOut:
                 resumen = nil
                 metas = []
+                soyPersonal = nil
                 fase = .sinSesion
             default:
                 if sesion == nil, fase == .lista { fase = .sinSesion }
@@ -69,6 +73,8 @@ final class Estado: ObservableObject {
             resumen = r
             let lasMetas: [Meta]? = try? await supabase.rpc("fn_mis_metas").execute().value
             metas = lasMetas ?? []
+            let yo: SoyPersonal? = try? await supabase.rpc("fn_soy_personal").execute().value
+            soyPersonal = yo
             error = nil
             fase = .lista
             // Ya hay tarjeta en pantalla: buen momento para pedir permiso de

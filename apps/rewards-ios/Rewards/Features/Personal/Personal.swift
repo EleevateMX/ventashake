@@ -30,6 +30,9 @@ final class Personal: ObservableObject {
     /// El código vivo para la caja y cuándo vence (reloj del teléfono).
     @Published var codigo: String?
     @Published var codigoVence: Date?
+    /// Hay una sesión guardada bajo Face ID en este teléfono.
+    @Published var puedeFaceID = Llavero.tieneSesion && Llavero.biometriaDisponible
+    private var ultimoRefresh: String?
 
     private let cliente = SupabaseClient(
         supabaseURL: Config.supabaseURL,
@@ -51,6 +54,7 @@ final class Personal: ObservableObject {
             _ = try await cliente.auth.verifyOTP(tokenHash: token, type: .magiclink)
             nombre = r.empleado?.nombre
             activo = true
+            await guardarEnLlavero()
             await refrescar()
             await cargarMi()
             Tacto.exito()
@@ -79,8 +83,54 @@ final class Personal: ObservableObject {
     }
     #endif
 
+    // MARK: Face ID
+
+    /// Guarda la sesión del PIN bajo biometría para abrir con Face ID la
+    /// próxima vez. Si el teléfono no tiene Face ID, no guarda nada.
+    private func guardarEnLlavero() async {
+        guard Llavero.biometriaDisponible, let s = try? await cliente.auth.session else { return }
+        guard s.refreshToken != ultimoRefresh else { return }
+        let datos = try? JSONEncoder().encode(SesionGuardada(access: s.accessToken, refresh: s.refreshToken))
+        if let datos, (try? Llavero.guardar(datos)) != nil {
+            ultimoRefresh = s.refreshToken
+            puedeFaceID = true
+        }
+    }
+
+    /// Abre la sesión de personal con Face ID. `nil` = abierta, o cancelada
+    /// por la persona (no es error); texto = qué pasó.
+    func restaurarConFaceID() async -> String? {
+        do {
+            guard let datos = try Llavero.leer(motivo: "Abrir tu modo personal") else {
+                puedeFaceID = false
+                return "No hay sesión guardada: entra con tu PIN."
+            }
+            let g = try JSONDecoder().decode(SesionGuardada.self, from: datos)
+            let s = try await cliente.auth.setSession(accessToken: g.access, refreshToken: g.refresh)
+            ultimoRefresh = g.refresh
+            if case let .string(n)? = s.user.userMetadata["nombre"] { nombre = n }
+            activo = true
+            await guardarEnLlavero()
+            await refrescar()
+            await cargarMi()
+            Tacto.exito()
+            return nil
+        } catch Llavero.Falla.cancelado {
+            return nil
+        } catch {
+            // La sesión guardada ya no sirve (caducó o la revocaron): se tira
+            // y se pide el PIN. Un error aquí nunca deja una sesión a medias.
+            Llavero.borrar()
+            puedeFaceID = false
+            return "Tu sesión de personal venció: entra con tu PIN."
+        }
+    }
+
     func salir() async {
         try? await cliente.auth.signOut()
+        Llavero.borrar()
+        puedeFaceID = false
+        ultimoRefresh = nil
         activo = false
         nombre = nil
         esJefe = false
@@ -148,6 +198,7 @@ final class Personal: ObservableObject {
             }
             actualizado = Date()
             error = nil
+            await guardarEnLlavero()
         } catch {
             // La sesión del PIN caducó: se sale limpio en vez de mostrar
             // datos viejos como si fueran de ahora.
@@ -292,3 +343,5 @@ struct CodigoPersonal: Decodable {
     var expira_en: String?
     var segundos: Int
 }
+
+private struct SesionGuardada: Codable { let access: String; let refresh: String }
