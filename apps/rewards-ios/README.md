@@ -78,7 +78,7 @@ GitHub Actions, se abre en el simulador y deja una captura en el registro
 ## Modo personal, discreto
 
 La pantalla de entrada es del cliente: no hay botón «Soy del equipo». El
-PIN se abre con **cinco toques a Milo** (el mismo pasadizo del kiosko) o,
+PIN se abre con **cinco toques seguidos a Milo** (el mismo pasadizo del kiosko) o,
 ya con sesión, con la línea pequeña «Equipo Shakeaholic» al final de
 *Cuenta*.
 

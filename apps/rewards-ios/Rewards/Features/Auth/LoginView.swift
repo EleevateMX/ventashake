@@ -15,11 +15,15 @@ struct LoginView: View {
     var body: some View {
         VStack(spacing: 22) {
             Spacer()
-            // El pasadizo del equipo: cinco toques a Milo abren el PIN, igual
-            // que en el kiosko. Sin botón a la vista: la pantalla es del
-            // cliente y el personal ya conoce el gesto.
+            // El pasadizo del equipo: cinco toques seguidos a Milo abren el
+            // PIN, igual que en el kiosko. Sin botón a la vista: la pantalla
+            // es del cliente y el personal ya conoce el gesto.
             Image("Milo").resizable().scaledToFit().frame(width: 150)
-                .toquesSecretos { pidiendoPin = true }
+                .contentShape(Rectangle())
+                .onTapGesture(count: 5) {
+                    Tacto.ligero()
+                    pidiendoPin = true
+                }
             VStack(spacing: 8) {
                 Text("Shakeaholic Rewards")
                     .font(Marca.display(32))
@@ -78,28 +82,3 @@ struct LoginView: View {
     }
 }
 
-/// Cinco toques en menos de cuatro segundos (la misma regla que
-/// `Catalogo.tsx` en el kiosko). Un toque suelto no hace nada.
-private struct ToquesSecretos: ViewModifier {
-    let accion: () -> Void
-    @State private var toques = 0
-    @State private var primero: Date?
-
-    func body(content: Content) -> some View {
-        content.contentShape(Rectangle()).onTapGesture {
-            let ahora = Date()
-            if let p = primero, ahora.timeIntervalSince(p) > 4 { toques = 0; primero = nil }
-            if primero == nil { primero = ahora }
-            toques += 1
-            if toques >= 5 {
-                toques = 0; primero = nil
-                Tacto.ligero()
-                accion()
-            }
-        }
-    }
-}
-
-extension View {
-    func toquesSecretos(_ accion: @escaping () -> Void) -> some View { modifier(ToquesSecretos(accion: accion)) }
-}
