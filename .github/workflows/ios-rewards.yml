@@ -1,0 +1,188 @@
+# Shakeaholic Rewards NATIVA (apps/rewards-ios, SwiftUI + Supabase).
+#
+# Dos trabajos:
+#
+#   compilar   — en cada push que toque la app. Compila para el simulador
+#                SIN firmar: no necesita ningún secret, y es lo que dice si
+#                el código Swift compila (aquí no hay Mac).
+#
+#   testflight — solo a mano (Actions → «iOS Rewards» → Run workflow →
+#                subir = true). Firma con Fastlane y la llave de App Store
+#                Connect, y sube.
+#
+# Secrets (repo → Settings → Secrets and variables → Actions):
+#   APPSTORE_KEY_ID, APPSTORE_ISSUER_ID, APPSTORE_PRIVATE_KEY (contenido del
+#   .p8), APPLE_TEAM_ID. La llave necesita rol Admin: crea el certificado de
+#   distribución de cada corrida (y lo revoca al final).
+#
+# Lo único que NO puede hacer: crear la ficha de la app en App Store
+# Connect (la API de Apple no lo permite). Se crea una vez a mano con el
+# bundle ID mx.shakeaholic.rewards.
+
+name: iOS Rewards
+
+on:
+  push:
+    paths:
+      - 'apps/rewards-ios/**'
+      - '.github/workflows/ios-rewards.yml'
+  workflow_dispatch:
+    inputs:
+      subir:
+        description: '¿Subir a TestFlight? (si no, solo compila)'
+        type: boolean
+        default: false
+      version:
+        description: 'Versión visible (ej. 1.0.0)'
+        required: false
+        default: '1.0.0'
+
+concurrency:
+  group: ios-rewards-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  APP_DIR: apps/rewards-ios
+  # Los acentos en Info.plist rompen la subida sin esto (lección de ProDetail).
+  LANG: en_US.UTF-8
+  LC_ALL: en_US.UTF-8
+
+jobs:
+  compilar:
+    runs-on: macos-15
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      # Apple exige el SDK de iOS 26 desde abril de 2026; la imagen trae
+      # Xcode 16 por omisión.
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: XcodeGen
+        run: brew install xcodegen
+
+      - name: Generar el proyecto
+        working-directory: ${{ env.APP_DIR }}
+        run: |
+          xcodebuild -version
+          xcodegen generate
+
+      - name: Compilar para el simulador (sin firmar)
+        working-directory: ${{ env.APP_DIR }}
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project Rewards.xcodeproj \
+            -scheme Rewards \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build/DerivedData \
+            CODE_SIGNING_ALLOWED=NO \
+            | tee build-simulador.log | grep -E "error:|warning: .*Rewards/|BUILD (SUCCEEDED|FAILED)" || true
+          # El grep de arriba solo es para leer el log corto; el resultado
+          # real es el de xcodebuild.
+          grep -q "BUILD SUCCEEDED" build-simulador.log
+
+      - name: Guardar el registro
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compilacion-simulador-${{ github.run_number }}
+          path: ${{ env.APP_DIR }}/build-simulador.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+  testflight:
+    needs: compilar
+    if: github.event_name == 'workflow_dispatch' && inputs.subir
+    runs-on: macos-15
+    timeout-minutes: 60
+    env:
+      BUILD_NUMERO: ${{ github.run_number }}
+      VERSION: ${{ inputs.version || '1.0.0' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Revisar los secrets
+        env:
+          APPSTORE_KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
+          APPSTORE_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
+          APPSTORE_PRIVATE_KEY: ${{ secrets.APPSTORE_PRIVATE_KEY }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          falta=""
+          [ -n "$APPSTORE_KEY_ID" ]      || falta="$falta APPSTORE_KEY_ID"
+          [ -n "$APPSTORE_ISSUER_ID" ]   || falta="$falta APPSTORE_ISSUER_ID"
+          [ -n "$APPSTORE_PRIVATE_KEY" ] || falta="$falta APPSTORE_PRIVATE_KEY"
+          [ -n "$APPLE_TEAM_ID" ]        || falta="$falta APPLE_TEAM_ID"
+          if [ -n "$falta" ]; then
+            echo "::error::Faltan estos secrets en GitHub:$falta"
+            exit 1
+          fi
+
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+          working-directory: ${{ env.APP_DIR }}
+
+      - name: XcodeGen
+        working-directory: ${{ env.APP_DIR }}
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      # La llave va a un archivo temporal; nunca al repo ni al log.
+      - name: Llave de App Store Connect
+        env:
+          APPSTORE_KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
+          APPSTORE_PRIVATE_KEY: ${{ secrets.APPSTORE_PRIVATE_KEY }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/llaves"
+          printf '%s\n' "$APPSTORE_PRIVATE_KEY" > "$RUNNER_TEMP/llaves/AuthKey_${APPSTORE_KEY_ID}.p8"
+          chmod 600 "$RUNNER_TEMP/llaves/AuthKey_${APPSTORE_KEY_ID}.p8"
+          echo "ASC_KEY_PATH=$RUNNER_TEMP/llaves/AuthKey_${APPSTORE_KEY_ID}.p8" >> "$GITHUB_ENV"
+
+      - name: Firmar y subir
+        working-directory: ${{ env.APP_DIR }}
+        env:
+          ASC_KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: bundle exec fastlane ios subir
+
+      # Siempre, aunque la subida falle: el certificado de esta corrida se
+      # revoca para no acumularlos.
+      - name: Revocar el certificado de esta corrida
+        if: always()
+        working-directory: ${{ env.APP_DIR }}
+        env:
+          ASC_KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
+        run: |
+          if [ -n "$ASC_KEY_ID" ] && [ -f "$ASC_KEY_PATH" ]; then
+            bundle exec fastlane ios limpiar || echo "::warning::No se pudo revocar el certificado: revisalo en developer.apple.com"
+          fi
+
+      - name: Guardar el registro
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: registro-testflight-${{ github.run_number }}
+          path: |
+            ~/Library/Logs/gym
+            ${{ env.APP_DIR }}/fastlane/report.xml
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Listo
+        run: |
+          echo "### Subida a TestFlight" >> $GITHUB_STEP_SUMMARY
+          echo "- Versión: $VERSION · Build: $BUILD_NUMERO" >> $GITHUB_STEP_SUMMARY
+          echo "Tarda unos minutos en «Processing» antes de poder instalarse." >> $GITHUB_STEP_SUMMARY
