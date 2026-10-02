@@ -82,12 +82,17 @@ for escala: CGFloat in [1, 2, 3] {
         mancuernas(ctx, w, h)
         // Un círculo crema suave detrás de Milo, como un sol.
         ctx.setFillColor(crema.withAlphaComponent(0.10).cgColor)
-        ctx.fillEllipse(in: CGRect(x: w - 150, y: -40, width: 170, height: 170))
-        let mh: CGFloat = 106
+        ctx.fillEllipse(in: CGRect(x: w - 175, y: -40, width: 170, height: 170))
+        // Wallet recorta las orillas de la franja en los iPhone grandes (Pro
+        // Max): nada importante a menos de 40 pt de cada lado.
+        let margen: CGFloat = 40
+        let mh: CGFloat = 100
         let mw = mh * (300.0 / 278.0)
-        miloImg.draw(in: CGRect(x: w - mw - 18, y: 3, width: mw, height: mh), from: .zero, operation: .sourceOver, fraction: 1)
-        texto("Rewards", fuente: "BagelFatOne-Regular", tam: 40, color: platano, en: CGPoint(x: 18, y: 52))
-        texto("Junta mancuernas en cada compra", fuente: "DMSans-Variable", tam: 13, color: crema.withAlphaComponent(0.85), en: CGPoint(x: 20, y: 30))
+        miloImg.draw(in: CGRect(x: w - mw - margen, y: 8, width: mw, height: mh), from: .zero, operation: .sourceOver, fraction: 1)
+        texto("Rewards", fuente: "BagelFatOne-Regular", tam: 36, color: platano, en: CGPoint(x: margen, y: 54))
+        // En dos renglones cortos: en uno solo se mete debajo de Milo.
+        texto("Junta mancuernas", fuente: "DMSans-Variable", tam: 13, color: crema.withAlphaComponent(0.85), en: CGPoint(x: margen + 2, y: 36))
+        texto("en cada compra", fuente: "DMSans-Variable", tam: 13, color: crema.withAlphaComponent(0.85), en: CGPoint(x: margen + 2, y: 19))
     }
 }
 print("ok")
