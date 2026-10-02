@@ -1,0 +1,147 @@
+# Firma y sube Shakeaholic Rewards a TestFlight, desde la nube y SIN
+# dispositivos registrados (lección de ProDetail: la firma automática pide
+# un perfil de desarrollo, y ese exige al menos un iPhone dado de alta).
+#
+# Cómo firma sin guardar nada:
+#   - Cada corrida crea un certificado de DISTRIBUCIÓN nuevo con la llave de
+#     App Store Connect, firma con él y al final lo REVOCA (lane `limpiar`).
+#   - Revocar no afecta lo ya subido: Apple vuelve a firmar con su propio
+#     certificado todo lo que reparte por TestFlight y la App Store.
+#   - Así no hay un .p12 que alguien tenga que exportar, guardar y rotar, y
+#     no se acumulan certificados (Apple deja tener pocos a la vez).
+#
+# Variables (las pone el workflow): ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_PATH,
+# APPLE_TEAM_ID, VERSION, BUILD_NUMERO.
+
+default_platform(:ios)
+
+BUNDLE = "mx.shakeaholic.rewards"
+PERFIL = "Shakeaholic Rewards AppStore CI"
+PROYECTO = "Rewards.xcodeproj"
+ESQUEMA = "Rewards"
+CERT_ID_ARCHIVO = File.join(ENV.fetch("RUNNER_TEMP", "/tmp"), "shake_cert_id")
+KEYCHAIN = File.expand_path("~/Library/Keychains/fastlane_tmp_keychain-db")
+
+platform :ios do
+  def llave
+    @llave ||= app_store_connect_api_key(
+      key_id: ENV.fetch("ASC_KEY_ID"),
+      issuer_id: ENV.fetch("ASC_ISSUER_ID"),
+      key_filepath: ENV.fetch("ASC_KEY_PATH"),
+      in_house: false
+    )
+  end
+
+  def conectar
+    llave
+    Spaceship::ConnectAPI.token = Spaceship::ConnectAPI::Token.create(
+      key_id: ENV.fetch("ASC_KEY_ID"),
+      issuer_id: ENV.fetch("ASC_ISSUER_ID"),
+      filepath: ENV.fetch("ASC_KEY_PATH")
+    )
+  end
+
+  def borrar_perfiles_viejos
+    Spaceship::ConnectAPI::Profile.all(filter: { name: PERFIL }).each do |p|
+      UI.message("Borrando perfil #{p.name} (#{p.id})")
+      p.delete!
+    end
+  rescue StandardError => e
+    UI.important("No se pudieron borrar perfiles viejos: #{e.message}")
+  end
+
+  desc "Registra el bundle ID y prende Iniciar sesión con Apple. Se puede correr las veces que sea."
+  lane :preparar_identificador do
+    conectar
+    bid = Spaceship::ConnectAPI::BundleId.find(BUNDLE)
+    unless bid
+      UI.message("Registrando #{BUNDLE}")
+      # ConnectAPI exige platform "IOS" (lección de ProDetail).
+      bid = Spaceship::ConnectAPI::BundleId.create(name: "Shakeaholic Rewards", platform: "IOS", identifier: BUNDLE)
+    end
+    apple = Spaceship::ConnectAPI::BundleIdCapability::Type::APPLE_ID_AUTH
+    tipos = bid.get_capabilities.map(&:capability_type)
+    if tipos.include?(apple)
+      UI.message("Iniciar sesión con Apple ya estaba prendido")
+    else
+      bid.create_capability(apple, settings: [
+        { key: "APPLE_ID_AUTH_APP_CONSENT", options: [{ key: "PRIMARY_APP_CONSENT" }] }
+      ])
+      UI.success("Iniciar sesión con Apple prendido en #{BUNDLE}")
+    end
+  end
+
+  desc "Compila firmado y sube a TestFlight"
+  lane :subir do
+    conectar
+    setup_ci
+    preparar_identificador
+    borrar_perfiles_viejos
+
+    get_certificates(
+      api_key: llave,
+      development: false,
+      generate_apple_certs: true,
+      keychain_path: KEYCHAIN,
+      keychain_password: ""
+    )
+    cert_id = lane_context[SharedValues::CERT_CERTIFICATE_ID].to_s
+    File.write(CERT_ID_ARCHIVO, cert_id)
+    UI.message("Certificado de esta corrida: #{cert_id} (se revoca al final)")
+
+    get_provisioning_profile(
+      api_key: llave,
+      app_identifier: BUNDLE,
+      provisioning_name: PERFIL,
+      cert_id: cert_id,
+      force: true,
+      ignore_profiles_with_different_name: true
+    )
+
+    update_code_signing_settings(
+      path: PROYECTO,
+      use_automatic_signing: false,
+      team_id: ENV.fetch("APPLE_TEAM_ID"),
+      targets: [ESQUEMA],
+      bundle_identifier: BUNDLE,
+      profile_name: PERFIL,
+      code_sign_identity: "Apple Distribution"
+    )
+
+    build_app(
+      project: PROYECTO,
+      scheme: ESQUEMA,
+      configuration: "Release",
+      export_method: "app-store",
+      output_directory: "build",
+      output_name: "Shakeaholic.ipa",
+      clean: true,
+      xcargs: "MARKETING_VERSION=#{ENV.fetch('VERSION', '1.0.0')} CURRENT_PROJECT_VERSION=#{ENV.fetch('BUILD_NUMERO', '1')}",
+      export_options: { provisioningProfiles: { BUNDLE => PERFIL } }
+    )
+
+    upload_to_testflight(
+      api_key: llave,
+      ipa: "build/Shakeaholic.ipa",
+      skip_waiting_for_build_processing: true
+    )
+  end
+
+  desc "Revoca el certificado de esta corrida y borra su perfil (corre siempre, aunque falle la subida)"
+  lane :limpiar do
+    conectar
+    id = File.exist?(CERT_ID_ARCHIVO) ? File.read(CERT_ID_ARCHIVO).strip : ""
+    if id.empty?
+      UI.message("Esta corrida no creó certificado: nada que revocar")
+    else
+      cert = Spaceship::ConnectAPI::Certificate.all.find { |c| c.id == id }
+      if cert
+        cert.delete!
+        UI.success("Certificado #{id} revocado")
+      else
+        UI.important("El certificado #{id} ya no existe")
+      end
+    end
+    borrar_perfiles_viejos
+  end
+end

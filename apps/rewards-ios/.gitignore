@@ -1,0 +1,15 @@
+# Lo genera XcodeGen desde project.yml: no se versiona.
+*.xcodeproj
+Rewards/Info.plist
+Rewards/Rewards.entitlements
+# Salidas de compilación y de fastlane
+build/
+DerivedData/
+fastlane/report.xml
+fastlane/README.md
+fastlane/test_output/
+*.ipa
+*.dSYM.zip
+*.mobileprovision
+*.p8
+*.p12

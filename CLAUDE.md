@@ -1509,24 +1509,43 @@ empaquetador y se desvían solas:
 
 ---
 
-### 2.7 La app del cliente se compila en la nube
+### 2.7 La app de iOS es nativa (SwiftUI) y se compila en la nube
 
-`.github/workflows/testflight-ios.yml` la sube a TestFlight desde un
-runner de macOS: **no hace falta una Mac**. Cuatro secrets (llave de App
-Store Connect + Team ID) y ningún certificado — `xcodebuild
--allowProvisioningUpdates` los crea solo. Por eso puede correr en la nube:
-no hay un `.p12` que alguien tenga que exportar de su llavero.
+**`apps/rewards-ios`** (02/10/26): SwiftUI + `supabase-swift`, al estilo
+de ProDetail (XcodeGen + Fastlane) pero sobre **el mismo Supabase** que la
+PWA. No tiene reglas propias: llama a las mismas funciones
+(`fn_vincular_cliente_auth`, `fn_mi_resumen_lealtad`, `fn_mis_metas`,
+`fn_canjear_tarjeta`…). El `.xcodeproj` no se versiona: lo genera
+`xcodegen generate` desde `project.yml`.
 
-El proyecto nativo **no se versiona**: se regenera en cada corrida desde
-`capacitor.config.ts` + `scripts/app-nativa-preparar.sh`. Ese script pone
-los tres ajustes que Capacitor no pone solo, y el primero es el que más
-duele si falta: sin el **URL Type** `mx.shakeaholic.rewards`, el login de
-Google termina bien y el teléfono no sabe a qué app devolver el resultado
-— sin ningún mensaje de error.
+- **Entrar: Apple y Google.** Apple es obligatorio si se ofrece Google
+  (guideline 4.8). Google va por `signInWithOAuth` con
+  ASWebAuthenticationSession y vuelve por `mx.shakeaholic.rewards://auth`;
+  Apple, nativo con `signInWithIdToken` (proveedor Apple prendido en
+  Supabase con el bundle ID como Client ID).
+- **Modo personal**: el MISMO PIN del kiosko (`staff-login` →
+  `verifyOTP`), en una **segunda conexión que vive solo en memoria**
+  (`SoloEnMemoria`): no saca al cliente de su tarjeta, y una sesión de
+  gerencia no sobrevive en un teléfono prestado. Gerencia ve
+  `fn_panel_en_vivo` y recarga pantallas (`fn_pantallas_recargar`); el
+  cajero ve `fn_personal_en_turno` (caja, pedidos, impresoras, **sin
+  dinero**). Los permisos los decide el servidor, no la app. Cobrar sigue
+  siendo en la barra.
+- **CI** (`.github/workflows/ios-rewards.yml`): en cada push compila para
+  simulador **sin firmar** (sin secrets), abre la app, comprueba que no se
+  cierre sola y deja una captura en base64 en el log (`CAPTURA_INICIO`).
+  Así se prueba Swift sin Mac. **Subir** es a mano (Run workflow → subir):
+  Fastlane crea un certificado de distribución, firma, sube y **lo revoca
+  al final** — sin `.p12` guardado y sin dispositivos (la firma automática
+  pide un perfil de desarrollo, que exige un iPhone registrado: lección de
+  ProDetail). Revocar no afecta lo subido: Apple re-firma TestFlight y App
+  Store. La llave de App Store Connect necesita rol **Admin**.
+- La ficha de la app en App Store Connect se crea **a mano** una vez: la
+  API no puede.
 
-Para retomar solo Rewards en otra sesión, el mapa está en
-`docs/rewards-donde-vamos.md`; el detalle, en `docs/rewards-app-nativa.md`,
-`docs/monedero-y-sellos.md` y `docs/metas-y-perfil.md`.
+`testflight-ios.yml` (la PWA envuelta con Capacitor) queda como respaldo;
+el camino es la nativa. Para retomar solo Rewards, el mapa está en
+`docs/rewards-donde-vamos.md`.
 
 ---
 
