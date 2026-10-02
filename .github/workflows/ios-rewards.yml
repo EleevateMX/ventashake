@@ -85,6 +85,35 @@ jobs:
           # real es el de xcodebuild.
           grep -q "BUILD SUCCEEDED" build-simulador.log
 
+      # Abrir la app de verdad en un simulador: compilar no prueba que
+      # arranque. La captura va al registro en base64 (chica), para poder
+      # verla sin una Mac ni descargar nada.
+      - name: Abrir en el simulador y sacar captura
+        working-directory: ${{ env.APP_DIR }}
+        run: |
+          UDID=$(xcrun simctl list devices available -j | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; print(next(x['udid'] for k,v in d.items() if 'iOS' in k for x in v if x['name'].startswith('iPhone')))")
+          echo "Simulador: $UDID"
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID" -b
+          APP=$(find build/DerivedData -name 'Shakeaholic.app' -path '*iphonesimulator*' | head -1)
+          xcrun simctl install "$UDID" "$APP"
+          xcrun simctl launch "$UDID" mx.shakeaholic.rewards
+          sleep 12
+          xcrun simctl io "$UDID" screenshot captura.png
+          # Si la app tronó al abrir, ya no está corriendo: eso se reporta.
+          if xcrun simctl spawn "$UDID" launchctl list | grep -q "mx.shakeaholic.rewards"; then
+            echo "La app sigue abierta despues de 12 s."
+          else
+            echo "::error::La app se cerró sola al abrir."
+            exit 1
+          fi
+          sips -Z 520 captura.png --out captura-chica.png >/dev/null
+          sips -s format jpeg -s formatOptions 60 captura-chica.png --out captura.jpg >/dev/null
+          echo "CAPTURA_INICIO"
+          base64 -i captura.jpg | tr -d '\n'
+          echo
+          echo "CAPTURA_FIN"
+
       - name: Guardar el registro
         if: always()
         uses: actions/upload-artifact@v4
