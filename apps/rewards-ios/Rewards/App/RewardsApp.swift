@@ -64,8 +64,8 @@ struct Pestanas: View {
                 .tabItem { Label("Tarjeta", systemImage: "creditcard") }
             MenuView()
                 .tabItem { Label("Menú", systemImage: "cup.and.saucer") }
-            ActividadView()
-                .tabItem { Label("Actividad", systemImage: "list.bullet") }
+            AliadosTab()
+                .tabItem { Label("Aliados", systemImage: "tag.fill") }
             CuentaView()
                 .tabItem { Label("Cuenta", systemImage: "person.crop.circle") }
             if personal.activo {

@@ -1582,8 +1582,10 @@ PWA. No tiene reglas propias: llama a las mismas funciones
 - **Aliados** (`aliados.sql`): las marcas con las que colaboramos (logo,
   qué son, contacto y la promo con Shakeaholic). Admin → **Aliados** las
   administra (`fn_aliado_guardar`, bucket público `aliados` para logos);
-  la app las pinta en *Tu tarjeta* con `fn_aliados`, que es pública: es
-  publicidad. Sin logo sale el nombre; sin promo no sale la tarjeta
+  la app las pinta en *Tu tarjeta* y en su propia pestaña **Aliados** con
+  `fn_aliados`, que es pública: es publicidad. Las pestañas quedaron
+  Tarjeta · Menú · Aliados · Cuenta (+ Personal con PIN); la actividad
+  (compras, favoritos, movimientos) vive dentro de Cuenta. Sin logo sale el nombre; sin promo no sale la tarjeta
   amarilla; sin dato de contacto no sale ese botón.
 - **Modo vitrina** (solo DEBUG): `xcrun simctl launch booted
   mx.shakeaholic.rewards -vitrina` pinta a Alejandro con 763 mancuernas

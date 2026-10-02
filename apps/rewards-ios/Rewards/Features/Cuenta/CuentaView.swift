@@ -56,6 +56,8 @@ struct CuentaView: View {
                 }
             }
 
+            ActividadContenido()
+
             Hoja(titulo: "Cómo funciona") {
                 Text("Cada compra suma mancuernas: 10 mancuernas valen $1. Enseña el QR de tu tarjeta al pagar y se suman solas; para usarlas, pídelo en caja.")
                     .font(Marca.cuerpo(14)).foregroundStyle(Marca.tinta.opacity(0.75))
