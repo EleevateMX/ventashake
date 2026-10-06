@@ -139,11 +139,18 @@ struct Producto: Decodable, Identifiable {
     var precio: Double
     var orden: Int?
     var imagen_url: String?
+    var created_at: String?
     var categorias: Categoria?
 
     struct Categoria: Decodable {
         var nombre: String
         var orden: Int?
+    }
+
+    /// Entró al catálogo en los últimos 15 días.
+    var esNuevo: Bool {
+        guard let c = created_at, let fecha = ISO8601DateFormatter.flexible.date(from: c) else { return false }
+        return Date().timeIntervalSince(fecha) < 15 * 24 * 3600
     }
 
     /// Igual que `nombreParaOrdenar`: «Scoop X» se lee como «X».
@@ -192,4 +199,50 @@ struct Destacado: Decodable {
     var producto_id: String
     var categoria_id: String?
     var lugar: Int
+}
+
+extension ISO8601DateFormatter {
+    /// Postgres manda "2026-09-30T14:05:11.123456+00:00": con o sin fracción.
+    static let flexible: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f
+    }()
+    func date(flexible texto: String) -> Date? { date(from: texto) }
+}
+
+/// `fn_promos_vigentes()`: las promos que Admin → Promos tiene prendidas
+/// ahora mismo (día, hora y vigencia ya filtrados en el servidor).
+struct Promo: Decodable, Identifiable {
+    var id: String
+    var nombre: String
+    var descripcion: String?
+    var tipo: String
+    var valor: Double?
+    var cantidad: Int?
+    var productos: [String]?
+    var vence_en: String?
+
+    /// Cómo se lee la promo: «2 × $25», «-15%», «-$10», «te regalamos…».
+    var resumen: String {
+        switch tipo {
+        case "n_x_precio": return "\(cantidad ?? 2) × \(mxn(valor))"
+        case "descuento_pct": return "-\(Int(((valor ?? 0) * 100).rounded()))%"
+        case "descuento_monto": return "-\(mxn(valor))"
+        case "producto_gratis": return "Regalo"
+        default: return nombre
+        }
+    }
+}
+
+/// `vw_producto_extras`: con qué va un producto (la misma lista del kiosko).
+struct ExtraProducto: Decodable, Identifiable {
+    var extra_id: String
+    var nombre: String
+    var precio: Double?
+    var grupo: String?
+    var marca: String?
+    var por_defecto: Bool?
+    var activo: Bool?
+    var id: String { extra_id }
 }

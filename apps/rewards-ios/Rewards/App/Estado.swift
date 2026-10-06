@@ -15,6 +15,8 @@ final class Estado: ObservableObject {
     @Published var menu: [Producto]?
     /// producto_id → lugar entre los más pedidos de su categoría.
     @Published var destacados: [String: Int] = [:]
+    /// Las promos vigentes ahora mismo (Admin → Promos).
+    @Published var promos: [Promo] = []
     @Published var aliados: [Aliado]?
     /// Si el correo con el que entró es de alguien del equipo, la pestaña
     /// Personal aparece sola (abrirla sigue pidiendo PIN o Face ID).
@@ -107,7 +109,7 @@ final class Estado: ObservableObject {
             while true {
                 let lote: [Producto] = try await supabase
                     .from("productos")
-                    .select("id,nombre,descripcion,precio,orden,imagen_url,categorias(nombre,orden)")
+                    .select("id,nombre,descripcion,precio,orden,imagen_url,created_at,categorias(nombre,orden)")
                     .eq("activo", value: true)
                     .eq("es_extra", value: false)
                     .order("orden")
@@ -125,6 +127,20 @@ final class Estado: ObservableObject {
             if menu == nil { menu = [] }
         }
         await cargarDestacados()
+        let lista: [Promo]? = try? await supabase.rpc("fn_promos_vigentes").execute().value
+        promos = lista ?? []
+    }
+
+    /// Con qué va un producto: la misma vista que el kiosko, solo lo activo.
+    func extras(de productoId: String) async -> [ExtraProducto] {
+        let lista: [ExtraProducto]? = try? await supabase
+            .from("vw_producto_extras")
+            .select("extra_id,nombre,precio,grupo,marca,por_defecto,activo")
+            .eq("producto_id", value: productoId)
+            .eq("activo", value: true)
+            .order("grupo").order("nombre")
+            .execute().value
+        return lista ?? []
     }
 
     private func cargarDestacados() async {
