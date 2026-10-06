@@ -39,7 +39,9 @@ export default function App() {
 function Raiz() {
   const { fase } = useEstado()
   const personal = usePersonal()
-  if (window.location.pathname === '/pago-app') return <VueltaDePago />
+  // Clip devuelve a /pago-app?r=ok; Cloudflare Pages lo deja en /?r=ok.
+  // Las dos formas son la vuelta del pago.
+  if (window.location.pathname === '/pago-app' || new URLSearchParams(window.location.search).has('r')) return <VueltaDePago />
   if (fase === 'arrancando' || fase === 'cargando') return <Arranque />
   if (fase === 'sinSesion') {
     // Alguien del personal puede entrar solo con su PIN, sin cuenta de
