@@ -3,6 +3,7 @@
 // al siguiente minuto.
 import type { SupabaseClient } from 'jsr:@supabase/supabase-js@2'
 import { mandarAviso } from './apns.ts'
+import { mandarWebPush } from './webpush.ts'
 
 interface Pendiente {
   id: string
@@ -17,6 +18,8 @@ interface Dispositivo {
   id: string
   token: string
   entorno: 'sandbox' | 'production'
+  plataforma: 'ios' | 'web'
+  claves: { p256dh: string; auth: string } | null
 }
 
 export async function procesarCola(sb: SupabaseClient, maximo = 200): Promise<{ procesados: number; entregados: number }> {
@@ -30,13 +33,18 @@ export async function procesarCola(sb: SupabaseClient, maximo = 200): Promise<{ 
 
   let entregados = 0
   for (const p of (pendientes ?? []) as Pendiente[]) {
-    let consulta = sb.from('push_dispositivos').select('id, token, entorno').eq('activo', true)
+    let consulta = sb.from('push_dispositivos').select('id, token, entorno, plataforma, claves').eq('activo', true)
     consulta = p.auth_user_id ? consulta.eq('auth_user_id', p.auth_user_id) : consulta.eq('cliente_id', p.cliente_id)
     const { data: dispositivos } = await consulta
     let ok = 0
     const errores: string[] = []
     for (const d of (dispositivos ?? []) as Dispositivo[]) {
-      const r = await mandarAviso(d.token, d.entorno, { titulo: p.titulo, cuerpo: p.cuerpo, datos: p.datos })
+      // iOS habla con Apple; la PWA (Android, web) con el servicio de push
+      // de su navegador. Misma cola, mismo aviso.
+      const aviso = { titulo: p.titulo, cuerpo: p.cuerpo, datos: p.datos }
+      const r = d.plataforma === 'web' && d.claves
+        ? await mandarWebPush({ endpoint: d.token, claves: d.claves }, aviso)
+        : await mandarAviso(d.token, d.entorno, aviso)
       if (r.ok) {
         ok++
         await sb.from('push_dispositivos').update({ visto_en: new Date().toISOString(), ultimo_error: null }).eq('id', d.id)

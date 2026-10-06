@@ -1633,6 +1633,31 @@ PWA. No tiene reglas propias: llama a las mismas funciones
   para capturas; el menú sí es el real. En la versión de la tienda no
   existe.
 
+- **La PWA (Android y web) va a la par de la nativa** (06/10/26,
+  `apps/cliente-pwa`, `rewards.shakeaholic.mx`). No es otra app: son las
+  MISMAS pantallas y las mismas funciones del servidor que la de iOS
+  —Tarjeta · Menú (familias, fotos, ficha «Con qué va») · Aliados · Cuenta
+  (editar perfil con foto, eliminar cuenta, «Equipo Shakeaholic») y la
+  pestaña Personal con el PIN (`staff-login`, en una segunda conexión en
+  memoria: `crearClienteEnMemoria` en `@shake/supabase`). En la web no
+  hay llavero biométrico: el PIN se pide en cada recarga, a propósito.
+  Pedir y pagar está escrito igual que en iOS y obedece el mismo
+  interruptor de Admin; Clip devuelve a `/pago-app`, y la pantalla que
+  abrió el pago sigue preguntando por su cuenta. **Avisos push por Web
+  Push** (`push_web.sql`: `fn_push_registrar_web`, columna `claves`;
+  `_shared/webpush.ts` cifra RFC 8291 y firma VAPID con WebCrypto, sin
+  SDK; `push-cola` mira `plataforma` y habla con Apple o con el navegador).
+  La llave pública VAPID vive en `src/lib/push.ts` (es pública por
+  diseño); la privada en los secrets (`push/subir-secrets.sh`, llaves en
+  `~/.shakeaholic-webpush/`). El permiso se pide desde un botón en la
+  tarjeta, nunca al abrir. El service worker (`public/sw.js`) **no guarda
+  caché**: la tienda cambia precios varias veces por semana y una copia
+  vieja servida desde el teléfono es peor que pedir la página. «Instalar
+  la app» usa `beforeinstallprompt` (Android); en iPhone, instrucciones.
+  Para capturas y pruebas sin cuenta: `pnpm dev` y `/?vitrina` (solo en
+  desarrollo; en la versión publicada no existe). Lo que sigue para la
+  tienda de Android: envolverla con TWA (Bubblewrap) para Google Play.
+
 `testflight-ios.yml` (la PWA envuelta con Capacitor) queda como respaldo;
 el camino es la nativa. Para retomar solo Rewards, el mapa está en
 `docs/rewards-donde-vamos.md`.
