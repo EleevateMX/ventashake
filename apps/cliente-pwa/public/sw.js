@@ -1,3 +1,4 @@
+/* global self */
 // El service worker de Shakeaholic Rewards.
 //
 // Hace UNA cosa: recibir avisos push y enseñarlos. No guarda la app en
