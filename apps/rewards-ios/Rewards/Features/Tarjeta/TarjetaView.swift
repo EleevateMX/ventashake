@@ -4,9 +4,12 @@ struct TarjetaView: View {
     @EnvironmentObject var estado: Estado
     @State private var qrGrande: String?
 
+    @EnvironmentObject var pedidos: Pedidos
+
     var body: some View {
-        Pantalla(titulo: "Tu tarjeta") {
+        Pantalla(titulo: "Tu tarjeta", alRefrescar: { await estado.sincronizar(); await pedidos.cargarMios() }) {
             if let c = estado.resumen?.cliente {
+                MisPedidosView()
                 Pase(cliente: c) { qrGrande = c.codigo }
                 if c.codigo != nil { FilaWallet() }
 

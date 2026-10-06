@@ -11,6 +11,7 @@ import SwiftUI
 /// mostrador, no carta (mismo filtro que la PWA).
 struct MenuView: View {
     @EnvironmentObject var estado: Estado
+    @EnvironmentObject var pedidos: Pedidos
     @State private var familia: String?
     @State private var busqueda = ""
     @State private var abierto: Producto?
@@ -128,11 +129,13 @@ struct MenuView: View {
                         }
                     }
                 }
-                Link(destination: Config.whatsapp) {
-                    Text("Pedir por WhatsApp")
+                if pedidos.config?.whatsapp == true {
+                    Link(destination: Config.whatsapp) {
+                        Text("Pedir por WhatsApp")
+                    }
+                    .buttonStyle(BotonPrincipal())
+                    .padding(.top, 8)
                 }
-                .buttonStyle(BotonPrincipal())
-                .padding(.top, 8)
                 }
             }
         }

@@ -7,8 +7,10 @@ import SwiftUI
 struct ProductoDetalle: View {
     let producto: Producto
     @EnvironmentObject var estado: Estado
+    @EnvironmentObject var pedidos: Pedidos
     @Environment(\.dismiss) private var cerrar
     @State private var extras: [ExtraProducto]?
+    @State private var pidiendo = false
 
     private var promo: Promo? {
         estado.promos.first { ($0.productos ?? []).contains(producto.id) }
@@ -54,18 +56,39 @@ struct ProductoDetalle: View {
                     ConQueVa(extras: extras)
                 }
 
-                Link(destination: whatsapp) {
-                    HStack(spacing: 10) {
-                        Image(systemName: "message.fill")
-                        Text("Lo quiero · pedir por WhatsApp")
+                // Los botones los decide gerencia (Admin → Rewards → Pedidos
+                // por la app). Apagados los dos, el producto solo se mira.
+                if let cfg = pedidos.config, cfg.activo {
+                    if cfg.abierto_ahora, estado.resumen?.cliente != nil {
+                        Button { pidiendo = true } label: {
+                            HStack(spacing: 10) {
+                                Image(systemName: "bag.fill")
+                                Text("Lo quiero · pedir y pagar")
+                            }
+                            .font(Marca.cuerpo(17, .semibold))
+                            .frame(maxWidth: .infinity).frame(height: 54)
+                        }
+                        .buttonStyle(BotonPrincipal())
+                        Text("Pagas con tarjeta aquí y pasas por él en \(cfg.minutos_preparacion ?? 20) minutos.")
+                            .font(Marca.cuerpo(12)).foregroundStyle(Marca.crema.opacity(0.5))
+                            .frame(maxWidth: .infinity)
+                    } else if !cfg.abierto_ahora {
+                        Text(cfg.mensaje_cerrado ?? "Recibimos pedidos de \(cfg.hora_inicio ?? "") a \(cfg.hora_fin ?? "").")
+                            .font(Marca.cuerpo(13)).foregroundStyle(Marca.crema.opacity(0.6))
+                            .frame(maxWidth: .infinity)
                     }
-                    .font(Marca.cuerpo(17, .semibold))
-                    .frame(maxWidth: .infinity).frame(height: 54)
                 }
-                .buttonStyle(BotonPrincipal())
-                Text("Lo preparamos en la barra y lo pagas al recoger.")
-                    .font(Marca.cuerpo(12)).foregroundStyle(Marca.crema.opacity(0.5))
-                    .frame(maxWidth: .infinity)
+                if pedidos.config?.whatsapp == true {
+                    Link(destination: whatsapp) {
+                        HStack(spacing: 10) {
+                            Image(systemName: "message.fill")
+                            Text("Pedir por WhatsApp")
+                        }
+                        .font(Marca.cuerpo(16, .semibold))
+                        .frame(maxWidth: .infinity).frame(height: 50)
+                    }
+                    .buttonStyle(BotonPrincipal(fondo: Marca.crema.opacity(0.12), texto: Marca.crema))
+                }
 
                 Button("Cerrar") { cerrar() }
                     .buttonStyle(BotonPrincipal(fondo: Marca.tinta, texto: Marca.crema))
@@ -74,6 +97,10 @@ struct ProductoDetalle: View {
         }
         .background(Marca.verdeProfundo.ignoresSafeArea())
         .task { extras = await estado.extras(de: producto.id) }
+        .sheet(isPresented: $pidiendo) {
+            PedidoSheet(producto: producto, extras: extras ?? [])
+                .presentationDetents([.large])
+        }
     }
 
     private var whatsapp: URL {

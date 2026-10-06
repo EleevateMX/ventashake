@@ -2,10 +2,11 @@ import { useEffect, useRef, useState } from 'react'
 import { sb } from '../lib/sb'
 import {
   panelEnVivo, esperaEnVivo, pedirRecargaPantallas, pedirRetomarEspera,
-  type PanelEnVivo, type EsperaEnVivo,
+  pedidosAppEnVivo, marcarPedidoAppEntregado, ETIQUETA_PEDIDO_APP,
+  type PanelEnVivo, type EsperaEnVivo, type PedidoApp,
 } from '@shake/supabase'
 import { mxn, mensajeDeError, hace } from '@shake/utils'
-import { PageHeader, Loading, ErrorMsg } from '../ui'
+import { PageHeader, Loading, ErrorMsg, cx } from '../ui'
 import { BotonActualizarPantallas } from '../BotonActualizarPantallas'
 
 /**
@@ -73,6 +74,7 @@ export default function EnVivo() {
    * y son justo lo contrario: lo que todavía no entró.
    */
   const [espera, setEspera] = useState<EsperaEnVivo[]>([])
+  const [pedidosApp, setPedidosApp] = useState<PedidoApp[]>([])
   /** Cuál apartada está abierta. Una a la vez: es una lista, no un menú. */
   const [esperaAbierta, setEsperaAbierta] = useState<string | null>(null)
   const [pidiendoDetalle, setPidiendoDetalle] = useState(false)
@@ -159,6 +161,7 @@ export default function EnVivo() {
     const cargar = () => {
       // Si el vistazo de apartadas falla no se enseña error: el panel
       // principal es lo que no puede faltar.
+      pedidosAppEnVivo(sb).then(setPedidosApp).catch(() => {})
       void esperaEnVivo(sb)
         .then((e) => { if (vivo.current) setEspera(e) })
         .catch(() => {})
@@ -247,6 +250,43 @@ export default function EnVivo() {
       {/* Ventas apartadas. Van arriba del panel porque son lo único de
           esta pantalla que pide una acción de alguien: una cuenta
           capturada que lleva rato esperando a que el cliente vuelva. */}
+      {/* Pedidos por la app: ya pagados, cocina los tiene; aquí se ve en qué
+          van y se marcan entregados cuando el cliente pasa por ellos. */}
+      {pedidosApp.length > 0 && (
+        <section className="mb-6 rounded-sa-lg border border-sa-mint bg-sa-mint/15 p-5">
+          <div className="flex items-baseline justify-between gap-3 flex-wrap mb-1">
+            <h2 className="font-display text-xl text-sa-green-ink">
+              Pedidos por la app · {pedidosApp.filter((p) => !['entregado', 'caducado', 'cancelado'].includes(p.estado)).length} en curso
+            </h2>
+            <span className="font-mono text-sm text-sa-green-ink/70">{pedidosApp.length} hoy</span>
+          </div>
+          <div className="divide-y divide-sa-green-ink/10">
+            {pedidosApp.map((p) => (
+              <div key={p.id} className="flex items-center justify-between gap-3 py-2">
+                <div className="min-w-0">
+                  <p className="text-sm text-sa-green-ink">
+                    <b>#{p.folio}</b> · {p.nombre ?? 'cliente'}{p.telefono ? ` · ${p.telefono}` : ''}
+                    {p.preparar_a && <span className={`ml-2 font-mono text-[11px] ${cx.muted}`}>para las {p.preparar_a}</span>}
+                  </p>
+                  <p className="text-xs text-sa-green-ink/60 truncate">{p.items ?? '—'}{p.nota ? ` · «${p.nota}»` : ''}</p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className={`font-mono text-[11px] uppercase tracking-wide px-2 py-1 rounded-full ${
+                    p.estado === 'listo' ? 'bg-sa-banana text-sa-green-ink' : p.estado === 'entregado' ? 'bg-sa-green-ink/10 text-sa-green-ink/60' : 'bg-white text-sa-green-ink/70'
+                  }`}>{ETIQUETA_PEDIDO_APP[p.estado]}</span>
+                  {p.estado === 'listo' && (
+                    <button className="font-mono text-[11px] uppercase tracking-wide px-3 py-1.5 rounded-full bg-sa-green text-sa-cream"
+                      onClick={() => { void marcarPedidoAppEntregado(sb, p.id).then(() => pedidosAppEnVivo(sb)).then(setPedidosApp).catch(() => {}) }}>
+                      Entregado
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {espera.length > 0 && (
         <section className="mb-6 rounded-sa-lg border border-sa-banana bg-sa-banana/15 p-5">
           <div className="flex items-baseline justify-between gap-3 flex-wrap mb-1">
