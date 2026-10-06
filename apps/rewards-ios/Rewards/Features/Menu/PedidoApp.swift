@@ -101,11 +101,18 @@ final class Pedidos: ObservableObject {
 
     func enlaceDePago(ordenId: String) async throws -> URL {
         struct R: Decodable { var ok: Bool; var url: String?; var pagado: Bool?; var error: E?; struct E: Decodable { var mensaje: String? } }
-        let r: R = try await supabase.functions.invoke("clip-checkout-crear", options: FunctionInvokeOptions(body: ParamOrden(orden_id: ordenId)))
-        guard r.ok, let u = r.url, let url = URL(string: u) else {
-            throw NSError(domain: "pedido", code: 1, userInfo: [NSLocalizedDescriptionKey: r.error?.mensaje ?? "No se pudo abrir el pago."])
+        do {
+            let r: R = try await supabase.functions.invoke("clip-checkout-crear", options: FunctionInvokeOptions(body: ParamOrden(orden_id: ordenId)))
+            guard r.ok, let u = r.url, let url = URL(string: u) else {
+                throw NSError(domain: "pedido", code: 1, userInfo: [NSLocalizedDescriptionKey: r.error?.mensaje ?? "No se pudo abrir el pago."])
+            }
+            return url
+        } catch let FunctionsError.httpError(_, data) {
+            // El servidor contesta JSON con el motivo; sin esto solo se vería
+            // «non-2xx status code», que no le dice nada a nadie.
+            let r = try? JSONDecoder().decode(R.self, from: data)
+            throw NSError(domain: "pedido", code: 2, userInfo: [NSLocalizedDescriptionKey: r?.error?.mensaje ?? "No se pudo abrir el pago."])
         }
-        return url
     }
 
     /// 'pagado' | 'pendiente' | 'fallido'
@@ -333,9 +340,16 @@ private struct Opcion: View {
     }
 }
 
-/// «Tu pedido» arriba de la tarjeta mientras haya uno vivo.
+/// «Tu pedido» arriba de la tarjeta mientras haya uno vivo. Si quedó sin
+/// pagar (se cerró la página de Clip, se cayó la red), desde aquí se
+/// retoma el pago del MISMO pedido: no se crea otro.
 struct MisPedidosView: View {
     @EnvironmentObject var pedidos: Pedidos
+    @EnvironmentObject var estado: Estado
+    @State private var pagoURL: URL?
+    @State private var pagando: String?
+    @State private var aviso: String?
+
     var body: some View {
         let vivos = pedidos.mios.filter(\.vivo)
         if !vivos.isEmpty {
@@ -349,11 +363,44 @@ struct MisPedidosView: View {
                     Text(p.titulo).font(Marca.display(22)).foregroundStyle(p.estado == "listo" ? Marca.verde : Marca.tinta)
                     if let items = p.items { Text(items).font(Marca.cuerpo(14)).foregroundStyle(Marca.tinta.opacity(0.7)) }
                     if p.estado == "por_pagar" {
-                        Text("Sin pago en 20 minutos, caduca solo.").font(Marca.cuerpo(12)).foregroundStyle(Marca.fresa)
+                        Button(pagando == p.id ? "Abriendo el pago…" : "Pagar ahora · \(mxn(p.total))") {
+                            Task { await pagar(p) }
+                        }
+                        .buttonStyle(BotonPrincipal())
+                        .disabled(pagando != nil)
+                        Text("Sin pago en 20 minutos, caduca solo.").font(Marca.cuerpo(12)).foregroundStyle(Marca.tinta.opacity(0.55))
+                        if let aviso { Text(aviso).font(Marca.cuerpo(13, .medium)).foregroundStyle(Marca.fresa) }
                     }
                 }
             }
+            .sheet(item: Binding(get: { pagoURL.map { PagoURL(url: $0) } }, set: { pagoURL = $0?.url })) { u in
+                PaginaDePago(url: u.url).ignoresSafeArea()
+                    .onDisappear { Task { await confirmar() } }
+            }
         }
+    }
+
+    private func pagar(_ p: MiPedido) async {
+        aviso = nil
+        pagando = p.id
+        do { pagoURL = try await pedidos.enlaceDePago(ordenId: p.id) } catch { aviso = Estado.amable(error); pagando = nil }
+    }
+
+    private func confirmar() async {
+        guard let id = pagando else { return }
+        for intento in 0..<4 {
+            if await pedidos.estadoDePago(ordenId: id) == "pagado" {
+                Tacto.exito()
+                pagando = nil
+                await pedidos.cargarMios()
+                await estado.sincronizar()
+                return
+            }
+            if intento < 3 { try? await Task.sleep(nanoseconds: 2_000_000_000) }
+        }
+        pagando = nil
+        aviso = "Todavía no vemos el pago. Si ya pagaste, dale un momento y jala para actualizar."
+        await pedidos.cargarMios()
     }
 }
 

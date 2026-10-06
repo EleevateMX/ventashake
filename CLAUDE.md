@@ -1618,9 +1618,15 @@ PWA. No tiene reglas propias: llama a las mismas funciones
   a Clip** (la app sondea `clip-checkout-estado`; el webhook sin firma solo
   dispara la misma pregunta). Al quedar pagada, cocina la recibe por el
   trigger de siempre; dos triggers más solo **encolan** push («recibido»,
-  «listo»). ⚠ Antes de prenderlo: un pago real de prueba y confirmar en
-  `pedidos_app_checkout.respuesta` cómo nombra Clip el estado pagado; si no
-  cuadra con `ESTADOS_PAGADO`, nunca aprueba a ciegas. El botón de WhatsApp
+  «listo»). Clip Checkout, según developer.clip.mx: `POST
+  https://api.payclip.com/v2/checkout` (Basic), campos `redirection_url`
+  {success,error,default}, `webhook_url`, `metadata.external_reference`;
+  responde `payment_request_id` y `payment_request_url`; estado pagado =
+  `CHECKOUT_COMPLETED` (en el webhook, `resource_status: COMPLETED` y
+  `me_reference_id`); consulta `GET /v2/checkout/{payment_request_id}`.
+  El checkout alojado acepta tarjetas y OXXO; **no Apple Pay**. Si Clip
+  cambiara un nombre, nunca aprueba a ciegas: el pedido se queda «sin
+  pagar» y la respuesta cruda queda en `pedidos_app_checkout.respuesta`. El botón de WhatsApp
   del menú es otro interruptor de la misma pantalla.
 - **Modo vitrina** (solo DEBUG): `xcrun simctl launch booted
   mx.shakeaholic.rewards -vitrina` pinta a Alejandro con 763 mancuernas

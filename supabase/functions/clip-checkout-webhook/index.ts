@@ -12,9 +12,12 @@ Deno.serve(async (req: Request) => {
   if (!url || !servicio) return Response.json({ ok: false }, { status: 500 })
   let body: Record<string, unknown> = {}
   try { body = await req.json() } catch { /* sin cuerpo */ }
+  // El aviso de Clip trae payment_request_id y me_reference_id (lo que
+  // mandamos en metadata.external_reference, o sea el id de la orden).
   const data = (body.data ?? body) as Record<string, unknown>
-  const checkoutId = String(data.checkout_id ?? data.id ?? body.checkout_id ?? body.id ?? '')
-  const referencia = String((data.metadata as Record<string, unknown> | undefined)?.me_reference_id ?? '')
+  const checkoutId = String(data.payment_request_id ?? body.payment_request_id ?? '')
+  const referencia = String(data.me_reference_id ?? body.me_reference_id ?? '')
+  console.log('clip-checkout-webhook: aviso', { checkoutId, referencia, resource_status: data.resource_status ?? body.resource_status })
 
   const sb = createClient(url, servicio, { auth: { persistSession: false } })
   let ordenId = referencia
