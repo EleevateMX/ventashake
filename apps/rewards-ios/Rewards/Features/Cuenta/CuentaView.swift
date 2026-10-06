@@ -108,6 +108,15 @@ struct CuentaView: View {
                     .foregroundStyle(Marca.crema.opacity(0.4))
                     .frame(maxWidth: .infinity)
             }
+
+            // Quién la hizo. Chico y al final: la app es de Shakeaholic.
+            HStack(spacing: 6) {
+                Text("Powered by").font(Marca.mono(10)).tracking(1)
+                Text("Nuvora").font(Marca.cuerpo(12, .semibold))
+            }
+            .foregroundStyle(Marca.crema.opacity(0.35))
+            .frame(maxWidth: .infinity)
+            .padding(.top, 10)
         }
         .sheet(isPresented: $pidiendoPin) { EntrarPersonal() }
     }
