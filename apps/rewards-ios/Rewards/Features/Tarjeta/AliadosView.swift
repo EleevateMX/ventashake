@@ -187,5 +187,6 @@ struct AliadosTab: View {
         .sheet(item: $abierto) { a in
             AliadoDetalle(aliado: a).presentationDetents([.medium, .large])
         }
+        .onAppear { if Vitrina.arg("-abrir") == "aliado" { abierto = estado.aliados?.first } }
     }
 }

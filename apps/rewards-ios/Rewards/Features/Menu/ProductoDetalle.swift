@@ -96,7 +96,10 @@ struct ProductoDetalle: View {
             .padding(.horizontal, 22).padding(.top, 18).padding(.bottom, 30)
         }
         .background(Marca.verdeProfundo.ignoresSafeArea())
-        .task { extras = await estado.extras(de: producto.id) }
+        .task {
+            extras = await estado.extras(de: producto.id)
+            if Vitrina.arg("-abrir") == "pedido" { try? await Task.sleep(nanoseconds: 600_000_000); pidiendo = true }
+        }
         .sheet(isPresented: $pidiendo) {
             PedidoSheet(producto: producto, extras: extras ?? [])
                 .presentationDetents([.large])

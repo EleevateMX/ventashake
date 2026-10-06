@@ -17,6 +17,15 @@ enum Vitrina {
         #endif
     }
 
+    /// Para capturas: `-abrir ficha|pedido|aliado|codigo` y `-familia Alimentos`.
+    static func arg(_ nombre: String) -> String? {
+        #if DEBUG
+        let a = ProcessInfo.processInfo.arguments
+        if let i = a.firstIndex(of: nombre), i + 1 < a.count { return a[i + 1] }
+        #endif
+        return nil
+    }
+
     #if DEBUG
     static let resumen = Resumen(
         registrado: true,

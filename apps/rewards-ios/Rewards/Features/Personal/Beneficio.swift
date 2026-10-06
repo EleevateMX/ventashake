@@ -44,6 +44,7 @@ struct Beneficio: View {
         .fullScreenCover(isPresented: $mostrandoCodigo) {
             CodigoParaCaja { mostrandoCodigo = false }
         }
+        .onAppear { if Vitrina.arg("-abrir") == "codigo" { mostrandoCodigo = true } }
     }
 
     private func grupos(_ mi: MiPersonal) -> some View {
