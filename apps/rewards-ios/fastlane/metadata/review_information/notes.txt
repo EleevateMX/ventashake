@@ -1,0 +1,3 @@
+Shakeaholic Rewards is the loyalty card of a single protein bar in Mérida, México. Sign in with Apple or Google creates the customer account; no separate demo credentials are needed (Sign in with Apple works with any Apple ID). After signing in you see the card with its QR, the menu with photos, partners and the account screen (with "Eliminar mi cuenta" for account deletion).
+
+"Agregar a Apple Wallet" adds the loyalty pass. "Modo personal" (staff mode) is only for employees of the store and requires a staff PIN; it is not needed to review the app. In-app ordering and payment are switched off by the business in this version.
