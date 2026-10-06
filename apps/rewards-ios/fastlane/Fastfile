@@ -134,6 +134,22 @@ platform :ios do
     )
   end
 
+  desc "Sube la ficha de la App Store (textos y capturas), sin binario. Lo que hay en fastlane/metadata y fastlane/screenshots."
+  lane :ficha do
+    deliver(
+      api_key: llave,
+      app_identifier: BUNDLE,
+      skip_binary_upload: true,
+      skip_app_version_update: true,
+      overwrite_screenshots: true,
+      force: true,
+      precheck_include_in_app_purchases: false,
+      run_precheck_before_submit: false,
+      metadata_path: "fastlane/metadata",
+      screenshots_path: "fastlane/screenshots"
+    )
+  end
+
   desc "Revoca el certificado de esta corrida y borra su perfil (corre siempre, aunque falle la subida)"
   lane :limpiar do
     conectar

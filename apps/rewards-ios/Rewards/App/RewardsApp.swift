@@ -97,22 +97,37 @@ private struct PuntosCargando: View {
 struct Pestanas: View {
     @EnvironmentObject var personal: Personal
     @EnvironmentObject var estado: Estado
+    @State private var pestana = Pestanas.inicial
+
+    /// Para capturas: `-pestana menu|aliados|cuenta|personal` abre ahí.
+    private static var inicial: String {
+        #if DEBUG
+        let a = ProcessInfo.processInfo.arguments
+        if let i = a.firstIndex(of: "-pestana"), i + 1 < a.count { return a[i + 1] }
+        #endif
+        return "tarjeta"
+    }
 
     var body: some View {
-        TabView {
+        TabView(selection: $pestana) {
             TarjetaView()
                 .tabItem { Label("Tarjeta", systemImage: "creditcard") }
+                .tag("tarjeta")
             MenuView()
                 .tabItem { Label("Menú", systemImage: "cup.and.saucer") }
+                .tag("menu")
             AliadosTab()
                 .tabItem { Label("Aliados", systemImage: "tag.fill") }
+                .tag("aliados")
             CuentaView()
                 .tabItem { Label("Cuenta", systemImage: "person.crop.circle") }
+                .tag("cuenta")
             // La pestaña existe si ya hay sesión de personal o si el correo
             // con el que entró es del equipo; abrirla pide PIN o Face ID.
             if personal.activo || estado.soyPersonal?.es_personal == true {
                 PersonalTab()
                     .tabItem { Label("Personal", systemImage: "storefront") }
+                    .tag("personal")
             }
         }
         .tint(Marca.platano)
