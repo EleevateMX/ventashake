@@ -16,14 +16,13 @@ import { headersClip } from './clip.ts'
 
 export const CHECKOUT_BASE = 'https://api.payclip.com/v2/checkout'
 
-const ESTADOS_PAGADO = new Set(['CHECKOUT_CHECKED_OUT', 'CHECKOUT_COMPLETED', 'PAID', 'APPROVED', 'COMPLETED'])
+// Lo que documenta Clip: el link «se liquidó» = CHECKOUT_COMPLETED; en el
+// webhook llega como resource_status COMPLETED.
+const ESTADOS_PAGADO = new Set(['CHECKOUT_COMPLETED', 'COMPLETED'])
 
 export function checkoutPagado(respuesta: Record<string, unknown>): boolean {
-  const s = String(respuesta?.status ?? respuesta?.checkout_status ?? '').toUpperCase()
-  if (ESTADOS_PAGADO.has(s)) return true
-  const pago = (respuesta?.payment ?? respuesta?.payment_request) as Record<string, unknown> | undefined
-  const ps = String(pago?.status ?? '').toLowerCase()
-  return ps === 'approved' || ps === 'paid'
+  const s = String(respuesta?.status ?? respuesta?.resource_status ?? '').toUpperCase()
+  return ESTADOS_PAGADO.has(s)
 }
 
 export async function crearCheckout(orden: { id: string; folio: number; total: number }): Promise<{ id: string; url: string; raw: unknown }> {
@@ -40,12 +39,19 @@ export async function crearCheckout(orden: { id: string; folio: number; total: n
         default: 'https://rewards.shakeaholic.mx/pago-app',
       },
       webhook_url: 'https://api.shakeaholic.mx/functions/v1/clip-checkout-webhook',
-      metadata: { me_reference_id: orden.id },
+      metadata: { external_reference: orden.id },
     }),
   })
-  const raw = await resp.json().catch(() => ({}))
-  if (!resp.ok) throw new Error(`Clip contestó ${resp.status}: ${JSON.stringify(raw).slice(0, 200)}`)
-  const id = String(raw?.id ?? raw?.checkout_id ?? '')
+  const texto = await resp.text()
+  let raw: Record<string, unknown> = {}
+  try { raw = JSON.parse(texto) } catch { raw = { texto } }
+  if (!resp.ok) {
+    // Al registro completo: el motivo de Clip es lo único que permite
+    // arreglar una integración a ciegas.
+    console.error('clip-checkout-crear: Clip contestó', resp.status, texto.slice(0, 1000))
+    throw new Error(`Clip contestó ${resp.status}: ${texto.slice(0, 300)}`)
+  }
+  const id = String(raw?.payment_request_id ?? raw?.id ?? '')
   const url = String(raw?.payment_request_url ?? raw?.url ?? '')
   if (!id || !url) throw new Error(`Clip no devolvió el enlace de pago: ${JSON.stringify(raw).slice(0, 200)}`)
   return { id, url, raw }
