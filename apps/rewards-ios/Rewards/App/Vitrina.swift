@@ -34,7 +34,8 @@ enum Vitrina {
         ],
         paquetes: [
             Resumen.Paquete(nombre: "Recarga $200", precio: 200, mancuernas: 2200, vale: 220, bono_pct: 10),
-            Resumen.Paquete(nombre: "Recarga $500", precio: 500, mancuernas: 6000, vale: 600, bono_pct: 20),
+            Resumen.Paquete(nombre: "Recarga $500", precio: 500, mancuernas: 5750, vale: 575, bono_pct: 15),
+            Resumen.Paquete(nombre: "Recarga $1,000", precio: 1000, mancuernas: 12000, vale: 1200, bono_pct: 20),
         ],
         vida: Resumen.Vida(visitas: 47, gastado: 5890, ticket: 125.3, ultima: "1 oct"),
         ganadas_total: 1890,

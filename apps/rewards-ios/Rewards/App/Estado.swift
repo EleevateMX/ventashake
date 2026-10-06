@@ -13,6 +13,8 @@ final class Estado: ObservableObject {
     @Published var resumen: Resumen?
     @Published var metas: [Meta] = []
     @Published var menu: [Producto]?
+    /// producto_id → lugar entre los más pedidos de su categoría.
+    @Published var destacados: [String: Int] = [:]
     @Published var aliados: [Aliado]?
     /// Si el correo con el que entró es de alguien del equipo, la pestaña
     /// Personal aparece sola (abrirla sigue pidiendo PIN o Face ID).
@@ -122,6 +124,27 @@ final class Estado: ObservableObject {
         } catch {
             if menu == nil { menu = [] }
         }
+        await cargarDestacados()
+    }
+
+    private func cargarDestacados() async {
+        #if DEBUG
+        if Vitrina.activa {
+            // Para capturas: los tres primeros de cada categoría.
+            var porCat: [String: Int] = [:]
+            var d: [String: Int] = [:]
+            for p in menu ?? [] {
+                let cat = p.categorias?.nombre ?? ""
+                let n = (porCat[cat] ?? 0) + 1
+                porCat[cat] = n
+                if n <= 3 { d[p.id] = n }
+            }
+            destacados = d
+            return
+        }
+        #endif
+        let lista: [Destacado]? = try? await supabase.rpc("fn_menu_destacados").execute().value
+        destacados = Dictionary(uniqueKeysWithValues: (lista ?? []).map { ($0.producto_id, $0.lugar) })
     }
 
     func cargarAliados() async {

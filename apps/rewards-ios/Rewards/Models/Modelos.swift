@@ -184,3 +184,12 @@ struct SoyPersonal: Decodable {
     var nombre: String?
     var rol: String?
 }
+
+/// `fn_menu_destacados()`: el lugar (1º, 2º, 3º) de un producto dentro de
+/// su categoría por lo vendido en los últimos 60 días. Solo el lugar: las
+/// cifras no son públicas.
+struct Destacado: Decodable {
+    var producto_id: String
+    var categoria_id: String?
+    var lugar: Int
+}
