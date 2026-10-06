@@ -6,6 +6,7 @@ struct CuentaView: View {
     @State private var telefono = ""
     @State private var mensaje: String?
     @State private var pidiendoPin = false
+    @State private var editando = false
     @State private var confirmandoBorrado = false
     @State private var borrando = false
     @State private var errorBorrado: String?
@@ -33,6 +34,8 @@ struct CuentaView: View {
                 Divider()
                 Fila(etiqueta: "Código", valor: c?.codigo ?? "—")
                 Fila(etiqueta: "Teléfono", valor: c?.telefono ?? "sin registrar")
+                Button("Editar mi perfil") { editando = true }
+                    .buttonStyle(BotonPrincipal(fondo: Marca.verde, texto: Marca.crema))
             }
 
             if c?.telefono == nil {
@@ -119,6 +122,8 @@ struct CuentaView: View {
             .padding(.top, 10)
         }
         .sheet(isPresented: $pidiendoPin) { EntrarPersonal() }
+        .sheet(isPresented: $editando) { PerfilView().presentationDetents([.large]) }
+        .onAppear { if Vitrina.arg("-abrir") == "perfil" { editando = true } }
     }
 }
 
