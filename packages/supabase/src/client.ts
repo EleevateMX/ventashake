@@ -49,3 +49,19 @@ export function getSupabase(): ShakeClient {
   cliente = createClient<Database>(conDominioPropio(url), anonKey)
   return cliente
 }
+
+/**
+ * Una SEGUNDA conexión, solo en memoria, para el modo personal de la app
+ * de Rewards: la sesión del cliente (su tarjeta) y la del empleado son
+ * cuentas distintas, y con una sola conexión entrar como personal sacaría
+ * al cliente de su tarjeta. No persiste: al recargar se pide el PIN otra
+ * vez, a propósito (un celular se presta y se pierde).
+ */
+export function crearClienteEnMemoria(storageKey = 'shake-personal'): ShakeClient {
+  const url = import.meta.env.VITE_SUPABASE_URL as string | undefined
+  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
+  if (!url || !anonKey) throw new Error('Faltan VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY.')
+  return createClient<Database>(conDominioPropio(url), anonKey, {
+    auth: { persistSession: false, autoRefreshToken: true, storageKey },
+  })
+}

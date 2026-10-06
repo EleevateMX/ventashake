@@ -97,3 +97,98 @@ export function IconoPalomita({ className }: Props) {
     </svg>
   )
 }
+
+/** Etiqueta de precio: la pestaña de Aliados. */
+export function IconoEtiqueta({ className }: Props) {
+  return (
+    <svg {...base} className={className} aria-hidden="true">
+      <path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8Z" />
+      <circle cx="7.5" cy="7.5" r="1.25" fill="currentColor" stroke="none" />
+    </svg>
+  )
+}
+
+/** La tienda: la pestaña Personal. */
+export function IconoTienda({ className }: Props) {
+  return (
+    <svg {...base} className={className} aria-hidden="true">
+      <path d="M3 9.5 4.5 4h15L21 9.5M3 9.5a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0M4.5 11v9h15v-9M9.5 20v-5h5v5" />
+    </svg>
+  )
+}
+
+/** Tarjeta: la pestaña de la tarjeta. */
+export function IconoTarjeta({ className }: Props) {
+  return (
+    <svg {...base} className={className} aria-hidden="true">
+      <rect x="3" y="5.5" width="18" height="13" rx="2.5" />
+      <path d="M3 10h18M7 14.5h4" />
+    </svg>
+  )
+}
+
+export function IconoLupa({ className }: Props) {
+  return (
+    <svg {...base} className={className} aria-hidden="true">
+      <circle cx="11" cy="11" r="6.5" />
+      <path d="m20 20-4.2-4.2" />
+    </svg>
+  )
+}
+
+export function IconoCamara({ className }: Props) {
+  return (
+    <svg {...base} className={className} aria-hidden="true">
+      <path d="M4 8.5h3l1.5-2.5h7L17 8.5h3a1 1 0 0 1 1 1V18a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5a1 1 0 0 1 1-1Z" />
+      <circle cx="12" cy="13.5" r="3.25" />
+    </svg>
+  )
+}
+
+export function IconoCampana({ className }: Props) {
+  return (
+    <svg {...base} className={className} aria-hidden="true">
+      <path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15L6 16ZM10 20.5a2 2 0 0 0 4 0" />
+    </svg>
+  )
+}
+
+export function IconoDescarga({ className }: Props) {
+  return (
+    <svg {...base} className={className} aria-hidden="true">
+      <path d="M12 4v11m0 0 4-4m-4 4-4-4M4 17v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-2" />
+    </svg>
+  )
+}
+
+export function IconoFlecha({ className }: Props) {
+  return (
+    <svg {...base} className={className} aria-hidden="true">
+      <path d="M7 17 17 7M9 7h8v8" />
+    </svg>
+  )
+}
+
+export function IconoBolsa({ className }: Props) {
+  return (
+    <svg {...base} className={className} aria-hidden="true">
+      <path d="M5 8h14l-1 12H6L5 8ZM9 8V6a3 3 0 0 1 6 0v2" />
+    </svg>
+  )
+}
+
+export function IconoMensaje({ className }: Props) {
+  return (
+    <svg {...base} className={className} aria-hidden="true">
+      <path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-4.5 3.5V17A2.5 2.5 0 0 1 4 14.5v-8Z" />
+    </svg>
+  )
+}
+
+export function IconoChispa({ className }: Props) {
+  return (
+    <svg {...base} className={className} aria-hidden="true">
+      <path d="M12 3v4M12 17v4M3 12h4M17 12h4M6.5 6.5l2.5 2.5M15 15l2.5 2.5M6.5 17.5 9 15M15 9l2.5-2.5" />
+    </svg>
+  )
+}
