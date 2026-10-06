@@ -142,6 +142,14 @@ struct MenuView: View {
         .sheet(item: $abierto) { p in
             ProductoDetalle(producto: p).presentationDetents([.large])
         }
+        .onAppear {
+            if let f = Vitrina.arg("-familia") { familia = f }
+        }
+        .onChange(of: estado.menu == nil) { _, sinMenu in
+            // Capturas: con el menú ya cargado, abre la ficha del primer destacado.
+            guard !sinMenu, Vitrina.activa, abierto == nil, let que = Vitrina.arg("-abrir"), que == "ficha" || que == "pedido" else { return }
+            abierto = secciones.first?.destacados.first ?? estado.menu?.first
+        }
     }
 
     private func fila(_ p: Producto) -> some View {

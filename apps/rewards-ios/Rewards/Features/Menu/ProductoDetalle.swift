@@ -96,7 +96,10 @@ struct ProductoDetalle: View {
             .padding(.horizontal, 22).padding(.top, 18).padding(.bottom, 30)
         }
         .background(Marca.verdeProfundo.ignoresSafeArea())
-        .task { extras = await estado.extras(de: producto.id) }
+        .task {
+            extras = await estado.extras(de: producto.id)
+            if Vitrina.arg("-abrir") == "pedido" { try? await Task.sleep(nanoseconds: 600_000_000); pidiendo = true }
+        }
         .sheet(isPresented: $pidiendo) {
             PedidoSheet(producto: producto, extras: extras ?? [])
                 .presentationDetents([.large])
@@ -147,10 +150,13 @@ struct Insignia: View {
     }
 }
 
-/// Los extras agrupados como en el kiosko: los «elige una» por grupo (la
-/// de casa marcada) y los sueltos con su precio.
+/// Los extras agrupados como en el kiosko, pero para verse: las opciones
+/// de cada grupo como pastillas (la de casa, resaltada) y los extras
+/// sueltos como mosaicos con icono y precio.
 private struct ConQueVa: View {
     let extras: [ExtraProducto]
+    @State private var todos = false
+    private let columnas = [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)]
 
     private var grupos: [(String, [ExtraProducto])] {
         let conGrupo = extras.filter { !($0.grupo ?? "").isEmpty }
@@ -158,31 +164,102 @@ private struct ConQueVa: View {
         return d.keys.sorted().map { ($0, d[$0] ?? []) }
     }
     private var sueltos: [ExtraProducto] { extras.filter { ($0.grupo ?? "").isEmpty } }
+    private var mostrados: [ExtraProducto] { todos ? sueltos : Array(sueltos.prefix(6)) }
+
+    /// «Proteína BIRDMAN FALCON - Chocolate» → «BIRDMAN FALCON · Chocolate».
+    static func corto(_ nombre: String, grupo: String) -> String {
+        var n = nombre
+        for prefijo in [grupo, grupo.capitalized, "Proteína", "Proteina"] where n.lowercased().hasPrefix(prefijo.lowercased() + " ") {
+            n = String(n.dropFirst(prefijo.count + 1))
+        }
+        return n.replacingOccurrences(of: " - ", with: " · ").trimmingCharacters(in: .whitespaces)
+    }
+
+    /// Un icono por familia de extra, por el nombre. Lo demás, una chispa.
+    static func icono(_ nombre: String) -> String {
+        let n = nombre.lowercased()
+        if n.contains("galleta") || n.contains("cookie") { return "circle.grid.2x2.fill" }
+        if n.contains("doble") || n.contains("scoop") { return "plus.circle.fill" }
+        if n.contains("agua") || n.contains("leche") { return "drop.fill" }
+        if n.contains("creatina") || n.contains("bcaa") || n.contains("pre") { return "bolt.fill" }
+        if n.contains("colágeno") || n.contains("colageno") || n.contains("probiotic") || n.contains("vitamin") { return "pills.fill" }
+        if n.contains("chía") || n.contains("chia") || n.contains("avena") || n.contains("linaza") || n.contains("espirulina") { return "leaf.fill" }
+        if n.contains("fruta") || n.contains("plátano") || n.contains("fresa") || n.contains("mango") { return "apple.logo" }
+        if n.contains("café") || n.contains("cafe") || n.contains("espresso") { return "cup.and.saucer.fill" }
+        return "sparkles"
+    }
 
     var body: some View {
         Hoja(titulo: "Con qué va") {
             ForEach(grupos, id: \.0) { grupo, lista in
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 8) {
                     Text(grupo.uppercased()).font(Marca.mono(10)).tracking(1.5).foregroundStyle(Marca.tinta.opacity(0.5))
-                    Text(lista.map { ($0.por_defecto == true ? "★ " : "") + $0.nombre }.joined(separator: " · "))
-                        .font(Marca.cuerpo(14)).foregroundStyle(Marca.tinta.opacity(0.85))
-                }
-            }
-            if !sueltos.isEmpty {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("EXTRAS").font(Marca.mono(10)).tracking(1.5).foregroundStyle(Marca.tinta.opacity(0.5))
-                    ForEach(sueltos) { e in
-                        HStack {
-                            Text(e.nombre).font(Marca.cuerpo(14))
-                            Spacer()
-                            Text((e.precio ?? 0) > 0 ? "+\(mxn(e.precio))" : "incluido")
-                                .font(Marca.mono(12)).foregroundStyle(Marca.verde)
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(lista.sorted { ($0.por_defecto == true ? 0 : 1, $0.nombre) < ($1.por_defecto == true ? 0 : 1, $1.nombre) }) { e in
+                                Pastilla(texto: Self.corto(e.nombre, grupo: grupo), casa: e.por_defecto == true, precio: e.precio)
+                            }
                         }
+                        .padding(.horizontal, 1)
                     }
                 }
             }
-            Text("★ = la de casa. Pídelo como lo quieras en la barra.")
+            if !sueltos.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("EXTRAS").font(Marca.mono(10)).tracking(1.5).foregroundStyle(Marca.tinta.opacity(0.5))
+                    LazyVGrid(columns: columnas, spacing: 10) {
+                        ForEach(mostrados) { e in Mosaico(extra: e) }
+                    }
+                    if sueltos.count > 6 {
+                        Button(todos ? "Ver menos" : "Ver los \(sueltos.count) extras") { withAnimation { todos.toggle() } }
+                            .font(Marca.cuerpo(13, .semibold)).foregroundStyle(Marca.verde)
+                    }
+                }
+            }
+            Text("★ la de casa. Pídelo como lo quieras en la barra.")
                 .font(Marca.cuerpo(12)).foregroundStyle(Marca.tinta.opacity(0.5))
         }
+    }
+}
+
+/// Una opción de grupo: la de casa va llena, las demás con borde.
+private struct Pastilla: View {
+    let texto: String
+    let casa: Bool
+    let precio: Double?
+    var body: some View {
+        HStack(spacing: 6) {
+            if casa { Text("★").font(.system(size: 11)) }
+            Text(texto).font(Marca.cuerpo(13, .semibold)).lineLimit(1)
+            if let p = precio, p > 0 {
+                Text("+\(mxn(p))").font(Marca.mono(11)).opacity(0.8)
+            }
+        }
+        .foregroundStyle(casa ? Marca.crema : Marca.tinta)
+        .padding(.horizontal, 12).padding(.vertical, 8)
+        .background(casa ? Marca.verde : Marca.cremaCalida, in: Capsule())
+    }
+}
+
+/// Un extra suelto: icono, nombre y precio.
+private struct Mosaico: View {
+    let extra: ExtraProducto
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: ConQueVa.icono(extra.nombre))
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Marca.verde)
+                .frame(width: 32, height: 32)
+                .background(Marca.menta.opacity(0.35), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(extra.nombre).font(Marca.cuerpo(13, .medium)).foregroundStyle(Marca.tinta).lineLimit(2)
+                Text((extra.precio ?? 0) > 0 ? "+\(mxn(extra.precio))" : "incluido")
+                    .font(Marca.mono(11, .medium))
+                    .foregroundStyle((extra.precio ?? 0) > 0 ? Marca.verde : Marca.tinta.opacity(0.5))
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(10)
+        .background(Marca.cremaCalida.opacity(0.6), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 }
