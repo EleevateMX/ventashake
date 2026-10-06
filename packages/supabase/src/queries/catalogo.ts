@@ -701,6 +701,10 @@ export interface EstadoChecador {
   puede: TipoChecada[]
   /** Desde qué hora lleva el turno abierto, o la comida. */
   desde_hora: string | null
+  /** Ya tomó su comida en esta jornada: «salir a comer» ya no existe. */
+  comio: boolean
+  /** "10:30–11:05" cuando `comio`. */
+  comida_hora: string | null
 }
 
 export async function estadoChecador(sb: ShakeClient, pin: string): Promise<EstadoChecador> {

@@ -31,7 +31,16 @@ const ETIQUETAS: Record<TipoChecada, { boton: string; hecho: string }> = {
   entrada: { boton: 'Entré a trabajar', hecho: 'Entrada registrada' },
   inicio_comida: { boton: 'Salgo a comer', hecho: 'Que aproveche' },
   fin_comida: { boton: 'Regresé de comer', hecho: 'De vuelta' },
-  salida: { boton: 'Me voy, salida', hecho: 'Salida registrada' },
+  salida: { boton: 'Salida · fin de jornada', hecho: 'Salida registrada' },
+}
+
+// La salida manda: grande y en crema. «Salgo a comer» va en segundo plano
+// y solo aparece mientras no se haya comido (lo decide el servidor).
+const CLASE: Record<TipoChecada, string> = {
+  entrada: 'py-6 bg-sa-cream text-sa-green-ink font-display text-2xl',
+  salida: 'py-7 bg-sa-cream text-sa-green-ink font-display text-2xl',
+  inicio_comida: 'py-4 bg-transparent border-2 border-sa-cream/40 text-sa-cream font-display text-xl',
+  fin_comida: 'py-6 bg-sa-cream text-sa-green-ink font-display text-2xl',
 }
 
 const ESTADOS: Record<EstadoChecador['estado'], string> = {
@@ -147,6 +156,11 @@ export default function App() {
           {ESTADOS[estado.estado]}
           {estado.desde_hora && ` desde las ${estado.desde_hora}`}
         </p>
+        {estado.comio && (
+          <p className="font-mono text-[11px] text-sa-cream/60 mt-1 uppercase tracking-wide">
+            Ya comiste ({estado.comida_hora}) · lo que sigue es tu salida
+          </p>
+        )}
 
         <div className="mt-4 mb-6">
           {donde ? (
@@ -168,7 +182,7 @@ export default function App() {
               key={t}
               disabled={enviando}
               onClick={() => void mandar(t)}
-              className="w-full py-6 rounded-sa-lg bg-sa-cream text-sa-green-ink font-display text-2xl disabled:opacity-40"
+              className={`w-full rounded-sa-lg disabled:opacity-40 ${CLASE[t]}`}
             >
               {ETIQUETAS[t].boton}
             </button>
