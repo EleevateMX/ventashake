@@ -5,12 +5,15 @@ struct RewardsApp: App {
     @UIApplicationDelegateAdaptor(Push.self) private var push
     @StateObject private var estado = Estado()
     @StateObject private var personal = Personal()
+    @StateObject private var pedidos = Pedidos()
 
     var body: some Scene {
         WindowGroup {
             RaizView()
                 .environmentObject(estado)
                 .environmentObject(personal)
+                .environmentObject(pedidos)
+                .task { await pedidos.cargarConfig() }
                 .task {
                     #if DEBUG
                     if Vitrina.activa { personal.activarVitrina() }

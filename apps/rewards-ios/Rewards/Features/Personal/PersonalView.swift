@@ -20,6 +20,7 @@ struct PersonalView: View {
                     Ventas(panel: p)
                 }
                 Beneficio()
+                PedidosAppPersonal()
                 Caja(corte: personal.panel?.corte ?? personal.turno?.corte, conFondo: personal.esJefe)
                 EnPreparacion(pedidos: personal.panel?.en_cocina ?? personal.turno?.en_cocina ?? [])
                 Impresoras(

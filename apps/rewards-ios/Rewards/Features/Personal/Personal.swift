@@ -30,6 +30,8 @@ final class Personal: ObservableObject {
     /// El código vivo para la caja y cuándo vence (reloj del teléfono).
     @Published var codigo: String?
     @Published var codigoVence: Date?
+    /// Los pedidos por la app de hoy (cuando el interruptor está prendido).
+    @Published var pedidosApp: [MiPedido] = []
     /// Hay una sesión guardada bajo Face ID en este teléfono.
     @Published var puedeFaceID = Llavero.tieneSesion && Llavero.biometriaDisponible
     private var ultimoRefresh: String?
@@ -141,6 +143,12 @@ final class Personal: ObservableObject {
         codigoVence = nil
     }
 
+    func entregar(_ ordenId: String) async {
+        struct P: Encodable, Sendable { let p_orden_id: String }
+        _ = try? await cliente.rpc("fn_pedido_app_entregado", params: P(p_orden_id: ordenId)).execute()
+        await refrescar()
+    }
+
     // MARK: Mi beneficio
 
     /// Se pide al entrar y al jalar para actualizar, no cada 15 s: trae la
@@ -196,6 +204,8 @@ final class Personal: ObservableObject {
                     .execute().value
                 panel = p
             }
+            let pa: [MiPedido]? = try? await cliente.rpc("fn_pedidos_app_en_vivo").execute().value
+            pedidosApp = pa ?? []
             actualizado = Date()
             error = nil
             await guardarEnLlavero()

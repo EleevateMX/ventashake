@@ -1608,6 +1608,20 @@ PWA. No tiene reglas propias: llama a las mismas funciones
   `biometryCurrentSet` (`Llavero.swift`): sin la cara no se lee, y si
   alguien agrega otra cara al teléfono se invalida sola. Reconocer no es
   abrir: la cuenta de Google es del cliente y la de personal sigue aparte.
+- **Pedidos por la app** (06/10, `pedidos_app_canal.sql` + `pedidos_por_la_app.sql`;
+  **nace APAGADO** en `pedidos_app_config`, se prende en Admin → Rewards).
+  Se paga primero y se pasa a recoger: `fn_pedido_app_crear` usa
+  **`fn_crear_orden` de siempre** con canal `app`, cliente ligado y
+  `expira_en` a 20 min (el barredor ya mira canal `app`); el pago es Clip
+  Checkout en una página de Clip dentro de la app, y lo aprueba
+  `_shared/checkout.ts` con `fn_cobrar_orden` **solo después de preguntarle
+  a Clip** (la app sondea `clip-checkout-estado`; el webhook sin firma solo
+  dispara la misma pregunta). Al quedar pagada, cocina la recibe por el
+  trigger de siempre; dos triggers más solo **encolan** push («recibido»,
+  «listo»). ⚠ Antes de prenderlo: un pago real de prueba y confirmar en
+  `pedidos_app_checkout.respuesta` cómo nombra Clip el estado pagado; si no
+  cuadra con `ESTADOS_PAGADO`, nunca aprueba a ciegas. El botón de WhatsApp
+  del menú es otro interruptor de la misma pantalla.
 - **Modo vitrina** (solo DEBUG): `xcrun simctl launch booted
   mx.shakeaholic.rewards -vitrina` pinta a Alejandro con 763 mancuernas
   para capturas; el menú sí es el real. En la versión de la tienda no

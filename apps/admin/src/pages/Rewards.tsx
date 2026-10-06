@@ -6,6 +6,7 @@ import {
 import { mensajeDeError, mxn } from '@shake/utils'
 import { sb } from '../lib/sb'
 import { PageHeader, Loading, ErrorMsg, cx } from '../ui'
+import { PedidosPorLaApp } from '../components/PedidosPorLaApp'
 
 /**
  * Rewards visto desde gerencia.
@@ -103,6 +104,8 @@ export default function Rewards() {
               </div>
             </section>
           )}
+
+          <PedidosPorLaApp />
 
           {dx.ultimos_movimientos.length > 0 && (
             <section className="rounded-sa-lg border border-sa-green-ink/10 bg-white p-5">

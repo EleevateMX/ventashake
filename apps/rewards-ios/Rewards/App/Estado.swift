@@ -79,6 +79,7 @@ final class Estado: ObservableObject {
             metas = lasMetas ?? []
             let yo: SoyPersonal? = try? await supabase.rpc("fn_soy_personal").execute().value
             soyPersonal = yo
+            NotificationCenter.default.post(name: .sesionSincronizada, object: nil)
             error = nil
             fase = .lista
             // Ya hay tarjeta en pantalla: buen momento para pedir permiso de
@@ -334,4 +335,10 @@ final class Estado: ObservableObject {
     private static func sha256(_ texto: String) -> String {
         SHA256.hash(data: Data(texto.utf8)).map { String(format: "%02x", $0) }.joined()
     }
+}
+
+extension Notification.Name {
+    /// Se avisa cada vez que la tarjeta se trae completa (para lo que cuelga
+    /// de la sesión y vive en otro objeto, como los pedidos).
+    static let sesionSincronizada = Notification.Name("sesionSincronizada")
 }
