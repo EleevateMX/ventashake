@@ -753,6 +753,18 @@ nómina se firma igual que uno bueno.
   sale al día siguiente). El día del despliegue se comparó la huella del
   resumen de 60 días antes y después: idéntica.
 
+- **Una sola comida por jornada, y la salida manda** (06/10,
+  `checador_una_comida_por_jornada.sql`). Gerencia reportó que al terminar
+  el turno tocaban «Salgo a comer» por error: los dos botones se veían
+  iguales, y después de regresar de comer el sistema volvía a ofrecer la
+  comida. Ahora `fn_asistencia_estado` devuelve `puede` con la salida
+  **primero** y, si ya hubo `inicio_comida` + `fin_comida` después de la
+  última entrada (`comio`, `comida_hora`), solo `salida`.
+  `fn_asistencia_checar` rechaza una segunda comida aunque una pantalla
+  vieja la mande («Ya tomaste tu comida de hoy (10:30 a 11:05)»). En el
+  kiosko y en el checador del teléfono la salida es el botón grande y
+  «Salgo a comer» el secundario; ninguno está escrito en la pantalla: salen
+  de `puede`.
 - `fn_asistencia_checar` y `fn_asistencia_estado` están abiertas a `anon`
   porque **el kiosko en modo cajero corre como `anon`** (sección 2.2) y el
   PIN **es** la credencial, comparado contra bcrypt igual que

@@ -129,7 +129,7 @@ export function RelojChecador({ onCerrar }: { onCerrar: () => void }) {
   if (estado) {
     const ETIQUETAS: Record<TipoChecada, string> = {
       entrada: 'Entrada',
-      salida: 'Salida',
+      salida: 'Salida · fin de jornada',
       inicio_comida: 'Salgo a comer',
       fin_comida: 'Regresé de comer',
     }
@@ -137,6 +137,16 @@ export function RelojChecador({ onCerrar }: { onCerrar: () => void }) {
       fuera: 'No tienes turno abierto',
       dentro: 'Llevas turno abierto desde las',
       comiendo: 'Saliste a comer a las',
+    }
+    // La salida es la que manda: grande y verde. «Salgo a comer» es la
+    // secundaria, en blanco y más chica, y solo existe mientras no se haya
+    // comido (eso lo decide el servidor: `estado.puede`). Antes las dos se
+    // veían iguales y al terminar el turno tocaban comer por error.
+    const CLASE: Record<TipoChecada, string> = {
+      entrada: 'py-5 bg-sa-green text-sa-cream font-display text-2xl',
+      salida: 'py-6 bg-sa-green text-sa-cream font-display text-2xl shadow-sa',
+      inicio_comida: 'py-4 bg-white border-2 border-sa-green-ink/20 text-sa-green-ink font-display text-xl',
+      fin_comida: 'py-5 bg-sa-green text-sa-cream font-display text-2xl',
     }
     return (
       <div data-no-recargar className="fixed inset-0 z-50 bg-sa-green-ink/70 flex items-center justify-center p-6">
@@ -147,6 +157,11 @@ export function RelojChecador({ onCerrar }: { onCerrar: () => void }) {
           <p className="font-display text-2xl text-sa-green-ink mt-2 leading-tight">
             {CONTEXTO[estado.estado]} {estado.desde_hora ?? ''}
           </p>
+          {estado.comio && (
+            <p className="font-mono text-xs text-sa-green-ink/60 mt-2">
+              Ya comiste ({estado.comida_hora}). Lo que sigue es tu salida.
+            </p>
+          )}
 
           {error && (
             <p className="bg-sa-strawberry/10 border border-sa-strawberry/30 text-sa-strawberry rounded-sa px-4 py-3 text-sm mt-4">
@@ -160,11 +175,7 @@ export function RelojChecador({ onCerrar }: { onCerrar: () => void }) {
                 key={t}
                 onClick={() => void mandar(t)}
                 disabled={enviando}
-                className={`w-full py-5 rounded-sa-lg font-display text-2xl disabled:opacity-40 ${
-                  t === 'salida'
-                    ? 'bg-white border-2 border-sa-green text-sa-green-ink'
-                    : 'bg-sa-green text-sa-cream'
-                }`}
+                className={`w-full rounded-sa-lg disabled:opacity-40 ${CLASE[t]}`}
               >
                 {ETIQUETAS[t]}
               </button>
