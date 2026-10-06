@@ -12,6 +12,8 @@ import SwiftUI
 struct MenuView: View {
     @EnvironmentObject var estado: Estado
     @State private var familia: String?
+    @State private var busqueda = ""
+    @State private var abierto: Producto?
 
     private static let ordenFamilias = ["Shakes", "Alimentos", "Bebidas", "De temporada", "Snacks", "Más"]
 
@@ -29,6 +31,25 @@ struct MenuView: View {
         for b in ["bebidas", "café", "cafe", "tés", "tes", "kombucha", "collagen", "amino", "hydration", "energy", "drinks"]
             where c.contains(b) { return "Bebidas" }
         return "Más"
+    }
+
+    /// Sin acentos ni mayúsculas: «matcha» encuentra «Coco Matcha Cloud».
+    private static func plano(_ s: String) -> String {
+        s.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
+    }
+
+    private var resultados: [Producto] {
+        let q = Self.plano(busqueda.trimmingCharacters(in: .whitespaces))
+        guard q.count >= 2 else { return [] }
+        return (estado.menu ?? []).filter { p in
+            guard let cat = p.categorias?.nombre, Self.familia(de: cat) != nil else { return false }
+            return Self.plano(p.nombreVisible).contains(q) || Self.plano(p.descripcion ?? "").contains(q)
+                || Self.plano(cat).contains(q)
+        }
+    }
+
+    private var favoritos: Set<String> {
+        Set((estado.resumen?.favoritos ?? []).map { Self.plano($0.nombre) })
     }
 
     private struct Seccion: Identifiable {
@@ -70,12 +91,23 @@ struct MenuView: View {
                 Text("El menú no está disponible ahora.")
                     .font(Marca.cuerpo(15)).foregroundStyle(Marca.crema.opacity(0.6))
             } else {
+                buscador
+                if !resultados.isEmpty || busqueda.trimmingCharacters(in: .whitespaces).count >= 2 {
+                    if resultados.isEmpty {
+                        Text("Nada con «\(busqueda)». Milo tampoco lo encontró.")
+                            .font(Marca.cuerpo(15)).foregroundStyle(Marca.crema.opacity(0.6))
+                    }
+                    LazyVStack(spacing: 10) {
+                        ForEach(resultados) { p in fila(p) }
+                    }
+                } else {
                 chips
+                if familia == nil { Novedades(abrir: { abierto = $0 }) }
                 LazyVStack(alignment: .leading, spacing: 10, pinnedViews: [.sectionHeaders]) {
                     ForEach(secciones.filter { familia == nil || $0.familia == familia }) { s in
                         Section {
                             if !s.destacados.isEmpty {
-                                MasPedidos(productos: s.destacados)
+                                MasPedidos(productos: s.destacados, abrir: { abierto = $0 })
                             }
                             ForEach(s.categorias, id: \.0) { categoria, productos in
                                 if s.categorias.count > 1 {
@@ -84,9 +116,7 @@ struct MenuView: View {
                                         .foregroundStyle(Marca.crema.opacity(0.55))
                                         .padding(.top, 6)
                                 }
-                                ForEach(productos) { p in
-                                    FilaProducto(producto: p, lugar: estado.destacados[p.id])
-                                }
+                                ForEach(productos) { p in fila(p) }
                             }
                         } header: {
                             Text(s.familia)
@@ -103,8 +133,41 @@ struct MenuView: View {
                 }
                 .buttonStyle(BotonPrincipal())
                 .padding(.top, 8)
+                }
             }
         }
+        .sheet(item: $abierto) { p in
+            ProductoDetalle(producto: p).presentationDetents([.large])
+        }
+    }
+
+    private func fila(_ p: Producto) -> some View {
+        Button { abierto = p } label: {
+            FilaProducto(
+                producto: p,
+                lugar: estado.destacados[p.id],
+                favorito: favoritos.contains(Self.plano(p.nombreVisible))
+            )
+        }
+        .buttonStyle(Presionable())
+    }
+
+    private var buscador: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "magnifyingglass").foregroundStyle(Marca.tinta.opacity(0.5))
+            TextField("Busca un shake, un wrap, un café…", text: $busqueda)
+                .font(Marca.cuerpo(15))
+                .foregroundStyle(Marca.tinta)
+                .autocorrectionDisabled()
+                .textInputAutocapitalization(.never)
+            if !busqueda.isEmpty {
+                Button { busqueda = "" } label: {
+                    Image(systemName: "xmark.circle.fill").foregroundStyle(Marca.tinta.opacity(0.4))
+                }
+            }
+        }
+        .padding(.horizontal, 14).padding(.vertical, 11)
+        .background(Marca.cremaPapel, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
     /// Las familias como fichas: «Todo» y una por familia que exista hoy.
@@ -143,18 +206,22 @@ private struct Chip: View {
 /// Los más pedidos de la familia: fotos grandes en fila.
 private struct MasPedidos: View {
     let productos: [Producto]
+    let abrir: (Producto) -> Void
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Etiqueta(texto: "Los más pedidos", color: Marca.crema.opacity(0.7))
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 12) {
                     ForEach(productos) { p in
-                        VStack(alignment: .leading, spacing: 6) {
-                            Foto(url: p.imagen_url, nombre: p.nombreVisible, lado: 150)
-                            Text(p.nombreVisible).font(Marca.cuerpo(14, .semibold)).foregroundStyle(Marca.crema).lineLimit(2)
-                            Text(mxn(p.precio)).font(Marca.mono(13, .medium)).foregroundStyle(Marca.platano)
+                        Button { abrir(p) } label: {
+                            VStack(alignment: .leading, spacing: 6) {
+                                Foto(url: p.imagen_url, nombre: p.nombreVisible, lado: 150)
+                                Text(p.nombreVisible).font(Marca.cuerpo(14, .semibold)).foregroundStyle(Marca.crema).lineLimit(2)
+                                Text(mxn(p.precio)).font(Marca.mono(13, .medium)).foregroundStyle(Marca.platano)
+                            }
+                            .frame(width: 150, alignment: .leading)
                         }
-                        .frame(width: 150, alignment: .leading)
+                        .buttonStyle(Presionable())
                     }
                 }
                 .padding(.horizontal, 2)
@@ -168,21 +235,21 @@ private struct MasPedidos: View {
 private struct FilaProducto: View {
     let producto: Producto
     let lugar: Int?
+    var favorito = false
 
     var body: some View {
         HStack(alignment: .center, spacing: 14) {
             Foto(url: producto.imagen_url, nombre: producto.nombreVisible, lado: 76)
             VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 6) {
-                    Text(producto.nombreVisible)
-                        .font(Marca.cuerpo(15, .semibold))
-                        .foregroundStyle(Marca.tinta)
-                        .lineLimit(2)
-                    if let lugar, lugar == 1 {
-                        Text("MÁS PEDIDO").font(Marca.mono(9, .medium)).tracking(1)
-                            .foregroundStyle(Marca.tinta)
-                            .padding(.horizontal, 6).padding(.vertical, 3)
-                            .background(Marca.platano, in: Capsule())
+                Text(producto.nombreVisible)
+                    .font(Marca.cuerpo(15, .semibold))
+                    .foregroundStyle(Marca.tinta)
+                    .lineLimit(2)
+                if lugar == 1 || producto.esNuevo || favorito {
+                    HStack(spacing: 6) {
+                        if lugar == 1 { Insignia(texto: "Más pedido") }
+                        if producto.esNuevo { Insignia(texto: "Nuevo", fondo: Marca.menta) }
+                        if favorito { Insignia(texto: "Tu favorito", fondo: Marca.menta) }
                     }
                 }
                 if let d = producto.descripcion, !d.isEmpty {
@@ -238,6 +305,73 @@ private struct Foto: View {
                 .foregroundStyle(Marca.verde)
                 .multilineTextAlignment(.center)
                 .lineSpacing(-1)
+        }
+    }
+}
+
+/// Novedades: las promos de hoy (Admin → Promos) y lo que entró al
+/// catálogo en los últimos 15 días. Solo sale si hay algo.
+private struct Novedades: View {
+    @EnvironmentObject var estado: Estado
+    let abrir: (Producto) -> Void
+
+    private var nuevos: [Producto] {
+        (estado.menu ?? []).filter { p in
+            p.esNuevo && (p.categorias?.nombre).flatMap(MenuView.familia(de:)) != nil
+        }
+    }
+
+    var body: some View {
+        if !estado.promos.isEmpty || !nuevos.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Novedades").font(Marca.display(24)).foregroundStyle(Marca.platano).padding(.top, 4)
+                ForEach(estado.promos) { promo in
+                    let afectados = (estado.menu ?? []).filter { (promo.productos ?? []).contains($0.id) }
+                    Button {
+                        if let p = afectados.first, afectados.count == 1 { abrir(p) }
+                    } label: {
+                        HStack(spacing: 14) {
+                            Text(promo.resumen)
+                                .font(Marca.display(20)).foregroundStyle(Marca.tinta)
+                                .padding(.horizontal, 12).padding(.vertical, 8)
+                                .background(Marca.crema, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(promo.nombre).font(Marca.cuerpo(16, .semibold)).foregroundStyle(Marca.tinta)
+                                if let d = promo.descripcion, !d.isEmpty {
+                                    Text(d).font(Marca.cuerpo(13)).foregroundStyle(Marca.tinta.opacity(0.75)).lineLimit(2)
+                                } else if !afectados.isEmpty {
+                                    Text(afectados.map(\.nombreVisible).prefix(3).joined(separator: " · "))
+                                        .font(Marca.cuerpo(13)).foregroundStyle(Marca.tinta.opacity(0.75)).lineLimit(2)
+                                }
+                            }
+                            Spacer(minLength: 0)
+                        }
+                        .padding(12)
+                        .background(Marca.platano, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    }
+                    .buttonStyle(Presionable())
+                }
+                if !nuevos.isEmpty {
+                    Etiqueta(texto: "Nuevo en la barra", color: Marca.crema.opacity(0.7))
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 12) {
+                            ForEach(nuevos.prefix(8)) { p in
+                                Button { abrir(p) } label: {
+                                    VStack(alignment: .leading, spacing: 6) {
+                                        Foto(url: p.imagen_url, nombre: p.nombreVisible, lado: 120)
+                                        Text(p.nombreVisible).font(Marca.cuerpo(13, .semibold)).foregroundStyle(Marca.crema).lineLimit(2)
+                                        Text(mxn(p.precio)).font(Marca.mono(12, .medium)).foregroundStyle(Marca.platano)
+                                    }
+                                    .frame(width: 120, alignment: .leading)
+                                }
+                                .buttonStyle(Presionable())
+                            }
+                        }
+                        .padding(.horizontal, 2)
+                    }
+                }
+            }
+            .padding(.bottom, 6)
         }
     }
 }

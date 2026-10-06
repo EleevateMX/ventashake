@@ -289,6 +289,27 @@ export default function Menu() {
     <div>
       <PageHeader title="Menú" subtitle="Productos y categorías" />
 
+      {/* La app enseña la foto en el Menú y en «los más pedidos»: un
+          producto sin foto sale con Milo. Se cuenta aquí para que no se
+          olvide, y Alimentos aparte porque es donde más vende la foto. */}
+      {(() => {
+        const vendibles = productos.filter((p) => p.activo && !p.es_extra && !(p as { archivado_en?: string | null }).archivado_en)
+        const sinFoto = vendibles.filter((p) => !p.imagen_url)
+        if (sinFoto.length === 0) return null
+        const porCat = new Map<string, number>()
+        for (const p of sinFoto) {
+          const c = categorias.find((x) => x.id === p.categoria_id)?.nombre ?? 'Sin categoría'
+          porCat.set(c, (porCat.get(c) ?? 0) + 1)
+        }
+        const top = [...porCat.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4)
+        return (
+          <div className="mb-4 px-4 py-3 rounded-sa bg-sa-banana/15 border border-sa-banana/40 text-sm text-sa-green-ink">
+            <b>{sinFoto.length} producto{sinFoto.length === 1 ? '' : 's'} sin foto</b> en la app
+            {' · '}{top.map(([c, n]) => `${c}: ${n}`).join(' · ')}
+          </div>
+        )
+      })()}
+
       {error && <ErrorMsg>{error}</ErrorMsg>}
       {ok && <OkMsg>{ok}</OkMsg>}
 
