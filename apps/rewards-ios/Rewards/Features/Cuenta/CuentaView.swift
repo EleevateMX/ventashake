@@ -123,7 +123,12 @@ struct CuentaView: View {
         }
         .sheet(isPresented: $pidiendoPin) { EntrarPersonal() }
         .sheet(isPresented: $editando) { PerfilView().presentationDetents([.large]) }
-        .onAppear { if Vitrina.arg("-abrir") == "perfil" { editando = true } }
+        // Con un respiro: al arrancar, la pestaña aún no está en pantalla y
+        // una hoja presentada ahí se pierde sin aviso.
+        .onAppear {
+            guard Vitrina.arg("-abrir") == "perfil" else { return }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { editando = true }
+        }
     }
 }
 
