@@ -85,6 +85,20 @@ Consecuencias que hay que respetar:
   su pestaña, como siempre. Muestra la categoría real que el producto ya
   tiene en Admin (leída paginada: son más de 1 000 productos). Las
   proteínas siguen repartiéndose solas por nombre (Scoops/Suplementos - …).
+- **Lo que no se alcanzó a guardar ya no se pierde** (07/10). La sesión
+  de Costeos dura 12 h desde el último uso; caducó con la pantalla abierta,
+  el servidor rechazó 33 guardados (13:50–14:05) y al volver a entrar
+  Costeos **releyó el servidor encima**: quince minutos de trabajo
+  perdidos sin aviso claro. Ahora lo no guardado queda marcado en el
+  navegador (`shakeaholic_pendiente_v1`, con la versión del servidor sobre
+  la que se trabajó, `fn_costos_version`) y al entrar se guarda; si alguien
+  guardó en medio, pregunta cuál conservar. Y los guardados van **de uno
+  en uno**: antes cada pausa lanzaba el suyo, se formaban detrás del
+  candado de la sesión (`fn_costos_sesion` renovaba la fila en cada
+  llamada) y tardaban hasta 19 s o se caían. La sesión solo se renueva si
+  lleva más de un minuto sin usarse, con `skip locked`.
+  `fn_costos_existencias` era STABLE y escribe (renueva la sesión):
+  PostgREST la corría en solo lectura y la existencia real no cargaba.
 - **El precio es la intención de venta**: `precioScoop` > 0 lo vende por
   scoop, `precioBote` > 0 vende el bote. El sufijo `- B` / `- R` en el
   sabor es legado que sigue funcionando, pero ya no hace falta.
