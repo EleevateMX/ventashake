@@ -202,6 +202,12 @@
   .btn:active{transform:translateY(1px)}
   .btn.ghost{background:#fff;color:var(--green);border:1px solid var(--line)} .btn.ghost:hover{border-color:var(--green);background:var(--cream-2)}
   .btn.mini{padding:7px var(--s3);font-size:var(--t-sm)} .btn.warn{color:var(--bad);border-color:var(--bad-bg)}
+  /* El boton de guardar ES el estado: se lee de lejos sin buscar el
+     letrerito del encabezado (07/10). */
+  #tbGuardar{min-width:150px;border:2px solid transparent;font-weight:700}
+  #tbGuardar[data-estado="guardado"]{background:var(--ok-bg);color:var(--ok);border-color:var(--ok)}
+  #tbGuardar[data-estado="pendiente"],#tbGuardar[data-estado="guardando"]{background:var(--warn-bg);color:var(--warn-ink);border-color:var(--warn)}
+  #tbGuardar[data-estado="error"],#tbGuardar[data-estado="caduco"]{background:var(--bad-bg);color:var(--bad);border-color:var(--bad)}
   .btn.warn:hover{border-color:var(--bad);background:var(--bad-bg)}
   .btn.tr{background:var(--accent);color:var(--green-d);padding:6px 11px;font-size:var(--t-sm);white-space:nowrap}
   .row-actions{display:flex;gap:var(--s2);margin-top:var(--s3)}
@@ -360,7 +366,7 @@
   </header>
   <nav id="nav"></nav>
   <div class="toolbar">
-    <button class="btn mini" id="tbGuardar">💾 Guardar</button>
+    <button class="btn mini" id="tbGuardar" data-estado="guardado" title="Toca para guardar ahora">✓ Guardado</button>
     <button class="btn mini" id="tbPublicar" style="background:var(--accent);color:var(--green-d)">📺 Mostrar en el kiosko</button>
     <span class="pendchip" id="pendchip"></span>
     <span class="sp"></span>
@@ -389,7 +395,7 @@ let currentUser=null;
    puerta. */
 let sessToken=null;
 /* ===== Auto-actualización (sin borrar caché a mano) ===== */
-const APP_VERSION="2026-10-07-01";
+const APP_VERSION="2026-10-07-02";
 async function checkForUpdate(){try{
   const r=await fetch(location.pathname+"?_="+Date.now(),{cache:"no-store"});
   if(!r.ok)return;const t=await r.text();
@@ -577,7 +583,7 @@ async function load(){
     }
     if(d&&d.params){state=migrate(d);}else{state=defaultState();await dbWrite();}
     lsSet(CACHE,state);
-  }catch(e){let c=lsGet(CACHE);state=(c&&c.params)?migrate(c):defaultState();setSaved("⚠ Sin conexión (local)");}
+  }catch(e){let c=lsGet(CACHE);state=(c&&c.params)?migrate(c):defaultState();setSaved("⚠ Sin conexión (local)");botonGuardar("error");}
 }
 /* La Clave (codigo) es el ANCLA del renombre: el sistema de venta renombra
    un producto en su lugar solo cuando la clave empata. Sin clave, cambiar
@@ -619,7 +625,7 @@ let guardadoEnCurso=null, guardarOtraVez=false, versionServidor=null, sesionPerd
 function hayGuardadoEnCurso(){return !!(guardadoEnCurso||saveTimer||sucio);}
 function marcarPendiente(){const p=lsGet(PEND);if(!p)lsSet(PEND,{desde:versionServidor,en:new Date().toISOString()});}
 function sesionCaducada(){
-  sesionPerdida=true;
+  sesionPerdida=true;botonGuardar("caduco");
   setSaved("⚠ Tu sesion caduco — vuelve a entrar");
   document.getElementById("app").style.display="none";document.getElementById("auth").style.display="flex";
   if(currentUser)document.getElementById("li_user").value=currentUser;
@@ -628,8 +634,8 @@ function sesionCaducada(){
 function dbWrite(){
   asegurarClaves();
   lsSet(CACHE,state);
-  if(!sb){setSaved("⚠ Guardado local");return Promise.resolve();}
-  sucio=true;marcarPendiente();
+  if(!sb){setSaved("⚠ Guardado local");botonGuardar("error");return Promise.resolve();}
+  sucio=true;marcarPendiente();botonGuardar("guardando");
   if(guardadoEnCurso){guardarOtraVez=true;return guardadoEnCurso;}
   clearTimeout(reintentoTimer);
   guardadoEnCurso=(async()=>{
@@ -644,7 +650,7 @@ function dbWrite(){
            que pasa es que lleva 12 horas sin entrar. */
         if(r.error&&/caduc/i.test(r.error.message||"")){sesionCaducada();return;}
         if(r.error){
-          setSaved("⚠ No se guardo — reintento en unos segundos");
+          setSaved("⚠ No se guardo — reintento en unos segundos");botonGuardar("error");
           reintentoTimer=setTimeout(()=>{if(sucio)dbWrite();},8000);
           return;
         }
@@ -653,8 +659,11 @@ function dbWrite(){
         else{localStorage.removeItem(PEND);sucio=false;}
       }while(guardarOtraVez);
       setSaved("Guardado ✓");
+      /* Si mientras volvia este se escribio algo mas, ya hay otro esperando
+         en saveTimer: el boton se queda en "pendiente". */
+      botonGuardar(saveTimer?"pendiente":"guardado");
     }catch(e){
-      setSaved("⚠ Sin conexion — reintento en unos segundos");
+      setSaved("⚠ Sin conexion — reintento en unos segundos");botonGuardar("error");
       reintentoTimer=setTimeout(()=>{if(sucio)dbWrite();},8000);
     }finally{guardadoEnCurso=null;}
   })();
@@ -668,8 +677,10 @@ function persist(){dbWrite();}
    cinco insumos, cuatro de ellos basura. Lo mismo paso con las aguas.
    Por eso `save` acepta una espera: los campos de texto usan una larga
    (ver bindRow) y todo lo demas sigue igual que siempre. */
-function save(ms){clearTimeout(saveTimer);sucio=true;saveTimer=setTimeout(()=>{saveTimer=null;dbWrite();},ms||500);}
+function save(ms){clearTimeout(saveTimer);sucio=true;botonGuardar("pendiente");saveTimer=setTimeout(()=>{saveTimer=null;dbWrite();},ms||500);}
 function setSaved(t){const e=document.getElementById("saved");if(e)e.textContent=t;}
+const TEXTO_BOTON={guardado:"✓ Guardado",pendiente:"💾 Guardar cambios",guardando:"⏳ Guardando…",error:"⚠ No se guardó · reintentar",caduco:"⚠ Entra otra vez"};
+function botonGuardar(estado){const b=document.getElementById("tbGuardar");if(!b)return;b.dataset.estado=estado;b.textContent=TEXTO_BOTON[estado];}
 
 /* ---------------- CÁLCULOS COSTEO ---------------- */
 function protKey(p){return p.marca+" - "+p.sabor;}

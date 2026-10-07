@@ -99,6 +99,9 @@ Consecuencias que hay que respetar:
   lleva más de un minuto sin usarse, con `skip locked`.
   `fn_costos_existencias` era STABLE y escribe (renueva la sesión):
   PostgREST la corría en solo lectura y la existencia real no cargaba.
+  **El botón de guardar ES el estado** (`botonGuardar`): «✓ Guardado» en
+  verde, «Guardar cambios» / «Guardando…» en ámbar, «No se guardó ·
+  reintentar» o «Entra otra vez» en rojo. Tocarlo siempre guarda ya.
 - **El precio es la intención de venta**: `precioScoop` > 0 lo vende por
   scoop, `precioBote` > 0 vende el bote. El sufijo `- B` / `- R` en el
   sabor es legado que sigue funcionando, pero ya no hace falta.
