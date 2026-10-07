@@ -369,6 +369,14 @@ export function ReiniciarInventario({ stock, almacenes, onCerrar, onHecho }: {
         compras, ventas, conteos y el kardex se conservan, y cada existencia que cambia deja su renglón
         «Reinicio» con lo que había, quién lo autorizó y por qué.
       </p>
+      {/* Costeos manda la DIFERENCIA contra su propio número anterior, no la
+          existencia: si aquí queda en 0 y Costeos sigue diciendo 10, capturar
+          12 allá suma 2. El reinicio de Costeos pone en 0 las dos cosas. */}
+      <p className="text-sm rounded-lg bg-amber-50 border border-amber-300 text-amber-900 px-3 py-2">
+        ¿Vas a capturar el inventario en <b>Costeos</b>? Entonces reinicia desde <b>Costeos → Inventario →
+        «Reiniciar inventario a 0»</b>. Este botón no toca los números de Costeos, y lo que captures allá
+        entraría descontado.
+      </p>
       <div>
         <div className={cx.label}>Ubicación</div>
         <div className="flex gap-2 mt-1">

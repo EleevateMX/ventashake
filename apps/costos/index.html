@@ -395,7 +395,7 @@ let currentUser=null;
    puerta. */
 let sessToken=null;
 /* ===== Auto-actualización (sin borrar caché a mano) ===== */
-const APP_VERSION="2026-10-07-02";
+const APP_VERSION="2026-10-07-03";
 async function checkForUpdate(){try{
   const r=await fetch(location.pathname+"?_="+Date.now(),{cache:"no-store"});
   if(!r.ok)return;const t=await r.text();
@@ -555,6 +555,17 @@ function migrate(s){
   return s;
 }
 let lastLocalSave=0, realtimeReady=false;
+/* Tira lo local y carga lo del servidor. Solo para despues de un reinicio:
+   ahi lo local es, por definicion, de antes. */
+async function recargarDelServidor(){
+  const r=await sb.rpc('fn_costos_leer',{p_token:sessToken});
+  if(r.error||!r.data||!r.data.params){setSaved("⚠ No se pudo recargar — recarga la página");botonGuardar("error");return false;}
+  clearTimeout(saveTimer);saveTimer=null;clearTimeout(reintentoTimer);
+  state=migrate(r.data);lsSet(CACHE,state);localStorage.removeItem(PEND);sucio=false;
+  versionServidor=await leerVersion();
+  await cargarVivo();render();setSaved("Sincronizado ✓");botonGuardar("guardado");
+  return true;
+}
 async function leerVersion(){
   try{const v=await sb.rpc('fn_costos_version',{p_token:sessToken});return v.error?null:v.data;}catch(e){return null;}
 }
@@ -649,6 +660,10 @@ function dbWrite(){
            guardar" mandaria a alguien a revisar su internet cuando lo unico
            que pasa es que lleva 12 horas sin entrar. */
         if(r.error&&/caduc/i.test(r.error.message||"")){sesionCaducada();return;}
+        if(r.error&&/reinici/i.test(r.error.message||"")){
+          alert("El inventario se reinició desde otra pantalla.\n\nCosteos va a cargar lo actual. Lo que hayas escrito en esta pestaña después del reinicio hay que volver a capturarlo.");
+          await recargarDelServidor();return;
+        }
         if(r.error){
           setSaved("⚠ No se guardo — reintento en unos segundos");botonGuardar("error");
           reintentoTimer=setTimeout(()=>{if(sucio)dbWrite();},8000);
@@ -1388,7 +1403,7 @@ function renderInventario(m){
        <label class="fld"><span>Término (fecha y hora)</span><div class="urow"><input type="datetime-local" id="sesFin" value="${esc(ses.fin)}"><button class="btn mini ghost no-print" id="sesFinNow">Ahora</button></div></label>
        <label class="fld"><span>Firma (responsable del conteo)</span><input id="sesFirma" value="${esc(ses.firma)}" placeholder="Nombre de quien cuenta"></label>
      </div>
-     <div class="sessbtns"><button class="btn no-print" id="invPrint">🖨 Imprimir conteo</button><button class="btn ghost no-print" id="invApply">✓ Aplicar conteo a existencias</button></div>
+     <div class="sessbtns"><button class="btn no-print" id="invPrint">🖨 Imprimir conteo</button><button class="btn ghost no-print" id="invApply">✓ Aplicar conteo a existencias</button><button class="btn ghost warn no-print" id="invReset">⟲ Reiniciar inventario a 0</button></div>
    </div>
    <div class="seg" id="invSeg" role="tablist">
      <button data-v="todos" class="${invView==="todos"?"active":""}">Todos</button>
@@ -1413,6 +1428,7 @@ function renderInventario(m){
   m.querySelector("#sesIniNow").onclick=()=>{ses.inicio=nowLocal();m.querySelector("#sesIni").value=ses.inicio;save();};
   m.querySelector("#sesFinNow").onclick=()=>{ses.fin=nowLocal();m.querySelector("#sesFin").value=ses.fin;save();};
   m.querySelector("#invPrint").onclick=()=>window.print();
+  m.querySelector("#invReset").onclick=abrirReinicio;
   m.querySelector("#invApply").onclick=async()=>{if(!confirm("¿Aplicar el conteo capturado a las existencias?\n\nLo contado se vuelve la existencia REAL del sistema, la que baja con cada venta. Lo que el sistema decía queda anotado en el historial."))return;
     /* Primero el servidor, y solo si contesta bien se toca Costeos. Es un
        evento, no un estado: con dos pestanas abiertas, un numero viejo
@@ -1952,6 +1968,61 @@ function listaCambios(c){
 
   if(!partes.length)return '<p class="nada">No hay nada nuevo que mostrar: el kiosko ya tiene lo último que guardaste.</p>';
   return partes.join("");
+}
+
+/* Reiniciar el inventario a 0 (07/10/26).
+
+   Se hace aqui y no en Admin porque Costeos no manda existencias, manda la
+   DIFERENCIA contra su propio numero anterior: si el sistema queda en 0 y
+   Costeos sigue diciendo 10, capturar 12 suma 2. fn_costos_reiniciar_inventario
+   pone en 0 las dos cosas en una sola transaccion, y deja una marca en el
+   documento para que una pestana de antes no vuelva a subir sus numeros.
+   Antes de tocar nada se descarga el respaldo. */
+function existenciasCsv(){
+  const filas=[["Producto","Kiosko (sistema)","Bodega (sistema)"]];
+  Object.keys(vivoInv||{}).sort().forEach(n=>{const v=vivoInv[n]||{};filas.push([n,v.k??"",v.b??""]);});
+  return filas.map(f=>f.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(",")).join("\n");
+}
+function abrirReinicio(){
+  const host=document.getElementById("modalHost");
+  host.innerHTML=`<div class="modal-bg" data-no-recargar><div class="modal" style="max-width:520px">
+    <h3>Reiniciar inventario a 0</h3>
+    <p class="hint" style="margin-bottom:var(--s3)">Pone en <b>0</b> las existencias del <b>sistema</b> y los números de <b>Costeos</b> de lo que elijas. Después, lo que captures aquí entra completo. <b>La historia no se borra</b>: cada producto queda en el kardex de Admin como «Reinicio», con cuánto tenía y quién lo autorizó.</p>
+    <label style="display:flex;gap:var(--s2);align-items:center;justify-content:flex-start;margin:var(--s2) 0;cursor:pointer"><input type="checkbox" id="rsBod" checked style="width:18px;height:18px;flex:none;margin:0"><span>🏬 <b>Bodega</b> <span class="muted">— cajas, botes, presentaciones y empaque</span></span></label>
+    <label style="display:flex;gap:var(--s2);align-items:center;justify-content:flex-start;margin:var(--s2) 0 var(--s3);cursor:pointer"><input type="checkbox" id="rsKio" checked style="width:18px;height:18px;flex:none;margin:0"><span>🛒 <b>Kiosko</b> <span class="muted">— piezas, scoops y porciones</span></span></label>
+    <label class="fld" style="margin-bottom:var(--s3)"><span>Motivo</span><input id="rsMot" placeholder="Ej. Conteo general de octubre"></label>
+    <label class="fld"><span>PIN de gerencia</span><input id="rsPin" type="password" inputmode="numeric" autocomplete="off"></label>
+    <p class="hint" style="margin:var(--s3) 0 0">Antes de reiniciar se descarga solo un <b>respaldo</b>: el documento completo de Costeos y un CSV con las existencias reales de este momento.</p>
+    <div class="auth-msg" id="rsMsg"></div>
+    <div class="mrow" style="margin-top:var(--s4)"><button class="btn ghost mini" id="rsNo">Cancelar</button><button class="btn mini" id="rsSi" style="background:var(--bad);color:#fff">Reiniciar a 0</button></div>
+  </div></div>`;
+  const $=id=>host.querySelector(id), msg=(t,cls)=>{const e=$("#rsMsg");e.textContent=t;e.className="auth-msg "+(cls||"err");};
+  $("#rsNo").onclick=()=>{host.innerHTML="";};
+  $("#rsSi").onclick=async()=>{
+    const bod=$("#rsBod").checked, kio=$("#rsKio").checked, motivo=$("#rsMot").value.trim(), pin=$("#rsPin").value.trim();
+    if(!bod&&!kio)return msg("Elige bodega, kiosko o los dos.");
+    if(!motivo)return msg("Escribe el motivo.");
+    if(!pin)return msg("Falta el PIN de gerencia.");
+    const que=bod&&kio?"bodega Y kiosko":bod?"bodega":"kiosko";
+    if(!confirm("¿Poner en 0 TODO el inventario de "+que+"?\n\nEl sistema y Costeos quedan en 0. Las ventas que pasen antes de que captures van a dejar números en negativo, y eso está bien: se corrigen al capturar."))return;
+    const btn=$("#rsSi");btn.disabled=true;btn.textContent="Respaldando…";
+    // Lo pendiente primero: si no, se guardaria despues con numeros de antes.
+    if(hayGuardadoEnCurso()){await guardarYa();}
+    if(sucio){btn.disabled=false;btn.textContent="Reiniciar a 0";return msg("No se pudo guardar lo pendiente. Revisa tu conexión e intenta de nuevo.");}
+    await cargarVivo();
+    const d=new Date(),stamp=d.toISOString().slice(0,10)+"_"+String(d.getHours()).padStart(2,"0")+String(d.getMinutes()).padStart(2,"0");
+    backupAll();
+    setTimeout(()=>download(`shakeaholic_existencias_antes_del_reinicio_${stamp}.csv`,existenciasCsv(),"text/csv;charset=utf-8"),1600);
+    await new Promise(ok=>setTimeout(ok,2200));
+    btn.textContent="Reiniciando…";
+    const r=await sb.rpc('fn_costos_reiniciar_inventario',{p_token:sessToken,p_kiosko:kio,p_bodega:bod,p_motivo:motivo,p_pin:pin});
+    if(r.error&&/caduc/i.test(r.error.message||"")){host.innerHTML="";sesionCaducada();return;}
+    if(r.error||!r.data||!r.data.ok){btn.disabled=false;btn.textContent="Reiniciar a 0";return msg((r.data&&r.data.error)||(r.error&&r.error.message)||"No se pudo reiniciar. No se cambió nada.");}
+    const res=r.data;
+    await recargarDelServidor();
+    host.innerHTML="";
+    alert("Listo: "+res.renglones+" existencia"+(res.renglones===1?"":"s")+" en 0 ("+res.piezas+" piezas). Autorizó "+res.autorizo+".\n\nYa puedes capturar el inventario: lo que escribas entra completo.");
+  };
 }
 
 async function abrirPublicar(){

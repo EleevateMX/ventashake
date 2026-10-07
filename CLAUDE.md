@@ -322,6 +322,18 @@ permiso `reiniciar_inventario`, que ningún rol de caja tiene).
   `fn_kardex` por la nota. Lo nuevo ya nace con su tipo.
 - El saldo del kardex es la existencia de hoy menos lo movido después de
   cada renglón.
+- **Reiniciar a 0 se hace desde Costeos** (07/10, Costeos → Inventario →
+  «Reiniciar inventario a 0», `fn_costos_reiniciar_inventario`, PIN con
+  permiso `reiniciar_inventario`). El de Admin pone en 0 el sistema pero
+  **no** Costeos, y Costeos manda la diferencia contra
+  `costos_stock_sync.ultimo_valor`: con Costeos en 10 y el sistema en 0,
+  capturar 12 sumaba 2. El de Costeos pone en 0 las tres cosas en una
+  transacción (sistema con movimiento «reinicio», `ultimo_valor` y los
+  números del JSON) y deja `reinicioInventario` en el documento:
+  `fn_costos_guardar` rechaza un documento con otra marca, para que una
+  pestaña de antes no vuelva a subir sus números. Descarga el respaldo
+  (JSON + CSV de existencias reales) antes de tocar nada. Simulado en
+  producción con rollback: 119 renglones, 0 movimientos de sync, todo en 0.
 
 ### 2.4 La impresión vive fuera de la nube
 
@@ -1168,7 +1180,7 @@ empaquetador y se desvían solas:
 | Llegó mercancía | Kiosko → **"Caja y turno"** → PIN → **"¿Llegó mercancía?"** → por caja o por pieza. Di si vino de bodega: eso la resta allá |
 | Ver qué le pasó a un producto (kardex) | Admin → **Inventario** → toca el renglón. Ventas con su ticket, compras, traspasos, conteos, mermas, con quién |
 | Se tiró, caducó o se consumió algo | Admin → Inventario → **«Registrar salida»** → producto, cantidad y motivo |
-| Empezar de cero antes de un conteo | Admin → Inventario → **«Reiniciar inventario»** → ubicación, qué, motivo y PIN de gerencia. No borra historia |
+| Empezar de cero antes de un conteo | **Costeos → Inventario → «Reiniciar inventario a 0»** → bodega/kiosko, motivo y PIN de gerencia. Respalda solo y no borra historia. (El de Admin no toca Costeos: úsalo solo si no se va a capturar en Costeos) |
 | Ver por qué el inventario no baja | Admin → Inventario → **"Lo que no descuenta"** |
 | Una observación sale donde no debe | Admin → Extras → *Observaciones* → **"Dónde aplica"**. Marca la categoría (un clic para los 250 shakes) o los productos sueltos |
 | Vender un extra suelto (chipotle, pepinillos) | Admin → **Extras** → *Vender solo* → precio y en qué botón del menú |
