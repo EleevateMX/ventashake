@@ -6,6 +6,10 @@ parecía que el sistema se había descompuesto.
 
 ## Qué hace la tienda (lo que se le dice al personal)
 
+La versión para el personal vive en **`shakeaholic.mx/sin-internet`**
+(`apps/web/public/sin-internet/index.html`, HTML plano). Si cambia algo de
+aquí, cámbialo allá también.
+
 | Pasa esto | Qué hacer |
 |---|---|
 | Arriba sale **«Sin internet desde HH:MM»** en rojo | Seguir vendiendo. Se cobra en **efectivo** o en la **terminal del banco** (primero se cobra allá y luego se toca el botón aquí). Clip no funciona sin internet |
