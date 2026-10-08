@@ -1,8 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  crearOrden, crearOrdenKioskoCaja, cobrarOrden, listarAlmacenes,
-  listarCajas, corteAbierto, nombresPedidoFrecuentes,
+  crearOrden, crearOrdenKioskoCaja, cobrarOrden, nombresPedidoFrecuentes,
   iniciarCobroMixto, cancelarCobroMixto, cobrarOrdenDividido,
 } from '@shake/supabase'
 import { obtenerPaymentProvider } from '@shake/payments'
@@ -13,7 +12,6 @@ import { TecladoNombre } from '@/components/TecladoNombre'
 import { PrepararDespues } from '@/components/PrepararDespues'
 import { ClavePersonal } from '@/components/ClavePersonal'
 import { sb } from '@/lib/sb'
-import { resolverModoKiosko } from '@/lib/modoKiosko'
 import { canjearMancuernas, canjearSellos, cotizarPersonal } from '@shake/supabase'
 import type { IdentidadPersonal } from '@shake/supabase'
 import { PanelRewards, SIN_REWARDS, type DecisionRewards } from '@/components/PanelRewards'
@@ -22,6 +20,13 @@ import { CobroMixto, type TerminalTarjeta } from '@/components/CobroMixto'
 import { CobroNoPaso } from '@/components/CobroNoPaso'
 import { apartar } from '@/store/espera'
 import { usePromos } from '@/lib/usePromos'
+import { useConexion, revisarAhora, esErrorDeRed } from '@/lib/conexion'
+import { conRespaldo } from '@/lib/respaldo'
+import { contextoDePago } from '@/lib/contextoPago'
+import {
+  guardarVentaSinInternet, imprimirComandaLocal, siguienteFolioLocal,
+  type VentaSinInternet,
+} from '@/store/sinInternet'
 import { sugerirNombres, mezclarConSemilla, mensajeDeError, mxn } from '@shake/utils'
 
 type EstadoPago = 'cargando' | 'eligiendo' | 'procesando' | 'no_disponible'
@@ -97,6 +102,12 @@ export function Pago() {
   const { items, total, usuario, cajero, nombrePedido, setNombrePedido,
           paraLlevar, setParaLlevar, prepararA, setPrepararA, limpiar } = useCarrito()
   const [rewards, setRewards] = useState<DecisionRewards>(SIN_REWARDS)
+  /**
+   * Sin internet se cobra distinto (ver `confirmarSinInternet`): solo
+   * efectivo o la terminal del banco, sin canjes ni precio de personal,
+   * que necesitan al servidor para decidir.
+   */
+  const enLinea = useConexion((s) => s.enLinea)
   // Efectivo pasa por la calculadora de cambio antes de cobrar.
   const [enEfectivo, setEnEfectivo] = useState(false)
   /** Cobro mixto: una parte con tarjeta en la terminal, el resto en efectivo. */
@@ -205,23 +216,15 @@ export function Pago() {
   useEffect(() => {
     ;(async () => {
       try {
-        const almacenes = await listarAlmacenes(sb)
-        const kiosko = almacenes.find((a) => a.tipo === 'kiosko') ?? almacenes[0] ?? null
-        if (!kiosko) throw new Error('No hay almacén configurado para el kiosko.')
-        setAlmacen(kiosko)
-        const modoResuelto = await resolverModoKiosko(sb, kiosko.sucursal_id)
-        setModo(modoResuelto)
-
-        // En modo cajero la venta tiene que caer en el corte abierto; si no,
-        // no aparece en el arqueo del día. Se resuelve aquí y no al cobrar
-        // para que un problema de configuración salte antes, no a media venta.
-        if (modoResuelto === 'cajero') {
-          const cajas = await listarCajas(sb)
-          const caja = cajas.find((c) => c.sucursal_id === kiosko.sucursal_id) ?? cajas[0] ?? null
-          setCorte(caja ? await corteAbierto(sb, caja.id) : null)
+        const ctx = await contextoDePago()
+        setAlmacen(ctx.kiosko)
+        setModo(ctx.modoResuelto)
+        setCorte(ctx.corteActual)
+        if (ctx.modoResuelto === 'cajero') {
           // Sin await ni catch ruidoso: si esto falla, el cajero escribe el
           // nombre a mano como siempre y la venta no se entera.
-          nombresPedidoFrecuentes(sb, 1000).then(setNombresGuardados).catch(() => {})
+          conRespaldo('nombres_pedido', () => nombresPedidoFrecuentes(sb, 1000))
+            .then(setNombresGuardados).catch(() => {})
         }
 
         setEstado('eligiendo')
@@ -517,6 +520,75 @@ export function Pago() {
     navigate('/')
   }
 
+  /**
+   * Cobro SIN internet (08/10/26). Solo efectivo, o registrar lo cobrado en
+   * la terminal del banco: Clip, los canjes y el precio de personal
+   * necesitan al servidor en el momento.
+   *
+   * El orden importa: primero se GUARDA la venta en este navegador, luego
+   * se imprime la comanda, y hasta el final se limpia el carrito. Si algo
+   * falla a medias, lo cobrado no se pierde. Al volver el internet se
+   * registra sola (store/sinInternet.ts → fn_venta_sin_internet), al precio
+   * del servidor; si el de esta pantalla no coincidía, queda anotado.
+   */
+  async function confirmarSinInternet(metodo: 'efectivo' | 'tarjeta') {
+    if (!almacen || !cajero) return
+    if (clavePersonal) {
+      setError('El precio de personal necesita internet. Quita la clave y cóbralo completo, o espera a que vuelva.')
+      return
+    }
+    setError(null)
+    const venta: VentaSinInternet = {
+      id: crypto.randomUUID(),
+      folio_local: siguienteFolioLocal(),
+      vendida_en: new Date().toISOString(),
+      sucursal_id: almacen.sucursal_id,
+      almacen_id: almacen.id,
+      corte_id: corte?.id ?? null,
+      empleado_id: cajero.id,
+      cliente_id: usuario?.clienteId ?? null,
+      nombre_cliente: nombrePedido.trim() || usuario?.nombre?.split(' ')[0] || null,
+      para_llevar: paraLlevar,
+      preparar_a: prepararA,
+      metodo,
+      total_pantalla: Math.round(Math.max(0, total() - descuentoPromo) * 100) / 100,
+      items: items.map((i) => ({
+        producto_id: i.producto_id,
+        cantidad: i.cantidad,
+        personalizacion: i.personalizacion ?? null,
+        linea: i.linea,
+        padre_linea: i.padreLinea ?? null,
+      })),
+      comanda_impresa: false,
+      resumen: items.filter((i) => !i.padreLinea).map((i) => ({ nombre: i.nombre, cantidad: i.cantidad })),
+      intentos: 0,
+      ultimoError: null,
+    }
+    if (!guardarVentaSinInternet(venta)) {
+      setError('Esta pantalla no pudo guardar la venta. No la des por cobrada: anótala en papel.')
+      return
+    }
+    setEstado('procesando')
+    const impresion = await imprimirComandaLocal(venta, items, cajero.nombre)
+    const itemsSnapshot = [...items]
+    const usuarioSnapshot = usuario ? { ...usuario } : null
+    setEnEfectivo(false)
+    limpiar()
+    navigate('/confirmacion', {
+      state: {
+        folio: venta.folio_local,
+        ordenId: null,
+        total: venta.total_pantalla,
+        metodo: metodo === 'efectivo' ? 'efectivo' : 'terminal',
+        items: itemsSnapshot,
+        usuario: usuarioSnapshot,
+        demo: false,
+        sinInternet: true,
+        comandaNoSalio: impresion.fallaron,
+      },
+    })
+  }
+
   async function confirmarCajero(metodo: MetodoPago) {
     if (!almacen || !cajero) return
     setEstado('procesando')
@@ -581,7 +653,18 @@ export function Pago() {
         },
       })
     } catch (e) {
-      setError(mensajeDeError(e))
+      if (esErrorDeRed(e)) {
+        // Se cayó el internet a media venta. No se sabe si el servidor
+        // alcanzó a registrarla: se dice así, y la pantalla pasa a modo sin
+        // internet en cuanto la revisión lo confirme.
+        void revisarAhora()
+        setError(
+          'Se cortó el internet a media venta y no se sabe si alcanzó a registrarse. Si el cliente ' +
+            'todavía no paga, vuelve a tocar el cobro: sin internet la venta se guarda en esta pantalla.',
+        )
+      } else {
+        setError(mensajeDeError(e))
+      }
       setEstado('eligiendo')
     }
   }
@@ -954,17 +1037,71 @@ export function Pago() {
 
           {modo === 'cajero' && enEfectivo && (
             <CobroEfectivo
-              total={totalConCanjes}
+              // Sin internet no hay canjes ni precio de personal: el total es
+              // el de lista menos las promos, que es lo que cobrará el servidor.
+              total={enLinea ? totalConCanjes : Math.round(Math.max(0, total() - descuentoPromo) * 100) / 100}
               // Aquí `estado` ya está acotado a 'eligiendo': mientras se
               // cobra, esta pantalla se reemplaza entera por la de
               // "procesando", así que este bloque ni se pinta.
               procesando={false}
               onCancelar={() => setEnEfectivo(false)}
-              onCobrar={() => void confirmarCajero('efectivo')}
+              onCobrar={() => void (enLinea ? confirmarCajero('efectivo') : confirmarSinInternet('efectivo'))}
             />
           )}
 
-          {modo === 'cajero' && !enEfectivo && !enMixto && (
+          {modo === 'cajero' && !enEfectivo && !enMixto && !enLinea && (
+            <>
+              {/* SIN INTERNET: solo lo que no necesita al servidor en el
+                  momento. Lo demás (Clip, mixto, canjes, precio de personal)
+                  vuelve solo en cuanto regresa el internet. */}
+              <div className="rounded-sa-lg border-2 border-sa-strawberry bg-sa-strawberry/10 px-5 py-4 text-center">
+                <p className="font-display text-2xl text-sa-strawberry leading-tight">Sin internet</p>
+                <p className="font-body text-sm text-sa-green-ink/80 mt-1">
+                  Cobra en efectivo o en la terminal del banco. La venta se guarda en esta pantalla,
+                  la comanda sale impresa y se registra sola cuando vuelva el internet.
+                </p>
+              </div>
+              {clavePersonal && (
+                <p className="font-mono text-sm text-sa-strawberry text-center">
+                  El precio de personal necesita internet: quita la clave para cobrarlo completo.
+                </p>
+              )}
+              <button
+                onClick={() => setEnEfectivo(true)}
+                className="flex items-center gap-5 p-6 rounded-sa-lg bg-sa-cream-soft hover:bg-sa-cream shadow-sa-sm transition-all text-left active:scale-[0.98]"
+              >
+                <span className="text-sa-green-ink/70"><IconCard /></span>
+                <div>
+                  <p className="font-display text-2xl text-sa-green-ink leading-tight">Efectivo</p>
+                  <p className="font-mono text-xs uppercase tracking-wider text-sa-green-ink/60 mt-1">
+                    Cobro en el cajón · se registra al volver el internet
+                  </p>
+                </div>
+              </button>
+              <button
+                onClick={() => void confirmarSinInternet('tarjeta')}
+                className="flex items-center gap-5 p-6 rounded-sa-lg bg-sa-cream-soft hover:bg-sa-cream shadow-sa-sm transition-all text-left active:scale-[0.98]"
+              >
+                <span className="text-sa-green-ink/70"><IconCard /></span>
+                <div>
+                  <p className="font-display text-2xl text-sa-green-ink leading-tight">Terminal del banco</p>
+                  <p className="font-mono text-xs uppercase tracking-wider text-sa-green-ink/60 mt-1">
+                    Cóbrala allá primero · esto solo la registra
+                  </p>
+                </div>
+              </button>
+              <button
+                onClick={dejarEnEspera}
+                className="mt-1 px-5 py-4 rounded-sa border border-dashed border-sa-green-ink/25 bg-transparent hover:bg-sa-cream-soft transition-colors text-center"
+              >
+                <p className="font-display text-lg text-sa-green-ink/80 leading-tight">
+                  Dejar esta venta en espera
+                </p>
+              </button>
+            </>
+          )}
+
+          {modo === 'cajero' && !enEfectivo && !enMixto && enLinea && (
             <>
               {/* El canje va ANTES de los botones de cobro: es una decisión
                   que cambia el monto, no algo que se agrega después. */}

@@ -10,6 +10,7 @@ import {
 import type { ProductoVenta, ExtraDeProducto, ObservacionVigente } from '@shake/supabase'
 import { observacionesDeProducto } from '@shake/utils'
 import { sb } from '@/lib/sb'
+import { conRespaldo, guardarRespaldo } from '@/lib/respaldo'
 import { ModalExtras } from '@/components/ModalExtras'
 import { CorteMilo } from '@/components/CorteMilo'
 import { HistorialPedidos } from '@/components/HistorialPedidos'
@@ -22,6 +23,17 @@ interface Categoria {
   nombre: string
   orden: number
   cocinas: { id: string; nombre: string; slug: string } | null
+}
+
+/**
+ * La estación del producto, para la comanda que se imprime sin internet.
+ * Con internet la decide la base; esto solo la lleva en el carrito.
+ */
+function estacionDe(p: ProductoVenta) {
+  return {
+    estacion: p.categorias?.cocinas?.slug ?? undefined,
+    vaAPantalla: p.categorias?.va_a_pantalla !== false,
+  }
 }
 
 export function Catalogo({
@@ -106,8 +118,22 @@ export function Catalogo({
   }
 
   useEffect(() => {
-    Promise.all([listarProductosParaVenta(sb), listarExtras(sb), listarProductosExtra(sb)])
+    // Con respaldo: sin internet, volver al menú no puede dejarlo vacío.
+    Promise.all([
+      conRespaldo('productos', () => listarProductosParaVenta(sb)),
+      conRespaldo('extras', () => listarExtras(sb)),
+      conRespaldo('productos_extra', () => listarProductosExtra(sb)),
+    ])
       .then(([prods, exs, prodExtra]) => {
+        // Las estaciones por id, para las líneas del carrito que no traen
+        // `estacion` (apartadas de antes): la comanda sin internet las
+        // deduce de su cocina_id.
+        const cocinas: Record<string, { slug: string; nombre: string }> = {}
+        for (const p of [...prods, ...prodExtra]) {
+          const k = p.categorias?.cocinas
+          if (k) cocinas[k.id] = { slug: k.slug, nombre: k.nombre }
+        }
+        guardarRespaldo('cocinas', cocinas)
         setProductos(prods)
         setExtras(exs)
         setProductosExtra(prodExtra)
@@ -117,7 +143,7 @@ export function Catalogo({
 
     // Aparte y sin bloquear: si esto falla, el modal cae a los chips de
     // respaldo del código y la venta sigue igual.
-    listarObservacionesVigentes(sb)
+    conRespaldo('observaciones', () => listarObservacionesVigentes(sb))
       .then(setObservaciones)
       .catch(() => {})
 
@@ -192,6 +218,7 @@ export function Catalogo({
       precio: p.precio,
       cocina_id: p.categorias?.cocinas?.id ?? '',
       imagen_url: p.imagen_url,
+      ...estacionDe(p),
     })
   }
 
@@ -226,6 +253,7 @@ export function Catalogo({
         precio: p.precio,
         cocina_id: p.categorias?.cocinas?.id ?? '',
         imagen_url: p.imagen_url,
+        ...estacionDe(p),
         ...(nota ? { personalizacion: nota } : {}),
       },
       [...porExtra.values()].map(({ extra, cantidad }) => {
@@ -237,6 +265,8 @@ export function Catalogo({
           cocina_id: prod?.categorias?.cocinas?.id ?? p.categorias?.cocinas?.id ?? '',
           imagen_url: null,
           porUnidad: cantidad,
+          ...estacionDe(prod ?? p),
+          estacionVinculo: extra.estacion ?? null,
         }
       }),
     )

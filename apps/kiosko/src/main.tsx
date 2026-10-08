@@ -10,6 +10,12 @@ import './index.css'
 // tiene nada que hacer frente a un cliente. Se apaga completo.
 window.addEventListener('contextmenu', (e) => e.preventDefault())
 
+// Para que una recarga SIN internet no deje la caja en blanco: ver
+// public/sw.js (primero la red siempre; la copia solo si no hay red).
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
+  navigator.serviceWorker.register('/sw.js').catch(() => { /* sin él, todo sigue igual */ })
+}
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <BrowserRouter basename={import.meta.env.BASE_URL}>

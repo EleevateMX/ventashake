@@ -21,7 +21,7 @@ async function main(): Promise<void> {
 
   for (const w of workers) w.iniciar(cfg.pollIntervaloMs, cfg.latidoIntervaloMs)
 
-  iniciarStatusHttp(cfg.statusHttpPuerto, () => workers.map((w) => w.estado))
+  iniciarStatusHttp(cfg.statusHttpPuerto, () => workers.map((w) => w.estado), cfg.printers)
 
   const apagar = (señal: string) => {
     log.info(`Recibida ${señal}, cerrando agente…`)

@@ -4,6 +4,7 @@ import { listarAlmacenes } from '@shake/supabase'
 import type { ModoPagoKiosko } from '@shake/types'
 import { useCarrito } from '@/store/carritoStore'
 import { resolverModoKiosko } from '@/lib/modoKiosko'
+import { conRespaldo } from '@/lib/respaldo'
 import { ModalCliente } from '@/components/ModalCliente'
 import { usePromos } from '@/lib/usePromos'
 import { sb } from '@/lib/sb'
@@ -27,10 +28,15 @@ export function Carrito() {
     let vivo = true
     ;(async () => {
       try {
-        const almacenes = await listarAlmacenes(sb)
-        const kiosko = almacenes.find((a) => a.tipo === 'kiosko') ?? almacenes[0]
-        if (!kiosko || !vivo) return
-        setModo(await resolverModoKiosko(sb, kiosko.sucursal_id))
+        // Mismo respaldo que App.tsx: sin internet, sin modo, el carrito
+        // mandaría a la pantalla de lealtad (que pide Google) en vez de cobrar.
+        const modoLeido = await conRespaldo('modo', async () => {
+          const almacenes = await listarAlmacenes(sb)
+          const kiosko = almacenes.find((a) => a.tipo === 'kiosko') ?? almacenes[0]
+          if (!kiosko) throw new Error('No hay almacén del kiosko.')
+          return resolverModoKiosko(sb, kiosko.sucursal_id)
+        })
+        if (vivo) setModo(modoLeido)
       } catch {
         // Sin modo resuelto se sigue con el flujo normal, que incluye lealtad.
       }

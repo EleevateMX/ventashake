@@ -39,6 +39,28 @@ export interface ItemCarrito {
    * Opcional porque las apartadas guardadas antes de esto no lo traen.
    */
   agregadoEn?: string
+  /**
+   * Para la comanda que imprime el kiosko SIN internet (08/10/26): la
+   * estación de su categoría ('bebidas' | 'alimentos'), si su categoría va
+   * a pantalla, y —en extras— la estación que fija el vínculo. Con internet
+   * esto lo decide la base; opcionales porque las apartadas viejas no los
+   * traen y entonces se deduce de `cocina_id`.
+   */
+  estacion?: string
+  vaAPantalla?: boolean
+  estacionVinculo?: string | null
+}
+
+const CLAVE_ULTIMO_CAJERO = 'shake_ultimo_cajero_v1'
+
+/** El último cajero con turno en esta pantalla (ver `setCajero`). */
+export function ultimoCajero(): CajeroTurno | null {
+  try {
+    const c = JSON.parse(localStorage.getItem(CLAVE_ULTIMO_CAJERO) ?? 'null') as CajeroTurno | null
+    return c && c.id ? c : null
+  } catch {
+    return null
+  }
 }
 
 export interface UsuarioKiosko {
@@ -298,7 +320,15 @@ export const useCarrito = create<CarritoStore>((set, get) => ({
 
   setUsuario: (usuario) => set({ usuario }),
 
-  setCajero: (cajero) => set({ cajero }),
+  setCajero: (cajero) => {
+    // El último que abrió turno, por si la pantalla se recarga sin
+    // internet: el PIN se valida en el servidor y sin él la caja se
+    // quedaría sin poder vender. Ver App.tsx.
+    try {
+      if (cajero) localStorage.setItem(CLAVE_ULTIMO_CAJERO, JSON.stringify(cajero))
+    } catch { /* sin almacenamiento, sin respaldo */ }
+    set({ cajero })
+  },
 
   total: () => get().items.reduce((sum, i) => sum + i.precio * i.cantidad, 0),
 

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { promosVigentes } from '@shake/supabase'
 import { descuentoPromos, type LineaParaPromo, type PromoVigente } from '@shake/utils'
 import { sb } from './sb'
+import { conRespaldo } from './respaldo'
 
 /**
  * Las promos automáticas vigentes, para PREVISUALIZAR el descuento.
@@ -20,7 +21,7 @@ export function usePromos(lineas: LineaParaPromo[]) {
 
   useEffect(() => {
     let vivo = true
-    promosVigentes(sb)
+    conRespaldo('promos', () => promosVigentes(sb))
       .then((p) => { if (vivo) setPromos(p) })
       .catch(() => { /* silencio a propósito: ver arriba */ })
     return () => { vivo = false }

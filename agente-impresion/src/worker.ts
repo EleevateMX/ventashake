@@ -2,13 +2,9 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { PrinterConfig, TrabajoImpresion } from './types.js'
 import { imprimirTrabajo } from './printerAdapter.js'
 import { log } from './log.js'
+import { VERSION_AGENTE } from './version.js'
+import { aprenderEstacion } from './estaciones.js'
 
-/**
- * Version del agente, tal cual la reporta en cada latido. Se compara con
- * lo que Admin muestra para saber si la tienda ya corre el agente nuevo.
- * Subela cuando cambie algo que se note en el papel.
- */
-const VERSION_AGENTE = '1.3.0'
 
 export interface EstadoWorker {
   printerId: string
@@ -141,6 +137,12 @@ export class PrinterWorker {
         p_trabajo_id: trabajo.id,
       })
       if (error) throw new Error(`Impresión OK pero no se pudo confirmar: ${error.message}`)
+      // Cada comanda que sale con internet le enseña al agente de quién es
+      // su estación: es lo que usa el día que el kiosko le mande comandas
+      // sin internet.
+      if (!trabajo.payload?.prueba && !trabajo.payload?.calibrar && !trabajo.payload?.diagnostico) {
+        aprenderEstacion(trabajo.payload?.estacion, this.cfg.id)
+      }
       this.estado.ultimaImpresion = new Date().toISOString()
       this.estado.trabajosImpresosSesion++
     } catch (e) {

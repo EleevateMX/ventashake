@@ -162,6 +162,12 @@ export interface ProductoVenta extends Producto {
     id: string
     nombre: string
     orden: number
+    /**
+     * `false` = su categoría no manda comanda (bebidas de anaquel). Lo usa
+     * el kiosko para no gastar etiqueta cuando imprime sin internet; con
+     * internet lo decide la base igual que siempre.
+     */
+    va_a_pantalla?: boolean | null
     cocinas: { id: string; nombre: string; slug: string } | null
   } | null
 }
@@ -175,7 +181,7 @@ export async function listarProductosParaVenta(sb: ShakeClient): Promise<Product
   return traerTodo<ProductoVenta>((desde, hasta) =>
     sb
       .from('productos')
-      .select('*, categorias(id, nombre, orden, cocinas(id, nombre, slug))')
+      .select('*, categorias(id, nombre, orden, va_a_pantalla, cocinas(id, nombre, slug))')
       .eq('activo', true)
       .eq('es_extra', false)
       .order('orden').order('nombre').order('id')
@@ -326,6 +332,12 @@ export interface ExtraDeProducto {
    * no el producto base. Null = no cambia el vaso, que es lo normal.
    */
   onzas: number | null
+  /**
+   * Dónde se prepara este extra EN ESTE producto, si el vínculo lo fija
+   * (Admin → Extras → «se prepara en»): el café de un combo va a barra
+   * aunque el combo sea de cocina. Null = sigue a su producto.
+   */
+  estacion?: string | null
 }
 
 /**
@@ -337,7 +349,7 @@ export async function listarProductosExtra(sb: ShakeClient): Promise<ProductoVen
   return traerTodo<ProductoVenta>((desde, hasta) =>
     sb
       .from('productos')
-      .select('*, categorias(id, nombre, orden, cocinas(id, nombre, slug))')
+      .select('*, categorias(id, nombre, orden, va_a_pantalla, cocinas(id, nombre, slug))')
       .eq('activo', true)
       .eq('es_extra', true)
       .order('nombre').order('id')

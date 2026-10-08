@@ -15,6 +15,7 @@ import { CalibrarRollo } from '@/components/CalibrarRollo'
 import { PedirCambio } from '@/components/PedirCambio'
 import { CargarInventario } from '@/components/CargarInventario'
 import { sb } from '@/lib/sb'
+import { useVentasSinInternet } from '@/store/sinInternet'
 
 interface Props {
   abierto: boolean
@@ -177,6 +178,19 @@ export function CorteMilo({ abierto, onCerrar }: Props) {
    */
   async function cerrarTurno(pinDeAutorizacion?: string) {
     if (!corte || guardando) return
+    // Lo cobrado sin internet todavía no está en la base: si la caja se
+    // cierra antes de que se registre, ese efectivo está en el cajón pero
+    // no en el esperado del corte, y el arqueo sale «sobrante» de algo que
+    // sí se vendió.
+    const sinMandar = useVentasSinInternet.getState().pendientes.length
+    if (sinMandar > 0) {
+      setError(
+        `Hay ${sinMandar} venta${sinMandar === 1 ? '' : 's'} cobrada${sinMandar === 1 ? '' : 's'} sin internet que ` +
+          'todavía no se registra' + (sinMandar === 1 ? '' : 'n') + '. Se mandan solas en cuanto vuelve el internet; ' +
+          'cierra la caja después, o ese efectivo no va a entrar en este corte.',
+      )
+      return
+    }
     setGuardando(true)
     setError(null)
     try {

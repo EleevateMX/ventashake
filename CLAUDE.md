@@ -172,6 +172,23 @@ los tickets de ese turno.
 > repartir ese `20` a ojo sería inventar. `leerDesglose` acepta las dos y
 > marca las viejas.
 
+### 2.2.1 Sin internet se sigue vendiendo (08/10/26)
+
+El 07/10 se fue el internet de 21:07 a 22:00 y no entró ni una venta. Ahora
+el kiosko en modo cajero **cobra efectivo o la terminal del banco sin
+internet**: guarda la venta en el navegador con folio provisional `S-01`,
+imprime la comanda por la red de la tienda (el agente vive en la misma PC,
+`POST 127.0.0.1:7777/local/comanda`) y la registra al volver con
+`fn_venta_sin_internet`, que **envuelve** a `fn_crear_orden` y
+`fn_cobrar_orden` sin tocarlas: idempotente por el id del kiosko, al precio
+del servidor (la diferencia queda en `ventas_sin_internet` para revisión),
+con la hora real y sin volver a mandar la comanda. El detector pregunta al
+servidor, no a `navigator.onLine`; el catálogo y el corte tienen respaldo
+local (`lib/respaldo.ts`) y la página abre sin internet (`public/sw.js`,
+primero la red siempre). Cerrar la caja con ventas sin registrar está
+bloqueado. Todo en `docs/sin-internet.md`. **Lo que más resuelve sigue
+siendo un segundo internet (4G con failover)**: con eso Clip también sigue.
+
 ### 2.2.5 El cierre del día se calcula, no se guarda
 
 Admin → **Ventas** → *Historial y cierre del día* (30/09). Semana, mes,
@@ -1165,6 +1182,7 @@ empaquetador y se desvían solas:
 | Abrir la tienda | Nada: la PC arranca todo sola |
 | Abrir/cerrar caja o cambiar turno | Kiosko → botón **"Caja y turno"** (arriba, junto a Historial) → PIN. Se cuenta **por denominación** y el total sale solo |
 | Cobrar | **Efectivo** · **Terminal** (Clip) · **Mixto** (efectivo + terminal). Abajo, *Terminal del banco*, que solo registra lo ya cobrado allá |
+| Se fue el internet (aviso rojo arriba) | Seguir vendiendo en **efectivo** o **terminal del banco**. Folio provisional S-01…, la comanda sale impresa y la venta se registra sola al volver. No cerrar la caja hasta que se registren. Ver `docs/sin-internet.md` |
 | El cliente no puede pagar ahora | Pantalla de pago → **"Dejar esta venta en espera"**. Se retoma desde el chip amarillo del menú |
 | Saber si un día cuadró, o ventas de la semana/mes/año | Admin → **Ventas** → *Historial y cierre del día*. Toca el día; «Bajar de Clip» para conciliar tarjeta y Clip; si no cuadró, deja una aclaración |
 | Revisar el arqueo de un turno | Admin → **Cortes de caja** (desglose de billetes, y **Tickets** del turno) |

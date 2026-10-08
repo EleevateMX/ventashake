@@ -34,6 +34,17 @@ function conDominioPropio(url: string): string {
 }
 
 /**
+ * La dirección del backend tal como la usa `getSupabase()` (con el dominio
+ * propio). Para quien necesita hablarle directo, como el detector de
+ * «sin internet» del kiosko: tiene que preguntar al MISMO lugar al que van
+ * las ventas, o podría decir que hay internet cuando las ventas no salen.
+ */
+export function urlBackend(): string | null {
+  const url = import.meta.env.VITE_SUPABASE_URL as string | undefined
+  return url ? conDominioPropio(url) : null
+}
+
+/**
  * Cliente Supabase para frontend (anon key). Singleton por app.
  * Requiere VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY en el .env de la app.
  */

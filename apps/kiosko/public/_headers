@@ -23,3 +23,8 @@
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()
   Strict-Transport-Security: max-age=31536000; includeSubDomains
+
+# El service worker (sw.js) se revisa siempre: si el navegador se quedara
+# con uno viejo, el kiosko no se enteraria de los cambios.
+/sw.js
+  Cache-Control: no-cache

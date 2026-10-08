@@ -16,6 +16,10 @@ interface EstadoConfirmacion {
   items?: ItemCarrito[]
   usuario?: UsuarioKiosko | null
   demo?: boolean
+  /** Venta cobrada sin internet: folio provisional, se registra al volver. */
+  sinInternet?: boolean
+  /** Las estaciones cuya comanda NO salió impresa (sin internet). */
+  comandaNoSalio?: Array<{ estacion: string; error: string }>
 }
 
 /**
@@ -49,6 +53,8 @@ export function Confirmacion() {
   // tope, el ticket promete más mancuernas de las que realmente se abonan.
   const puntosGanados = usuario?.clienteId ? Math.min(100, Math.floor(totalOrden / 10)) : 0
   const esDemo        = state.demo ?? false
+  const sinInternet   = state.sinInternet ?? false
+  const comandaNoSalio = state.comandaNoSalio ?? []
 
   // El QR es una URL de verdad: el teléfono la abre y ve su recibo, con
   // botones para mandarlo por WhatsApp o entrar a Rewards. (El viejo QR
@@ -89,6 +95,19 @@ export function Confirmacion() {
         Shakeaholic
       </span>
 
+      {/* Sin internet: si alguna comanda no salió, que no se pierda el
+          pedido — alguien tiene que ir a decirle a esa estación. */}
+      {comandaNoSalio.length > 0 && (
+        <div className="absolute top-20 left-8 right-8 bg-sa-strawberry text-white rounded-sa-lg px-6 py-4 text-center shadow-sa">
+          <p className="font-display text-2xl leading-tight">
+            La comanda NO salió en {comandaNoSalio.map((c) => c.estacion).join(' y ')}
+          </p>
+          <p className="font-body text-sm mt-1 opacity-90">
+            Avísales de palabra: #{numeroOrden}. {comandaNoSalio[0].error}
+          </p>
+        </div>
+      )}
+
       <img src="/milo.png" alt="Milo celebrando" className="h-44 w-auto drop-shadow-2xl mb-3" />
 
       <h1 className="font-display text-5xl leading-none text-center text-sa-cream">
@@ -97,6 +116,11 @@ export function Confirmacion() {
       <p className="font-body text-base mt-3 text-center text-sa-cream/80 max-w-sm">
         Estamos agitando lo tuyo. Sin polvo raro, sin pose fitness.
       </p>
+      {sinInternet && (
+        <p className="font-mono text-xs uppercase tracking-wider mt-3 text-sa-banana text-center max-w-md">
+          Cobrada sin internet · se registra sola cuando vuelva
+        </p>
+      )}
 
       {/* Loyalty earned */}
       {puntosGanados > 0 && (

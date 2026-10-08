@@ -29,6 +29,12 @@ export interface PrinterConfig {
   /** Por omisión `escpos`, que es lo que había antes de existir este campo. */
   lenguaje?: LenguajeImpresora
   anchoPapel: '58mm' | '80mm'
+  /**
+   * La estación que imprime ("Bebidas", "Alimentos"). Opcional: el agente
+   * la aprende sola de los trabajos que llegan con internet. Sirve para
+   * las comandas que manda el kiosko cuando NO hay internet.
+   */
+  estacion?: string
   copias: number
   corteAutomatico: boolean
   buzzer: boolean

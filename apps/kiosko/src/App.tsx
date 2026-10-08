@@ -4,8 +4,13 @@ import { listarAlmacenes, escucharRecargas, escucharRetomarEspera } from '@shake
 import type { ModoPagoKiosko } from '@shake/types'
 import { resolverModoKiosko } from './lib/modoKiosko'
 import { CandadoCajero } from './components/CandadoCajero'
-import { useCarrito } from './store/carritoStore'
+import { useCarrito, ultimoCajero } from './store/carritoStore'
+import { vigilarVentasSinInternet } from './store/sinInternet'
 import { sb } from './lib/sb'
+import { conRespaldo } from './lib/respaldo'
+import { contextoDePago } from './lib/contextoPago'
+import { useConexion, vigilarConexion } from './lib/conexion'
+import { AvisoSinInternet } from './components/AvisoSinInternet'
 import { Catalogo } from './pages/Catalogo'
 import { Carrito } from './pages/Carrito'
 import { LoginLealtad } from './pages/LoginLealtad'
@@ -39,6 +44,31 @@ export default function App() {
    * que no hace nada. Se guarda y el catálogo la recoge al montarse.
    */
   const [empujada, setEmpujada] = useState<string | null>(null)
+  const enLinea = useConexion((s) => s.enLinea)
+
+  // ¿Hay internet?, y mandar lo que se cobró sin él en cuanto vuelva.
+  useEffect(() => {
+    if (esVistaCelular) return
+    vigilarConexion()
+    vigilarVentasSinInternet()
+    // El respaldo de la pantalla de pago, fresco antes de necesitarlo.
+    const precargar = () => { if (useConexion.getState().enLinea) contextoDePago().catch(() => {}) }
+    precargar()
+    const t = setInterval(precargar, 5 * 60_000)
+    return () => clearInterval(t)
+  }, [esVistaCelular])
+
+  /**
+   * Si la pantalla se recargó SIN internet, el PIN no se puede validar (lo
+   * valida el servidor) y la caja se quedaría parada en el candado. Se
+   * retoma el último cajero que tuvo turno aquí: sin internet, cobrar con
+   * el nombre de quien ya estaba es mejor que no poder cobrar.
+   */
+  useEffect(() => {
+    if (modo !== 'cajero' || cajero || enLinea || esVistaCelular) return
+    const ultimo = ultimoCajero()
+    if (ultimo) setCajero(ultimo)
+  }, [modo, cajero, enLinea, esVistaCelular, setCajero])
 
   useEffect(() => {
     // La vista pública del celular no depende del modo del kiosko ni pide
@@ -47,10 +77,15 @@ export default function App() {
     let vivo = true
     ;(async () => {
       try {
-        const almacenes = await listarAlmacenes(sb)
-        const kiosko = almacenes.find((a) => a.tipo === 'kiosko') ?? almacenes[0]
-        if (!kiosko || !vivo) return
-        setModo(await resolverModoKiosko(sb, kiosko.sucursal_id))
+        // Con respaldo: si la pantalla se recarga sin internet, sigue siendo
+        // la caja de siempre y no un kiosko de autoservicio sin candado.
+        const modoLeido = await conRespaldo('modo', async () => {
+          const almacenes = await listarAlmacenes(sb)
+          const kiosko = almacenes.find((a) => a.tipo === 'kiosko') ?? almacenes[0]
+          if (!kiosko) throw new Error('No hay almacén del kiosko.')
+          return resolverModoKiosko(sb, kiosko.sucursal_id)
+        })
+        if (vivo) setModo(modoLeido)
       } catch (e) {
         // Si no se puede leer el modo, se sigue como kiosko normal: es peor
         // dejar la pantalla en blanco que operar sin el candado.
@@ -115,6 +150,7 @@ export default function App() {
           : 'h-screen w-screen overflow-hidden bg-sa-cream-paper font-body text-sa-green-ink'
       }
     >
+      {!esVistaCelular && <AvisoSinInternet />}
       <Routes>
         <Route path="/" element={<Navigate to="/catalogo" replace />} />
         <Route

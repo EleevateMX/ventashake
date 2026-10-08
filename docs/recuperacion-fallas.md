@@ -63,10 +63,10 @@ Ver `docs/impresion-comandas.md` para el detalle completo. Resumen:
 
 ## Qué NO está cubierto todavía (documentado, no implementado)
 
-- Modo verdaderamente offline (aceptar ventas sin conexión y sincronizar
-  después) — **deliberadamente no implementado**: aceptar pagos sin
-  confirmación del servidor sería una falsa sensación de seguridad. Sin
-  internet, el sistema debe mostrar "sin conexión" y no permitir cobrar.
+- ~~Modo offline~~ — **ya existe desde el 08/10/26**, acotado: el kiosko en
+  modo cajero cobra efectivo o la terminal del banco sin internet, imprime la
+  comanda por la red de la tienda y registra la venta al volver. Clip y los
+  canjes siguen necesitando internet. Ver `docs/sin-internet.md`.
 - Reconciliación automática de pagos Clip vía webhook (nivel 3 de
   `docs/integracion-clip.md`) — pendiente de credenciales.
 - Alertas proactivas (push/email) cuando algo falla — hoy todo se ve
