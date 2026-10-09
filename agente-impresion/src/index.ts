@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { cargarConfig } from './config.js'
 import { PrinterWorker } from './worker.js'
 import { iniciarStatusHttp } from './statusHttp.js'
+import { vigilarFrases } from './frases.js'
 import { log } from './log.js'
 
 async function main(): Promise<void> {
@@ -20,6 +21,13 @@ async function main(): Promise<void> {
   })
 
   for (const w of workers) w.iniciar(cfg.pollIntervaloMs, cfg.latidoIntervaloMs)
+
+  // Las frases del pie (Admin → Impresoras) son las mismas para todas las
+  // impresoras: basta con el token de la primera para pedirlas.
+  const primera = cfg.printers[0]
+  if (primera) {
+    vigilarFrases(createClient(cfg.supabaseUrl, cfg.supabaseAnonKey), primera.token)
+  }
 
   iniciarStatusHttp(cfg.statusHttpPuerto, () => workers.map((w) => w.estado), cfg.printers)
 

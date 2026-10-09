@@ -117,6 +117,10 @@ export interface PayloadComanda {
   diagnostico?: boolean
   impresora?: string
   hora?: string
+  /** Prueba de una frase desde Admin → Impresoras (fn_frase_probar). */
+  frase_prueba?: string
+  /** Con la frase de prueba: imprimir a Milo. */
+  milo?: boolean
 }
 
 export interface TrabajoImpresion {

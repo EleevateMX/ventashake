@@ -7,9 +7,10 @@
       correctamente. (Contexto: CLAUDE.md 2.3.5 — los scoops y porciones hoy
       solo viven en Costeos; el «gemelo partido en dos» es la causa más común
       de que algo no descuente.)
-- [ ] **Etiquetas: ponerle nombre a las frases.** Las frases que se
-      configuran para las etiquetas que imprimen las impresoras necesitan un
-      nombre para identificarlas y administrarlas.
+- [x] **Etiquetas: ponerle nombre a las frases** (09/10). Admin →
+      Impresoras → Frases de la etiqueta: nombre, temporadas y Milo. Falta
+      de lado del negocio: escribir las de Halloween y Navidad y probar a
+      Milo en papel («Probar · gasta 1») cuando el agente sea 1.5.0.
 - [ ] **Correo del corte: crear la cuenta de Resend** y poner la llave en los
       secrets (pasos en `docs/corte-y-cambio-de-turno.md`). Hasta entonces el
       comprobante vive en Admin → Cortes y la cola espera.

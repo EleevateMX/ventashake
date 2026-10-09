@@ -8,6 +8,7 @@ import {
 import type { Cocina, TrabajoImpresion, TipoConexionImpresora, AnchoPapel, EstadoTrabajoImpresion } from '@shake/types'
 import { PageHeader, Loading, ErrorMsg, OkMsg, Panel, Field, cx, Chip } from '../ui'
 import { mensajeDeError } from '@shake/utils'
+import { FrasesEtiqueta } from '../components/FrasesEtiqueta'
 
 interface FormState {
   id: string | null
@@ -432,6 +433,8 @@ export default function Impresoras() {
           </table>
         </div>
       )}
+
+      <FrasesEtiqueta />
     </div>
   )
 }

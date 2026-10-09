@@ -24,6 +24,15 @@
  * tspl.test.ts y `pnpm test-print -- --vista-previa`).
  */
 
+import { MILO } from './milo.js'
+
+/**
+ * Milo en bytes crudos para BITMAP. El socket manda todo en latin1 (ver
+ * tsplSocket.ts), que lleva cada carácter 0-255 a ese mismo byte: los
+ * datos binarios viajan intactos dentro del texto.
+ */
+const MILO_BYTES = Buffer.from(MILO.datos, 'base64').toString('latin1')
+
 /** Métricas reales de las tres fuentes que usamos, en dots. */
 const FUENTES = {
   '1': { alto: 12, ancho: 8 },
@@ -202,10 +211,19 @@ export const FRASES = [
  * idéntica a la original, o en barra van a creer que les llegó una comanda
  * distinta. Y de paso, dos etiquetas del mismo pedido no repiten frase.
  */
-export function frasePara(ticket: string, item: number): string {
+export function indiceFrase(ticket: string, item: number, cuantas: number): number {
   let h = 0
   for (const c of ticket) h = (h * 31 + c.charCodeAt(0)) % 100000
-  return FRASES[(h + item) % FRASES.length]
+  return (h + item) % Math.max(1, cuantas)
+}
+
+/**
+ * Desde el agente 1.5.0 la lista viene de la base (Admin → Impresoras, por
+ * temporada; ver frases.ts). `FRASES` queda de respaldo.
+ */
+export function frasePara(ticket: string, item: number, lista: readonly string[] = FRASES): string {
+  const usar = lista.length > 0 ? lista : FRASES
+  return usar[indiceFrase(ticket, item, usar.length)]
 }
 
 /** Una etiqueta: un producto, para una persona. */
@@ -229,6 +247,12 @@ export interface EtiquetaComanda {
   fecha: string
   /** Para forzar una frase concreta; si se omite, se elige con `frasePara`. */
   frase?: string | null
+  /**
+   * Imprimir a Milo debajo de la frase (temporadas, Admin → Impresoras).
+   * Si no cabe en lo que queda de etiqueta, se omite: Milo adorna, la
+   * comanda no puede perder un renglón por él.
+   */
+  milo?: boolean
   /** Marca la etiqueta como reimpresión. */
   copia?: number
   /**
@@ -293,6 +317,21 @@ class Lienzo {
     if (this.desbordado) return
     const { alto, ancho } = FUENTES[fuente]
     this.lineas.push(`REVERSE ${this.x - alto - 2},${Y - 2},${alto + 4},${texto.length * ancho + 4}`)
+  }
+
+  /**
+   * Milo después de la última línea, si cabe. Ocupa su propia franja del
+   * eje X (a lo largo de la etiqueta) y va centrado a lo ancho. Devuelve
+   * false si no hubo lugar.
+   */
+  dibujarMilo(gap: number): boolean {
+    if (this.desbordado) return false
+    const arriba = this.x - this.altoPrevio - gap
+    const x0 = arriba - MILO.largoX
+    if (x0 < 8) return false
+    const y0 = Y + Math.max(0, Math.round((ANCHO_UTIL - MILO.alto) / 2))
+    this.lineas.push(`BITMAP ${x0},${y0},${MILO.anchoBytes},${MILO.alto},0,${MILO_BYTES}`)
+    return true
   }
 
   resultado(): string[] {
@@ -364,6 +403,7 @@ export function generarTSPL(e: EtiquetaComanda, cabecera: string[] = CABECERA_PA
     l.escribir(linea, '2', gapFrase)
     gapFrase = 3
   }
+  if (e.milo) l.dibujarMilo(10)
 
   return [
     ...cabecera,
@@ -488,6 +528,7 @@ export function vistaPrevia(e: EtiquetaComanda): string {
   fila(e.fecha)
   fila()
   for (const t of partir(limpiar(e.frase ?? frasePara(e.ticket, e.item)), caracteresPorLinea('2'))) fila(t)
+  if (e.milo) { fila(); fila('   (Milo)') }
 
   const borde = `+${'-'.repeat(ancho + 2)}+`
   return [borde, ...filas.map((f) => `| ${f.padEnd(ancho)} |`), borde].join('\n')

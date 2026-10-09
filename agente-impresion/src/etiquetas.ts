@@ -1,4 +1,6 @@
 import type { EtiquetaComanda } from './tspl.js'
+import { indiceFrase } from './tspl.js'
+import { frasesVigentes } from './frases.js'
 import type { ExtraComanda, ItemComanda, PayloadComanda, TrabajoImpresion } from './types.js'
 
 /**
@@ -182,7 +184,10 @@ export function etiquetasDeTrabajo(trabajo: TrabajoImpresion, numeroDeCopia = 1)
       producto: p.impresora ?? 'Impresora',
       notas: 'Si lees esto, imprime bien',
       fecha: formatearFecha(p.hora ?? p.creado_en),
-      frase: 'Hecho para ti',
+      // Desde Admin → Impresoras se puede probar una frase (y Milo) antes
+      // de prenderla; la prueba de siempre sigue diciendo lo de siempre.
+      frase: p.frase_prueba?.trim() || 'Hecho para ti',
+      milo: p.milo === true,
     }]
   }
 
@@ -196,6 +201,9 @@ export function etiquetasDeTrabajo(trabajo: TrabajoImpresion, numeroDeCopia = 1)
   const nombre = p.cliente?.trim() || p.nombre?.trim() || `#${ticket}`
 
   const total = items.reduce((s, i) => s + Math.max(1, i.cantidad || 1), 0)
+  // La lista de la temporada (o la de siempre). Se elige con el mismo hash
+  // de antes: misma comanda, misma frase, y dos etiquetas no la repiten.
+  const frases = frasesVigentes()
 
   const etiquetas: EtiquetaComanda[] = []
   let n = 0
@@ -214,6 +222,10 @@ export function etiquetasDeTrabajo(trabajo: TrabajoImpresion, numeroDeCopia = 1)
         producto: nombreProducto,
         fecha,
         copia: Math.max(numeroDeCopia, trabajo.numero_copia ?? 1),
+        ...(() => {
+          const f = frases[indiceFrase(ticket, n, frases.length)]
+          return { frase: f.texto, milo: f.milo }
+        })(),
         paraLlevar: p.para_llevar ?? null,
         ...campos,
         tamano: campos.tamano ?? producto.tamano,

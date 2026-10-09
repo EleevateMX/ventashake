@@ -417,6 +417,13 @@ pantallas muestran comandas pero **no sale papel**.
   con tres cabeceras rotuladas A/B/C (agente **1.3.0**) y el papel
   contesta cuál sirve.
 
+- **Las frases del pie son de gerencia** (09/10, agente **1.5.0**): Admin →
+  Impresoras → *Frases de la etiqueta*, con nombre, por temporada
+  (Halloween, Navidad) y con **Milo** opcional (`BITMAP`, se omite si no
+  cabe). El agente las baja con `fn_imprimir_frases` cada 10 min y las
+  guarda en disco; el encolado de comandas **no se tocó**. Detalle en
+  `docs/etiquetas-comanda-tspl.md`.
+
 ### 2.4.5 Las observaciones salen donde tienen sentido
 
 Los chips de personalizar ("Sin hielo", "Cambio a césar") nacieron **por
@@ -1224,6 +1231,7 @@ empaquetador y se desvían solas:
 | Saber si el POS está sano | Admin → **¿Qué hago si…?** — cobra de mentira y lo deshace |
 | Actualizar el agente de impresión | Solo, al abrir el día siguiente |
 | Instalar en una PC nueva | Admin → **Descargas** → "Instalar todo" |
+| Frases del pie de la etiqueta (temporadas, Milo) | Admin → **Impresoras** → *Frases de la etiqueta*. Cada frase con su nombre; una temporada prendida sale en sus fechas. «Probar · gasta 1» para verla en papel |
 | Cambiar el rollo de etiquetas | Kiosko → **"Caja y turno"** → PIN → "¿Cambiaste el rollo?" → Calibrar |
 | Llegó mercancía | Kiosko → **"Caja y turno"** → PIN → **"¿Llegó mercancía?"** → por caja o por pieza. Di si vino de bodega: eso la resta allá |
 | Ver qué le pasó a un producto (kardex) | Admin → **Inventario** → toca el renglón. Ventas con su ticket, compras, traspasos, conteos, mermas, con quién |

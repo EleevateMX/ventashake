@@ -270,3 +270,65 @@ export async function trabajosDeOrden(
   if (error) throw error
   return data
 }
+
+// ---------------------------------------------------------------------------
+// Frases del pie de la etiqueta, por temporada (09/10/26). Solo gerencia.
+
+export interface TemporadaEtiqueta {
+  id: string
+  nombre: string
+  /** MM-DD. Puede cruzar el año (12-01 → 01-06). */
+  desde: string
+  hasta: string
+  activa: boolean
+  con_milo: boolean
+  /** Hoy (Mérida) cae dentro de sus fechas. */
+  cubre_hoy: boolean
+}
+
+export interface FraseEtiqueta {
+  id: string
+  nombre: string
+  texto: string
+  /** null = de siempre (sale cuando no hay temporada activa). */
+  temporada_id: string | null
+  activa: boolean
+  con_milo: boolean
+  orden: number
+}
+
+export interface FrasesAdmin {
+  hoy: string
+  temporadas: TemporadaEtiqueta[]
+  frases: FraseEtiqueta[]
+  agentes: { nombre: string; version: string | null }[]
+}
+
+export async function frasesAdmin(sb: ShakeClient): Promise<FrasesAdmin> {
+  return (await rpc<FrasesAdmin>(sb, 'fn_frases_admin', {})) ?? { hoy: '', temporadas: [], frases: [], agentes: [] }
+}
+
+export async function guardarFrase(
+  sb: ShakeClient,
+  f: { id?: string | null; nombre: string; texto: string; temporada_id: string | null; activa: boolean; con_milo: boolean; archivar?: boolean },
+): Promise<string> {
+  return rpc<string>(sb, 'fn_frase_guardar', {
+    p_id: f.id ?? null, p_nombre: f.nombre, p_texto: f.texto, p_temporada_id: f.temporada_id,
+    p_activa: f.activa, p_con_milo: f.con_milo, p_archivar: f.archivar ?? false,
+  })
+}
+
+export async function guardarTemporada(
+  sb: ShakeClient,
+  t: { id?: string | null; nombre: string; desde: string; hasta: string; activa: boolean; con_milo: boolean },
+): Promise<string> {
+  return rpc<string>(sb, 'fn_temporada_guardar', {
+    p_id: t.id ?? null, p_nombre: t.nombre, p_desde: t.desde, p_hasta: t.hasta,
+    p_activa: t.activa, p_con_milo: t.con_milo,
+  })
+}
+
+/** Una etiqueta de prueba con esa frase (y Milo), para verla en papel. Gasta 1. */
+export async function probarFrase(sb: ShakeClient, impresoraId: string, texto: string, milo: boolean): Promise<void> {
+  await rpc(sb, 'fn_frase_probar', { p_impresora_id: impresoraId, p_texto: texto, p_milo: milo })
+}

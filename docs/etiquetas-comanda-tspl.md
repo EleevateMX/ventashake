@@ -109,14 +109,40 @@ folio** (`#1042`). Nunca queda vacío.
 > Otra razón para identificar al cliente en caja: además de sumarle
 > mancuernas, su nombre acaba en la etiqueta.
 
-### Las frases del pie
+### Las frases del pie (y Milo)
 
-Rotan entre: *Buen dia!*, *Eres un shakeaholic*, *Que lo disfrutes!*,
-*Hecho para ti*, *Gracias por venir*, *Hoy toca consentirse*.
+Desde el 09/10/26 (agente **1.5.0**) las escribe gerencia en **Admin →
+Impresoras → Frases de la etiqueta**: cada una con su **nombre**, agrupadas
+**por temporada** (Halloween, Navidad…) y con la opción de imprimir a
+**Milo** debajo. Antes eran 21 frases fijas en el código (`FRASES` en
+`tspl.ts`), que siguen ahí como último respaldo.
+
+- **Qué sale hoy**: si una temporada **prendida** cubre la fecha de Mérida
+  y tiene frases prendidas, solo las suyas; si no, las «de siempre». Una
+  temporada puede cruzar el año (12-01 → 01-06). Lo decide la base
+  (`fn_imprimir_frases`), no la PC.
+- **Cómo llegan**: el agente las pide con su token cada 10 minutos y las
+  guarda en `frases-cache.json`. Sin internet o recién reiniciado sigue con
+  las últimas; sin nada, con las del código. No se tocó el encolado de las
+  comandas: está en el camino del cobro.
+- **Cabe o no cabe**: dos renglones de 14 letras en la fuente 2, ASCII
+  (la impresora va en cp850). La base lo exige (`fn_frase_cabe`); Admin
+  quita los acentos y avisa antes de guardar (`problemaDeFrase`).
+- **Milo** es un mapa de bits de 1 bit (`agente-impresion/src/milo.ts`,
+  88×82 puntos, ~11×10 mm), **rotado como el texto**, que va con `BITMAP`
+  debajo de la frase. Si la comanda llenó la etiqueta, **se omite**: Milo
+  adorna, la comanda no pierde un renglón por él. Se regenera con
+  `node scripts/generar-milo-tspl.mjs` (necesita Chromium). Si en papel
+  sale en negativo, es el bit de color (`NEGRO` en el script).
+- **«Probar · gasta 1»** junto a cada frase manda una etiqueta de prueba
+  con ella (y Milo) a la impresora elegida (`fn_frase_probar`). Es la forma
+  de ver a Milo en papel antes de prender una temporada.
 
 La elección **no es al azar**: sale de un hash del ticket y el número de
 etiqueta. Una reimpresión sale idéntica a la original — si cambiara la
-frase, en barra creerían que les llegó una comanda distinta.
+frase, en barra creerían que les llegó una comanda distinta. (Si gerencia
+cambia la lista entre la original y la reimpresión, la frase puede cambiar;
+el resto de la etiqueta no.)
 
 ### Abreviaturas de extras
 
