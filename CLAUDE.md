@@ -1210,6 +1210,15 @@ empaquetador y se desvían solas:
   Cada arranque deja su bitácora en `C:\Shakeaholic\ultimo-arranque.log`.
 - `scripts/abrir-caja-y-admin.bat` — POS y Admin, que ya no van en el
   arranque (el turno se abre desde el kiosko).
+- **El instalador configura TODAS las impresoras activas, contesten o no**
+  (09/10). Configuraba solo las que respondían en ese momento, y la
+  actualización corre al prender la PC (~5:20): la de barra estaba apagada,
+  quedó fuera de `printers.config.json` y la barra no imprimió en toda la
+  mañana —el agente latía y la cocina sí salía, así que se veía «vivo»—. La
+  pista en la base: una impresora con latido parado y **versión vieja**
+  mientras la otra ya trae la nueva, y sus trabajos `pending` sin
+  `claimed_by`. Y `instalar-agente-impresion.bat` toma la llave del `.env`
+  de la PC: en la tienda nadie la sabe.
 - **Nunca se reparte un `.ps1` para descargar.** Un `.ps1` bajado del
   navegador no abre de doble clic: Windows lo marca como venido de internet
   y PowerShell contesta *"la ejecución de scripts está deshabilitada en este

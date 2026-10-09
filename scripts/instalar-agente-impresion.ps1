@@ -175,6 +175,7 @@ foreach ($imp in $impresoras) {
   } else {
     Malo "$($imp.nombre) - $($imp.ip):$puerto NO responde"
     Write-Host '        Revisa: encendida, cable de red, la IP correcta, y la tapa bien cerrada.'
+    Write-Host '        Se configura IGUAL: en cuanto la prendan, el agente la usa sola.'
   }
 }
 
@@ -304,8 +305,14 @@ STATUS_HTTP_PUERTO=7777
 "@
 Escribir (Join-Path $Destino '.env') $env_txt
 
+# TODAS las activas, no solo las que contestaron hace un momento (09/10/26).
+# La actualizacion corre al prender la PC, a las 5 de la manana, y la
+# etiquetadora de barra a esa hora puede estar apagada: con `$vivas` se
+# quedaba FUERA de la configuracion y no volvia a imprimir hasta reinstalar,
+# aunque la prendieran un minuto despues. El agente ya reintenta solo con
+# una impresora que no contesta; lo que no puede es usar una que no conoce.
 $config = @()
-foreach ($imp in $vivas) {
+foreach ($imp in $impresoras) {
   $token = Obtener-Token $AnonKey $imp.id
   $esRed = $imp.tipo_conexion -eq 'red'
   $config += [ordered]@{
@@ -331,7 +338,12 @@ Escribir (Join-Path $Destino 'printers.config.json') (JsonArreglo $config)
 # 7. Etiqueta de prueba
 # ---------------------------------------------------------------------------
 Paso 'Imprimiendo una etiqueta de prueba en cada impresora'
+$nombresVivas = @($vivas | ForEach-Object { $_.nombre })
 foreach ($c in $config) {
+  if ($nombresVivas -notcontains $c.descripcion) {
+    Aviso "$($c.descripcion): no contesto, sin etiqueta de prueba (quedo configurada)"
+    continue
+  }
   & npm run test-print --silent -- $c.id
   if ($LASTEXITCODE -eq 0) { Bien "$($c.descripcion): salio la etiqueta" }
   else { Malo "$($c.descripcion): no imprimio (ver el mensaje de arriba)" }

@@ -11,7 +11,7 @@ REM  No cambia la configuracion del equipo. Al terminar, Windows sigue
 REM  bloqueando los .ps1 igual que antes.
 REM
 REM  USO: clic derecho -> "Ejecutar como administrador".
-REM       Pide la llave publica de Supabase y ya.
+REM       Si la PC ya tuvo agente, usa su llave; si no, la pide.
 REM ============================================================================
 
 setlocal
@@ -43,6 +43,14 @@ if errorlevel 1 (
 )
 
 set "LLAVE=%~1"
+REM Si esta PC ya tuvo agente, la llave ya esta en su .env: quien esta en la
+REM tienda no tiene por que saberla ni teclearla (09/10/26).
+if "%LLAVE%"=="" if exist "C:\Shakeaholic\agente-impresion\.env" (
+  for /f "usebackq tokens=1,* delims==" %%a in ("C:\Shakeaholic\agente-impresion\.env") do (
+    if /i "%%a"=="SUPABASE_ANON_KEY" set "LLAVE=%%b"
+  )
+)
+if not "%LLAVE%"=="" echo   Usando la llave que ya tiene esta PC.
 if "%LLAVE%"=="" (
   echo   Pega la llave publica de Supabase y presiona Enter.
   echo   ^(Supabase - Project Settings - API Keys^)
