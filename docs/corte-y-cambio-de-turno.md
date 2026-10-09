@@ -18,7 +18,7 @@ siempre con cuatro datos más.
 | Si no alcanza para el fondo | Sale en rojo cuánto falta. Se toca **Registrar reposición** (alguien la pone de la caja fuerte). La autoriza quien puede hacer cortes |
 | Para entregar | **Entregar a quien sigue** → quien recibe pone **su PIN** (es su firma) |
 | Quien recibe (Andrés) | Ve **Fondo esperado: $3,000**, quién lo dejó y con qué billetes. Cuenta. Si cuadra, **Iniciar turno**. Si no, sale en rojo y queda anotado solo (puede escribir qué pasó) |
-| Gerencia | Admin → **Cortes de caja** → **Comprobante** de cada corte: verlo, imprimirlo o guardarlo en PDF, y mandarlo otra vez por correo. Arriba: el **fondo fijo** y los **correos** que reciben cada comprobante |
+| Gerencia | Admin → **Comprobantes**: todos los comprobantes por fecha y persona, con las diferencias en rojo; tocar uno lo abre. También Admin → **Cortes de caja** → **Comprobante** de cada corte: verlo, imprimirlo o guardarlo en PDF, y mandarlo otra vez por correo. Arriba: el **fondo fijo** y los **correos** que reciben cada comprobante |
 
 ## Reglas (y por qué)
 

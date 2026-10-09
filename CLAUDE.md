@@ -214,6 +214,7 @@ hacer cortes.
   `CORREO_REMITENTE` en los secrets). Mientras, la cola espera y Admin lo
   dice. Los destinatarios viven en `correos_cortes` (solo gerencia), no en
   `parametros`, que la lee el kiosko sin sesión.
+- **Admin → Comprobantes** es el archivo: `fn_comprobantes_cortes(desde, hasta)` (solo gerencia, máximo un año). «Quién recibe» sale de `corte_anterior_id`; los 127 cortes viejos se enlazaron el 09/10 (sin fondo esperado: ese día no existía).
 - Todo en `docs/corte-y-cambio-de-turno.md`.
 
 ### 2.2.5 El cierre del día se calcula, no se guarda
@@ -1214,7 +1215,7 @@ empaquetador y se desvían solas:
 | Saber si un día cuadró, o ventas de la semana/mes/año | Admin → **Ventas** → *Historial y cierre del día*. Toca el día; «Bajar de Clip» para conciliar tarjeta y Clip; si no cuadró, deja una aclaración |
 | Revisar el arqueo de un turno | Admin → **Cortes de caja** (desglose de billetes, y **Tickets** del turno) |
 | Cambio de turno (Regina → Andrés) | Kiosko → **Caja y turno** → contar → **Cerrar turno · retirar $X** (se retira eso, se deja el fondo) → **Entregar a quien sigue** → quien recibe pone su PIN, cuenta y **Iniciar turno** |
-| Ver, imprimir o reenviar el comprobante de un corte | Admin → **Cortes de caja** → **Comprobante**. Arriba: el fondo fijo y quién recibe los comprobantes por correo |
+| Ver, imprimir o reenviar el comprobante de un corte | Admin → **Comprobantes** (todos, por fecha y persona, con quién entregó y quién recibió) o Admin → **Cortes de caja** → **Comprobante**. En Cortes, arriba: el fondo fijo y quién recibe los comprobantes por correo |
 | Consultar un ticket | Admin → **Cortes de caja** → *Tickets* → buscar por folio o nombre |
 | Ver si algo se está atorando ahora | Admin → **Pulso** (solo rol `desarrollo`) |
 | Cambiar precios o productos | Costeos → **Guardar**, y cuando esté listo → **"Mostrar en el kiosko"** (enseña qué va a cambiar antes de confirmar) |

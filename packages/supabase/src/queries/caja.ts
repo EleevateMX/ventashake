@@ -624,3 +624,47 @@ export async function reenviarComprobante(sb: ShakeClient, corteId: string): Pro
   const { error } = await (sb.rpc as unknown as RpcCaja)('fn_corte_reenviar_comprobante', { p_corte_id: corteId })
   if (error) throw error
 }
+
+/** Un renglón de Admin → Comprobantes. */
+export interface ComprobanteResumen {
+  corte_id: string
+  folio: number | null
+  caja: string | null
+  abierto_en: string
+  cerrado_en: string
+  entrega: string | null
+  recibe: string | null
+  num_ordenes: number
+  ventas_efectivo: number
+  efectivo_contado: number | null
+  diferencia: number | null
+  retiro: number | null
+  fondo_dejado: number | null
+  reposicion: number | null
+  recibido_contado: number | null
+  recibido_diferencia: number | null
+  recibido_notas: string | null
+}
+
+/**
+ * Los comprobantes de un rango de fechas (días de Mérida, máximo un año).
+ * Quién recibe sale del corte siguiente; lo arma el servidor.
+ */
+export async function comprobantesDeCortes(sb: ShakeClient, desde: string, hasta: string): Promise<ComprobanteResumen[]> {
+  const { data, error } = await (sb.rpc as unknown as RpcCaja)('fn_comprobantes_cortes', { p_desde: desde, p_hasta: hasta })
+  if (error) throw error
+  const num = (v: unknown) => (v == null ? null : Number(v))
+  return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
+    ...(r as unknown as ComprobanteResumen),
+    folio: num(r.folio),
+    num_ordenes: Number(r.num_ordenes ?? 0),
+    ventas_efectivo: Number(r.ventas_efectivo ?? 0),
+    efectivo_contado: num(r.efectivo_contado),
+    diferencia: num(r.diferencia),
+    retiro: num(r.retiro),
+    fondo_dejado: num(r.fondo_dejado),
+    reposicion: num(r.reposicion),
+    recibido_contado: num(r.recibido_contado),
+    recibido_diferencia: num(r.recibido_diferencia),
+  }))
+}

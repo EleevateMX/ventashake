@@ -21,6 +21,7 @@ import Combos from './pages/Combos'
 import Extras from './pages/Extras'
 import Ventas from './pages/Ventas'
 import Cortes from './pages/Cortes'
+import Comprobantes from './pages/Comprobantes'
 import Pulso from './pages/Pulso'
 import Inventario from './pages/Inventario'
 import Promos from './pages/Promos'
@@ -29,7 +30,7 @@ import Empleados from './pages/Empleados'
 import Impresoras from './pages/Impresoras'
 import Sistema from './pages/Sistema'
 
-type Tab = 'dashboard' | 'envivo' | 'diagnostico' | 'menu' | 'revision' | 'categorias' | 'combos' | 'extras' | 'inventario' | 'promos' | 'ventas' | 'cortes' | 'clientes' | 'nombres' | 'metas' | 'rewards' | 'empleados' | 'impresoras' | 'descargas' | 'ayuda' | 'peticiones' | 'avisos' | 'aliados' | 'soporte' | 'pulso' | 'sistema'
+type Tab = 'dashboard' | 'envivo' | 'diagnostico' | 'menu' | 'revision' | 'categorias' | 'combos' | 'extras' | 'inventario' | 'promos' | 'ventas' | 'cortes' | 'comprobantes' | 'clientes' | 'nombres' | 'metas' | 'rewards' | 'empleados' | 'impresoras' | 'descargas' | 'ayuda' | 'peticiones' | 'avisos' | 'aliados' | 'soporte' | 'pulso' | 'sistema'
 
 const w = 18
 
@@ -94,6 +95,11 @@ const IconPulso = () => (
   </svg>
 )
 
+const IconComprobantes = () => (
+  <svg width={w} height={w} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M6 2h12v20l-3-2-3 2-3-2-3 2V2z" /><path d="M9 7h6M9 11h6M9 15h4" />
+  </svg>
+)
 const IconCortes = () => (
   <svg width={w} height={w} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <rect x="2" y="7" width="20" height="12" rx="2" /><path d="M2 11h20" />
@@ -205,6 +211,7 @@ const navItems: { id: Tab; label: string; Icon: () => ReactElement; soloSoporte?
   { id: 'promos', label: 'Promos', Icon: IconPromos },
   { id: 'ventas', label: 'Ventas', Icon: IconVentas },
   { id: 'cortes', label: 'Cortes de caja', Icon: IconCortes },
+  { id: 'comprobantes', label: 'Comprobantes', Icon: IconComprobantes },
   { id: 'clientes', label: 'Clientes', Icon: IconClientes },
   { id: 'nombres', label: 'Nombres', Icon: IconNombres },
   { id: 'metas', label: 'Metas', Icon: IconMetas },
@@ -287,6 +294,7 @@ export default function App() {
         {tab === 'extras' && <Extras />}
         {tab === 'ventas' && <Ventas />}
         {tab === 'cortes' && <Cortes />}
+        {tab === 'comprobantes' && <Comprobantes />}
         {tab === 'pulso' && <Pulso />}
         {tab === 'inventario' && <Inventario />}
         {tab === 'promos' && <Promos />}
