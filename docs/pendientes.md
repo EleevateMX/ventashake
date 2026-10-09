@@ -6,8 +6,9 @@
       en scoops; bodega se enseña en botes; el shake descuenta la proteína
       elegida (y el doble scoop). Ver `docs/flujo-inventario.md` → Proteína.
       Falta de lado del negocio: Admin → Inventario → **Proteína** — ligar
-      las 3 sin bote (BIRDMAN FALCON PERFORMANCE Choco Bronze y Golden
-      Vainilla, ISO 100 Vainilla), corregir en Costeos los botes que
+      las 5 sin bote (BIRDMAN FALCON PERFORMANCE Choco Bronze y Golden
+      Vainilla, ISO 100 Vainilla, SASCHA FITNESS Chocolate, CBUM Rainbow
+      Sherbet), corregir en Costeos los botes que
       descuentan otro sabor y los nombres rotos («CBUM - —»).
 - [x] **Etiquetas: ponerle nombre a las frases** (09/10). Admin →
       Impresoras → Frases de la etiqueta: nombre, temporadas y Milo. Falta
