@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react'
 import { sb } from '../lib/sb'
 import { listarCortes, fondoEstablecido, guardarFondoEstablecido } from '@shake/supabase'
 import type { CorteConDetalle } from '@shake/supabase'
-import { mxn, mensajeDeError, BILLETES, MONEDAS, leerDesglose } from '@shake/utils'
+import { mxn, mensajeDeError, BILLETES, MONEDAS, leerDesglose, folioDeCorte } from '@shake/utils'
 import { PageHeader, Loading, ErrorMsg, Panel, cx } from '../ui'
 import { TicketsDelTurno } from '../components/TicketsDelTurno'
+import { ComprobanteCorte, CorreosDeCortes } from '../components/ComprobanteCorte'
 
 /**
  * Los cortes de caja, para revisarlos después.
@@ -131,9 +132,11 @@ function FondoEstablecido() {
     <Panel className="mb-4">
       <div className="flex items-center gap-4 flex-wrap">
         <div className="flex-1 min-w-[220px]">
-          <p className="font-medium text-sa-green-ink">Fondo de caja establecido</p>
+          <p className="font-medium text-sa-green-ink">Fondo fijo de caja</p>
           <p className={`${cx.muted} text-xs mt-0.5`}>
-            Se sugiere al abrir turno. Si un día se abre con otro monto, el corte guarda los dos.
+            Lo que se queda en el cajón para dar cambio. Al cerrar, el kiosko calcula
+            cuánto retirar y qué billetes dejar; al abrir, quien recibe lo cuenta contra
+            lo que se dejó. Vacío = como antes, sin fondo fijo.
           </p>
         </div>
         {editando ? (
@@ -163,7 +166,7 @@ function FondoEstablecido() {
 export default function Cortes() {
   const [cortes, setCortes] = useState<CorteConDetalle[]>([])
   /** Que se esta viendo de cual corte: el desglose o los tickets. */
-  const [abierto, setAbierto] = useState<{ id: string; que: 'desglose' | 'tickets' } | null>(null)
+  const [abierto, setAbierto] = useState<{ id: string; que: 'desglose' | 'tickets' | 'comprobante' } | null>(null)
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -188,6 +191,7 @@ export default function Cortes() {
       {error && <ErrorMsg>{error}</ErrorMsg>}
 
       <FondoEstablecido />
+      <CorreosDeCortes />
 
       {/* Un turno que lleva demasiado abierto no es un turno: es un corte
           que nadie cerró, y su arqueo no significa nada porque mezcla
@@ -237,6 +241,9 @@ export default function Cortes() {
                   <>
                     <tr key={c.corte_id} className={cx.tr}>
                       <td className={cx.td}>
+                        {c.folio != null && (
+                          <span className="block font-mono text-[10px] opacity-60">{folioDeCorte(c.folio)}</span>
+                        )}
                         <span className="block">{fecha(c.abierto_en)}</span>
                         <span className={`${cx.muted} font-mono text-[10px]`}>
                           {cerrado ? `cerrado ${fecha(c.cerrado_en)}` : 'abierto ahora'}
@@ -257,8 +264,14 @@ export default function Cortes() {
                       <td className={cx.tdNum}>{c.num_ordenes ?? 0}</td>
                       <td className={cx.tdNum}>
                         {mxn(Number(c.fondo_inicial ?? 0))}
-                        {/* Abrió con otro monto que el establecido: se dice. */}
-                        {c.fondo_sugerido != null && Number(c.fondo_sugerido) !== Number(c.fondo_inicial ?? 0) && (
+                        {/* Recibió distinto de lo que dejó el turno anterior:
+                            es la incidencia de la entrega, no de ninguno de
+                            los dos turnos. */}
+                        {c.fondo_esperado != null && Number(c.fondo_esperado) !== Number(c.fondo_inicial ?? 0) ? (
+                          <span className="font-mono text-[10px] block text-red-600 dark:text-red-400" title={c.notas_apertura ?? undefined}>
+                            se dejaron {mxn(Number(c.fondo_esperado))}
+                          </span>
+                        ) : c.fondo_esperado == null && c.fondo_sugerido != null && Number(c.fondo_sugerido) !== Number(c.fondo_inicial ?? 0) && (
                           <span className={`${cx.muted} font-mono text-[10px] block`}>
                             recomendado {mxn(Number(c.fondo_sugerido))}
                           </span>
@@ -268,6 +281,12 @@ export default function Cortes() {
                       <td className={cx.tdNum}>{mxn(Number(c.efectivo_esperado ?? 0))}</td>
                       <td className={cx.tdNum}>
                         {cerrado ? mxn(Number(c.efectivo_contado ?? 0)) : '—'}
+                        {c.retiro != null && (
+                          <span className={`${cx.muted} font-mono text-[10px] block`}>
+                            retiró {mxn(c.retiro)} · dejó {mxn(Number(c.fondo_dejado ?? 0))}
+                            {c.reposicion ? ` + ${mxn(c.reposicion)} repos.` : ''}
+                          </span>
+                        )}
                       </td>
                       <td className={cx.tdNum}>
                         {!cerrado ? (
@@ -281,7 +300,7 @@ export default function Cortes() {
                       </td>
                       <td className={cx.td}>
                         <div className="flex gap-3 justify-end">
-                          {(['desglose', 'tickets'] as const).map((que) => (
+                          {(['desglose', 'tickets', ...(cerrado ? ['comprobante' as const] : [])] as const).map((que) => (
                             <button
                               key={que}
                               onClick={() =>
@@ -295,7 +314,7 @@ export default function Cortes() {
                                 abiertoAqui === que ? 'opacity-100 font-semibold' : 'opacity-70'
                               }`}
                             >
-                              {que === 'desglose' ? 'Desglose' : `Tickets (${c.num_ordenes ?? 0})`}
+                              {que === 'desglose' ? 'Desglose' : que === 'comprobante' ? 'Comprobante' : `Tickets (${c.num_ordenes ?? 0})`}
                             </button>
                           ))}
                         </div>
@@ -308,12 +327,22 @@ export default function Cortes() {
                         </td>
                       </tr>
                     )}
+                    {abiertoAqui === 'comprobante' && (
+                      <tr key={`${c.corte_id}-c`}>
+                        <td className={cx.td} colSpan={9}>
+                          <ComprobanteCorte corteId={c.corte_id as string} />
+                        </td>
+                      </tr>
+                    )}
                     {abiertoAqui === 'desglose' && (
                       <tr key={`${c.corte_id}-d`}>
                         <td className={cx.td} colSpan={9}>
-                          <div className="grid gap-6 sm:grid-cols-3 py-2">
+                          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4 py-2">
                             <Desglose titulo="Con qué se abrió" raw={c.desglose_apertura} />
                             <Desglose titulo="Con qué se cerró" raw={c.desglose_cierre} />
+                            {c.fondo_dejado != null && (
+                              <Desglose titulo="Lo que se dejó de fondo" raw={c.desglose_fondo} />
+                            )}
                             <div>
                               <p className={`${cx.muted} font-mono text-[10px] uppercase tracking-wider mb-1`}>
                                 Cobrado por método

@@ -166,6 +166,16 @@ export type Database = {
           fondo_inicial: number
           id: string
           notas: string | null
+          corte_anterior_id: string | null
+          desglose_fondo: Json | null
+          folio: number | null
+          fondo_dejado: number | null
+          fondo_esperado: number | null
+          fondo_sugerido: number | null
+          notas_apertura: string | null
+          reposicion: number | null
+          reposicion_autorizada_por: string | null
+          retiro: number | null
         }
         Insert: {
           abierto_en?: string
@@ -181,6 +191,16 @@ export type Database = {
           fondo_inicial?: number
           id?: string
           notas?: string | null
+          corte_anterior_id?: string | null
+          desglose_fondo?: Json | null
+          folio?: number | null
+          fondo_dejado?: number | null
+          fondo_esperado?: number | null
+          fondo_sugerido?: number | null
+          notas_apertura?: string | null
+          reposicion?: number | null
+          reposicion_autorizada_por?: string | null
+          retiro?: number | null
         }
         Update: {
           abierto_en?: string
@@ -196,6 +216,16 @@ export type Database = {
           fondo_inicial?: number
           id?: string
           notas?: string | null
+          corte_anterior_id?: string | null
+          desglose_fondo?: Json | null
+          folio?: number | null
+          fondo_dejado?: number | null
+          fondo_esperado?: number | null
+          fondo_sugerido?: number | null
+          notas_apertura?: string | null
+          reposicion?: number | null
+          reposicion_autorizada_por?: string | null
+          retiro?: number | null
         }
         Relationships: [
           {

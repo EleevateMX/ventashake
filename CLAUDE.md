@@ -189,6 +189,33 @@ primero la red siempre). Cerrar la caja con ventas sin registrar está
 bloqueado. Todo en `docs/sin-internet.md`. **Lo que más resuelve sigue
 siendo un segundo internet (4G con failover)**: con eso Clip también sigue.
 
+### 2.2.2 Fondo fijo y cambio de turno (09/10/26)
+
+Cada turno arranca con el **fondo fijo** (`parametros.fondo_caja`, $3,000)
+y al cerrar se retira todo lo demás. El kiosko lo calcula **a partir de lo
+contado**: enseña el retiro y qué billetes y monedas se quedan
+(`sugerirFondo`: los grandes se van y se queda el cambio, búsqueda exacta,
+con pruebas). Al entregar, **quien recibe pone su PIN** —es su firma— y ve el
+fondo esperado que puso la base (`trg_corte_fondo_sugerido`). La diferencia
+del turno se queda en el turno; la de la entrega queda anotada aparte
+(`notas_apertura`). Si no alcanza, **reposición** autorizada por quien puede
+hacer cortes.
+
+- `fn_cerrar_corte_con_fondo` **envuelve** a `fn_cerrar_corte`, no la toca:
+  cambiarle la firma obligaba a `drop function` con la tienda abierta (y el
+  MCP **corta en silencio las migraciones con `drop function`**). El POS
+  sigue cerrando como antes, sin fondo.
+- **El comprobante** (folio `COR-00128`) lo arma `fn_corte_comprobante` y lo
+  pinta `packages/utils/src/comprobanteCorte.ts`. Admin → Cortes lo enseña,
+  imprime y reenvía; el correo manda **ese mismo HTML**. La Edge Function
+  lleva una copia (`node scripts/copiar-comprobante.mjs`; una prueba compara
+  las dos).
+- **El correo no sale hasta que haya llave de Resend** (`RESEND_API_KEY`,
+  `CORREO_REMITENTE` en los secrets). Mientras, la cola espera y Admin lo
+  dice. Los destinatarios viven en `correos_cortes` (solo gerencia), no en
+  `parametros`, que la lee el kiosko sin sesión.
+- Todo en `docs/corte-y-cambio-de-turno.md`.
+
 ### 2.2.5 El cierre del día se calcula, no se guarda
 
 Admin → **Ventas** → *Historial y cierre del día* (30/09). Semana, mes,
@@ -1186,6 +1213,8 @@ empaquetador y se desvían solas:
 | El cliente no puede pagar ahora | Pantalla de pago → **"Dejar esta venta en espera"**. Se retoma desde el chip amarillo del menú |
 | Saber si un día cuadró, o ventas de la semana/mes/año | Admin → **Ventas** → *Historial y cierre del día*. Toca el día; «Bajar de Clip» para conciliar tarjeta y Clip; si no cuadró, deja una aclaración |
 | Revisar el arqueo de un turno | Admin → **Cortes de caja** (desglose de billetes, y **Tickets** del turno) |
+| Cambio de turno (Regina → Andrés) | Kiosko → **Caja y turno** → contar → **Cerrar turno · retirar $X** (se retira eso, se deja el fondo) → **Entregar a quien sigue** → quien recibe pone su PIN, cuenta y **Iniciar turno** |
+| Ver, imprimir o reenviar el comprobante de un corte | Admin → **Cortes de caja** → **Comprobante**. Arriba: el fondo fijo y quién recibe los comprobantes por correo |
 | Consultar un ticket | Admin → **Cortes de caja** → *Tickets* → buscar por folio o nombre |
 | Ver si algo se está atorando ahora | Admin → **Pulso** (solo rol `desarrollo`) |
 | Cambiar precios o productos | Costeos → **Guardar**, y cuando esté listo → **"Mostrar en el kiosko"** (enseña qué va a cambiar antes de confirmar) |

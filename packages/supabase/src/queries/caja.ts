@@ -67,6 +67,12 @@ export async function abrirCaja(
    * billete de 500, lo que hace falta saber es cuantos habia el viernes.
    */
   desglose?: DesgloseEfectivo,
+  /**
+   * La incidencia de la entrega: qué pasó si lo recibido no es lo que el
+   * turno anterior dejó. El fondo esperado NO se manda: lo pone la base
+   * (trigger) a partir del corte anterior.
+   */
+  notasApertura?: string,
 ): Promise<CajaCorte> {
   const { data, error } = await sb
     .from('caja_cortes')
@@ -75,6 +81,7 @@ export async function abrirCaja(
       fondo_inicial: fondoInicial,
       empleado_apertura_id: empleadoId ?? null,
       desglose_apertura: (desglose ?? null) as Json,
+      notas_apertura: notasApertura?.trim() || null,
     })
     .select()
     .single()
@@ -134,6 +141,145 @@ export async function cerrarCaja(
 }
 
 type RpcCaja = (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>
+
+/** Lo que contesta el cierre con fondo. */
+export interface CierreConFondo {
+  autorizo: string | null
+  folio: number | null
+  retiro: number
+  fondoDejado: number
+  reposicion: number | null
+}
+
+/**
+ * Cierra el corte dejando el fondo fijo (`fn_cerrar_corte_con_fondo`).
+ *
+ * Envuelve a `fn_cerrar_corte` en el servidor: el candado del corte es el
+ * mismo (permiso o PIN de quien autoriza) y quien autoriza el corte es
+ * quien autoriza la reposición. El servidor revisa que cada pieza del
+ * fondo salga de lo contado y calcula el retiro; la pantalla solo propone.
+ */
+export async function cerrarCajaConFondo(
+  sb: ShakeClient,
+  corteId: string,
+  efectivoContado: number,
+  desglose: DesgloseEfectivo,
+  desgloseFondo: DesgloseEfectivo,
+  opciones: { reposicion?: number; notas?: string; pinAutoriza?: string } = {},
+): Promise<CierreConFondo> {
+  const { data, error } = await (sb.rpc as unknown as RpcCaja)('fn_cerrar_corte_con_fondo', {
+    p_corte_id: corteId,
+    p_efectivo: efectivoContado,
+    p_desglose: desglose,
+    p_desglose_fondo: desgloseFondo,
+    p_reposicion: opciones.reposicion && opciones.reposicion > 0 ? opciones.reposicion : null,
+    p_notas: opciones.notas ?? null,
+    p_pin_autoriza: opciones.pinAutoriza ?? null,
+  })
+  if (error) {
+    const e = error as { message?: string; hint?: string }
+    if (e.hint === 'requiere_autorizacion') throw new RequiereAutorizacion(e.message ?? 'Hace falta autorización.')
+    throw error
+  }
+  const r = (data ?? {}) as Record<string, unknown>
+  return {
+    autorizo: (r.autorizo as string | null) ?? null,
+    folio: r.folio == null ? null : Number(r.folio),
+    retiro: Number(r.retiro ?? 0),
+    fondoDejado: Number(r.fondo_dejado ?? 0),
+    reposicion: r.reposicion == null ? null : Number(r.reposicion),
+  }
+}
+
+/** Lo que el turno anterior dejó en la caja, para quien la recibe. */
+export interface FondoEntregado {
+  corteId: string
+  folio: number | null
+  fondoEsperado: number
+  reposicion: number | null
+  desgloseFondo: DesgloseEfectivo | null
+  entrego: string | null
+  cerradoEn: string | null
+}
+
+/**
+ * Cuánto debería traer la caja al abrir. null = el turno anterior no dejó
+ * fondo registrado (lo cerró el POS, o es un corte de antes del 09/10) y la
+ * apertura se comporta como siempre.
+ */
+export async function fondoEsperado(sb: ShakeClient, cajaId: string): Promise<FondoEntregado | null> {
+  const { data, error } = await (sb.rpc as unknown as RpcCaja)('fn_fondo_esperado', { p_caja_id: cajaId })
+  if (error) throw error
+  if (!data) return null
+  const r = data as Record<string, unknown>
+  return {
+    corteId: String(r.corte_id),
+    folio: r.folio == null ? null : Number(r.folio),
+    fondoEsperado: Number(r.fondo_esperado ?? 0),
+    reposicion: r.reposicion == null ? null : Number(r.reposicion),
+    desgloseFondo: (r.desglose_fondo as DesgloseEfectivo | null) ?? null,
+    entrego: (r.entrego as string | null) ?? null,
+    cerradoEn: (r.cerrado_en as string | null) ?? null,
+  }
+}
+
+/**
+ * Todo lo que va en el comprobante de un corte. Lo arma el servidor
+ * (`fn_corte_comprobante`) para que el kiosko, Admin y el correo digan lo
+ * mismo. Quien RECIBE es quien abrió el corte siguiente.
+ */
+export interface ComprobanteCorte {
+  corte_id: string
+  folio: number | null
+  caja: string | null
+  estado: string
+  abierto_en: string
+  cerrado_en: string | null
+  abrio: string | null
+  entrega: string | null
+  autorizo: string | null
+  num_ordenes: number | null
+  fondo_inicial: number
+  fondo_esperado_apertura: number | null
+  ventas_efectivo: number
+  efectivo_esperado: number
+  efectivo_contado: number | null
+  diferencia: number | null
+  retiro: number | null
+  fondo_dejado: number | null
+  desglose_fondo: DesgloseEfectivo | null
+  reposicion: number | null
+  reposicion_autorizo: string | null
+  notas: string | null
+  total_tarjeta: number
+  total_clip: number
+  total_pagado: number
+  recibe: string | null
+  recibido_en: string | null
+  recibido_contado: number | null
+  recibido_esperado: number | null
+  recibido_diferencia: number | null
+  recibido_notas: string | null
+  corte_siguiente_id: string | null
+  corte_siguiente_folio: number | null
+}
+
+const NUMEROS_COMPROBANTE = [
+  'folio', 'num_ordenes', 'fondo_inicial', 'fondo_esperado_apertura', 'ventas_efectivo',
+  'efectivo_esperado', 'efectivo_contado', 'diferencia', 'retiro', 'fondo_dejado', 'reposicion',
+  'total_tarjeta', 'total_clip', 'total_pagado', 'recibido_contado', 'recibido_esperado',
+  'recibido_diferencia', 'corte_siguiente_folio',
+] as const
+
+export async function comprobanteCorte(sb: ShakeClient, corteId: string): Promise<ComprobanteCorte> {
+  const { data, error } = await (sb.rpc as unknown as RpcCaja)('fn_corte_comprobante', { p_corte_id: corteId })
+  if (error) throw error
+  // numeric llega como número o como texto según el tamaño: se normaliza aquí
+  // para que nadie sume un «3000.00» como cadena.
+  const r = { ...(data as Record<string, unknown>) }
+  for (const k of NUMEROS_COMPROBANTE) if (r[k] != null) r[k] = Number(r[k])
+  return r as unknown as ComprobanteCorte
+}
 
 /** Las acciones de caja que se pueden dar o quitar por persona. */
 export type Permiso = 'cobrar' | 'abrir_caja' | 'cerrar_caja' | 'descuento_manual'
@@ -228,6 +374,15 @@ export interface CorteConDetalle extends CorteResumen {
   autorizo: string | null
   desglose_apertura: DesgloseEfectivo | null
   desglose_cierre: DesgloseEfectivo | null
+  /** Desde el 09/10: folio, lo retirado y el fondo que se dejó. null en los viejos. */
+  folio: number | null
+  retiro: number | null
+  fondo_dejado: number | null
+  desglose_fondo: DesgloseEfectivo | null
+  reposicion: number | null
+  /** Al abrir: lo que el turno anterior dejó, y la nota si no cuadró. */
+  fondo_esperado: number | null
+  notas_apertura: string | null
 }
 
 /**
@@ -253,7 +408,8 @@ export async function listarCortes(sb: ShakeClient, limite = 60): Promise<CorteC
   const { data: detalles, error: e2 } = await sb
     .from('caja_cortes')
     .select(`
-      id, desglose_apertura, desglose_cierre,
+      id, desglose_apertura, desglose_cierre, folio, retiro, fondo_dejado, desglose_fondo, reposicion,
+      fondo_esperado, notas_apertura,
       apertura:empleados!caja_cortes_empleado_apertura_id_fkey(nombre),
       cierre:empleados!caja_cortes_empleado_cierre_id_fkey(nombre),
       autorizacion:empleados!caja_cortes_cierre_autorizado_por_fkey(nombre)
@@ -271,6 +427,13 @@ export async function listarCortes(sb: ShakeClient, limite = 60): Promise<CorteC
       autorizo: (d?.autorizacion as { nombre: string } | null)?.nombre ?? null,
       desglose_apertura: (d?.desglose_apertura as DesgloseEfectivo | null) ?? null,
       desglose_cierre: (d?.desglose_cierre as DesgloseEfectivo | null) ?? null,
+      folio: d?.folio ?? null,
+      retiro: d?.retiro == null ? null : Number(d.retiro),
+      fondo_dejado: d?.fondo_dejado == null ? null : Number(d.fondo_dejado),
+      desglose_fondo: (d?.desglose_fondo as DesgloseEfectivo | null) ?? null,
+      reposicion: d?.reposicion == null ? null : Number(d.reposicion),
+      fondo_esperado: d?.fondo_esperado == null ? null : Number(d.fondo_esperado),
+      notas_apertura: d?.notas_apertura ?? null,
     }
   })
 }
@@ -429,4 +592,35 @@ export async function detalleDeTicket(sb: ShakeClient, ordenId: string): Promise
       .slice()
       .sort((a, b) => (a.parte ?? 0) - (b.parte ?? 0)),
   }
+}
+
+/** Quién recibe el comprobante de cada corte, y cómo van los últimos envíos. */
+export interface CorreosCortes {
+  correos: string[]
+  ultimos: {
+    id: number
+    tipo: 'corte_cerrado' | 'entrega_con_diferencia' | 'reenvio'
+    creado_en: string
+    enviado_en: string | null
+    intentos: number
+    error: string | null
+    folio: number | null
+  }[]
+}
+
+export async function correosCortes(sb: ShakeClient): Promise<CorreosCortes> {
+  const { data, error } = await (sb.rpc as unknown as RpcCaja)('fn_correos_cortes', {})
+  if (error) throw error
+  return (data ?? { correos: [], ultimos: [] }) as CorreosCortes
+}
+
+export async function guardarCorreosCortes(sb: ShakeClient, correos: string[]): Promise<void> {
+  const { error } = await (sb.rpc as unknown as RpcCaja)('fn_correos_cortes_guardar', { p_correos: correos })
+  if (error) throw error
+}
+
+/** Vuelve a mandar el comprobante de un corte (gerencia). */
+export async function reenviarComprobante(sb: ShakeClient, corteId: string): Promise<void> {
+  const { error } = await (sb.rpc as unknown as RpcCaja)('fn_corte_reenviar_comprobante', { p_corte_id: corteId })
+  if (error) throw error
 }

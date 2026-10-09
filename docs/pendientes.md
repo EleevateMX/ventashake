@@ -1,5 +1,19 @@
 # Pendientes
 
+## Pedidos por gerencia (09/10/26) — por hacer
+
+- [ ] **Inventario: botes y scoops de proteína en el kiosko.** Que las
+      existencias y los descuentos de los botes y los scoops se registren
+      correctamente. (Contexto: CLAUDE.md 2.3.5 — los scoops y porciones hoy
+      solo viven en Costeos; el «gemelo partido en dos» es la causa más común
+      de que algo no descuente.)
+- [ ] **Etiquetas: ponerle nombre a las frases.** Las frases que se
+      configuran para las etiquetas que imprimen las impresoras necesitan un
+      nombre para identificarlas y administrarlas.
+- [ ] **Correo del corte: crear la cuenta de Resend** y poner la llave en los
+      secrets (pasos en `docs/corte-y-cambio-de-turno.md`). Hasta entonces el
+      comprobante vive en Admin → Cortes y la cola espera.
+
 ## Auto-sync costosshake → POS (LISTO)
 
 - [x] Trigger `app_data_sync` en la base: cada vez que costosshake guarda,
