@@ -5,6 +5,7 @@ import type { StockAlmacen } from '@shake/types'
 import { PageHeader, Loading, ErrorMsg, OkMsg, Panel, cx } from '../ui'
 import { mensajeDeError } from '@shake/utils'
 import { HuecosInventario } from '../components/HuecosInventario'
+import { ProteinaElegida } from '../components/ProteinaElegida'
 import { KardexInsumo, RegistrarSalida, ReiniciarInventario, TIPOS_INSUMO } from '../components/InventarioHerramientas'
 
 /**
@@ -14,7 +15,7 @@ import { KardexInsumo, RegistrarSalida, ReiniciarInventario, TIPOS_INSUMO } from
  * no baja cuando se vende — que es lo que llevaba treinta días sin que
  * nadie lo notara, porque el descuento fallaba callado.
  */
-type Vista = 'existencias' | 'huecos'
+type Vista = 'existencias' | 'huecos' | 'proteina'
 
 export default function Inventario() {
   const [vista, setVista] = useState<Vista>('existencias')
@@ -34,13 +35,14 @@ export default function Inventario() {
   const pestanas: { id: Vista; label: string }[] = [
     { id: 'existencias', label: 'Existencias' },
     { id: 'huecos', label: 'Lo que no descuenta' },
+    { id: 'proteina', label: 'Proteína' },
   ]
 
   return (
     <div>
       <PageHeader
         title="Inventario"
-        subtitle={vista === 'existencias' ? 'Stock por almacén · toca un producto para ver su kardex' : 'Lo que se vende y no baja del almacén'}
+        subtitle={vista === 'existencias' ? 'Stock por almacén · toca un producto para ver su kardex' : vista === 'proteina' ? 'De qué bote sale cada proteína · todo en scoops' : 'Lo que se vende y no baja del almacén'}
         action={
           <div className="flex gap-1">
             {pestanas.map((p) => (
@@ -56,7 +58,7 @@ export default function Inventario() {
         }
       />
 
-      {vista === 'huecos' ? <HuecosInventario /> : <Existencias stock={stock} cargando={cargando} error={error} onCambio={cargar} />}
+      {vista === 'huecos' ? <HuecosInventario /> : vista === 'proteina' ? <ProteinaElegida stock={stock} /> : <Existencias stock={stock} cargando={cargando} error={error} onCambio={cargar} />}
     </div>
   )
 }

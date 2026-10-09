@@ -2,11 +2,13 @@
 
 ## Pedidos por gerencia (09/10/26) — por hacer
 
-- [ ] **Inventario: botes y scoops de proteína en el kiosko.** Que las
-      existencias y los descuentos de los botes y los scoops se registren
-      correctamente. (Contexto: CLAUDE.md 2.3.5 — los scoops y porciones hoy
-      solo viven en Costeos; el «gemelo partido en dos» es la causa más común
-      de que algo no descuente.)
+- [x] **Inventario: botes y scoops de proteína en el kiosko** (09/10). Todo
+      en scoops; bodega se enseña en botes; el shake descuenta la proteína
+      elegida (y el doble scoop). Ver `docs/flujo-inventario.md` → Proteína.
+      Falta de lado del negocio: Admin → Inventario → **Proteína** — ligar
+      las 3 sin bote (BIRDMAN FALCON PERFORMANCE Choco Bronze y Golden
+      Vainilla, ISO 100 Vainilla), corregir en Costeos los botes que
+      descuentan otro sabor y los nombres rotos («CBUM - —»).
 - [x] **Etiquetas: ponerle nombre a las frases** (09/10). Admin →
       Impresoras → Frases de la etiqueta: nombre, temporadas y Milo. Falta
       de lado del negocio: escribir las de Halloween y Navidad y probar a
@@ -53,8 +55,8 @@
       flujo orden pagada → inventario → cocina verificado e2e
 - [x] Fase 7: corte de caja (POS) + `apps/admin` (menú/ventas/inventario)
 - [ ] Fase 6 (pulido): sincronizar `ordenes.estado` global cuando todas las
-      estaciones terminen; modificador "proteína elegida" que descuente el
-      scoop correcto (hoy la proteína se fija en la receta si viene en el JSON)
+      estaciones terminen. (La «proteína elegida» que descuenta su scoop
+      quedó el 09/10/26.)
 - [ ] **Vista combinada de cocina (una sola TV)**: pantalla que muestra en un
       mismo monitor los pedidos de alimentos + bebidas, cada tarjeta rotulada
       con su estación (Cocina / Barra), para cuando cocina y barra comparten

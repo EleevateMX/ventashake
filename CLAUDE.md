@@ -350,6 +350,20 @@ caja salen de `presentacion` («Pack 21/1L» → 21).
 había solo sumaban en el destino, así que bodega seguía diciendo que tenía
 lo que ya había mandado.
 
+**La proteína va toda en scoops, y descuenta la que eligió el cliente**
+(09/10). Tres cosas estaban mal a la vez: la sync leía el kiosko de
+`invIndividual` (la proteína guarda `invScoops`, así que el kiosko solo
+bajaba), la bodega recibía **botes** en un insumo de scoops sin convertir,
+y «+1 caja» del kiosko tomaba los **gramos** de la presentación (1,224).
+Y la venta descontaba la proteína FIJA del shake: la elegida, o no
+descontaba, o descontaba doble (el folio 8248 movió dos chocolates). Ahora
+bodega = botes × `scoops` (Costeos la enseña y la cuenta en botes), el
+kiosko carga «+1 bote (N scoops)», el extra «Proteína MARCA - sabor» trae
+receta de 1 scoop, el trigger **salta la proteína de la receta del shake
+cuando hay elegida**, y el doble scoop suma uno más de la elegida. Sin
+elección, igual que antes. Las que no tienen bote se ligan en Admin →
+Inventario → **Proteína**. Detalle en `docs/flujo-inventario.md`.
+
 **Kardex, salidas y reinicio** (30/09). Admin → Inventario: tocar un
 renglón abre su **kardex** (`fn_kardex`: tipo, entrada, salida, saldo,
 responsable, ticket que se abre); «Registrar salida» apunta lo que sale
@@ -1238,6 +1252,7 @@ empaquetador y se desvían solas:
 | Se tiró, caducó o se consumió algo | Admin → Inventario → **«Registrar salida»** → producto, cantidad y motivo |
 | Empezar de cero antes de un conteo | **Costeos → Inventario → «Reiniciar inventario a 0»** → bodega/kiosko, motivo y PIN de gerencia. Respalda solo y no borra historia. (El de Admin no toca Costeos: úsalo solo si no se va a capturar en Costeos) |
 | Ver por qué el inventario no baja | Admin → Inventario → **"Lo que no descuenta"** |
+| De qué bote sale cada proteína que elige el cliente | Admin → Inventario → **Proteína**. Las que no tienen bote salen arriba; también los botes que descuentan otro sabor |
 | Una observación sale donde no debe | Admin → Extras → *Observaciones* → **"Dónde aplica"**. Marca la categoría (un clic para los 250 shakes) o los productos sueltos |
 | Vender un extra suelto (chipotle, pepinillos) | Admin → **Extras** → *Vender solo* → precio y en qué botón del menú |
 | Un extra solo debe salir con otra cosa (galletas solo con preparado) | Admin → **Extras** → en el producto, columna **«solo si…»** → escribe el nombre del grupo |

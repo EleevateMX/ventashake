@@ -395,7 +395,7 @@ let currentUser=null;
    puerta. */
 let sessToken=null;
 /* ===== Auto-actualización (sin borrar caché a mano) ===== */
-const APP_VERSION="2026-10-07-03";
+const APP_VERSION="2026-10-09-01";
 async function checkForUpdate(){try{
   const r=await fetch(location.pathname+"?_="+Date.now(),{cache:"no-store"});
   if(!r.ok)return;const t=await r.text();
@@ -812,15 +812,24 @@ let tab="dash",invView="todos",invSearch="",invCat="all";
    conteo fisico FIJA ese numero (fn_costos_aplicar_conteo) en vez de
    sumarle una diferencia contra el numero viejo de Costeos.
    Solo aplica donde Costeos y el sistema hablan de lo mismo: bodega en
-   todo, y kiosko en bebidas y snacks (piezas). Los scoops y las porciones
-   no tienen existencia en el sistema: ahi se queda como estaba. */
+   todo, y kiosko en bebidas, snacks y proteinas. Las porciones de
+   ingredientes no tienen existencia en el sistema: ahi se queda como estaba.
+   Proteina (09/10/26): el sistema guarda TODO en scoops. El kiosko ya es
+   scoops (invScoops); la bodega se ensena en botes (scoops / scoops por
+   bote) y el conteo de botes se manda convertido a scoops. */
 let vivoInv=null;
 function nombreSync(cat,it){return cat==="proteins"?(String(it.marca||"").trim()+" - "+String(it.sabor||"").trim()):String(it.nombre||"").trim();}
-function tieneVivo(cat,cfg,which){return which==="bodega"?true:cfg.ind==="invIndividual";}
+function tieneVivo(cat,cfg,which){return which==="bodega"?true:(cfg.ind==="invIndividual"||cat==="proteins");}
+/* Botes de proteina <-> scoops del sistema. Sin scoops por bote no hay
+   conversion posible: no se ensena ni se manda nada de esa bodega. */
+function factorBodega(cat,it,cfg){return cat==="proteins"?(cfg.equiv(it)||0):1;}
 function vivoDe(cat,it,cfg,which){
   if(!vivoInv||!tieneVivo(cat,cfg,which))return undefined;
   const v=vivoInv[nombreSync(cat,it).toLowerCase()];if(!v)return undefined;
-  const x=which==="bodega"?v.b:v.k;return x===undefined?undefined:+x;}
+  const x=which==="bodega"?v.b:v.k;if(x===undefined)return undefined;
+  if(which!=="bodega")return +x;
+  const f=factorBodega(cat,it,cfg);if(!f)return undefined;
+  return Math.round((+x/f)*100)/100;}
 /* Lo que se ensena: la real si existe; si no, la de Costeos como siempre. */
 function valInv(cat,it,cfg,which){const v=vivoDe(cat,it,cfg,which);return v!==undefined?v:(which==="bodega"?it[cfg.orig]:it[cfg.ind]);}
 function notaCosteos(cat,it,cfg,which){const v=vivoDe(cat,it,cfg,which);if(v===undefined)return "";
@@ -1435,7 +1444,9 @@ function renderInventario(m){
        guardado despues no puede deshacer lo contado. */
     const items=[];
     Object.keys(INV).forEach(cat=>state[cat].forEach(it=>{const cfg=INV[cat],nombre=nombreSync(cat,it);if(!nombre||nombre===" - ")return;
-      if(it.conteoBodega!==undefined&&it.conteoBodega!==""&&tieneVivo(cat,cfg,"bodega"))items.push({nombre,almacen:"bodega",contado:+it.conteoBodega||0});
+      /* Proteina: se cuentan botes y el sistema guarda scoops. */
+      const fb=factorBodega(cat,it,cfg);
+      if(it.conteoBodega!==undefined&&it.conteoBodega!==""&&tieneVivo(cat,cfg,"bodega")&&fb)items.push({nombre,almacen:"bodega",contado:(+it.conteoBodega||0)*fb});
       if(it.conteoKiosko!==undefined&&it.conteoKiosko!==""&&tieneVivo(cat,cfg,"kiosko"))items.push({nombre,almacen:"kiosko",contado:+it.conteoKiosko||0});}));
     let res=null;
     if(items.length&&sb){
@@ -1979,7 +1990,8 @@ function listaCambios(c){
    documento para que una pestana de antes no vuelva a subir sus numeros.
    Antes de tocar nada se descarga el respaldo. */
 function existenciasCsv(){
-  const filas=[["Producto","Kiosko (sistema)","Bodega (sistema)"]];
+  /* Numeros crudos del sistema: en proteina los dos van en SCOOPS. */
+  const filas=[["Producto","Kiosko (sistema; proteina en scoops)","Bodega (sistema; proteina en scoops)"]];
   Object.keys(vivoInv||{}).sort().forEach(n=>{const v=vivoInv[n]||{};filas.push([n,v.k??"",v.b??""]);});
   return filas.map(f=>f.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(",")).join("\n");
 }

@@ -204,8 +204,15 @@ export interface InsumoParaCargar {
   presentacion: string | null
   en_kiosko: number | null
   en_bodega: number | null
-  /** Piezas por caja, leído de `presentacion`. Null = no ofrecer cajas. */
+  /**
+   * Piezas por caja, leído de `presentacion`. Null = no ofrecer cajas.
+   * En proteína es UN BOTE: sus scoops (`contenido`), no los gramos.
+   */
   por_caja: number | null
+  /** Proteína: todo va en scoops y se enseña en botes + scoops. */
+  es_proteina?: boolean
+  /** Scoops por bote (solo proteína; null si Costeos no lo tiene). */
+  contenido?: number | null
 }
 
 /**
@@ -336,4 +343,56 @@ export async function kardex(
     entrada: n(f.entrada), salida: n(f.salida), saldo: Number(f.saldo ?? 0),
     costo_unitario: n(f.costo_unitario), valor: Number(f.valor ?? 0),
   }))
+}
+
+// ---- Proteína elegida: de qué bote sale cada una (09/10/26) ----
+
+export interface ProteinaElegible {
+  id: string
+  nombre: string
+  activo: boolean
+  /** El insumo (bote) del que descuenta. Null = no descuenta nada. */
+  insumo_id: string | null
+  insumo: string | null
+  vendidas_30d: number
+}
+
+export interface InsumoProteina {
+  id: string
+  nombre: string
+  scoops_por_bote: number | null
+}
+
+export interface ProteinasElegidas {
+  proteinas: ProteinaElegible[]
+  insumos: InsumoProteina[]
+  /** Botes (Suplementos) cuya receta descuenta un insumo de OTRO sabor. */
+  botes_otro_sabor: { producto: string; insumo: string }[]
+}
+
+/**
+ * Qué proteína elegida descuenta de qué bote (`fn_proteinas_elegidas_admin`).
+ * Solo gerencia: el servidor lo vuelve a verificar.
+ */
+export async function proteinasElegidas(sb: ShakeClient): Promise<ProteinasElegidas> {
+  const { data, error } = await (sb.rpc as unknown as
+    (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>
+  )('fn_proteinas_elegidas_admin', {})
+  if (error) throw error
+  return data as ProteinasElegidas
+}
+
+/**
+ * Liga (o cambia, o quita con null) el bote del que sale una proteína
+ * elegida. No borra: la receta anterior queda en 0 (`fn_proteina_elegida_guardar`).
+ */
+export async function guardarProteinaElegida(
+  sb: ShakeClient,
+  extraId: string,
+  insumoId: string | null,
+): Promise<void> {
+  const { error } = await (sb.rpc as unknown as
+    (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>
+  )('fn_proteina_elegida_guardar', { p_extra_id: extraId, p_insumo_id: insumoId })
+  if (error) throw error
 }

@@ -1,8 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { insumosParaCargar, cargarInventario } from '@shake/supabase'
 import type { InsumoParaCargar, ResultadoEntrada } from '@shake/supabase'
-import { mensajeDeError } from '@shake/utils'
+import { botesYScoops, mensajeDeError } from '@shake/utils'
 import { sb } from '@/lib/sb'
+
+/** Lo que hay, como se cuenta: piezas, o en proteína «2 botes + 5 scoops». */
+function existencia(i: InsumoParaCargar, n: number | null): string {
+  return i.es_proteina ? botesYScoops(n, i.contenido).texto : String(n ?? 0)
+}
 
 /**
  * Cargar inventario desde la barra, por caja o por pieza.
@@ -74,8 +79,6 @@ export function CargarInventario() {
     setLineas((prev) => prev.filter((l) => l.insumo.id !== id))
   }
 
-  const totalPiezas = lineas.reduce((s, l) => s + l.piezas, 0)
-
   async function guardar() {
     setGuardando(true)
     setError(null)
@@ -111,7 +114,7 @@ export function CargarInventario() {
     return (
       <div className="mt-3 bg-sa-mint/25 rounded-sa p-4">
         <p className="font-display text-lg text-sa-green-ink text-center">
-          Cargadas {listo.piezas} piezas
+          Cargado{listo.lineas === 1 ? '' : 's'} {listo.lineas} producto{listo.lineas === 1 ? '' : 's'}
         </p>
         <div className="mt-2 space-y-0.5">
           {listo.detalle.map((d) => (
@@ -191,31 +194,52 @@ export function CargarInventario() {
           <div className="flex items-baseline justify-between gap-2">
             <span className="text-sm text-sa-green-ink">{i.nombre}</span>
             <span className="font-mono text-[10px] text-sa-green-ink/50 whitespace-nowrap">
-              hay {i.en_kiosko ?? 0}
-              {origen === 'bodega' ? ` · bodega ${i.en_bodega ?? 0}` : ''}
+              hay {existencia(i, i.en_kiosko)}
+              {origen === 'bodega' ? ` · bodega ${existencia(i, i.en_bodega)}` : ''}
             </span>
           </div>
-          <div className="flex gap-2 mt-1.5">
-            {/* La caja solo aparece si se pudo leer de la presentación.
-                Sin número, mejor sin atajo que con un atajo que miente. */}
-            {i.por_caja && i.por_caja > 1 && (
+          {i.es_proteina ? (
+            // Proteína: todo va en scoops. Un bote son sus scoops
+            // (`contenido`), no los gramos de la presentación.
+            <div className="flex gap-2 mt-1.5">
+              {i.por_caja && i.por_caja > 1 && (
+                <button
+                  onClick={() => sumar(i, i.por_caja as number)}
+                  className="flex-1 bg-sa-green text-sa-cream py-2 rounded-sa font-body text-sm"
+                >
+                  + 1 bote ({i.por_caja} scoops)
+                </button>
+              )}
               <button
-                onClick={() => sumar(i, i.por_caja as number)}
-                className="flex-1 bg-sa-green text-sa-cream py-2 rounded-sa font-body text-sm"
-              >
-                + 1 caja ({i.por_caja})
-              </button>
-            )}
-            {[1, 6].map((n) => (
-              <button
-                key={n}
-                onClick={() => sumar(i, n)}
+                onClick={() => sumar(i, 1)}
                 className="flex-1 border border-sa-green-ink/15 text-sa-green-ink py-2 rounded-sa font-body text-sm"
               >
-                + {n} pz
+                + 1 scoop
               </button>
-            ))}
-          </div>
+            </div>
+          ) : (
+            <div className="flex gap-2 mt-1.5">
+              {/* La caja solo aparece si se pudo leer de la presentación.
+                  Sin número, mejor sin atajo que con un atajo que miente. */}
+              {i.por_caja && i.por_caja > 1 && (
+                <button
+                  onClick={() => sumar(i, i.por_caja as number)}
+                  className="flex-1 bg-sa-green text-sa-cream py-2 rounded-sa font-body text-sm"
+                >
+                  + 1 caja ({i.por_caja})
+                </button>
+              )}
+              {[1, 6].map((n) => (
+                <button
+                  key={n}
+                  onClick={() => sumar(i, n)}
+                  className="flex-1 border border-sa-green-ink/15 text-sa-green-ink py-2 rounded-sa font-body text-sm"
+                >
+                  + {n} pz
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       ))}
 
@@ -227,7 +251,9 @@ export function CargarInventario() {
           {lineas.map((l) => (
             <div key={l.insumo.id} className="flex items-center justify-between gap-2 py-1.5">
               <span className="text-sm text-sa-green-ink flex-1">{l.insumo.nombre}</span>
-              <span className="font-mono text-sm text-sa-green-ink">+{l.piezas}</span>
+              <span className="font-mono text-sm text-sa-green-ink">
+                +{l.insumo.es_proteina ? botesYScoops(l.piezas, l.insumo.contenido).texto : l.piezas}
+              </span>
               <button
                 onClick={() => quitar(l.insumo.id)}
                 className="font-mono text-[10px] uppercase tracking-wider text-sa-strawberry px-2"
@@ -242,7 +268,8 @@ export function CargarInventario() {
             disabled={guardando}
             className="w-full mt-3 bg-sa-green hover:brightness-110 disabled:opacity-50 text-sa-cream py-4 rounded-sa-lg font-display text-xl shadow-sa-sm transition-all"
           >
-            {guardando ? 'Cargando…' : `Cargar ${totalPiezas} piezas`}
+            {/* En piezas y scoops a la vez no hay un total que sumar: se cuentan productos. */}
+            {guardando ? 'Cargando…' : `Cargar ${lineas.length} producto${lineas.length === 1 ? '' : 's'}`}
           </button>
           <p className="font-mono text-[9px] uppercase tracking-wider text-sa-green-ink/40 mt-2 text-center">
             Se suma a lo que hay · no toca costos ni precios
