@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { usePosStore } from '@/store/posStore'
 import { sb } from '../lib/sb'
-import { resumenCorte, cerrarCaja, RequiereAutorizacion } from '@shake/supabase'
-import { mxn, mensajeDeError } from '@shake/utils'
+import { resumenCorte, cerrarCaja, RequiereAutorizacion, comprobanteCorte } from '@shake/supabase'
+import { mxn, mensajeDeError, comprobanteCorteTicketHtml } from '@shake/utils'
 import type { CorteResumen } from '@shake/types'
 import { ModalAutorizacion } from '@/components/pos/ModalAutorizacion'
 
@@ -21,6 +21,9 @@ export function CorteCaja() {
   /** Quien cierra no tiene permiso de corte: se pide el PIN de quien sí. */
   const [pidiendoAutorizacion, setPidiendoAutorizacion] = useState(false)
   const [autorizo, setAutorizo] = useState<string | null>(null)
+  /** El corte recién cerrado, para imprimir su comprobante. */
+  const [corteCerradoId, setCorteCerradoId] = useState<string | null>(null)
+  const [imprimiendo, setImprimiendo] = useState(false)
 
   useEffect(() => {
     if (!corte) {
@@ -50,6 +53,7 @@ export function CorteCaja() {
         notas.trim() || undefined, undefined, pinDeAutorizacion,
       )
       setAutorizo(r.autorizo)
+      setCorteCerradoId(corte.id)
       setCorte(null)
       limpiarOrden()
       setCortado(true)
@@ -58,6 +62,31 @@ export function CorteCaja() {
       else setError(mensajeDeError(e))
     } finally {
       setGuardando(false)
+    }
+  }
+
+  /**
+   * El comprobante en la impresora de tickets (80 mm), el mismo que el de
+   * Admin y el del correo. La ventana se abre antes de pedir los datos: si
+   * se abre después de un `await`, el navegador la bloquea.
+   */
+  async function imprimirComprobante() {
+    if (!corteCerradoId) return
+    const w = window.open('', '_blank', 'width=380,height=640')
+    if (!w) { setError('El navegador bloqueó la ventana del comprobante. Permite las ventanas emergentes.'); return }
+    w.document.write('<p style="font-family:sans-serif;padding:16px">Armando el comprobante…</p>')
+    setImprimiendo(true)
+    setError(null)
+    try {
+      const datos = await comprobanteCorte(sb, corteCerradoId)
+      w.document.open()
+      w.document.write(comprobanteCorteTicketHtml(datos))
+      w.document.close()
+    } catch (e) {
+      w.close()
+      setError(mensajeDeError(e))
+    } finally {
+      setImprimiendo(false)
     }
   }
 
@@ -76,6 +105,16 @@ export function CorteCaja() {
             </p>
           )}
         </div>
+        {corteCerradoId && (
+          <button
+            onClick={() => void imprimirComprobante()}
+            disabled={imprimiendo}
+            className="bg-sa-cream text-sa-green-deep px-8 py-4 rounded-sa-lg font-display text-lg hover:brightness-95 disabled:opacity-50 transition-all"
+          >
+            {imprimiendo ? 'Armando el comprobante…' : '🧾 Imprimir comprobante de corte'}
+          </button>
+        )}
+        {error && <p className="font-mono text-sm text-sa-strawberry bg-white/90 rounded-sa px-4 py-2">{error}</p>}
         <div className="flex gap-3 mt-4">
           <button
             onClick={() => navigate('/')}

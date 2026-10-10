@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { comprobanteCorteHtml, folioDeCorte, type DatosComprobanteCorte } from './comprobanteCorte'
+import { comprobanteCorteHtml, comprobanteCorteTicketHtml, folioDeCorte, type DatosComprobanteCorte } from './comprobanteCorte'
 
 const base: DatosComprobanteCorte = {
   folio: 128, caja: 'Caja Harbor',
@@ -50,6 +50,16 @@ describe('comprobante del corte', () => {
     const h = comprobanteCorteHtml({ ...base, recibido_notas: '<script>alert(1)</script>' })
     expect(h).not.toContain('<script>alert')
     expect(h).toContain('&lt;script&gt;')
+  })
+
+  it('el ticket de 80 mm dice exactamente lo mismo que la hoja', () => {
+    const t = comprobanteCorteTicketHtml(base)
+    expect(t).toContain('size: 80mm auto')
+    // Mismo cuerpo: lo que se firma en la barra es lo que llega por correo.
+    const cuerpo = comprobanteCorteHtml(base).split('<body>')[1].split('</body>')[0].trim()
+    expect(t).toContain(cuerpo)
+    // Espera a la letra antes de abrir el diálogo.
+    expect(t).toContain('document.fonts')
   })
 
   it('folio con ceros', () => {

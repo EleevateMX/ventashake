@@ -214,6 +214,12 @@ hacer cortes.
   `CORREO_REMITENTE` en los secrets). Mientras, la cola espera y Admin lo
   dice. Los destinatarios viven en `correos_cortes` (solo gerencia), no en
   `parametros`, que la lee el kiosko sin sesión.
+- **El comprobante sale en la térmica de tickets** (10/10): al cerrar el
+  corte, en el kiosko y en el POS, «🧾 Imprimir comprobante de corte»; y en
+  Admin → Comprobantes, «Imprimir en ticket (80 mm)». Es el MISMO cuerpo
+  (`comprobanteCorteTicketHtml`) sin la tarjeta y en negro, por el diálogo
+  del navegador como el ticket de venta. La ventana se abre **antes** del
+  `await`: abierta después, el navegador la bloquea por emergente.
 - **Admin → Comprobantes** es el archivo: `fn_comprobantes_cortes(desde, hasta)` (solo gerencia, máximo un año). «Quién recibe» sale de `corte_anterior_id`; los 127 cortes viejos se enlazaron el 09/10 (sin fondo esperado: ese día no existía).
 - Todo en `docs/corte-y-cambio-de-turno.md`.
 
@@ -1259,6 +1265,7 @@ empaquetador y se desvían solas:
 | Saber si un día cuadró, o ventas de la semana/mes/año | Admin → **Ventas** → *Historial y cierre del día*. Toca el día; «Bajar de Clip» para conciliar tarjeta y Clip; si no cuadró, deja una aclaración |
 | Revisar el arqueo de un turno | Admin → **Cortes de caja** (desglose de billetes, y **Tickets** del turno) |
 | Cambio de turno (Regina → Andrés) | Kiosko → **Caja y turno** → contar → **Cerrar turno · retirar $X** (se retira eso, se deja el fondo) → **Entregar a quien sigue** → quien recibe pone su PIN, cuenta y **Iniciar turno** |
+| Imprimir el comprobante del corte en la impresora de tickets | Al cerrar el corte (kiosko o POS) → **«🧾 Imprimir comprobante de corte»** → elegir la térmica en el diálogo (Chrome la recuerda). O Admin → Comprobantes → **«Imprimir en ticket (80 mm)»** desde la PC de la caja |
 | Ver, imprimir o reenviar el comprobante de un corte | Admin → **Comprobantes** (todos, por fecha y persona, con quién entregó y quién recibió) o Admin → **Cortes de caja** → **Comprobante**. En Cortes, arriba: el fondo fijo y quién recibe los comprobantes por correo |
 | Consultar un ticket | Admin → **Cortes de caja** → *Tickets* → buscar por folio o nombre |
 | Ver si algo se está atorando ahora | Admin → **Pulso** (solo rol `desarrollo`) |

@@ -233,3 +233,49 @@ export function comprobanteCorteHtml(c: DatosComprobanteCorte): string {
 ${comprobanteCorteCuerpo(c)}
 </body></html>`
 }
+
+/**
+ * El MISMO comprobante para la impresora de tickets de 80 mm (10/10/26).
+ *
+ * Gerencia pidió que salga en la térmica de los tickets de venta, no en hoja.
+ * No es otro maquetado: es el mismo cuerpo de arriba, sin la tarjeta (borde,
+ * sombra, márgenes) y todo en negro, porque la térmica no tiene grises y un
+ * gris claro sale borrado. Dos documentos distintos para el mismo corte se
+ * separarían solos, y el que se firma tiene que decir lo mismo que el del
+ * correo.
+ *
+ * Se imprime por el diálogo del navegador, como el ticket de venta: la
+ * impresora de tickets es la de Windows en esa PC. Se espera a la letra
+ * (`document.fonts.ready`) antes de abrir el diálogo, o la primera impresión
+ * sale con la de repuesto.
+ */
+export function comprobanteCorteTicketHtml(c: DatosComprobanteCorte): string {
+  return `<!doctype html>
+<html lang="es"><head><meta charset="utf-8">
+<title>Corte ${folioDeCorte(c.folio)}</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;700;800&display=swap">
+<style>
+  @page { size: 80mm auto; margin: 0 }
+  html, body { margin: 0; padding: 0; background: #fff }
+  body { width: 80mm }
+  .t { padding: 4mm 4mm 10mm }
+  .t > div { max-width: none !important; border: 0 !important; border-radius: 0 !important; padding: 0 !important }
+  .t * { color: #000 !important }
+  .t div[style*="border-top"] { border-color: #000 !important }
+  /* 72 mm útiles: lo que en la hoja va en una línea aquí se parte, y nada
+     se sale del papel. Los renglones grandes (retiro, fondo) siguen grandes. */
+  .t table { width: 100% !important; table-layout: fixed }
+  .t td { white-space: normal !important; overflow-wrap: anywhere; font-size: 12px !important }
+  .t td[style*="font-size:15px"] { font-size: 14px !important }
+  .t p { white-space: normal !important }
+</style>
+</head><body>
+<div class="t">
+${comprobanteCorteCuerpo(c)}
+</div>
+<script>
+  (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve())
+    .then(function () { setTimeout(function () { window.print() }, 150) })
+</script>
+</body></html>`
+}

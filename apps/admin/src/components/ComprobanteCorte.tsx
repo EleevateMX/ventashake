@@ -4,7 +4,7 @@ import {
   comprobanteCorte, reenviarComprobante, correosCortes, guardarCorreosCortes,
 } from '@shake/supabase'
 import type { ComprobanteCorte as Datos, CorreosCortes } from '@shake/supabase'
-import { comprobanteCorteHtml, folioDeCorte, mensajeDeError } from '@shake/utils'
+import { comprobanteCorteHtml, comprobanteCorteTicketHtml, folioDeCorte, mensajeDeError } from '@shake/utils'
 import { Panel, cx } from '../ui'
 
 /**
@@ -34,6 +34,19 @@ export function ComprobanteCorte({ corteId }: { corteId: string }) {
     w.onload = () => { w.focus(); w.print() }
   }
 
+  /**
+   * El mismo comprobante en 80 mm, para la impresora de tickets de la tienda.
+   * Sale por el diálogo del navegador: en la PC de la caja, se elige la
+   * térmica (Chrome la recuerda la siguiente vez).
+   */
+  function imprimirTicket() {
+    if (!datos) return
+    const w = window.open('', '_blank', 'width=380,height=640')
+    if (!w) { setError('El navegador bloqueó la ventana. Permite las ventanas emergentes.'); return }
+    w.document.write(comprobanteCorteTicketHtml(datos))
+    w.document.close()
+  }
+
   async function reenviar() {
     setError(null)
     try {
@@ -55,7 +68,8 @@ export function ComprobanteCorte({ corteId }: { corteId: string }) {
       />
       <div className="flex flex-col gap-2 min-w-[200px]">
         <p className="font-mono text-sm">{folioDeCorte(datos.folio)}</p>
-        <button className={cx.btnPrimary} onClick={imprimir}>Imprimir o guardar PDF</button>
+        <button className={cx.btnPrimary} onClick={imprimirTicket}>Imprimir en ticket (80 mm)</button>
+        <button className={cx.btnSec} onClick={imprimir}>Imprimir en hoja o guardar PDF</button>
         <button className={cx.btnSec} onClick={() => void reenviar()}>Mandar por correo otra vez</button>
         {!datos.recibe && (
           <p className={`${cx.muted} text-xs max-w-[240px]`}>

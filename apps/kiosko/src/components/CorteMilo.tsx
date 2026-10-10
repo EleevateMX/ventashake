@@ -2,14 +2,14 @@ import React, { useEffect, useMemo, useState } from 'react'
 import {
   listarAlmacenes, listarCajas, corteAbierto, abrirCaja, cerrarCaja, resumenCorte,
   entrarConPin, salirDeSesion, empleadoDeLaSesion, misPermisos, RequiereAutorizacion,
-  fondoEstablecido, cerrarCajaConFondo, fondoEsperado,
+  fondoEstablecido, cerrarCajaConFondo, fondoEsperado, comprobanteCorte,
 } from '@shake/supabase'
 import type { EmpleadoSesion, Permiso, CierreConFondo, FondoEntregado } from '@shake/supabase'
 import type { Caja, CajaCorte, CorteResumen } from '@shake/types'
 import {
   mxn, mensajeDeError,
   BILLETES, MONEDAS, CONTEO_VACIO, sumaConteo, ponerPiezas, piezasDe,
-  sugerirFondo, fondoCabeEnConteo, leerDesglose, folioDeCorte,
+  sugerirFondo, fondoCabeEnConteo, leerDesglose, folioDeCorte, comprobanteCorteTicketHtml,
   type Conteo,
 } from '@shake/utils'
 import { CalibrarRollo } from '@/components/CalibrarRollo'
@@ -90,6 +90,9 @@ export function CorteMilo({ abierto, onCerrar }: Props) {
   const [entregado, setEntregado] = useState<FondoEntregado | null>(null)
   const [notaRecibo, setNotaRecibo] = useState('')
   const [cierre, setCierre] = useState<CierreConFondo | null>(null)
+  /** El corte que se acaba de cerrar, para imprimir su comprobante. */
+  const [corteCerradoId, setCorteCerradoId] = useState<string | null>(null)
+  const [imprimiendo, setImprimiendo] = useState(false)
   const setCajero = useCarrito((s) => s.setCajero)
   const hayCajero = useCarrito((s) => s.cajero != null)
 
@@ -287,6 +290,7 @@ export function CorteMilo({ abierto, onCerrar }: Props) {
       }
       setPidiendoAutorizacion(false)
       setPinAutoriza('')
+      setCorteCerradoId(corte.id)
       setCorte(null)
       setResultado('cerrado')
       setFase('listo')
@@ -299,6 +303,32 @@ export function CorteMilo({ abierto, onCerrar }: Props) {
       setPinAutoriza('')
     } finally {
       setGuardando(false)
+    }
+  }
+
+  /**
+   * El comprobante del corte recién cerrado, en la impresora de tickets
+   * (80 mm, por el diálogo del navegador, igual que el ticket de venta).
+   * La ventana se abre ANTES de pedir los datos: abierta después de un
+   * `await`, el navegador la toma por emergente y la bloquea.
+   */
+  async function imprimirComprobante() {
+    if (!corteCerradoId) return
+    const w = window.open('', '_blank', 'width=380,height=640')
+    if (!w) { setError('El navegador bloqueó la ventana del comprobante. Permite las ventanas emergentes.'); return }
+    w.document.write('<p style="font-family:sans-serif;padding:16px">Armando el comprobante…</p>')
+    setImprimiendo(true)
+    setError(null)
+    try {
+      const datos = await comprobanteCorte(sb, corteCerradoId)
+      w.document.open()
+      w.document.write(comprobanteCorteTicketHtml(datos))
+      w.document.close()
+    } catch (e) {
+      w.close()
+      setError(mensajeDeError(e))
+    } finally {
+      setImprimiendo(false)
     }
   }
 
@@ -666,6 +696,15 @@ export function CorteMilo({ abierto, onCerrar }: Props) {
                     </p>
                   )}
                 </>
+              )}
+              {resultado === 'cerrado' && corteCerradoId && (
+                <button
+                  onClick={() => void imprimirComprobante()}
+                  disabled={imprimiendo}
+                  className="w-full mt-5 border border-sa-green-ink/20 bg-white text-sa-green-ink py-3.5 rounded-sa-lg font-display text-base hover:bg-sa-cream-soft disabled:opacity-50 transition-colors"
+                >
+                  {imprimiendo ? 'Armando el comprobante…' : '🧾 Imprimir comprobante de corte'}
+                </button>
               )}
               {resultado === 'cerrado' && (
                 <button

@@ -162,3 +162,17 @@ export function imprimirTicket(data: TicketData, negocio: TicketNegocio = NEGOCI
   w.document.close()
   return true
 }
+
+/**
+ * Imprime un documento HTML ya armado (que trae su propio `window.print()`),
+ * en una ventana del tamaño de un ticket. Lo usa el comprobante de corte en
+ * 80 mm, que sale por la misma impresora térmica que el ticket de venta.
+ * Devuelve false si el navegador bloqueó la ventana emergente.
+ */
+export function imprimirDocumento(html: string): boolean {
+  const w = window.open('', '_blank', 'width=380,height=640')
+  if (!w) return false
+  w.document.write(html)
+  w.document.close()
+  return true
+}
