@@ -413,3 +413,25 @@ Reglas para generarlo:
 Los espaciados verticales del ejemplo (2, 22, 14, 10, 30, 14, 5, 29, 26, 3)
 no son decorativos: son el diseño validado contra la impresora, y están
 fijados en `agente-impresion/src/tspl.test.ts`.
+
+## Dinámicas con premios: «Trick or Shake» (10/10/26, agente 1.6.0)
+
+La etiqueta del vaso como boleto. Admin → Impresoras → **Dinámicas con
+premios**: rondas, etiquetas por ronda, resultados (TRICK / LITTLE TREAT /
+BIG TREAT con su texto, cantidad, si es premio, si es el mayor y si lleva a
+Milo) y, opcional, el rango donde puede caer el premio mayor (p. ej. 100–150).
+
+- **Cada ronda se baraja completa al abrirse** (`_dinamica_generar_ronda`):
+  las cantidades son exactas por construcción. Nadie ve qué posición trae
+  qué; Admin solo ve conteos y lo que ya salió.
+- **Se asigna al crear la comanda de barra** de una compra con bebida
+  (trigger `trg_trabajo_dinamica`, BEFORE INSERT en `trabajos_impresion`):
+  `payload.dinamica = {texto, folio, milo}`. Una por orden; la reimpresión
+  copia el payload y repite el mismo resultado. Las órdenes demo no
+  participan. Si la dinámica falla, la comanda sale igual con su frase.
+- **El agente 1.6.0** imprime el texto en la PRIMERA etiqueta del pedido y el
+  folio junto a la fecha («31/10 14:35  R1-109»). Un agente viejo ignora el
+  campo y sale la frase normal: no prender la dinámica hasta ver 1.6.0.
+- La ronda se cierra sola al agotarse; la siguiente se abre en Admin.
+  Los premios se marcan como entregados ahí mismo, por folio.
+- Las ventas sin internet no participan (su comanda sale local, sin boleto).

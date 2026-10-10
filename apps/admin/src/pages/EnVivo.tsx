@@ -30,7 +30,7 @@ const RESPALDO_MS = 10_000
  * impresora reporta otra, es que falta correr el instalador en la PC.
  * Subela junto con VERSION_AGENTE del agente.
  */
-const AGENTE_ESPERADO = '1.5.0'
+const AGENTE_ESPERADO = '1.6.0'
 
 const METODOS: Record<string, { etiqueta: string; icono: string }> = {
   efectivo: { etiqueta: 'Efectivo', icono: '💵' },

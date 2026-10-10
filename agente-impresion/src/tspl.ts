@@ -253,6 +253,12 @@ export interface EtiquetaComanda {
    * comanda no puede perder un renglón por él.
    */
   milo?: boolean
+  /**
+   * Folio de la participación de una dinámica con premios («R1-047»). Se
+   * imprime junto a la fecha: así se reclama el premio. Solo en la etiqueta
+   * que lleva el resultado.
+   */
+  folioDinamica?: string | null
   /** Marca la etiqueta como reimpresión. */
   copia?: number
   /**
@@ -395,7 +401,7 @@ export function generarTSPL(e: EtiquetaComanda, cabecera: string[] = CABECERA_PA
   }
 
   // --- Pie ----------------------------------------------------------------
-  l.escribir(e.fecha, '1', spec.length > 0 ? 29 : 30)
+  l.escribir(lineaFecha(e, anchoF1), '1', spec.length > 0 ? 29 : 30)
 
   const frase = limpiar(e.frase ?? frasePara(e.ticket, e.item))
   let gapFrase = 26
@@ -500,6 +506,18 @@ export function tsplCalibracion(): string {
 }
 
 /**
+ * La fecha del pie, y junto a ella el folio de la participación si la
+ * etiqueta trae una («10/10 14:35  R1-047»). Si no cupiera, manda el folio:
+ * sin él no se puede reclamar el premio, y la fecha también va en la comanda.
+ */
+export function lineaFecha(e: EtiquetaComanda, ancho: number): string {
+  const folio = e.folioDinamica ? limpiar(e.folioDinamica) : ''
+  if (!folio) return e.fecha
+  const junta = `${e.fecha}  ${folio}`
+  return junta.length <= ancho ? junta : folio.slice(0, ancho)
+}
+
+/**
  * Dibujo en texto de cómo va a quedar la etiqueta. Sirve para revisar el
  * diseño sin gastar consumible — y para que una prueba automatizada afirme
  * algo legible en vez de comparar cadenas de TSPL.
@@ -525,7 +543,7 @@ export function vistaPrevia(e: EtiquetaComanda): string {
     for (const t of spec) fila(t)
   }
   fila()
-  fila(e.fecha)
+  fila(lineaFecha(e, ancho))
   fila()
   for (const t of partir(limpiar(e.frase ?? frasePara(e.ticket, e.item)), caracteresPorLinea('2'))) fila(t)
   if (e.milo) { fila(); fila('   (Milo)') }

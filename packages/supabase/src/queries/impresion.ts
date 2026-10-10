@@ -332,3 +332,92 @@ export async function guardarTemporada(
 export async function probarFrase(sb: ShakeClient, impresoraId: string, texto: string, milo: boolean): Promise<void> {
   await rpc(sb, 'fn_frase_probar', { p_impresora_id: impresoraId, p_texto: texto, p_milo: milo })
 }
+
+// ---- Dinámicas con premios en la etiqueta («Trick or Shake», 10/10/26) ----
+
+export interface ResultadoDinamica {
+  id?: string
+  nombre: string
+  /** Lo que se imprime: dos renglones de 14, como una frase. */
+  texto: string
+  /** Cuántos hay en cada ronda. */
+  cantidad: number
+  es_premio: boolean
+  /** El premio mayor: el que puede quedar dentro de un rango de la ronda. */
+  es_principal: boolean
+  milo: boolean
+  orden: number
+}
+
+export interface RondaDinamica {
+  numero: number
+  abierta_en: string
+  cerrada_en: string | null
+  total: number
+  asignados: number
+  por_resultado: { nombre: string; total: number; salieron: number }[] | null
+}
+
+export interface PremioDinamica {
+  boleto_id: string
+  folio: string
+  resultado: string
+  principal: boolean
+  orden_folio: number | null
+  cliente: string
+  asignado_en: string
+  entregado_en: string | null
+  entregado_por: string | null
+}
+
+export interface DinamicaEtiqueta {
+  id: string
+  nombre: string
+  activa: boolean
+  desde: string | null
+  hasta: string | null
+  rondas_max: number
+  tamano_ronda: number
+  estacion: string
+  principal_desde: number | null
+  principal_hasta: number | null
+  /** Qué no cuadra (la suma, el rango…). Null = lista para prender. */
+  problema: string | null
+  resultados: ResultadoDinamica[]
+  rondas: RondaDinamica[]
+  premios: PremioDinamica[]
+}
+
+export async function dinamicasAdmin(sb: ShakeClient): Promise<DinamicaEtiqueta[]> {
+  return (await rpc<DinamicaEtiqueta[] | null>(sb, 'fn_dinamicas_admin', {})) ?? []
+}
+
+export interface GuardarDinamica {
+  id?: string
+  nombre: string
+  desde: string | null
+  hasta: string | null
+  rondas_max: number
+  tamano_ronda: number
+  principal_desde: number | null
+  principal_hasta: number | null
+  resultados: ResultadoDinamica[]
+}
+
+export async function guardarDinamica(sb: ShakeClient, d: GuardarDinamica): Promise<string> {
+  return rpc<string>(sb, 'fn_dinamica_guardar', { p: d })
+}
+
+/** Prender o apagar. Al prender sin rondas, la base abre la primera. */
+export async function activarDinamica(sb: ShakeClient, id: string, activa: boolean): Promise<void> {
+  await rpc(sb, 'fn_dinamica_activar', { p_id: id, p_activa: activa })
+}
+
+/** Abre la siguiente ronda (la anterior se cierra sola al agotarse). */
+export async function abrirRondaDinamica(sb: ShakeClient, id: string): Promise<number> {
+  return rpc<number>(sb, 'fn_dinamica_abrir_ronda', { p_id: id })
+}
+
+export async function entregarPremioDinamica(sb: ShakeClient, boletoId: string, entregado: boolean): Promise<void> {
+  await rpc(sb, 'fn_dinamica_entregar', { p_boleto: boletoId, p_entregado: entregado })
+}

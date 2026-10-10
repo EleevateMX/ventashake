@@ -457,6 +457,13 @@ pantallas muestran comandas pero **no sale papel**.
   cabe). El agente las baja con `fn_imprimir_frases` cada 10 min y las
   guarda en disco; el encolado de comandas **no se tocó**. Detalle en
   `docs/etiquetas-comanda-tspl.md`.
+- **Dinámicas con premios («Trick or Shake»)** (10/10, agente **1.6.0**):
+  Admin → Impresoras → *Dinámicas con premios*. Cada ronda se **baraja
+  completa al abrirse** (cantidades exactas, premio mayor en su rango) y se
+  asigna un boleto por compra con bebida **al crear su comanda de barra**
+  (`trg_trabajo_dinamica`, dentro de un bloque que se traga cualquier error:
+  vive en la cadena del cobro). La reimpresión repite el mismo resultado. El
+  agente lo pone en la primera etiqueta con el folio junto a la fecha.
 
 ### 2.4.5 Las observaciones salen donde tienen sentido
 
@@ -1276,6 +1283,7 @@ empaquetador y se desvían solas:
 | Actualizar el agente de impresión | Solo, al abrir el día siguiente |
 | Instalar en una PC nueva | Admin → **Descargas** → "Instalar todo" |
 | Frases del pie de la etiqueta (temporadas, Milo) | Admin → **Impresoras** → *Frases de la etiqueta*. Cada frase con su nombre; una temporada prendida sale en sus fechas. «Probar · gasta 1» para verla en papel |
+| Dinámica con premios en la etiqueta (Trick or Shake) | Admin → **Impresoras** → *Dinámicas con premios* → «Nueva dinámica» (trae lista la de Halloween) → Guardar → **Prender** cuando el agente diga 1.6.0. Ahí se ve cuántas van, se abre la siguiente ronda y se marcan los premios entregados |
 | Cambiar el rollo de etiquetas | Kiosko → **"Caja y turno"** → PIN → "¿Cambiaste el rollo?" → Calibrar |
 | Llegó mercancía | Kiosko → **"Caja y turno"** → PIN → **"¿Llegó mercancía?"** → por caja o por pieza. Di si vino de bodega: eso la resta allá |
 | Ver qué le pasó a un producto (kardex) | Admin → **Inventario** → toca el renglón. Ventas con su ticket, compras, traspasos, conteos, mermas, con quién |

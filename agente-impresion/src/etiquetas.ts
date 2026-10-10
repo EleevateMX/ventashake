@@ -223,6 +223,12 @@ export function etiquetasDeTrabajo(trabajo: TrabajoImpresion, numeroDeCopia = 1)
         fecha,
         copia: Math.max(numeroDeCopia, trabajo.numero_copia ?? 1),
         ...(() => {
+          // La participación de la dinámica va en la PRIMERA etiqueta del
+          // pedido, en vez de la frase. Las demás llevan su frase de siempre.
+          const d = p.dinamica
+          if (n === 1 && d && typeof d.texto === 'string' && d.texto.trim()) {
+            return { frase: d.texto, milo: d.milo === true, folioDinamica: d.folio ?? null }
+          }
           const f = frases[indiceFrase(ticket, n, frases.length)]
           return { frase: f.texto, milo: f.milo }
         })(),

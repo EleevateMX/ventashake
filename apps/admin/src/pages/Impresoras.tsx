@@ -9,6 +9,7 @@ import type { Cocina, TrabajoImpresion, TipoConexionImpresora, AnchoPapel, Estad
 import { PageHeader, Loading, ErrorMsg, OkMsg, Panel, Field, cx, Chip } from '../ui'
 import { mensajeDeError } from '@shake/utils'
 import { FrasesEtiqueta } from '../components/FrasesEtiqueta'
+import { DinamicasEtiqueta } from '../components/DinamicasEtiqueta'
 
 interface FormState {
   id: string | null
@@ -435,6 +436,7 @@ export default function Impresoras() {
       )}
 
       <FrasesEtiqueta />
+      <DinamicasEtiqueta />
     </div>
   )
 }

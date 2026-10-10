@@ -121,6 +121,20 @@ export interface PayloadComanda {
   frase_prueba?: string
   /** Con la frase de prueba: imprimir a Milo. */
   milo?: boolean
+  /**
+   * Participación de una dinámica con premios («Trick or Shake», 10/10/26).
+   * La pone la base al crear la comanda de barra; una reimpresión copia el
+   * payload y trae la misma. Va en la PRIMERA etiqueta del pedido, en lugar
+   * de la frase, con su folio junto a la fecha.
+   */
+  dinamica?: {
+    texto: string
+    folio: string
+    milo?: boolean
+    resultado?: string
+    premio?: boolean
+    campana?: string
+  } | null
 }
 
 export interface TrabajoImpresion {
