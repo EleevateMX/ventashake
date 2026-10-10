@@ -396,3 +396,68 @@ export async function guardarProteinaElegida(
   )('fn_proteina_elegida_guardar', { p_extra_id: extraId, p_insumo_id: insumoId })
   if (error) throw error
 }
+
+// ---- Abrir un bote de venta para la barra (10/10/26) ----
+
+export interface BoteAbrible {
+  insumo_id: string
+  nombre: string
+  scoops_por_bote: number
+  /** Scoops en el kiosko (el sistema guarda todo en scoops). */
+  en_kiosko: number
+  /** La proteína de la barra que le toca, por marca + sabor sin gramaje. */
+  destino_id: string | null
+}
+
+export interface ProteinaDeBarra {
+  insumo_id: string
+  nombre: string
+  en_kiosko: number
+}
+
+export interface BotesAbribles {
+  venta: BoteAbrible[]
+  barra: ProteinaDeBarra[]
+}
+
+/**
+ * Los botes cerrados de venta que se pueden abrir para la barra, y la
+ * proteína de barra a la que van (`fn_inventario_botes_abribles`).
+ * Venta y barra los decide Costeos: precio de bote vs precio de scoop.
+ */
+export async function botesAbribles(sb: ShakeClient): Promise<BotesAbribles> {
+  const { data, error } = await (sb.rpc as unknown as
+    (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>
+  )('fn_inventario_botes_abribles', {})
+  if (error) throw error
+  return (data ?? { venta: [], barra: [] }) as BotesAbribles
+}
+
+export interface ResultadoAbrirBote {
+  botes: number
+  scoops: number
+  origen: string
+  destino: string
+  quien: string | null
+  origen_queda: number
+  destino_queda: number
+  scoops_por_bote: number
+}
+
+/**
+ * Abre `botes` botes de venta para la barra: −scoops en el bote de venta y
+ * +scoops en la proteína de la barra, como un solo movimiento
+ * (`fn_inventario_abrir_bote`).
+ */
+export async function abrirBoteParaBarra(
+  sb: ShakeClient,
+  origen: string,
+  destino: string,
+  botes = 1,
+): Promise<ResultadoAbrirBote> {
+  const { data, error } = await (sb.rpc as unknown as
+    (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>
+  )('fn_inventario_abrir_bote', { p_origen: origen, p_destino: destino, p_botes: botes })
+  if (error) throw error
+  return data as ResultadoAbrirBote
+}

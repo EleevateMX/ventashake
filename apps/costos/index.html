@@ -395,7 +395,7 @@ let currentUser=null;
    puerta. */
 let sessToken=null;
 /* ===== Auto-actualización (sin borrar caché a mano) ===== */
-const APP_VERSION="2026-10-09-01";
+const APP_VERSION="2026-10-10-01";
 async function checkForUpdate(){try{
   const r=await fetch(location.pathname+"?_="+Date.now(),{cache:"no-store"});
   if(!r.ok)return;const t=await r.text();
@@ -823,17 +823,34 @@ function tieneVivo(cat,cfg,which){return which==="bodega"?true:(cfg.ind==="invIn
 /* Botes de proteina <-> scoops del sistema. Sin scoops por bote no hay
    conversion posible: no se ensena ni se manda nada de esa bodega. */
 function factorBodega(cat,it,cfg){return cat==="proteins"?(cfg.equiv(it)||0):1;}
+/* Bote de VENTA (10/10/26): la fila que se vende por bote y no por scoop
+   («Chai 960gr», precio de bote y sin precio de scoop). En el kiosko esos
+   son envases cerrados en el anaquel, y Perla los cuenta como botes, no
+   como scoops. La proteina de la barra («Chai») sigue en scoops. El sistema
+   guarda las dos en scoops; aqui solo se traduce para contar. */
+function esBoteVenta(cat,it){return cat==="proteins"&&!(+it.precioScoop>0)&&(+it.precioBote>0||/-\s*R\s*$/i.test(String(it.sabor||"")));}
+function factorInv(cat,it,cfg,which){
+  if(which==="bodega")return factorBodega(cat,it,cfg);
+  return esBoteVenta(cat,it)?(cfg.equiv(it)||0):1;}
+function unidadInv(cat,it,cfg,which){
+  if(which==="bodega")return cfg.origUnit;
+  return esBoteVenta(cat,it)?"botes":cfg.indUnit;}
+function aUnidad(x,f){return Math.round((+x/f)*100)/100;}
 function vivoDe(cat,it,cfg,which){
   if(!vivoInv||!tieneVivo(cat,cfg,which))return undefined;
   const v=vivoInv[nombreSync(cat,it).toLowerCase()];if(!v)return undefined;
   const x=which==="bodega"?v.b:v.k;if(x===undefined)return undefined;
-  if(which!=="bodega")return +x;
-  const f=factorBodega(cat,it,cfg);if(!f)return undefined;
-  return Math.round((+x/f)*100)/100;}
+  const f=factorInv(cat,it,cfg,which);if(!f)return undefined;
+  return aUnidad(x,f);}
+/* Lo que Costeos tiene apuntado, en la unidad en que se cuenta. La bodega
+   ya se apunta en botes; el kiosko se apunta en scoops (invScoops). */
+function costeosInv(cat,it,cfg,which){
+  if(which==="bodega")return +it[cfg.orig]||0;
+  const f=factorInv(cat,it,cfg,which)||1;return aUnidad(+it[cfg.ind]||0,f);}
 /* Lo que se ensena: la real si existe; si no, la de Costeos como siempre. */
-function valInv(cat,it,cfg,which){const v=vivoDe(cat,it,cfg,which);return v!==undefined?v:(which==="bodega"?it[cfg.orig]:it[cfg.ind]);}
+function valInv(cat,it,cfg,which){const v=vivoDe(cat,it,cfg,which);return v!==undefined?v:costeosInv(cat,it,cfg,which);}
 function notaCosteos(cat,it,cfg,which){const v=vivoDe(cat,it,cfg,which);if(v===undefined)return "";
-  const c=+(which==="bodega"?it[cfg.orig]:it[cfg.ind])||0;
+  const c=costeosInv(cat,it,cfg,which);
   return v===c?"":`<div class="muted" style="font-size:11px" title="El numero que Costeos tenia apuntado. El de arriba es el del sistema: ya descuenta las ventas.">Costeos: ${num(c)}</div>`;}
 async function cargarVivo(){
   if(!sb||!sessToken)return;
@@ -1447,7 +1464,9 @@ function renderInventario(m){
       /* Proteina: se cuentan botes y el sistema guarda scoops. */
       const fb=factorBodega(cat,it,cfg);
       if(it.conteoBodega!==undefined&&it.conteoBodega!==""&&tieneVivo(cat,cfg,"bodega")&&fb)items.push({nombre,almacen:"bodega",contado:(+it.conteoBodega||0)*fb});
-      if(it.conteoKiosko!==undefined&&it.conteoKiosko!==""&&tieneVivo(cat,cfg,"kiosko"))items.push({nombre,almacen:"kiosko",contado:+it.conteoKiosko||0});}));
+      /* Bote de venta: se cuentan botes cerrados y el sistema guarda scoops. */
+      const fk=factorInv(cat,it,cfg,"kiosko");
+      if(it.conteoKiosko!==undefined&&it.conteoKiosko!==""&&tieneVivo(cat,cfg,"kiosko")&&fk)items.push({nombre,almacen:"kiosko",contado:(+it.conteoKiosko||0)*fk});}));
     let res=null;
     if(items.length&&sb){
       const r=await sb.rpc('fn_costos_aplicar_conteo',{p_token:sessToken,p_firma:(state.invSesion&&state.invSesion.firma)||"",p_items:items});
@@ -1456,7 +1475,7 @@ function renderInventario(m){
     }
     Object.keys(INV).forEach(cat=>state[cat].forEach((it,i)=>{const cfg=INV[cat],f=new Date().toISOString().slice(0,10);
       if(it.conteoBodega!==undefined&&it.conteoBodega!==""){it[cfg.orig]=+it.conteoBodega||0;kardexPush(cat,i,{f,tipo:"ajuste",ent:0,sal:0,exist:+it[cfg.orig]||0,precio:"",cad:"",nota:"Conteo físico (bodega)"});}
-      if(it.conteoKiosko!==undefined&&it.conteoKiosko!==""){it[cfg.ind]=+it.conteoKiosko||0;kardexPush(cat,i,{f,tipo:"ajuste",ent:0,sal:0,exist:+it[cfg.ind]||0,precio:"",cad:"",nota:"Conteo físico (kiosko)"});}
+      if(it.conteoKiosko!==undefined&&it.conteoKiosko!==""){it[cfg.ind]=(+it.conteoKiosko||0)*(factorInv(cat,it,cfg,"kiosko")||1);kardexPush(cat,i,{f,tipo:"ajuste",ent:0,sal:0,exist:+it[cfg.ind]||0,precio:"",cad:"",nota:"Conteo físico (kiosko)"});}
       /* Contado y aplicado: se limpia para que no se vuelva a aplicar. */
       delete it.conteoBodega;delete it.conteoKiosko;}));
     save();await cargarVivo();render();
@@ -1501,7 +1520,7 @@ function paintInv(){
       const needsRefill=(s.cls!=="ok")&&((+valInv(cat,it,cfg,"bodega")||0)>0);
       return `<tr data-cat="${cat}" data-i="${i}">
       <td class="sticky">${esc(name)}</td><td class="muted">${CATLABEL[cat]}</td><td class="muted">${esc(it.codigo)}</td><td>${presG(cat,it)}</td>
-      <td class="num">${num(valInv(cat,it,cfg,"kiosko"))} <span class="muted" style="font-size:11px">${cfg.indUnit}</span>${notaCosteos(cat,it,cfg,"kiosko")}</td>
+      <td class="num">${num(valInv(cat,it,cfg,"kiosko"))} <span class="muted" style="font-size:11px">${unidadInv(cat,it,cfg,"kiosko")}</span>${notaCosteos(cat,it,cfg,"kiosko")}</td>
       <td class="num muted">${num(it[cfg.indMin])}</td>
       <td class="num"><input class="n w-sm invconteo" data-conteo="kiosko" value="${it.conteoKiosko!==undefined?esc(it.conteoKiosko):''}" placeholder="${num(valInv(cat,it,cfg,"kiosko"))}"></td>
       <td class="num" data-diff>${diffCell(it.conteoKiosko,valInv(cat,it,cfg,"kiosko"))}</td>
@@ -1515,7 +1534,7 @@ function paintInv(){
       return `<tr data-cat="${cat}" data-i="${i}">
       <td class="sticky">${esc(name)}</td><td class="muted">${CATLABEL[cat]}</td><td>${presG(cat,it)}</td>
       <td class="num">${num(valInv(cat,it,cfg,"bodega"))} <span class="muted" style="font-size:11px">${cfg.origUnit}</span>${notaCosteos(cat,it,cfg,"bodega")}</td>
-      <td class="num">${num(valInv(cat,it,cfg,"kiosko"))} <span class="muted" style="font-size:11px">${cfg.indUnit}</span>${notaCosteos(cat,it,cfg,"kiosko")}</td>
+      <td class="num">${num(valInv(cat,it,cfg,"kiosko"))} <span class="muted" style="font-size:11px">${unidadInv(cat,it,cfg,"kiosko")}</span>${notaCosteos(cat,it,cfg,"kiosko")}</td>
       <td><span class="statecell"><span class="dot ${worst.cls}"></span><span class="pill ${worst.cls}">${worst.txt}</span></span></td>
       <td>${cadCell(it[cfg.cad])}</td>
       <td><div style="display:flex;gap:5px;align-items:center"><button class="btn ghost mini" data-act="kx" title="Ver kardex / movimientos">📜</button><button class="btn tr" data-act="tr" title="Traspasar a kiosko">⇄ Traspasar</button></div></td></tr>`;}).join("");

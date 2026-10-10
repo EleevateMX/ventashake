@@ -364,6 +364,20 @@ cuando hay elegida**, y el doble scoop suma uno más de la elegida. Sin
 elección, igual que antes. Las que no tienen bote se ligan en Admin →
 Inventario → **Proteína**. Detalle en `docs/flujo-inventario.md`.
 
+**Y el bote vendido descontaba OTRO insumo que el que Costeos cuenta**
+(10/10). `fn_sync_app_data` crea la receta de un bote o un scoop **solo la
+primera vez** y nunca la reapunta; al renombrar la fila, el producto seguía
+descontando el insumo del nombre viejo — 70 botes, 55 scoops y 22
+proteínas elegidas. `fn_proteina_recetas_alinear` los apunta al insumo de
+su fila y corre después de cada guardado (trigger `app_data_sync_proteinas`,
+que dispara después de `app_data_sync` por orden alfabético). Los **botes
+de venta** se cuentan en botes en el kiosko de Costeos y la **proteína de
+barra** en scoops; abrir uno de venta para la barra se registra en el kiosko
+(«¿Abriste un bote de venta para la barra?», `fn_inventario_abrir_bote`).
+Ojo: «elegida» es solo el extra **«Proteína …»** — los suplementos también
+son tipo proteína, y tomarlos como elegida dejó al Island Colada del folio
+8330 sin descontar su CBUM.
+
 **Kardex, salidas y reinicio** (30/09). Admin → Inventario: tocar un
 renglón abre su **kardex** (`fn_kardex`: tipo, entrada, salida, saldo,
 responsable, ticket que se abre); «Registrar salida» apunta lo que sale
@@ -1261,6 +1275,7 @@ empaquetador y se desvían solas:
 | Se tiró, caducó o se consumió algo | Admin → Inventario → **«Registrar salida»** → producto, cantidad y motivo |
 | Empezar de cero antes de un conteo | **Costeos → Inventario → «Reiniciar inventario a 0»** → bodega/kiosko, motivo y PIN de gerencia. Respalda solo y no borra historia. (El de Admin no toca Costeos: úsalo solo si no se va a capturar en Costeos) |
 | Ver por qué el inventario no baja | Admin → Inventario → **"Lo que no descuenta"** |
+| Abrieron un bote de venta para usarlo en la barra | Kiosko → **"Caja y turno"** → PIN → **«¿Abriste un bote de venta para la barra?»** → el bote y cuántos. Resta el bote de venta y suma sus scoops a la barra |
 | De qué bote sale cada proteína que elige el cliente | Admin → Inventario → **Proteína**. Las que no tienen bote salen arriba; también los botes que descuentan otro sabor |
 | Una observación sale donde no debe | Admin → Extras → *Observaciones* → **"Dónde aplica"**. Marca la categoría (un clic para los 250 shakes) o los productos sueltos |
 | Vender un extra suelto (chipotle, pepinillos) | Admin → **Extras** → *Vender solo* → precio y en qué botón del menú |

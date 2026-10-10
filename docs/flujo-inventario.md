@@ -46,6 +46,20 @@ La unidad del insumo de proteína es el **scoop**, en los dos almacenes.
   las que no tienen bote, los botes cuya receta descuenta otro sabor y los
   nombres rotos de Costeos. Ligar no borra: la receta anterior queda en 0.
 - Se mostró en botes + scoops con `botesYScoops` (`@shake/utils`).
+- **Botes de venta y proteína de barra son dos inventarios** (10/10). Los
+  de venta («Chai 960gr»: precio de bote, sin precio de scoop) se cuentan en
+  **botes** también en el kiosko de Costeos; la de barra («Chai»: precio de
+  scoop) en scoops. El sistema guarda los dos en scoops.
+- **«¿Abriste un bote de venta para la barra?»** (kiosko → Caja y turno):
+  `fn_inventario_abrir_bote` resta los scoops del bote de venta y los suma a
+  la proteína de barra, con un mismo `referencia_id`. El destino lo sugiere
+  `fn_inventario_botes_abribles` por marca + sabor sin gramaje.
+- **Cada bote y cada scoop descuenta el insumo de SU fila de Costeos**
+  (10/10, `fn_proteina_recetas_alinear`). El sync crea la receta solo la
+  primera vez y nunca la reapunta: al renombrar la fila (el legado - R/- B)
+  el producto seguía descontando el insumo viejo. Eran 70 botes, 55 scoops y
+  22 proteínas elegidas. Corre después de cada guardado de Costeos (trigger
+  `app_data_sync_proteinas`) y no borra: lo viejo queda en cantidad 0.
 - Se aplicó con toda la proteína en 0 (el reinicio del 07/10): el cambio de
   unidad no tuvo números viejos que convertir.
 

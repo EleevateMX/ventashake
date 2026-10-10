@@ -15,6 +15,7 @@ import {
 import { CalibrarRollo } from '@/components/CalibrarRollo'
 import { PedirCambio } from '@/components/PedirCambio'
 import { CargarInventario } from '@/components/CargarInventario'
+import { AbrirBote } from '@/components/AbrirBote'
 import { sb } from '@/lib/sb'
 import { useVentasSinInternet } from '@/store/sinInternet'
 import { useCarrito } from '@/store/carritoStore'
@@ -532,6 +533,7 @@ export function CorteMilo({ abierto, onCerrar }: Props) {
               </button>
               <CalibrarRollo />
               <CargarInventario />
+              <AbrirBote />
               <PedirCambio />
             </div>
           )}
@@ -613,6 +615,7 @@ export function CorteMilo({ abierto, onCerrar }: Props) {
               </p>
               <CalibrarRollo />
               <CargarInventario />
+              <AbrirBote />
               <PedirCambio />
             </div>
           )}
