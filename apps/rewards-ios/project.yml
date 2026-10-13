@@ -50,6 +50,11 @@ targets:
         ITSAppUsesNonExemptEncryption: false
         UIUserInterfaceStyle: Light
         NSFaceIDUsageDescription: Para abrir tu modo personal sin teclear el PIN cada vez.
+        # «Editar mi perfil» elige la foto con PhotosPicker, que no pide
+        # permiso; pero PhotosUI enlaza las APIs de la fototeca y la revisión
+        # automática de Apple marca «binario no válido» sin este texto (build
+        # 54, 13/10/26). El 40, sin PhotosUI, pasó.
+        NSPhotoLibraryUsageDescription: Para elegir la foto de tu perfil.
         UIRequiresFullScreen: true
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         UILaunchScreen:
