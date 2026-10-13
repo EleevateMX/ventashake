@@ -1706,6 +1706,14 @@ PWA. No tiene reglas propias: llama a las mismas funciones
   Store. La llave de App Store Connect necesita rol **Admin**.
 - La ficha de la app en App Store Connect se crea **a mano** una vez: la
   API no puede.
+- **La revisión se ve y se manda desde Actions → «iOS Tienda»** (13/10,
+  `ios-tienda.yml`, Linux, sin compilar): `estado` imprime builds,
+  versiones y envíos sin tocar nada; `publicar` retira el envío que
+  esperaba con otro build, le pone el más nuevo procesado (o `build=n`) y
+  lo manda con salida automática. Nació porque la 1.0 llevaba 7 días
+  «Esperando revisión» con el build 40 y el 54 ya estaba subido: desde
+  aquí no había forma de verlo. Retirar un envío **reinicia su lugar en la
+  fila** de Apple; no lo hagas por gusto.
 - **Apple Wallet** (02/10): «Agregar a Apple Wallet» en *Tu tarjeta*. El
   pase (`storeCard`, el QR `SHK-…` con Milo en la franja) lo firma la Edge
   Function `wallet-pase` con el certificado del Pass Type ID
