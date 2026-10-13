@@ -216,17 +216,18 @@ platform :ios do
     # 1. El build: el más nuevo VALID, o el que se pidió. Si sigue en
     #    PROCESSING se espera (hasta 40 min): es lo normal recién subido.
     build = nil
-    80.times do |i|
+    80.times do
       candidatos = builds_recientes(app, 15).reject(&:expired)
       build = numero.empty? ? candidatos.find { |b| b.processing_state == "VALID" } : candidatos.find { |b| b.version == numero }
-      UI.user_error!("No encuentro el build #{numero}") if build.nil? && !numero.empty? && i.zero? && candidatos.none? { |b| b.version == numero }
       break if build && build.processing_state == "VALID"
       UI.user_error!("El build #{build.version} quedó #{build.processing_state}: Apple lo rechazó al procesar") if build && %w[FAILED INVALID].include?(build.processing_state)
       UI.message("Esperando a que Apple termine de procesar#{build ? " el build #{build.version} (#{build.processing_state})" : ''}…")
       sleep 30
       build = nil
     end
-    UI.user_error!("Ningún build terminó de procesarse") unless build
+    # Recién subido, Apple tarda unos minutos en siquiera listarlo: no se
+    # da por perdido hasta agotar la espera.
+    UI.user_error!(numero.empty? ? "Ningún build terminó de procesarse" : "El build #{numero} no apareció procesado en 40 min") unless build
     UI.success("Build elegido: #{describir_build(build)}")
 
     # Sin esto el build se queda en «Falta información de cumplimiento» y
