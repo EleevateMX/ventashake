@@ -1,0 +1,73 @@
+# La app de iOS en la App Store: ver cómo va la revisión y mandarla.
+#
+# Solo a mano (Actions → «iOS Tienda» → Run workflow):
+#
+#   estado   — imprime builds, versiones y envíos a revisión. No cambia nada.
+#   publicar — manda a revisión la versión con el build más nuevo ya
+#              procesado (o el que se ponga en «build»). Si había un envío
+#              esperando con otro build, lo retira primero. Al aprobarse,
+#              sale sola a la tienda.
+#
+# No compila ni firma: habla con la API de App Store Connect con la misma
+# llave que «iOS Rewards» (secrets APPSTORE_KEY_ID, APPSTORE_ISSUER_ID,
+# APPSTORE_PRIVATE_KEY). Por eso corre en Linux, en un par de minutos.
+
+name: iOS Tienda
+
+on:
+  workflow_dispatch:
+    inputs:
+      accion:
+        description: 'Qué hacer'
+        type: choice
+        options: [estado, publicar]
+        default: estado
+      build:
+        description: 'Build a publicar (vacío = el más nuevo ya procesado)'
+        required: false
+        default: ''
+
+concurrency:
+  group: ios-tienda
+  cancel-in-progress: false
+
+env:
+  APP_DIR: apps/rewards-ios
+  LANG: en_US.UTF-8
+  LC_ALL: en_US.UTF-8
+
+jobs:
+  tienda:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+          working-directory: ${{ env.APP_DIR }}
+
+      # La llave va a un archivo temporal; nunca al repo ni al log.
+      - name: Llave de App Store Connect
+        env:
+          APPSTORE_KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
+          APPSTORE_PRIVATE_KEY: ${{ secrets.APPSTORE_PRIVATE_KEY }}
+        run: |
+          if [ -z "$APPSTORE_KEY_ID" ] || [ -z "$APPSTORE_PRIVATE_KEY" ]; then
+            echo "::error::Faltan los secrets de App Store Connect"
+            exit 1
+          fi
+          mkdir -p "$RUNNER_TEMP/llaves"
+          printf '%s\n' "$APPSTORE_PRIVATE_KEY" > "$RUNNER_TEMP/llaves/AuthKey_${APPSTORE_KEY_ID}.p8"
+          chmod 600 "$RUNNER_TEMP/llaves/AuthKey_${APPSTORE_KEY_ID}.p8"
+          echo "ASC_KEY_PATH=$RUNNER_TEMP/llaves/AuthKey_${APPSTORE_KEY_ID}.p8" >> "$GITHUB_ENV"
+
+      - name: ${{ inputs.accion }}
+        working-directory: ${{ env.APP_DIR }}
+        env:
+          ASC_KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
+          BUILD: ${{ inputs.build }}
+        run: bundle exec fastlane ios ${{ inputs.accion }}

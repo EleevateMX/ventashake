@@ -150,6 +150,140 @@ platform :ios do
     )
   end
 
+  # ---------------------------------------------------------------------
+  # Revisión de Apple, sin abrir App Store Connect (11/10/26).
+  #
+  # La versión 1.0 llevaba una semana «Esperando revisión» con el build 40
+  # mientras el 54 (el que trae Editar perfil y el «Con qué va» nuevo) ya
+  # estaba subido. Desde aquí no se ve nada de eso: `estado` lo imprime y
+  # `publicar` cambia el build y vuelve a mandar a revisión.
+  # ---------------------------------------------------------------------
+
+  def app_tienda
+    conectar
+    Spaceship::ConnectAPI::App.find(BUNDLE) || UI.user_error!("No existe la app #{BUNDLE} en App Store Connect")
+  end
+
+  def builds_recientes(app, limite = 8)
+    Spaceship::ConnectAPI::Build.all(app_id: app.id, sort: "-uploadedDate", limit: limite, includes: "preReleaseVersion,buildBetaDetail")
+  end
+
+  def describir_build(b)
+    detalle = b.build_beta_detail
+    beta = detalle ? "#{detalle.internal_build_state} / ext #{detalle.external_build_state}" : "?"
+    "build #{b.version} (#{b.app_version}) · #{b.processing_state} · subido #{b.uploaded_date} · " \
+      "cifrado=#{b.uses_non_exempt_encryption.inspect} · caducado=#{b.expired} · TestFlight #{beta}"
+  end
+
+  def versiones_tienda(app)
+    app.get_app_store_versions(filter: { platform: "IOS" }, includes: "build")
+  end
+
+  def envios_abiertos(app)
+    app.get_review_submissions(
+      filter: { platform: "IOS", state: "READY_FOR_REVIEW,WAITING_FOR_REVIEW,IN_REVIEW,UNRESOLVED_ISSUES,CANCELING" },
+      includes: "items"
+    )
+  end
+
+  desc "Imprime cómo está la app en Apple: builds, versiones y envíos a revisión. No cambia nada."
+  lane :estado do
+    app = app_tienda
+    UI.header("App: #{app.name} (#{app.id})")
+
+    UI.header("Builds más recientes")
+    builds_recientes(app).each { |b| UI.message(describir_build(b)) }
+
+    UI.header("Versiones de la tienda")
+    versiones_tienda(app).each do |v|
+      estado_v = v.respond_to?(:app_version_state) ? " (#{v.app_version_state})" : ""
+      UI.message("#{v.version_string} · #{v.app_store_state}#{estado_v} · build #{v.build&.version || '—'} · creada #{v.created_date}")
+    end
+
+    UI.header("Envíos a revisión abiertos")
+    envios = envios_abiertos(app)
+    UI.message("ninguno") if envios.empty?
+    envios.each do |s|
+      UI.message("#{s.id} · #{s.state} · enviado #{s.submitted_date} · #{(s.items || []).size} renglón(es)")
+    end
+  end
+
+  desc "Manda a revisión la versión con el build más nuevo ya procesado (o BUILD=n). Si había un envío esperando con otro build, lo retira primero."
+  lane :publicar do
+    app = app_tienda
+    numero = ENV["BUILD"].to_s.strip
+
+    # 1. El build: el más nuevo VALID, o el que se pidió. Si sigue en
+    #    PROCESSING se espera (hasta 40 min): es lo normal recién subido.
+    build = nil
+    80.times do |i|
+      candidatos = builds_recientes(app, 15).reject(&:expired)
+      build = numero.empty? ? candidatos.find { |b| b.processing_state == "VALID" } : candidatos.find { |b| b.version == numero }
+      UI.user_error!("No encuentro el build #{numero}") if build.nil? && !numero.empty? && i.zero? && candidatos.none? { |b| b.version == numero }
+      break if build && build.processing_state == "VALID"
+      UI.user_error!("El build #{build.version} quedó #{build.processing_state}: Apple lo rechazó al procesar") if build && %w[FAILED INVALID].include?(build.processing_state)
+      UI.message("Esperando a que Apple termine de procesar#{build ? " el build #{build.version} (#{build.processing_state})" : ''}…")
+      sleep 30
+      build = nil
+    end
+    UI.user_error!("Ningún build terminó de procesarse") unless build
+    UI.success("Build elegido: #{describir_build(build)}")
+
+    # Sin esto el build se queda en «Falta información de cumplimiento» y
+    # no se puede mandar. La app no usa cifrado propio (Info.plist también lo dice).
+    if build.uses_non_exempt_encryption.nil?
+      Spaceship::ConnectAPI.patch_builds(build_id: build.id, attributes: { usesNonExemptEncryption: false })
+      UI.message("Cumplimiento de cifrado: no usa cifrado propio")
+    end
+
+    # 2. Si hay un envío esperando con OTRO build, se retira. Mientras está
+    #    «Esperando revisión» la versión no deja cambiar el build.
+    envios_abiertos(app).each do |s|
+      if s.state == "IN_REVIEW"
+        UI.user_error!("Apple ya la está revisando (#{s.id}): no se retira a media revisión")
+      end
+      next if %w[CANCELING].include?(s.state)
+      UI.important("Retirando el envío #{s.id} (#{s.state}) para cambiarle el build")
+      s.cancel_submission
+    end
+    40.times do
+      abiertos = envios_abiertos(app).reject { |s| s.state == "READY_FOR_REVIEW" }
+      break if abiertos.empty?
+      UI.message("Esperando a que Apple retire el envío anterior (#{abiertos.map(&:state).join(', ')})…")
+      sleep 15
+    end
+
+    # 3. La versión editable recibe el build.
+    version = versiones_tienda(app).find do |v|
+      %w[PREPARE_FOR_SUBMISSION DEVELOPER_REJECTED REJECTED METADATA_REJECTED INVALID_BINARY READY_FOR_REVIEW].include?(v.app_store_state)
+    end
+    UI.user_error!("No hay una versión editable: #{versiones_tienda(app).map { |v| "#{v.version_string} #{v.app_store_state}" }.join(', ')}") unless version
+    version.select_build(build_id: build.id)
+    UI.success("Versión #{version.version_string} con el build #{build.version}")
+
+    # 4. A revisión. deliver arma el envío nuevo y contesta lo de IDFA y cifrado.
+    deliver(
+      api_key: llave,
+      app_identifier: BUNDLE,
+      app_version: version.version_string,
+      build_number: build.version,
+      skip_binary_upload: true,
+      skip_metadata: true,
+      skip_screenshots: true,
+      submit_for_review: true,
+      automatic_release: true,
+      force: true,
+      run_precheck_before_submit: false,
+      precheck_include_in_app_purchases: false,
+      submission_information: {
+        add_id_info_uses_idfa: false,
+        export_compliance_uses_encryption: false
+      }
+    )
+    UI.success("Mandada a revisión. Al aprobarse sale sola a la tienda.")
+    estado
+  end
+
   desc "Revoca el certificado de esta corrida y borra su perfil (corre siempre, aunque falle la subida)"
   lane :limpiar do
     conectar
