@@ -1714,6 +1714,12 @@ PWA. No tiene reglas propias: llama a las mismas funciones
   «Esperando revisión» con el build 40 y el 54 ya estaba subido: desde
   aquí no había forma de verlo. Retirar un envío **reinicia su lugar en la
   fila** de Apple; no lo hagas por gusto.
+- **«Binario no válido» llega minutos DESPUÉS de mandar**, no al subir: el
+  54 salía VALID en TestFlight y Apple lo tumbó a los 3 min de enviarlo
+  porque `PhotosUI` (la foto de perfil) exige `NSPhotoLibraryUsageDescription`
+  aunque PhotosPicker no pida permiso. Tras `publicar`, corre `estado` unos
+  minutos después. Todo framework nuevo que toque fotos, cámara, ubicación
+  o contactos lleva su texto en `project.yml`.
 - **Apple Wallet** (02/10): «Agregar a Apple Wallet» en *Tu tarjeta*. El
   pase (`storeCard`, el QR `SHK-…` con Milo en la franja) lo firma la Edge
   Function `wallet-pase` con el certificado del Pass Type ID
