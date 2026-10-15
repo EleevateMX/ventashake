@@ -12,7 +12,7 @@ interface EstadoConfirmacion {
   /** Con esto el QR abre el recibo digital real (/recibo/:ordenId). */
   ordenId?: string | null
   total?: number
-  metodo?: 'terminal' | 'efectivo'
+  metodo?: 'terminal' | 'efectivo' | 'cortesia'
   items?: ItemCarrito[]
   usuario?: UsuarioKiosko | null
   demo?: boolean

@@ -6,6 +6,7 @@ import {
 import { mensajeDeError } from '@shake/utils'
 import { sb } from '../../lib/sb'
 import { Panel, Loading, ErrorMsg, OkMsg, Chip, cx } from '../../ui'
+import { CortesiasAdmin } from '../../components/CortesiasAdmin'
 
 /**
  * Qué puede hacer cada quien en la caja.
@@ -160,6 +161,8 @@ export default function Permisos() {
         puede hacerlas desde el kiosko ni el POS. Cancelar una venta vive en Admin →
         Ventas, que ya es solo de gerencia.
       </p>
+
+      <CortesiasAdmin />
     </div>
   )
 }

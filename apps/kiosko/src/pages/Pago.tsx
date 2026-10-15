@@ -11,8 +11,9 @@ import { useCarrito, type ItemCarrito } from '@/store/carritoStore'
 import { TecladoNombre } from '@/components/TecladoNombre'
 import { PrepararDespues } from '@/components/PrepararDespues'
 import { ClavePersonal } from '@/components/ClavePersonal'
+import { Cortesia } from '@/components/Cortesia'
 import { sb } from '@/lib/sb'
-import { canjearMancuernas, canjearSellos, cotizarPersonal } from '@shake/supabase'
+import { canjearMancuernas, canjearSellos, cotizarPersonal, crearCortesia } from '@shake/supabase'
 import type { IdentidadPersonal } from '@shake/supabase'
 import { PanelRewards, SIN_REWARDS, type DecisionRewards } from '@/components/PanelRewards'
 import { CobroEfectivo } from '@/components/CobroEfectivo'
@@ -499,6 +500,44 @@ export function Pago() {
   }
 
   /**
+   * Cortesía: la cuenta en $0 con el PIN de quien puede darla (15/10/26).
+   * El servidor revisa el PIN, crea la orden a precio de lista y la cobra
+   * como cortesía; de ahí sale la comanda y baja el inventario como una
+   * venta. Sin canjes ni precio de personal: no hay nada que cobrar. Si
+   * falla, el error lo enseña la ventana de la cortesía.
+   */
+  async function darCortesia(pin: string, motivo: string) {
+    if (!almacen || !cajero) throw new Error('Abre la caja antes de dar una cortesía.')
+    const c = await crearCortesia(
+      sb,
+      {
+        pin,
+        motivo,
+        sucursal_id: almacen.sucursal_id,
+        almacen_id: almacen.id,
+        corte_id: corte?.id ?? null,
+        empleado_id: cajero.id,
+        nombre_cliente: nombrePedido.trim() || usuario?.nombre?.split(' ')[0] || null,
+        para_llevar: paraLlevar,
+      },
+      items.map(lineaParaOrden),
+    )
+    const itemsSnapshot = [...items]
+    limpiar()
+    navigate('/confirmacion', {
+      state: {
+        folio: String(c.folio),
+        ordenId: c.id,
+        total: 0,
+        metodo: 'cortesia',
+        items: itemsSnapshot,
+        usuario: null,
+        demo: false,
+      },
+    })
+  }
+
+  /**
    * Aparta la venta tal como esta y deja la pantalla libre.
    *
    * No crea ninguna orden: la venta apartada vive solo en este navegador.
@@ -958,6 +997,10 @@ export function Pago() {
                 valor={personal}
                 onCambio={(id, clave) => { setPersonal(id); setClavePersonal(clave) }}
               />
+            )}
+            {/* Necesita internet: el PIN lo revisa el servidor. */}
+            {modo === 'cajero' && enLinea && (
+              <Cortesia valor={total()} onDar={darCortesia} />
             )}
           </div>
         </div>

@@ -887,6 +887,14 @@ nómina se firma igual que uno bueno.
   kiosko y en el checador del teléfono la salida es el botón grande y
   «Salgo a comer» el secundario; ninguno está escrito en la pantalla: salen
   de `puede`.
+- **«Olvidar un turno sin salida» va de 12 a 24 HORAS** (15/10). Estaba
+  en 5 desde el 08/10: la etiqueta decía «caduca a las (horas)» y se leyó
+  como hora del día. Cinco horas después de la última checada el turno se
+  daba por cerrado, la salida decía «No tienes turno abierto» y la gente
+  tocaba **Entrada** para irse: 6 «entradas» del 09 al 15/10 eran salidas
+  (Andrés 13, 14 y 15/10; Regina 13/10; Sara 10/10; Nic 09/10) y hay que
+  corregirlas en Admin con su motivo. También apagaba el descuento de
+  personal a media jornada. El servidor ya rechaza menos de 12.
 - `fn_asistencia_checar` y `fn_asistencia_estado` están abiertas a `anon`
   porque **el kiosko en modo cajero corre como `anon`** (sección 2.2) y el
   PIN **es** la credencial, comparado contra bcrypt igual que
@@ -1058,6 +1066,29 @@ Valores de arranque: radio **120 m**, precisión exigida **150 m**.
 > que teclear. Eso sí prueba que quien checa está viendo la barra, y
 > convierte la geocerca en el segundo candado en vez del único. Está sin
 > hacer, a propósito, porque primero conviene ver si el teléfono se usa.
+
+### 2.9.3 Cortesías: $0 con PIN, y bajan inventario (15/10/26)
+
+Kiosko → cobro → **🎁 Cortesía** → motivo → PIN. `fn_cortesia_crear`
+**envuelve** a `fn_crear_orden` y `fn_cobrar_orden` (no las toca): crea la
+orden a precio de lista, pasa todo su valor a `descuento`, la cobra por $0
+con el método `cortesia` (ya existía en el enum) y deja el renglón en
+`cortesias` (quién autorizó, quién estaba en caja, motivo, valor). Como
+queda pagada, sale la comanda y **baja el inventario** por el trigger de
+siempre; sin cliente ligado no suma mancuernas ni sellos.
+
+- **Quién puede vive en `cortesia_autorizados`, persona por persona, y no
+  lo trae ningún rol, ni gerencia.** Se pidió con nombre (Perla y Adrián,
+  que en el sistema es «Luna»); «gerencia puede todo» lo habría abierto a
+  cualquier admin futuro. No es un permiso de `empleado_permisos` porque
+  su check fija los cuatro de caja y cambiarlo pedía quitar el check.
+  Se administra en Admin → Personal → Permisos → *Cortesías*, con la lista
+  de los últimos 30 días.
+- Necesita internet (el PIN lo revisa el servidor); sin conexión el botón
+  no sale. Freno de PIN: el de siempre, 15 fallos en 15 min.
+- Probado en producción con rollback: Monster + 2 cookies → pagada en $0,
+  −1 y −2 en inventario; un sándwich → comanda a cocina, etiqueta y 12
+  movimientos de receta; PIN que no está en la lista → rechazado.
 
 ### 2.10 El descuento de personal lo calcula el servidor, como el dinero
 
@@ -1311,6 +1342,8 @@ empaquetador y se desvían solas:
 | Cobrar con precio de personal | Kiosko → pantalla de cobro → **«Es para personal»** → su clave. El total baja solo y dice cuánto le queda |
 | Ver qué papeles le faltan a alguien | Admin → **Personal** → *Expediente*. Sube el archivo o márcalo como entregado en físico |
 | Hacer el contrato de alguien | Admin → **Personal** → *Contratos*. Llena los datos, marca sus días de descanso, «Ver cómo queda» y guarda. **La plantilla la revisa tu abogado antes de firmar nada** |
+| Dar una cortesía (sale en $0 y baja inventario) | Kiosko → cobro → **🎁 Cortesía** → motivo → PIN de quien pueda (hoy Perla y Adrián). Quién puede y cuáles se dieron: Admin → Personal → **Permisos** → *Cortesías* |
+| Buscar en «Abrir un bote» o «¿Llegó mercancía?» | Toca el buscador: sale el teclado en pantalla (letras y números, sin acentos) |
 | Ver qué ventas están apartadas, a distancia | Admin → **En vivo**, arriba del todo. Toca una para ver qué lleva, de qué hora es el ticket y a qué hora entró cada producto |
 
 ---
@@ -1437,6 +1470,13 @@ empaquetador y se desvían solas:
   `extensions`. Regla: `search_path to 'public', 'extensions'` en toda
   función que use `crypt`/`gen_salt`, y prueba con la clave correcta **y**
   con una equivocada.
+- **El conector de Supabase pide confirmación para `drop` y `revoke`** (y
+  lo que «quita» algo) y, si nadie la aprueba en la app, se corta al
+  minuto sin aplicar nada — parece un candado de la base y no lo es (15/10:
+  tres intentos de la migración de cortesías). Una tabla nueva no necesita
+  `drop policy`; con RLS y solo la política de lectura, el `revoke` de
+  tabla sobra. Si de verdad hace falta un `revoke`, avisa antes: alguien
+  tiene que aprobarlo.
 - Para parchear una función grande sin reescribirla: leer
   `pg_get_functiondef`, **verificar que el ancla aparece exactamente N
   veces**, reemplazar y `execute`. Si el ancla no cuadra, abortar — así el
