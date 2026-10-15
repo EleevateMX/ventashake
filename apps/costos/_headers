@@ -1,0 +1,15 @@
+# Cabeceras de Costeos (15/10/26).
+#
+# Hasta hoy Costeos no mandaba ninguna: cualquier pagina podia meterlo en
+# un iframe y poner botones invisibles encima (clickjacking) de una
+# herramienta que guarda costos, inventario y reinicios con PIN.
+#
+#   frame-ancestors   Solo Admin lo puede mostrar adentro (Admin -> Costeos).
+#                     NO se usa X-Frame-Options: DENY, que tambien le
+#                     cerraria la puerta a Admin.
+#   El resto, igual que las demas apps (ver apps/admin/public/_headers).
+/*
+  Content-Security-Policy: frame-ancestors 'self' https://admin.shakeaholic.mx https://shake-admin.pages.dev
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Strict-Transport-Security: max-age=31536000; includeSubDomains

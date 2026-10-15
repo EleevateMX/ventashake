@@ -9,6 +9,7 @@ import Ayuda from './pages/Ayuda'
 import Peticiones from './pages/Peticiones'
 import Soporte from './pages/Soporte'
 import Descargas from './pages/Descargas'
+import Costeos from './pages/Costeos'
 import Nombres from './pages/Nombres'
 import Metas from './pages/Metas'
 import Rewards from './pages/Rewards'
@@ -30,7 +31,7 @@ import Empleados from './pages/Empleados'
 import Impresoras from './pages/Impresoras'
 import Sistema from './pages/Sistema'
 
-type Tab = 'dashboard' | 'envivo' | 'diagnostico' | 'menu' | 'revision' | 'categorias' | 'combos' | 'extras' | 'inventario' | 'promos' | 'ventas' | 'cortes' | 'comprobantes' | 'clientes' | 'nombres' | 'metas' | 'rewards' | 'empleados' | 'impresoras' | 'descargas' | 'ayuda' | 'peticiones' | 'avisos' | 'aliados' | 'soporte' | 'pulso' | 'sistema'
+type Tab = 'dashboard' | 'envivo' | 'diagnostico' | 'menu' | 'revision' | 'categorias' | 'combos' | 'extras' | 'inventario' | 'promos' | 'ventas' | 'cortes' | 'comprobantes' | 'clientes' | 'nombres' | 'metas' | 'rewards' | 'empleados' | 'impresoras' | 'descargas' | 'costeos' | 'ayuda' | 'peticiones' | 'avisos' | 'aliados' | 'soporte' | 'pulso' | 'sistema'
 
 const w = 18
 
@@ -198,6 +199,12 @@ const IconAliados = () => (
   </svg>
 )
 
+const IconCosteos = () => (
+  <svg width={w} height={w} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="5" y="3" width="14" height="18" rx="2" /><path d="M8 7h8" /><path d="M8 11h2M12 11h2M16 11h0" /><path d="M8 15h2M12 15h2M16 15v2" /><path d="M8 18h2M12 18h2" />
+  </svg>
+)
+
 const navItems: { id: Tab; label: string; Icon: () => ReactElement; soloSoporte?: boolean }[] = [
   { id: 'dashboard', label: 'Dashboard', Icon: IconDashboard },
   { id: 'envivo', label: 'En vivo', Icon: IconEnVivo },
@@ -208,6 +215,7 @@ const navItems: { id: Tab; label: string; Icon: () => ReactElement; soloSoporte?
   { id: 'combos', label: 'Combos', Icon: IconCombos },
   { id: 'extras', label: 'Extras', Icon: IconExtras },
   { id: 'inventario', label: 'Inventario', Icon: IconInventario },
+  { id: 'costeos', label: 'Costeos', Icon: IconCosteos },
   { id: 'promos', label: 'Promos', Icon: IconPromos },
   { id: 'ventas', label: 'Ventas', Icon: IconVentas },
   { id: 'cortes', label: 'Cortes de caja', Icon: IconCortes },
@@ -297,6 +305,7 @@ export default function App() {
         {tab === 'comprobantes' && <Comprobantes />}
         {tab === 'pulso' && <Pulso />}
         {tab === 'inventario' && <Inventario />}
+        {tab === 'costeos' && <Costeos />}
         {tab === 'promos' && <Promos />}
         {tab === 'clientes' && <Clientes />}
         {tab === 'nombres' && <Nombres />}

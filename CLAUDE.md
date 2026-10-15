@@ -106,6 +106,12 @@ Consecuencias que hay que respetar:
   scoop, `precioBote` > 0 vende el bote. El sufijo `- B` / `- R` en el
   sabor es legado que sigue funcionando, pero ya no hace falta.
 
+- **Admin → Costeos lo muestra en un marco** (15/10): es la MISMA app, no
+  una copia — dos Costeos se separarían solos. Costeos solo deja que Admin
+  lo enmarque (`frame-ancestors` en `apps/costos/_headers`, que el build
+  copia a `dist/`); antes no mandaba ninguna cabecera y cualquier página
+  podía enmarcarlo. Sus `confirm()`/`alert()` siguen funcionando adentro.
+
 ### 2.2 El dinero se calcula en el servidor, siempre
 
 `fn_crear_orden` recalcula precios y total desde `productos.precio`;
@@ -1307,6 +1313,7 @@ empaquetador y se desvían solas:
 | Ver, imprimir o reenviar el comprobante de un corte | Admin → **Comprobantes** (todos, por fecha y persona, con quién entregó y quién recibió) o Admin → **Cortes de caja** → **Comprobante**. En Cortes, arriba: el fondo fijo y quién recibe los comprobantes por correo |
 | Consultar un ticket | Admin → **Cortes de caja** → *Tickets* → buscar por folio o nombre |
 | Ver si algo se está atorando ahora | Admin → **Pulso** (solo rol `desarrollo`) |
+| Abrir Costeos desde Admin | Admin → **Costeos** (se abre dentro, con tu usuario de Costeos) o «Abrir en pestaña aparte» para trabajo largo |
 | Cambiar precios o productos | Costeos → **Guardar**, y cuando esté listo → **"Mostrar en el kiosko"** (enseña qué va a cambiar antes de confirmar) |
 | Ver la tienda a distancia | Admin → **En vivo** |
 | Algo se siente raro | Admin → **¿Qué hago si…?** → *Probar una venta completa* |
