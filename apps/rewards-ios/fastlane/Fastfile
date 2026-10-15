@@ -331,6 +331,24 @@ platform :ios do
 
     precio = asc_get("v1/apps/#{app.id}/appPriceSchedule?include=baseTerritory")
     UI.message("Territorio base del precio: #{precio.dig('data', 'relationships', 'baseTerritory', 'data', 'id') || '— sin precio configurado'}")
+
+    # Lo de arriba es lo que App Store Connect TIENE configurado; esto es lo
+    # que la tienda pública YA enseña (lo mismo que ve un iPhone en México).
+    # Recién soltada, la tienda tarda horas en alcanzar a la configuración.
+    UI.header("Tienda pública")
+    { "México" => "mx", "Estados Unidos" => "us" }.each do |nombre, pais|
+      uri = URI("https://itunes.apple.com/lookup?id=#{app.id}&country=#{pais}")
+      r = JSON.parse(Net::HTTP.get(uri)) rescue {}
+      app_publica = (r["results"] || []).first
+      if app_publica
+        UI.success("#{nombre}: SÍ aparece · #{app_publica['trackName']} #{app_publica['version']} · #{app_publica['formattedPrice']} · #{app_publica['trackViewUrl']}")
+      else
+        UI.important("#{nombre}: todavía no aparece en la tienda pública")
+      end
+    end
+    busqueda = JSON.parse(Net::HTTP.get(URI("https://itunes.apple.com/search?term=shakeaholic&country=mx&entity=software"))) rescue {}
+    nombres = (busqueda["results"] || []).map { |x| x["trackName"] }
+    UI.message("Buscar «shakeaholic» en México: #{nombres.empty? ? 'sin resultados todavía' : nombres.join(', ')}")
   end
 
   desc "Revoca el certificado de esta corrida y borra su perfil (corre siempre, aunque falle la subida)"
