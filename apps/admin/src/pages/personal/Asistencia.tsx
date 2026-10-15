@@ -373,7 +373,10 @@ export default function Asistencia() {
                 ['comida_max_min', 'Comida larga a partir de', 'Una comida más larga sale marcada en el histórico.'],
                 ['jornada_min', 'Jornada esperada (minutos)', 'Cuánto debería durar un turno completo.'],
                 ['tolerancia_min', 'Tolerancia (minutos)', 'Margen antes de contar un retardo.'],
-                ['turno_max_horas', 'Turno abierto caduca a las (horas)', 'Una entrada más vieja ya no cuenta: es de ayer y se olvidó checar salida.'],
+                // Decía «caduca a las (horas)» y se capturó 5 como hora del
+                // día: el turno se cerraba a media jornada y la salida salía
+                // como «No tienes turno abierto» (15/10). El servidor exige 12–24.
+                ['turno_max_horas', 'Olvidar un turno sin salida después de (horas, 12 a 24)', 'Cuántas HORAS después de checar, sin salida, se da por olvidado (era de ayer). No es una hora del día: si es menor que la jornada, la gente no puede checar su salida. Recomendado: 16.'],
               ] as const).map(([campo, etiqueta, ayuda]) => (
                 <div key={campo}>
                   <label className="flex items-center justify-between gap-4">

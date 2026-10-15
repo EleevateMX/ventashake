@@ -3,6 +3,7 @@ import { botesAbribles, abrirBoteParaBarra } from '@shake/supabase'
 import type { BotesAbribles, BoteAbrible, ResultadoAbrirBote } from '@shake/supabase'
 import { botesYScoops, mensajeDeError } from '@shake/utils'
 import { sb } from '@/lib/sb'
+import { TecladoBusqueda, sinAcentos } from '@/components/TecladoBusqueda'
 
 /**
  * «¿Abriste un bote para la barra?» (10/10/26, pedido por Perla).
@@ -22,6 +23,7 @@ export function AbrirBote() {
   const [datos, setDatos] = useState<BotesAbribles | null>(null)
   const [cargando, setCargando] = useState(false)
   const [busca, setBusca] = useState('')
+  const [teclado, setTeclado] = useState(false)
   const [elegido, setElegido] = useState<BoteAbrible | null>(null)
   const [destino, setDestino] = useState('')
   const [botes, setBotes] = useState(1)
@@ -41,8 +43,8 @@ export function AbrirBote() {
   /** Sin búsqueda: los que sí hay en el anaquel. Con búsqueda: por nombre. */
   const lista = useMemo(() => {
     const v = datos?.venta ?? []
-    const q = busca.trim().toLowerCase()
-    if (q.length >= 2) return v.filter((b) => b.nombre.toLowerCase().includes(q)).slice(0, 12)
+    const q = sinAcentos(busca.trim())
+    if (q.length >= 2) return v.filter((b) => sinAcentos(b.nombre).includes(q)).slice(0, 12)
     return v.filter((b) => Number(b.en_kiosko) > 0).slice(0, 8)
   }, [datos, busca])
 
@@ -51,13 +53,14 @@ export function AbrirBote() {
 
   function elegir(b: BoteAbrible) {
     setElegido(b)
+    setTeclado(false)
     setDestino(b.destino_id ?? '')
     setBotes(1)
     setError(null)
   }
 
   function cerrar() {
-    setAbierto(false); setElegido(null); setListo(null); setBusca(''); setError(null)
+    setAbierto(false); setElegido(null); setListo(null); setBusca(''); setError(null); setTeclado(false)
   }
 
   async function confirmar() {
@@ -131,10 +134,13 @@ export function AbrirBote() {
           <input
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
-            placeholder={cargando ? 'Cargando…' : 'Busca: chai, vainilla, cbum…'}
+            onFocus={() => setTeclado(true)}
+            inputMode="none"
+            placeholder={cargando ? 'Cargando…' : 'Toca aquí y busca: chai, vainilla, cbum…'}
             disabled={cargando}
             className="w-full mt-3 px-3 py-3 border border-sa-green-ink/15 rounded-sa text-base bg-white focus:outline-none focus:ring-2 focus:ring-sa-green/40"
           />
+          {teclado && <TecladoBusqueda valor={busca} onCambio={setBusca} onListo={() => setTeclado(false)} />}
           {!cargando && lista.length === 0 && (
             <p className="font-mono text-[10px] uppercase tracking-wider text-sa-green-ink/40 mt-2 text-center">
               {busca.trim().length >= 2 ? 'Nada con ese nombre' : 'Escribe el nombre del bote'}

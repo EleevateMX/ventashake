@@ -3,6 +3,7 @@ import { insumosParaCargar, cargarInventario } from '@shake/supabase'
 import type { InsumoParaCargar, ResultadoEntrada } from '@shake/supabase'
 import { botesYScoops, mensajeDeError } from '@shake/utils'
 import { sb } from '@/lib/sb'
+import { TecladoBusqueda, sinAcentos } from '@/components/TecladoBusqueda'
 
 /** Lo que hay, como se cuenta: piezas, o en proteína «2 botes + 5 scoops». */
 function existencia(i: InsumoParaCargar, n: number | null): string {
@@ -37,6 +38,7 @@ export function CargarInventario() {
   const [catalogo, setCatalogo] = useState<InsumoParaCargar[]>([])
   const [cargandoCat, setCargandoCat] = useState(false)
   const [busca, setBusca] = useState('')
+  const [teclado, setTeclado] = useState(false)
   const [lineas, setLineas] = useState<Linea[]>([])
   const [guardando, setGuardando] = useState(false)
   const [listo, setListo] = useState<ResultadoEntrada | null>(null)
@@ -57,10 +59,10 @@ export function CargarInventario() {
    * aparecen los pocos que importan.
    */
   const resultados = useMemo(() => {
-    const q = busca.trim().toLowerCase()
+    const q = sinAcentos(busca.trim())
     if (q.length < 2) return []
     return catalogo
-      .filter((i) => i.nombre.toLowerCase().includes(q))
+      .filter((i) => sinAcentos(i.nombre).includes(q))
       .slice(0, 12)
   }, [busca, catalogo])
 
@@ -73,6 +75,7 @@ export function CargarInventario() {
       return copia
     })
     setBusca('')
+    setTeclado(false)
   }
 
   function quitar(id: string) {
@@ -178,10 +181,13 @@ export function CargarInventario() {
       <input
         value={busca}
         onChange={(e) => setBusca(e.target.value)}
-        placeholder={cargandoCat ? 'Cargando lista…' : 'Busca: agua, barra, proteína…'}
+        onFocus={() => setTeclado(true)}
+        inputMode="none"
+        placeholder={cargandoCat ? 'Cargando lista…' : 'Toca aquí y busca: agua, barra, proteína…'}
         disabled={cargandoCat}
         className="w-full mt-3 px-3 py-3 border border-sa-green-ink/15 rounded-sa text-base bg-white focus:outline-none focus:ring-2 focus:ring-sa-green/40"
       />
+      {teclado && <TecladoBusqueda valor={busca} onCambio={setBusca} onListo={() => setTeclado(false)} />}
 
       {busca.trim().length >= 2 && resultados.length === 0 && !cargandoCat && (
         <p className="font-mono text-[10px] uppercase tracking-wider text-sa-green-ink/40 mt-2 text-center">
