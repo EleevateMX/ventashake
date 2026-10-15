@@ -3,6 +3,7 @@
 # Solo a mano (Actions → «iOS Tienda» → Run workflow):
 #
 #   estado   — imprime builds, versiones y envíos a revisión. No cambia nada.
+#   disponibilidad — en qué países se vende y por qué no. No cambia nada.
 #   publicar — manda a revisión la versión con el build más nuevo ya
 #              procesado (o el que se ponga en «build»). Si había un envío
 #              esperando con otro build, lo retira primero. Al aprobarse,
@@ -20,7 +21,7 @@ on:
       accion:
         description: 'Qué hacer'
         type: choice
-        options: [estado, publicar]
+        options: [estado, publicar, disponibilidad]
         default: estado
       build:
         description: 'Build a publicar (vacío = el más nuevo ya procesado)'

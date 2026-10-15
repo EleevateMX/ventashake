@@ -285,6 +285,54 @@ platform :ios do
     estado
   end
 
+  # La API de disponibilidad (v2) no tiene modelo en Spaceship: se pide
+  # directo con el mismo token. Solo lectura.
+  def asc_get(ruta)
+    require "net/http"
+    require "json"
+    uri = URI("https://api.appstoreconnect.apple.com/#{ruta}")
+    req = Net::HTTP::Get.new(uri)
+    req["Authorization"] = "Bearer #{Spaceship::ConnectAPI.token.text}"
+    res = Net::HTTP.start(uri.host, uri.port, use_ssl: true) { |h| h.request(req) }
+    cuerpo = res.body.to_s.empty? ? {} : JSON.parse(res.body)
+    UI.important("#{ruta} → HTTP #{res.code}: #{cuerpo['errors']&.map { |e| e['detail'] }&.join(' | ')}") unless res.code.start_with?("2")
+    cuerpo
+  end
+
+  desc "Dice en qué países se vende la app (y por qué no, si Apple lo dice). No cambia nada."
+  lane :disponibilidad do
+    app = app_tienda
+    disp = asc_get("v1/apps/#{app.id}/appAvailabilityV2")
+    datos = disp["data"]
+    if datos.nil?
+      UI.important("La app NO tiene disponibilidad configurada: no se vende en ningún país (App Store Connect → Precios y disponibilidad)")
+      next
+    end
+    UI.message("Disponible en países nuevos: #{datos.dig('attributes', 'availableInNewTerritories').inspect}")
+
+    filas = []
+    ruta = "v2/appAvailabilities/#{datos['id']}/territoryAvailabilities?limit=200&include=territory"
+    while ruta
+      pagina = asc_get(ruta)
+      filas.concat(pagina["data"] || [])
+      siguiente = pagina.dig("links", "next")
+      ruta = siguiente&.sub("https://api.appstoreconnect.apple.com/", "")
+    end
+    si = filas.select { |f| f.dig("attributes", "available") }
+    UI.message("Países: #{filas.size} · disponible en #{si.size}")
+    mx = filas.find { |f| f.dig("relationships", "territory", "data", "id") == "MEX" }
+    if mx
+      UI.header("México")
+      UI.message(JSON.pretty_generate(mx["attributes"]))
+    else
+      UI.important("México no aparece en la lista de países de la app")
+    end
+    UI.message("Disponible en: #{si.map { |f| f.dig('relationships', 'territory', 'data', 'id') }.join(', ')}") unless si.empty?
+
+    precio = asc_get("v1/apps/#{app.id}/appPriceSchedule?include=baseTerritory")
+    UI.message("Territorio base del precio: #{precio.dig('data', 'relationships', 'baseTerritory', 'data', 'id') || '— sin precio configurado'}")
+  end
+
   desc "Revoca el certificado de esta corrida y borra su perfil (corre siempre, aunque falle la subida)"
   lane :limpiar do
     conectar
