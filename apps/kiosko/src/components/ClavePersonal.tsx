@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { identificarPersonal, type IdentidadPersonal } from '@shake/supabase'
-import { mensajeDeError, mxn } from '@shake/utils'
+import { esCodigoPersonal, mensajeDeError, mxn, normalizarCodigoEscaneado } from '@shake/utils'
 import { sb } from '@/lib/sb'
 
 /**
@@ -39,15 +39,16 @@ export function ClavePersonal({
   const [error, setError] = useState<string | null>(null)
   const [enviando, setEnviando] = useState(false)
 
-  const esCodigo = /^SHKP-/i.test(clave.trim())
-  const lista = esCodigo ? clave.trim().length >= 9 : clave.trim().length >= 4
+  const esCodigo = esCodigoPersonal(clave)
+  const lista = esCodigo ? normalizarCodigoEscaneado(clave).length >= 9 : clave.trim().length >= 4
 
   async function identificar() {
     if (!lista) return
     setEnviando(true); setError(null)
     try {
-      const id = await identificarPersonal(sb, clave.trim())
-      onCambio(id, clave.trim())
+      const limpia = esCodigo ? normalizarCodigoEscaneado(clave) : clave.trim()
+      const id = await identificarPersonal(sb, limpia)
+      onCambio(id, limpia)
       setAbierto(false); setClave('')
     } catch (e) {
       setError(mensajeDeError(e))
@@ -128,7 +129,11 @@ export function ClavePersonal({
               // Dígitos sueltos = clave del pad. Con letras = el código del
               // lector: se deja tal cual (mayúsculas, sin espacios).
               const v = e.target.value
-              setClave(/[A-Za-z]/.test(v) ? v.toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 13) : v.replace(/\D/g, '').slice(0, 8))
+              // Con letras se guarda TAL CUAL llega: el guion puede venir como
+              // otro signo (lector con teclado de otro idioma) y se arregla al
+              // identificar, con el código completo. Normalizar letra por
+              // letra rompe SHKP (a medio teclear parece SHK + P).
+              setClave(/[A-Za-z]/.test(v) ? v.toUpperCase().slice(0, 20) : v.replace(/\D/g, '').slice(0, 8))
               setError(null)
             }}
             onKeyDown={(e) => { if (e.key === 'Enter') void identificar() }}

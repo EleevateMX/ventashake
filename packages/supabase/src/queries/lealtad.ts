@@ -1,5 +1,6 @@
 import type { Cliente, Cupon } from '@shake/types'
 import type { ShakeClient } from '../client'
+import { esCodigoCliente, normalizarCodigoEscaneado } from '@shake/utils'
 
 // rpc no está en los tipos generados; se castea el nombre (mismo patrón que ordenes.ts).
 type RpcFn = (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>
@@ -21,9 +22,11 @@ export async function identificarCliente(
   sb: ShakeClient,
   telefonoOCodigo: string,
 ): Promise<ClienteConLealtad | null> {
-  const q = telefonoOCodigo.trim()
+  // El lector puede mandar `SHK'AF8B0C` (teclado de otro idioma): se
+  // normaliza aquí para que el kiosko y el POS lo reconozcan igual.
+  const q = normalizarCodigoEscaneado(telefonoOCodigo)
   if (!q) return null
-  const esCodigo = /^SHK-/i.test(q)
+  const esCodigo = esCodigoCliente(q)
   const { data, error } = await sb
     .from('clientes')
     .select('*, cupones(*)')

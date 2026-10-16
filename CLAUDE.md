@@ -1350,6 +1350,7 @@ empaquetador y se desvían solas:
 | Ver qué papeles le faltan a alguien | Admin → **Personal** → *Expediente*. Sube el archivo o márcalo como entregado en físico |
 | Hacer el contrato de alguien | Admin → **Personal** → *Contratos*. Llena los datos, marca sus días de descanso, «Ver cómo queda» y guarda. **La plantilla la revisa tu abogado antes de firmar nada** |
 | Dar una cortesía (sale en $0 y baja inventario) | Kiosko → cobro → **🎁 Cortesía** → motivo → PIN de quien pueda (hoy Perla y Adrián). Quién puede y cuáles se dieron: Admin → Personal → **Permisos** → *Cortesías* |
+| Conectar un lector de QR para Rewards | 2D de escritorio que lea pantallas, USB en modo teclado. Pruébalo en el Bloc de notas: debe salir `SHK-…` y saltar de renglón. El kiosko ya acepta el código aunque el guion llegue como otro signo |
 | Buscar en «Abrir un bote» o «¿Llegó mercancía?» | Toca el buscador: sale el teclado en pantalla (letras y números, sin acentos) |
 | Ver qué ventas están apartadas, a distancia | Admin → **En vivo**, arriba del todo. Toca una para ver qué lleva, de qué hora es el ticket y a qué hora entró cada producto |
 
@@ -1559,6 +1560,15 @@ empaquetador y se desvían solas:
 - Un error que aparece y se va solo en un segundo es peor que ningún
   error: si algo se recupera con un reintento, reintenta en silencio
   (fue el rojo del login de Rewards).
+- **Un lector de QR teclea con SU distribución de teclado, no con la de
+  Windows** (16/10). Con el lector en inglés y la PC en español
+  latinoamericano el guion de `SHK-AF8B0C` llega como `SHK'AF8B0C` y el
+  kiosko lo tomaba por un teléfono («¿lo damos de alta?»).
+  `normalizarCodigoEscaneado` (`packages/utils/src/codigos.ts`, con pruebas)
+  vuelve guion cualquier signo —o ninguno— entre `SHK`/`SHKP` y el resto;
+  lo usan `identificarCliente` (kiosko y POS) y «Es para personal». Se
+  aplica **al código completo, al buscar**: normalizar letra por letra
+  rompe SHKP, que a medio teclear parece SHK + P.
 - En el kiosko, las imágenes van como fondo CSS y el menú contextual está
   apagado: si no, mantener el dedo sobre Milo abre "buscar imagen".
 - **Kiosko y POS son dos puertas a la misma venta, y se separan solas.** El
