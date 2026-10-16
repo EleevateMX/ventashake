@@ -612,6 +612,19 @@ chapata se anunciaba en barra y en cocina no salía (26/09).
 - Los 5 combos: el combo y su comida en **alimentos** (se cambió la
   categoría Combos), el café, el té y su leche o agua en **bebidas**.
 
+### 2.4.11.5 Un combo descuenta lo que se eligió (16/10/26)
+
+Las opciones de los combos eran extras **sin receta**: 214 combos en 30
+días sin bajar ni un sándwich, té, muffin ni la chapata. Ahora cada opción
+apunta a su producto real (`inventario_como`) y descuenta **la receta de
+Costeos**; lo que el combo trae siempre va en `combo_fijos`. Parche anclado
+en `fn_descontar_inventario_por_orden`; kiosko y POS no cambiaron. Se arma
+todo en **Admin → Combos** (una sola pantalla, con semáforo: opción sin
+ligar, grupo de una opción, receta con ceros). **No uses `combo_items`**:
+`fn_combo_recalcular` copia recetas y descontaría doble. Quitar un fijo
+(`fn_combo_fijo_quitar`) espera aprobación en el conector. Detalle en
+`docs/combos-promociones.md`.
+
 ### 2.4.12 Una galleta con grupo es un grupo
 
 Las galletas son promoción (sección propia, siempre opcional) **por el
@@ -1349,6 +1362,7 @@ empaquetador y se desvían solas:
 | Cobrar con precio de personal | Kiosko → pantalla de cobro → **«Es para personal»** → su clave. El total baja solo y dice cuánto le queda |
 | Ver qué papeles le faltan a alguien | Admin → **Personal** → *Expediente*. Sube el archivo o márcalo como entregado en físico |
 | Hacer el contrato de alguien | Admin → **Personal** → *Contratos*. Llena los datos, marca sus días de descanso, «Ver cómo queda» y guarda. **La plantilla la revisa tu abogado antes de firmar nada** |
+| Crear o cambiar un combo (lo fijo y lo que se elige) | Admin → **Combos**. Nace apagado; se prende cuando dice «✓ Listo». Cada opción se liga al producto del menú que descuenta. Precios y recetas de cada producto, en Costeos |
 | Dar una cortesía (sale en $0 y baja inventario) | Kiosko → cobro → **🎁 Cortesía** → motivo → PIN de quien pueda (hoy Perla y Adrián). Quién puede y cuáles se dieron: Admin → Personal → **Permisos** → *Cortesías* |
 | Conectar un lector de QR para Rewards | 2D de escritorio que lea pantallas, USB en modo teclado. Pruébalo en el Bloc de notas: debe salir `SHK-…` y saltar de renglón. El kiosko ya acepta el código aunque el guion llegue como otro signo |
 | Buscar en «Abrir un bote» o «¿Llegó mercancía?» | Toca el buscador: sale el teclado en pantalla (letras y números, sin acentos) |

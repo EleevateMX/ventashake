@@ -1,141 +1,433 @@
 import { useEffect, useMemo, useState } from 'react'
 import { sb } from '../lib/sb'
 import {
-  listarCombos,
+  combosArmados,
+  crearComboArmado,
+  guardarFijoCombo,
+  quitarFijoCombo,
+  agregarOpcionCombo,
+  ligarOpcionCombo,
   listarProductos,
-  listarCategorias,
-  crearCombo,
   actualizarProducto,
-  agregarComponenteCombo,
-  quitarComponenteCombo,
-  moverCategoriaProducto,
-  eliminarProducto,
+  quitarExtra,
 } from '@shake/supabase'
-import type { ComboVista, Producto, Categoria } from '@shake/types'
+import type { ComboArmado, ComboOpcion } from '@shake/supabase'
+import type { Producto } from '@shake/types'
 import { mxn, mensajeDeError } from '@shake/utils'
 import { Panel, PageHeader, Field, Loading, ErrorMsg, OkMsg, Chip, cx } from '../ui'
 
-interface ComponenteCombo {
-  producto_id: string
-  nombre: string
-  cantidad: number
-  activo: boolean
+/**
+ * Admin → Combos (16/10/26): el ÚNICO lugar donde se arma un combo.
+ *
+ * Un combo es lo que trae siempre (fijos: la chapata) más lo que el cliente
+ * elige (grupos: ¿qué muffin?, ¿qué café?). Cada opción está ligada a su
+ * producto REAL y al venderse descuenta la receta de ese producto, la que
+ * mantiene Costeos. El semáforo lo arma el servidor (`fn_combos_admin`) con
+ * la misma regla que usa el descuento: no hay una segunda copia aquí.
+ */
+
+const sinAcentos = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+
+/** Buscador de productos del menú: son más de mil, un <select> no sirve. */
+function ElegirProducto({
+  productos,
+  placeholder,
+  onElegir,
+  ocupado,
+}: {
+  productos: Producto[]
+  placeholder: string
+  onElegir: (p: Producto) => void
+  ocupado?: boolean
+}) {
+  const [texto, setTexto] = useState('')
+  const encontrados = useMemo(() => {
+    const q = sinAcentos(texto.trim())
+    if (q.length < 2) return []
+    const partes = q.split(/\s+/)
+    return productos.filter((p) => {
+      const n = sinAcentos(p.nombre)
+      return partes.every((x) => n.includes(x))
+    }).slice(0, 8)
+  }, [texto, productos])
+
+  return (
+    <div className="relative">
+      <input
+        className={cx.input}
+        placeholder={placeholder}
+        value={texto}
+        disabled={ocupado}
+        onChange={(e) => setTexto(e.target.value)}
+      />
+      {encontrados.length > 0 && (
+        <div className="absolute z-20 left-0 right-0 mt-1 bg-white border border-sa-green-ink/15 rounded-sa shadow-sa-sm max-h-72 overflow-auto">
+          {encontrados.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              className="block w-full text-left px-3 py-2 text-sm hover:bg-sa-cream-soft"
+              onClick={() => {
+                setTexto('')
+                onElegir(p)
+              }}
+            >
+              {p.nombre} <span className={cx.muted}>· {mxn(Number(p.precio))}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      {texto.trim().length >= 2 && encontrados.length === 0 && (
+        <p className={`text-xs mt-1 ${cx.muted}`}>Nada con ese nombre entre los productos activos del menú.</p>
+      )}
+    </div>
+  )
 }
 
-interface FormCombo {
-  nombre: string
-  precio: string
-  categoria_id: string
+function Costo({ n }: { n: number | null }) {
+  return <span className="font-mono tabular-nums">{n == null ? '—' : mxn(n)}</span>
 }
 
-const FORM_VACIO: FormCombo = { nombre: '', precio: '', categoria_id: '' }
+function margen(c: ComboArmado): string | null {
+  if (!c.precio_sin_iva || c.precio_sin_iva <= 0 || c.costo_max <= 0) return null
+  const pct = (x: number) => Math.round(((c.precio_sin_iva! - x) / c.precio_sin_iva!) * 100)
+  const a = pct(c.costo_max)
+  const b = pct(c.costo_min)
+  return a === b ? `${a}%` : `${a}–${b}%`
+}
 
-function componentesDe(combo: ComboVista): ComponenteCombo[] {
-  const raw = combo.componentes
-  if (!Array.isArray(raw)) return []
-  return raw as unknown as ComponenteCombo[]
+function TarjetaCombo({
+  combo,
+  productos,
+  onCambio,
+  onError,
+  onOk,
+}: {
+  combo: ComboArmado
+  productos: Producto[]
+  onCambio: () => Promise<void>
+  onError: (m: string | null) => void
+  onOk: (m: string) => void
+}) {
+  const [ocupado, setOcupado] = useState(false)
+  const [editando, setEditando] = useState<{ nombre: string; precio: string } | null>(null)
+  const [cantidades, setCantidades] = useState<Record<string, string>>({})
+  const [ligando, setLigando] = useState<string | null>(null)
+  const [nuevoGrupo, setNuevoGrupo] = useState('')
+  const [abierto, setAbierto] = useState(combo.activo)
+
+  async function hacer(fn: () => Promise<unknown>, okMsg?: string) {
+    setOcupado(true)
+    onError(null)
+    try {
+      await fn()
+      await onCambio()
+      if (okMsg) onOk(okMsg)
+    } catch (e) {
+      const m = mensajeDeError(e)
+      onError(
+        /fn_combo_fijo_quitar|PGRST202|could not find the function/i.test(m)
+          ? 'Quitar algo fijo todavía no está habilitado (falta aprobar un cambio en la base). Mientras, apaga el combo y arma uno nuevo, o avísale a soporte.'
+          : m,
+      )
+    } finally {
+      setOcupado(false)
+    }
+  }
+
+  const listo = combo.avisos.length === 0
+  const m = margen(combo)
+
+  return (
+    <div className={`${cx.panel} ${combo.activo ? '' : 'opacity-80'}`}>
+      {/* Encabezado */}
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div className="min-w-0">
+          {editando ? (
+            <div className="flex gap-2 flex-wrap items-end">
+              <Field label="Nombre">
+                <input className={cx.input} value={editando.nombre} onChange={(e) => setEditando({ ...editando, nombre: e.target.value })} />
+              </Field>
+              <Field label="Precio">
+                <input className={cx.input.replace('w-full', 'w-28')} inputMode="decimal" value={editando.precio} onChange={(e) => setEditando({ ...editando, precio: e.target.value })} />
+              </Field>
+              <button
+                className={cx.btnPrimary}
+                disabled={ocupado || editando.nombre.trim().length < 3 || !(Number(editando.precio) > 0)}
+                onClick={() =>
+                  hacer(async () => {
+                    await actualizarProducto(sb, combo.id, { nombre: editando.nombre.trim(), precio: Number(editando.precio) })
+                    setEditando(null)
+                  }, 'Combo guardado')
+                }
+              >
+                Guardar
+              </button>
+              <button className={cx.btnSec} onClick={() => setEditando(null)}>Cancelar</button>
+            </div>
+          ) : (
+            <button type="button" className="text-left" onClick={() => setAbierto(!abierto)}>
+              <h3 className={cx.h3}>
+                {abierto ? '▾' : '▸'} {combo.nombre}
+              </h3>
+              <p className={`text-sm mt-1 ${cx.muted}`}>
+                {mxn(combo.precio)} · cuesta <Costo n={combo.costo_min} />
+                {combo.costo_max !== combo.costo_min && <> a <Costo n={combo.costo_max} /></>}
+                {m && <> · margen {m}</>}
+              </p>
+            </button>
+          )}
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          {listo ? <Chip tone="si">✓ Listo</Chip> : <Chip tone="neutral">{combo.avisos.length} por revisar</Chip>}
+          <Chip tone={combo.activo ? 'si' : 'no'}>{combo.activo ? 'Prendido' : 'Apagado'}</Chip>
+          {!editando && (
+            <button className={cx.btnSec} onClick={() => setEditando({ nombre: combo.nombre, precio: String(combo.precio) })}>
+              Editar
+            </button>
+          )}
+          <button
+            className={cx.btnSec}
+            disabled={ocupado}
+            onClick={() =>
+              hacer(
+                () => actualizarProducto(sb, combo.id, { activo: !combo.activo }),
+                combo.activo ? `«${combo.nombre}» ya no sale en el kiosko` : `«${combo.nombre}» ya sale en el kiosko`,
+              )
+            }
+          >
+            {combo.activo ? 'Apagar' : 'Prender'}
+          </button>
+        </div>
+      </div>
+
+      {abierto && (
+        <div className="mt-5 space-y-6">
+          {/* Semáforo */}
+          {listo ? (
+            <div className="bg-sa-mint/15 border border-sa-mint/40 rounded-sa px-4 py-3 text-sm text-sa-green-deep">
+              Cada parte está ligada a un producto con receta: al venderse, descuenta exactamente lo que se eligió.
+            </div>
+          ) : (
+            <div className="bg-sa-banana/15 border border-sa-banana/50 rounded-sa px-4 py-3 text-sm text-sa-green-ink">
+              <p className="font-semibold mb-1">Por revisar</p>
+              <ul className="list-disc pl-5 space-y-0.5">
+                {combo.avisos.map((a) => <li key={a}>{a}</li>)}
+              </ul>
+            </div>
+          )}
+
+          {/* Siempre incluye */}
+          <section>
+            <p className={`${cx.label} mb-2`}>Siempre incluye</p>
+            {combo.fijos.length === 0 ? (
+              <p className={`text-sm ${cx.muted} mb-2`}>Nada fijo. Si el combo trae algo siempre (la chapata), agrégalo aquí para que se descuente.</p>
+            ) : (
+              <div className={cx.tableWrap}>
+                <table className={cx.table}>
+                  <tbody className={cx.tbody}>
+                    {combo.fijos.map((f) => {
+                      const val = cantidades[f.producto_id] ?? String(f.cantidad)
+                      return (
+                        <tr key={f.producto_id}>
+                          <td className={cx.td}>
+                            {f.nombre}
+                            {!f.activo && <span className="ml-2 text-xs text-sa-strawberry">(apagado)</span>}
+                            {f.recetas === 0 && <span className="ml-2 text-xs text-sa-strawberry">sin receta</span>}
+                            {f.ceros && <span className="block text-xs text-sa-green-ink/60">En 0 en Costeos: {f.ceros}</span>}
+                          </td>
+                          <td className={cx.td}>
+                            <div className="flex items-center gap-2 justify-end">
+                              <input
+                                className={`${cx.input.replace('w-full', 'w-20')} text-right`}
+                                inputMode="decimal"
+                                value={val}
+                                onChange={(e) => setCantidades({ ...cantidades, [f.producto_id]: e.target.value })}
+                              />
+                              {Number(val) !== f.cantidad && (
+                                <button
+                                  className={cx.btnSec}
+                                  disabled={ocupado || !(Number(val) > 0)}
+                                  onClick={() => hacer(() => guardarFijoCombo(sb, combo.id, f.producto_id, Number(val)), 'Cantidad guardada')}
+                                >
+                                  Guardar
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                          <td className={cx.tdNum}><Costo n={f.costo} /></td>
+                          <td className={cx.tdNum}>
+                            <button
+                              className="text-sa-strawberry text-sm hover:underline"
+                              disabled={ocupado}
+                              onClick={() => {
+                                if (window.confirm(`¿Quitar «${f.nombre}» de lo fijo de ${combo.nombre}?`)) {
+                                  void hacer(() => quitarFijoCombo(sb, combo.id, f.producto_id), 'Quitado')
+                                }
+                              }}
+                            >
+                              Quitar
+                            </button>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <div className="mt-2 max-w-md">
+              <ElegirProducto
+                productos={productos}
+                ocupado={ocupado}
+                placeholder="+ Agregar algo fijo (escribe el producto)"
+                onElegir={(p) => hacer(() => guardarFijoCombo(sb, combo.id, p.id, 1), `«${p.nombre}» va siempre en el combo`)}
+              />
+            </div>
+          </section>
+
+          {/* El cliente elige */}
+          <section>
+            <p className={`${cx.label} mb-2`}>El cliente elige</p>
+            {combo.grupos.length === 0 && (
+              <p className={`text-sm ${cx.muted} mb-2`}>Sin opciones. Crea un grupo abajo («Café», «Muffin»…).</p>
+            )}
+            <div className="space-y-4">
+              {combo.grupos.map((g) => (
+                <div key={g.grupo} className="border border-sa-green-ink/10 rounded-sa p-3">
+                  <p className="font-semibold text-sa-green-ink mb-2">
+                    {g.grupo}{' '}
+                    <span className={`text-xs font-normal ${cx.muted}`}>
+                      · elige una {g.opciones.length === 1 && '— solo hay una opción'}
+                    </span>
+                  </p>
+                  <ul className="divide-y divide-sa-green-ink/5">
+                    {g.opciones.map((o: ComboOpcion) => (
+                      <li key={o.extra_id} className="py-2 flex items-start gap-3 flex-wrap">
+                        <div className="flex-1 min-w-[12rem]">
+                          <span className={o.activo ? '' : 'line-through text-sa-green-ink/50'}>{o.nombre}</span>
+                          {o.por_defecto && <span className="ml-2 text-xs">★</span>}
+                          {!o.activo && <span className="ml-2 text-xs text-sa-strawberry">(apagada)</span>}
+                          <span className="block text-xs text-sa-green-ink/60">
+                            {o.como_id ? (
+                              <>descuenta como <b>{o.como_nombre}</b>{o.como_activo === false && ' (apagado en el menú)'}</>
+                            ) : o.recetas > 0 ? (
+                              'descuenta su propia receta'
+                            ) : (
+                              <span className="text-sa-strawberry font-semibold">sin ligar: no descuenta nada</span>
+                            )}
+                            {o.ceros && <> · en 0 en Costeos: {o.ceros}</>}
+                          </span>
+                          {ligando === o.extra_id && (
+                            <div className="mt-2 max-w-md flex gap-2 items-start">
+                              <div className="flex-1">
+                                <ElegirProducto
+                                  productos={productos}
+                                  ocupado={ocupado}
+                                  placeholder="¿Qué producto del menú es?"
+                                  onElegir={(p) =>
+                                    hacer(async () => {
+                                      await ligarOpcionCombo(sb, o.extra_id, p.id)
+                                      setLigando(null)
+                                    }, `«${o.nombre}» descuenta como «${p.nombre}»`)
+                                  }
+                                />
+                              </div>
+                              <button className={cx.btnSec} onClick={() => setLigando(null)}>Cancelar</button>
+                            </div>
+                          )}
+                        </div>
+                        <span className="text-sm"><Costo n={o.costo} /></span>
+                        <div className="flex gap-3 text-sm">
+                          {ligando !== o.extra_id && (
+                            <button className="text-sa-green hover:underline" onClick={() => setLigando(o.extra_id)}>
+                              {o.como_id ? 'Cambiar' : 'Ligar'}
+                            </button>
+                          )}
+                          <button
+                            className="text-sa-strawberry hover:underline"
+                            disabled={ocupado}
+                            onClick={() => {
+                              if (window.confirm(`¿Quitar «${o.nombre}» de ${combo.nombre}?`)) {
+                                void hacer(() => quitarExtra(sb, combo.id, o.extra_id), 'Opción quitada')
+                              }
+                            }}
+                          >
+                            Quitar
+                          </button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="mt-2 max-w-md">
+                    <ElegirProducto
+                      productos={productos}
+                      ocupado={ocupado}
+                      placeholder={`+ Otra opción de ${g.grupo}`}
+                      onElegir={(p) => hacer(() => agregarOpcionCombo(sb, combo.id, g.grupo, p.id), `«${p.nombre}» es opción de ${g.grupo}`)}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-4 border border-dashed border-sa-green-ink/20 rounded-sa p-3">
+              <p className="text-sm font-semibold text-sa-green-ink mb-2">Nuevo grupo para elegir</p>
+              <div className="grid sm:grid-cols-2 gap-2">
+                <input
+                  className={cx.input}
+                  placeholder="Nombre del grupo (Café, Té, Muffin…)"
+                  value={nuevoGrupo}
+                  onChange={(e) => setNuevoGrupo(e.target.value)}
+                />
+                {nuevoGrupo.trim().length >= 2 ? (
+                  <ElegirProducto
+                    productos={productos}
+                    ocupado={ocupado}
+                    placeholder="Primera opción (escribe el producto)"
+                    onElegir={(p) =>
+                      hacer(async () => {
+                        await agregarOpcionCombo(sb, combo.id, nuevoGrupo.trim(), p.id)
+                        setNuevoGrupo('')
+                      }, `Grupo «${nuevoGrupo.trim()}» creado con «${p.nombre}». Agrégale al menos otra opción.`)
+                    }
+                  />
+                ) : (
+                  <p className={`text-xs self-center ${cx.muted}`}>Primero el nombre del grupo.</p>
+                )}
+              </div>
+            </div>
+          </section>
+
+          {combo.extras_sueltos > 0 && (
+            <p className={`text-xs ${cx.muted}`}>
+              Además tiene {combo.extras_sueltos} extra{combo.extras_sueltos === 1 ? '' : 's'} con costo que no son «elige una»
+              (leches, suplementos). Se cobran aparte y se administran en Admin → Extras.
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  )
 }
 
 export default function Combos() {
-  const [combos, setCombos] = useState<ComboVista[]>([])
+  const [combos, setCombos] = useState<ComboArmado[]>([])
   const [productos, setProductos] = useState<Producto[]>([])
-  const [categorias, setCategorias] = useState<Categoria[]>([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [ok, setOk] = useState<string | null>(null)
-
-  const [form, setForm] = useState<FormCombo>(FORM_VACIO)
-  const [guardando, setGuardando] = useState(false)
-
-  const [comboEditando, setComboEditando] = useState<string | null>(null)
-  const [nuevoComponenteId, setNuevoComponenteId] = useState('')
-  const [nuevaCantidad, setNuevaCantidad] = useState('1')
-  const [guardandoComponente, setGuardandoComponente] = useState(false)
-  const [paqueteEdit, setPaqueteEdit] = useState<{ id: string; nombre: string; precio: string } | null>(null)
-
-  async function guardarPaquete() {
-    if (!paqueteEdit || !paqueteEdit.nombre.trim()) return
-    setGuardando(true)
-    setError(null)
-    try {
-      await actualizarProducto(sb, paqueteEdit.id, {
-        nombre: paqueteEdit.nombre.trim(),
-        precio: Number(paqueteEdit.precio) || 0,
-      })
-      setPaqueteEdit(null)
-      setOk('Paquete guardado')
-      await cargar()
-    } catch (e) {
-      setError(mensajeDeError(e))
-    } finally {
-      setGuardando(false)
-    }
-  }
-
-  async function alternarPaquete(p: Producto) {
-    setError(null)
-    try {
-      await actualizarProducto(sb, p.id, { activo: !p.activo })
-      await cargar()
-    } catch (e) {
-      setError(mensajeDeError(e))
-    }
-  }
-
-  const catPorId = useMemo(() => {
-    const m = new Map<string, Categoria>()
-    categorias.forEach((c) => m.set(c.id, c))
-    return m
-  }, [categorias])
-
-  /** Estación (cocina) de un producto, vía su categoría. */
-  const cocinaDe = (productoId: string | null | undefined): string | null => {
-    if (!productoId) return null
-    const p = productos.find((x) => x.id === productoId)
-    return p?.categoria_id ? catPorId.get(p.categoria_id)?.cocina_id ?? null : null
-  }
-
-  /**
-   * La estación a la que ya quedó comprometido un combo: la de su categoría
-   * o, si no tiene, la de su primer componente. El servidor exige que todos
-   * los componentes sean de la misma (v1 no arma combos que crucen barra y
-   * cocina), así que conviene saberla antes de ofrecer la lista.
-   */
-  const cocinaDelCombo = (combo: ComboVista | undefined): string | null => {
-    if (!combo) return null
-    const porCategoria = combo.categoria_id ? catPorId.get(combo.categoria_id)?.cocina_id : null
-    if (porCategoria) return porCategoria
-    const primero = componentesDe(combo)[0]
-    return primero ? cocinaDe(primero.producto_id) : null
-  }
-
-  /**
-   * Productos que se pueden agregar como componente.
-   *
-   * Antes la lista ofrecía TODO lo activo y el servidor rechazaba con un
-   * error que además se veía como "[object Object]": elegir "Americano" en
-   * un combo de alimentos era un callejón sin salida sin explicación. Ahora
-   * se ofrece solo lo que va a pasar: nada de combos (no hay anidados),
-   * nada de extras (leches y "Sin leche" no son componentes) y solo la
-   * estación a la que el combo ya pertenece.
-   */
-  const productosParaComponente = useMemo(() => {
-    const combo = combos.find((c) => c.id === comboEditando)
-    const cocina = cocinaDelCombo(combo)
-    return productos.filter((p) => {
-      if (p.es_combo || p.es_extra) return false
-      if (!cocina) return true
-      return cocinaDe(p.id) === cocina
-    })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [productos, combos, comboEditando, catPorId])
+  const [nuevo, setNuevo] = useState({ nombre: '', precio: '' })
+  const [creando, setCreando] = useState(false)
+  const [verApagados, setVerApagados] = useState(false)
 
   async function cargar() {
     try {
-      const [cs, ps, cats] = await Promise.all([listarCombos(sb), listarProductos(sb), listarCategorias(sb)])
+      const [cs, ps] = await Promise.all([combosArmados(sb), listarProductos(sb)])
+      const idsCombos = new Set(cs.map((c) => c.id))
       setCombos(cs)
-      setProductos(ps)
-      setCategorias(cats)
+      // Solo productos del menú: ni extras ni otros combos.
+      setProductos(ps.filter((p) => !p.es_extra && !p.es_combo && !idsCombos.has(p.id)))
       setError(null)
     } catch (e) {
       setError(mensajeDeError(e))
@@ -148,306 +440,88 @@ export default function Combos() {
     void cargar()
   }, [])
 
-  async function guardarCombo() {
-    if (!form.nombre.trim()) return
-    setGuardando(true)
-    setError(null)
-    try {
-      await crearCombo(sb, {
-        nombre: form.nombre.trim(),
-        precio: Number(form.precio) || 0,
-        categoria_id: form.categoria_id || null,
-      })
-      setForm(FORM_VACIO)
-      setOk('Combo creado. Ahora agrégale sus componentes abajo.')
-      await cargar()
-      setTimeout(() => setOk(null), 4000)
-    } catch (e) {
-      setError(mensajeDeError(e))
-    } finally {
-      setGuardando(false)
-    }
+  function avisar(m: string) {
+    setOk(m)
+    setTimeout(() => setOk(null), 4000)
   }
 
-  async function toggleActivo(combo: ComboVista) {
-    if (!combo.id) return
+  async function crear() {
+    setCreando(true)
     setError(null)
     try {
-      await actualizarProducto(sb, combo.id, { activo: !combo.activo })
-      await cargar()
-    } catch (e) {
-      setError(mensajeDeError(e))
-    }
-  }
-
-  /** Eliminar un combo desactivado. Si ya se vendió, se archiva en vez de borrarse. */
-  async function eliminarCombo(combo: ComboVista) {
-    if (!combo.id) return
-    if (!window.confirm(`¿Eliminar el combo «${combo.nombre}»? No se puede deshacer.`)) return
-    setError(null)
-    try {
-      const r = await eliminarProducto(sb, combo.id)
-      setOk(r === 'borrado'
-        ? `«${combo.nombre}» se eliminó.`
-        : `«${combo.nombre}» se eliminó de la lista. Como ya se había vendido, los tickets viejos lo siguen mostrando.`)
-      if (comboEditando === combo.id) setComboEditando(null)
-      await cargar()
-      setTimeout(() => setOk(null), 5000)
-    } catch (e) {
-      setError(mensajeDeError(e))
-    }
-  }
-
-  async function agregarComponente(comboId: string) {
-    if (!nuevoComponenteId || !(Number(nuevaCantidad) > 0)) return
-    setGuardandoComponente(true)
-    setError(null)
-    try {
-      // El formulario prometía "se fija con el primer componente" y nadie
-      // lo cumplía: el combo se quedaba sin categoría para siempre y así
-      // no sale bajo ningún botón del kiosko. Aquí se cumple de verdad.
-      const combo = combos.find((c) => c.id === comboId)
-      const componente = productos.find((p) => p.id === nuevoComponenteId)
-      if (combo && !combo.categoria_id && componente?.categoria_id) {
-        await moverCategoriaProducto(sb, comboId, componente.categoria_id)
-      }
-      await agregarComponenteCombo(sb, comboId, nuevoComponenteId, Number(nuevaCantidad))
-      setNuevoComponenteId('')
-      setNuevaCantidad('1')
+      await crearComboArmado(sb, nuevo.nombre.trim(), Number(nuevo.precio))
+      setNuevo({ nombre: '', precio: '' })
+      setVerApagados(true)
+      avisar('Combo creado APAGADO. Agrégale lo fijo y sus grupos abajo, y préndelo cuando diga «Listo».')
       await cargar()
     } catch (e) {
       setError(mensajeDeError(e))
     } finally {
-      setGuardandoComponente(false)
+      setCreando(false)
     }
   }
 
-  async function quitarComponente(comboId: string, productoId: string) {
-    setError(null)
-    try {
-      await quitarComponenteCombo(sb, comboId, productoId)
-      await cargar()
-    } catch (e) {
-      setError(mensajeDeError(e))
-    }
-  }
+  const prendidos = combos.filter((c) => c.activo)
+  const apagados = combos.filter((c) => !c.activo)
 
   if (cargando) return <Loading>Cargando combos…</Loading>
-
-  const combo = combos.find((c) => c.id === comboEditando) ?? null
-  // Paquetes tipo "Paquete Americano": viven en la categoría Combos pero no
-  // son combos de componentes — sus opciones son extras del producto.
-  const paquetes = productos.filter(
-    (p) => !p.es_combo && p.categoria_id && catPorId.get(p.categoria_id)?.nombre === 'Combos',
-  )
 
   return (
     <div>
       <PageHeader
         title="Combos"
-        subtitle="Productos que agrupan otros productos ya existentes con un precio propio — se venden y descuentan de inventario exactamente igual que cualquier producto."
+        subtitle={
+          <>
+            Lo que trae <b>siempre</b> y lo que el cliente <b>elige</b>. Cada parte descuenta la receta de su producto
+            real (la de Costeos). Los precios y recetas de cada producto se siguen cambiando en Costeos.
+          </>
+        }
       />
-
       {error && <ErrorMsg>{error}</ErrorMsg>}
       {ok && <OkMsg>{ok}</OkMsg>}
 
-      <div className="space-y-6">
-        {paquetes.length > 0 && (
-          <Panel title="Paquetes (armados con extras)">
-            <p className={`${cx.muted} text-sm mb-4`}>
-              Estos no son combos de componentes: son un producto normal cuyas
-              opciones (el americano frío o caliente, la galleta) se ofrecen
-              como extras. Aquí cambias nombre, precio y si está a la venta;
-              sus opciones se administran en <b>Extras → Dónde se ofrece</b>.
-              Es también la única forma hoy de vender juntos barra y cocina
-              (café + galletas) en un solo botón.
-            </p>
-            <div className="space-y-2">
-              {paquetes.map((p) => (
-                <div key={p.id} className="flex flex-wrap items-center gap-3 bg-sa-cream-soft rounded-sa px-4 py-3">
-                  {paqueteEdit?.id === p.id ? (
-                    <>
-                      <input
-                        className={cx.input}
-                        style={{ maxWidth: 260 }}
-                        value={paqueteEdit.nombre}
-                        onChange={(e) => setPaqueteEdit({ ...paqueteEdit, nombre: e.target.value })}
-                      />
-                      <input
-                        className={cx.input}
-                        style={{ maxWidth: 110 }}
-                        type="number"
-                        value={paqueteEdit.precio}
-                        onChange={(e) => setPaqueteEdit({ ...paqueteEdit, precio: e.target.value })}
-                      />
-                      <button className={cx.btnPrimary} disabled={guardando} onClick={() => void guardarPaquete()}>
-                        Guardar
-                      </button>
-                      <button className={cx.btnSec} onClick={() => setPaqueteEdit(null)}>Cancelar</button>
-                    </>
-                  ) : (
-                    <>
-                      <span className="font-semibold text-sm text-sa-green-ink">{p.nombre}</span>
-                      <span className="font-mono text-sm text-sa-green-ink/60">{mxn(p.precio)}</span>
-                      <Chip tone={p.activo ? 'si' : 'no'}>{p.activo ? 'A la venta' : 'Apagado'}</Chip>
-                      <span className="flex-1" />
-                      <button
-                        className={cx.btnSec}
-                        onClick={() => setPaqueteEdit({ id: p.id, nombre: p.nombre, precio: String(p.precio) })}
-                      >
-                        Editar
-                      </button>
-                      <button className={cx.btnSec} onClick={() => void alternarPaquete(p)}>
-                        {p.activo ? 'Apagar' : 'Prender'}
-                      </button>
-                    </>
-                  )}
-                </div>
+      <div className="space-y-4">
+        {prendidos.map((c) => (
+          <TarjetaCombo key={c.id} combo={c} productos={productos} onCambio={cargar} onError={setError} onOk={avisar} />
+        ))}
+        {prendidos.length === 0 && <p className={cx.muted}>No hay combos prendidos.</p>}
+      </div>
+
+      {apagados.length > 0 && (
+        <div className="mt-8">
+          <button className={cx.btnSec} onClick={() => setVerApagados(!verApagados)}>
+            {verApagados ? 'Ocultar' : 'Ver'} apagados ({apagados.length})
+          </button>
+          {verApagados && (
+            <div className="space-y-4 mt-4">
+              {apagados.map((c) => (
+                <TarjetaCombo key={c.id} combo={c} productos={productos} onCambio={cargar} onError={setError} onOk={avisar} />
               ))}
-            </div>
-          </Panel>
-        )}
-
-        <Panel title="Nuevo combo">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <Field label="Nombre">
-              <input className={cx.input} value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} />
-            </Field>
-            <Field label="Precio ($)">
-              <input className={cx.input} type="number" value={form.precio} onChange={(e) => setForm({ ...form, precio: e.target.value })} />
-            </Field>
-            <Field label="Categoría">
-              <select className={cx.input} value={form.categoria_id} onChange={(e) => setForm({ ...form, categoria_id: e.target.value })}>
-                <option value="">— Sin categoría (se fija con el primer componente) —</option>
-                {categorias.map((c) => (
-                  <option key={c.id} value={c.id}>{c.nombre}</option>
-                ))}
-              </select>
-            </Field>
-          </div>
-          <p className={`${cx.muted} text-xs mt-2`}>
-            Todos los componentes de un combo deben ser de la misma estación (cocina) — no se puede mezclar, por
-            ejemplo, un shake con un alimento en el mismo combo.
-          </p>
-          <div className="flex gap-2 mt-4">
-            <button className={cx.btnPrimary} disabled={guardando || !form.nombre.trim()} onClick={() => void guardarCombo()}>
-              {guardando ? 'Guardando…' : 'Crear combo'}
-            </button>
-          </div>
-        </Panel>
-
-        <div>
-          <h3 className={`${cx.h3} mb-4`}>Combos existentes</h3>
-          {combos.length === 0 ? (
-            <Panel><p className={cx.muted}>No hay combos todavía.</p></Panel>
-          ) : (
-            <div className={cx.tableWrap}>
-              <table className={cx.table}>
-                <thead>
-                  <tr className={cx.thead}>
-                    <th className={cx.th}>Nombre</th>
-                    <th className={cx.th}>Categoría</th>
-                    <th className={cx.thNum}>Precio</th>
-                    <th className={cx.thNum}>Costo</th>
-                    <th className={cx.thNum}>Margen</th>
-                    <th className={cx.th}>Componentes</th>
-                    <th className={cx.th}>Activo</th>
-                    <th className={cx.thNum}>Acciones</th>
-                  </tr>
-                </thead>
-                <tbody className={cx.tbody}>
-                  {combos.map((c) => {
-                    const comps = componentesDe(c)
-                    return (
-                      <tr key={c.id} className={cx.tr}>
-                        <td className={`${cx.td} font-medium`}>{c.nombre}</td>
-                        <td className={cx.td}>{c.categoria_id ? catPorId.get(c.categoria_id)?.nombre ?? '—' : '—'}</td>
-                        <td className={cx.tdNum}>{mxn(c.precio ?? 0)}</td>
-                        <td className={cx.tdNum}>{c.costo_total != null ? mxn(c.costo_total) : '—'}</td>
-                        <td className={cx.tdNum}>
-                          {c.margen != null ? mxn(c.margen) : '—'}
-                          {c.margen_pct != null && <span className={`${cx.muted} ml-1`}>({(c.margen_pct * 100).toFixed(0)}%)</span>}
-                        </td>
-                        <td className={cx.td}>
-                          {comps.length === 0 ? (
-                            <span className={cx.muted}>Sin componentes</span>
-                          ) : (
-                            <div className="flex flex-col gap-0.5">
-                              {comps.map((comp) => (
-                                <span key={comp.producto_id} className={comp.activo ? '' : 'text-sa-strawberry'}>
-                                  {comp.cantidad}× {comp.nombre}{!comp.activo && ' (inactivo)'}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                          {c.todos_componentes_activos === false && (
-                            <div className="mt-1"><Chip tone="no">⚠ tiene un componente inactivo</Chip></div>
-                          )}
-                        </td>
-                        <td className={cx.td}><Chip tone={c.activo ? 'si' : 'no'}>{c.activo ? 'Sí' : 'No'}</Chip></td>
-                        <td className={cx.tdNum}>
-                          <div className="flex items-center justify-end gap-2">
-                            <button className={cx.btnSec} onClick={() => setComboEditando(comboEditando === c.id ? null : c.id)}>
-                              {comboEditando === c.id ? 'Cerrar' : 'Componentes'}
-                            </button>
-                            <button className={cx.btnSec} onClick={() => void toggleActivo(c)}>
-                              {c.activo ? 'Desactivar' : 'Activar'}
-                            </button>
-                            {!c.activo && (
-                              <button
-                                className={`${cx.btnSec} !text-sa-strawberry`}
-                                onClick={() => void eliminarCombo(c)}
-                              >
-                                Eliminar
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
             </div>
           )}
         </div>
+      )}
 
-        {combo && combo.id && (
-          <Panel title={`Componentes de "${combo.nombre}"`}>
-            <div className="space-y-2 mb-4">
-              {componentesDe(combo).length === 0 && <p className={cx.muted}>Este combo todavía no tiene componentes.</p>}
-              {componentesDe(combo).map((comp) => (
-                <div key={comp.producto_id} className="flex items-center justify-between gap-3 py-1.5 border-b border-sa-green-ink/5 last:border-0">
-                  <span>{comp.cantidad}× {comp.nombre}{!comp.activo && <span className="text-sa-strawberry"> (inactivo)</span>}</span>
-                  <button className={cx.btnSec} onClick={() => void quitarComponente(combo.id as string, comp.producto_id)}>
-                    Quitar
-                  </button>
-                </div>
-              ))}
-            </div>
-            <div className="flex flex-wrap items-end gap-3">
-              <Field label="Agregar producto">
-                <select className={cx.input} value={nuevoComponenteId} onChange={(e) => setNuevoComponenteId(e.target.value)}>
-                  <option value="">— Selecciona —</option>
-                  {productosParaComponente.map((p) => (
-                    <option key={p.id} value={p.id}>{p.nombre}</option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Cantidad">
-                <input className={cx.input} style={{ width: 90 }} type="number" min="1" value={nuevaCantidad} onChange={(e) => setNuevaCantidad(e.target.value)} />
-              </Field>
-              <button
-                className={cx.btnPrimary}
-                disabled={guardandoComponente || !nuevoComponenteId}
-                onClick={() => void agregarComponente(combo.id as string)}
-              >
-                {guardandoComponente ? 'Agregando…' : '+ Agregar'}
-              </button>
-            </div>
-          </Panel>
-        )}
-      </div>
+      <Panel title="Nuevo combo" className="mt-8">
+        <p className={`text-sm mb-4 ${cx.muted}`}>
+          Nace apagado, en la categoría Combos. Después le agregas lo fijo y sus grupos, y lo prendes.
+        </p>
+        <div className="grid sm:grid-cols-[1fr_10rem_auto] gap-3 items-end">
+          <Field label="Nombre">
+            <input className={cx.input} value={nuevo.nombre} onChange={(e) => setNuevo({ ...nuevo, nombre: e.target.value })} placeholder="Milo's Bagel-Americano" />
+          </Field>
+          <Field label="Precio">
+            <input className={cx.input} inputMode="decimal" value={nuevo.precio} onChange={(e) => setNuevo({ ...nuevo, precio: e.target.value })} placeholder="99" />
+          </Field>
+          <button
+            className={cx.btnPrimary}
+            disabled={creando || nuevo.nombre.trim().length < 3 || !(Number(nuevo.precio) > 0)}
+            onClick={crear}
+          >
+            {creando ? 'Creando…' : 'Crear combo'}
+          </button>
+        </div>
+      </Panel>
     </div>
   )
 }

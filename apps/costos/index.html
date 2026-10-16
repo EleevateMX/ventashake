@@ -912,35 +912,42 @@ function render(){const m=document.getElementById("main");
   if(tab==="combos")return renderCombosView(m);}
 
 /* ---------------- COMBOS (lectura, desde el esquema real) ----------------
-   Los combos se crean y editan en Admin → Combos (tablas reales, ver
-   docs/combos-promociones.md). Aquí solo se consulta su costeo en vivo
-   (vw_combos), porque el costo de un combo depende de las recetas reales
-   de sus componentes — no del documento JSON de esta app. */
+   Los combos se arman en Admin → Combos (16/10/26): lo que traen SIEMPRE
+   (combo_fijos) y lo que el cliente ELIGE (grupos), cada opción ligada a su
+   producto real. Aquí solo se consulta su costeo en vivo (vw_combos_armados):
+   el costo sale de las recetas de esta app, ya sincronizadas, y por eso es
+   un rango — depende de qué elija el cliente. */
 async function renderCombosView(m){
   m.innerHTML=`<h2>Combos</h2>
-    <p class="hint">Los combos se administran en <b>Admin → Combos</b> (productos que agrupan otros productos con precio propio). Aquí ves su costeo en vivo calculado desde las recetas reales de sus componentes — se actualiza solo cuando cambia el costo de cualquier componente.</p>
+    <p class="hint">Los combos se arman en <b>Admin → Combos</b>: lo que traen siempre y lo que el cliente elige. Cada opción descuenta la receta de su producto real, la de esta app. Aquí ves su costeo en vivo: el costo es un <b>rango</b> porque depende de lo que se elija.</p>
     <div id="combosBody" class="muted" style="padding:12px 0">Cargando…</div>`;
   const body=m.querySelector("#combosBody");
   try{
-    const {data,error}=await sb.from("vw_combos").select("*").order("nombre");
+    const {data,error}=await sb.from("vw_combos_armados").select("*").order("activo",{ascending:false}).order("nombre");
     if(error)throw error;
     const rows=data||[];
     if(!rows.length){body.innerHTML=`<div class="empty">Aún no hay combos. Créalos en Admin → Combos.</div>`;return;}
+    const rango=(a,b,f)=>Math.abs(a-b)<0.005?f(a):`${f(a)} – ${f(b)}`;
+    const pctTxt=x=>(x*100).toFixed(0)+"%";
     body.innerHTML=`<div class="scroll"><table><thead><tr>
-      <th class="sticky">Combo</th><th>Componentes</th><th class="num">Precio</th><th class="num">Costo</th><th class="num">Margen</th><th class="num">FC%</th><th>Estado</th></tr></thead><tbody>
+      <th class="sticky">Combo</th><th>Siempre incluye</th><th>El cliente elige</th><th class="num">Precio</th><th class="num">Costo</th><th class="num">Margen</th><th class="num">FC%</th><th>Estado</th></tr></thead><tbody>
       ${rows.map(r=>{
-        const comps=Array.isArray(r.componentes)?r.componentes:[];
-        const compTxt=comps.length?comps.map(c=>`${num(c.cantidad)}× ${esc(c.nombre)}${c.activo?"":" ⚠"}`).join("<br>"):"<span class='muted'>Sin componentes</span>";
+        const fijos=Array.isArray(r.fijos)?r.fijos:[];
+        const grupos=Array.isArray(r.grupos)?r.grupos:[];
+        const fijTxt=fijos.length?fijos.map(f=>`${num(f.cantidad)}× ${esc(f.nombre)} <span class="muted">${f.costo!=null?fmt(f.costo):"—"}</span>`).join("<br>"):"<span class='muted'>—</span>";
+        const grpTxt=grupos.length?grupos.map(g=>`<b>${esc(g.grupo)}:</b> ${(g.opciones||[]).map(o=>`${esc(o.nombre)} <span class="muted">${fmt(o.costo||0)}</span>`).join(" · ")}`).join("<br>"):"<span class='muted'>—</span>";
+        const psi=Number(r.precio_sin_iva)||0, cmin=Number(r.costo_min)||0, cmax=Number(r.costo_max)||0;
         return `<tr>
         <td class="sticky"><b>${esc(r.nombre)}</b></td>
-        <td style="font-size:12px">${compTxt}</td>
-        <td class="num">${fmt(r.precio||0)}</td>
-        <td class="num">${r.costo_total!=null?fmt(r.costo_total):"—"}</td>
-        <td class="num">${r.margen!=null?fmt(r.margen):"—"}${r.margen_pct!=null?` <span class="muted" style="font-size:11px">(${(r.margen_pct*100).toFixed(0)}%)</span>`:""}</td>
-        <td class="num">${r.food_cost_pct!=null?(r.food_cost_pct*100).toFixed(0)+"%":"—"}</td>
-        <td>${r.activo?'<span class="pill ok">Activo</span>':'<span class="pill bad">Inactivo</span>'}${r.todos_componentes_activos===false?' <span class="pill warn">Componente inactivo</span>':""}</td></tr>`;}).join("")}
+        <td style="font-size:12px">${fijTxt}</td>
+        <td style="font-size:12px">${grpTxt}</td>
+        <td class="num">${fmt(Number(r.precio)||0)}</td>
+        <td class="num">${rango(cmin,cmax,fmt)}</td>
+        <td class="num">${psi>0?rango(psi-cmax,psi-cmin,fmt):"—"}</td>
+        <td class="num">${psi>0?rango(cmin/psi,cmax/psi,pctTxt):"—"}</td>
+        <td>${r.activo?'<span class="pill ok">Activo</span>':'<span class="pill bad">Inactivo</span>'}</td></tr>`;}).join("")}
     </tbody></table></div>
-    <p class="legend">El costo incluye receta + empaque de cada componente (con merma y mano de obra según parámetros del esquema real). Un combo se desactiva solo si cualquiera de sus componentes se desactiva.</p>`;
+    <p class="legend">Margen y FC% sobre el precio sin IVA. El costo de cada parte es el de su receta en esta app (con empaque); si una receta tiene un ingrediente en 0, el combo sale más barato de lo que es — Admin → Combos lo marca.</p>`;
   }catch(e){body.innerHTML=`<p class="merr" style="display:block">No se pudo cargar: ${esc(e.message||String(e))}</p>`;}
 }
 

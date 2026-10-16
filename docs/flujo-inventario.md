@@ -63,6 +63,13 @@ La unidad del insumo de proteína es el **scoop**, en los dos almacenes.
 - Se aplicó con toda la proteína en 0 (el reinicio del 07/10): el cambio de
   unidad no tuvo números viejos que convertir.
 
+## Combos: cada parte descuenta su producto real (16/10/26)
+
+La opción elegida (muffin, té, café, galleta) descuenta la receta de su
+producto real vía `inventario_como`, y lo que el combo trae siempre (la
+chapata) sale de `combo_fijos`. Se arma en Admin → Combos, con semáforo.
+Detalle en `docs/combos-promociones.md`.
+
 ## Pendiente
 
 - UI de compras/transferencias/mermas (fase 7, en `apps/admin` o

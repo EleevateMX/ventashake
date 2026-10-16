@@ -4,6 +4,57 @@ Cómo funcionan los combos, por qué se diseñaron así, y su relación con
 "Promociones" (que ya existía de una ronda anterior y es algo distinto).
 Migración: `supabase/migrations/costeo_combos_productos.sql`.
 
+## Combos armados: fijos + «elige una», y cada parte descuenta lo suyo (16/10/26)
+
+> **Esto reemplaza lo de abajo para los combos que se venden hoy.** El
+> modelo viejo (`combo_items`, `es_combo`, `fn_combo_recalcular`) sigue en
+> la base pero ya no se administra: su único combo (Milo's Chapata Pick)
+> está apagado.
+
+**Lo que estaba mal.** Los combos vivos son productos de la categoría
+Combos y sus opciones son extras con `producto_extras.grupo`. La venta sí
+guardaba lo que eligió el cliente (renglones hijos), pero esos extras eran
+copias **sin receta**: el «Blueberry» del combo no era el «Muffin -
+Blueberry». En 30 días se vendieron **214 combos y no bajó ni un sándwich,
+wrap, té, muffin, galleta ni chapata**. La chapata ni siquiera estaba
+ligada. Solo los cafés descontaban, con recetas copiadas que ya se habían
+separado. No se corrige hacia atrás: el siguiente conteo físico lo ajusta.
+
+**El modelo** (`combos_1…3*.sql`):
+
+- `inventario_como(producto_id → como_producto_id)`: la opción del combo
+  descuenta la receta de su **producto real**, la que mantiene Costeos. Sin
+  copias que se separen.
+- `combo_fijos(combo_id, producto_id, cantidad)`: lo que el combo trae
+  **siempre** (la chapata de los dos Milo).
+- `fn_descontar_inventario_por_orden` (parche con ancla, camino del dinero):
+  cada renglón descuenta `coalesce(inventario_como, él mismo)` y hay una
+  rama más para `combo_fijos` (receta × cantidad × combos). **Sin descuento
+  doble**: el combo no tiene receta, cada opción descuenta una vez como
+  renglón hijo y lo fijo una vez por combo. NO se reusó `combo_items`:
+  `fn_combo_recalcular` copia la receta al combo y, con la expansión del
+  trigger, descontaría dos veces.
+- Kiosko y POS **no cambiaron**: ya pintaban los grupos como «elige una».
+
+**Admin → Combos** es el único lugar (`fn_combos_admin`, todo gerencia):
+tarjeta por combo con precio, costo mín–máx y margen sobre el precio sin
+IVA, **semáforo** (`avisos`, lo arma el servidor), «Siempre incluye»
+(`fn_combo_fijo_guardar`) y «El cliente elige» (`fn_combo_opcion_agregar`
+reusa el gemelo ligado o lo crea; `fn_combo_opcion_ligar` cambia a qué
+producto descuenta; quitar una opción es `fn_quitar_extra`). Un combo nuevo
+(`fn_combo_crear`) **nace apagado**. El semáforo avisa: opción sin ligar
+(no descuenta nada), grupo de una sola opción, producto real apagado o sin
+receta, e ingredientes en 0 en Costeos.
+
+- **Quitar algo fijo** (`fn_combo_fijo_quitar`,
+  `combos_4_quitar_fijo_PENDIENTE.sql`) **no está aplicado**: lleva un
+  `delete` y el conector de Supabase pide aprobarlo en la app. Mientras, la
+  pantalla lo dice en vez de fallar mudo.
+- **Costeos → Combos** lee `vw_combos_armados` (security_invoker): fijos,
+  grupos con el costo de cada opción, y costo/margen/FC% como rango.
+- Admin → Inventario → «Lo que no descuenta» ya entiende las opciones
+  ligadas y los combos armados (`fn_producto_descuenta`).
+
 ## Las promos que cobran, y las que solo se sugieren (27/08/26)
 
 Durante meses, `promociones` la leía **una sola** función,
