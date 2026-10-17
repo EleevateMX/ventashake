@@ -70,6 +70,18 @@ producto real vía `inventario_como`, y lo que el combo trae siempre (la
 chapata) sale de `combo_fijos`. Se arma en Admin → Combos, con semáforo.
 Detalle en `docs/combos-promociones.md`.
 
+## Kardex en Costeos y conteo por peso (17/10/26)
+
+- El 📜 de Costeos → Inventario lee el sistema (`fn_costos_kardex` →
+  `fn_kardex`): ventas con ticket, hora, quién cobró, existencia antes y
+  después de cada movimiento. Mismo cálculo que el Kardex de Admin.
+- ⚖ en el conteo del kiosko: gramos netos ÷ (presentación ÷ scoops por
+  bote). Varios botes abiertos se suman; los cerrados cuentan bote × scoops.
+  Ingredientes por porción: gramos ÷ porción.
+- Cancelar una venta no regresa nada solo. Con «Regresar al inventario»
+  (Admin) se escribe un movimiento `ajuste` con nota «Cancelacion folio N»
+  y `referencia_id` = la orden; el Kardex lo enseña como «Cancelación».
+
 ## Pendiente
 
 - UI de compras/transferencias/mermas (fase 7, en `apps/admin` o

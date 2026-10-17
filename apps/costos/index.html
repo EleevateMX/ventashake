@@ -283,6 +283,23 @@
   .kxtag.salida{background:var(--bad-bg);color:var(--bad)}
   .kxgen{display:flex;flex-wrap:wrap;gap:var(--s2) var(--s4);font-size:var(--t-sm);margin:var(--s2) 0 var(--s3);color:var(--ink)}
   .kxgen b{color:var(--green);font-family:var(--mono);font-weight:500}
+  /* Kardex real (17/10/26): lo que el sistema descontó, venta por venta. */
+  .kxtag.venta{background:var(--bad-bg);color:var(--bad)}
+  .kxtag.entrada,.kxtag.cancelacion{background:var(--ok-bg);color:var(--green)}
+  .kxtag.conteo{background:rgba(108,74,158,.12);color:var(--blueberry)}
+  .kxtag.reinicio,.kxtag.costeos{background:var(--warn-bg);color:var(--warn-ink)}
+  .kxmodal{max-width:1120px!important;max-height:92vh;overflow:auto}
+  .kxtiles{display:flex;gap:var(--s2);flex-wrap:wrap;margin:0 0 var(--s3)}
+  .kxtile{background:var(--paper);border:1px solid var(--line);border-radius:var(--r-sm);padding:var(--s2) var(--s4);min-width:120px;text-align:center}
+  .kxtile .k{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+  .kxtile .v{font-family:var(--display);font-size:28px;color:var(--green);line-height:1.15}
+  .kxtile .u{font-size:var(--t-xs);color:var(--muted)}
+  .kxfil{display:flex;gap:var(--s2);flex-wrap:wrap;margin-bottom:var(--s2)}
+  .kxfil select{width:auto;padding:var(--s2) var(--s3);border-radius:var(--r-sm)}
+  .kxtk{background:none;border:0;padding:0;color:var(--green);font:inherit;font-weight:600;text-decoration:underline;cursor:pointer}
+  .kxdet td{background:var(--paper)}
+  .kxdet ul{margin:var(--s1) 0 0;padding-left:var(--s4)}
+  .kxcan{font-family:var(--mono);font-size:10px;color:var(--bad);text-transform:uppercase;letter-spacing:.06em;margin-left:var(--s1)}
 
   @media print{
     header,nav,.toolbar,.addbar,.legend,.no-print,.seg,.filterbar,.sessbtns,.cards{display:none!important}
@@ -1486,7 +1503,7 @@ function renderInventario(m){
       if(it.conteoBodega!==undefined&&it.conteoBodega!==""){it[cfg.orig]=+it.conteoBodega||0;kardexPush(cat,i,{f,tipo:"ajuste",ent:0,sal:0,exist:+it[cfg.orig]||0,precio:"",cad:"",nota:"Conteo físico (bodega)"});}
       if(it.conteoKiosko!==undefined&&it.conteoKiosko!==""){it[cfg.ind]=(+it.conteoKiosko||0)*(factorInv(cat,it,cfg,"kiosko")||1);kardexPush(cat,i,{f,tipo:"ajuste",ent:0,sal:0,exist:+it[cfg.ind]||0,precio:"",cad:"",nota:"Conteo físico (kiosko)"});}
       /* Contado y aplicado: se limpia para que no se vuelva a aplicar. */
-      delete it.conteoBodega;delete it.conteoKiosko;}));
+      delete it.conteoBodega;delete it.conteoKiosko;delete it.conteoPeso;}));
     save();await cargarVivo();render();
     if(res){const sin=(res.sin_empate||[]);alert("Conteo aplicado: "+res.cambiaron+" existencia"+(res.cambiaron===1?"":"s")+" corregida"+(res.cambiaron===1?"":"s")+" en el sistema."+(sin.length?"\n\nSin producto en el sistema (revisa el nombre): "+sin.join(", "):""));}};
   paintInv();
@@ -1531,7 +1548,7 @@ function paintInv(){
       <td class="sticky">${esc(name)}</td><td class="muted">${CATLABEL[cat]}</td><td class="muted">${esc(it.codigo)}</td><td>${presG(cat,it)}</td>
       <td class="num">${num(valInv(cat,it,cfg,"kiosko"))} <span class="muted" style="font-size:11px">${unidadInv(cat,it,cfg,"kiosko")}</span>${notaCosteos(cat,it,cfg,"kiosko")}</td>
       <td class="num muted">${num(it[cfg.indMin])}</td>
-      <td class="num"><input class="n w-sm invconteo" data-conteo="kiosko" value="${it.conteoKiosko!==undefined?esc(it.conteoKiosko):''}" placeholder="${num(valInv(cat,it,cfg,"kiosko"))}"></td>
+      <td class="num"><span style="display:inline-flex;gap:4px;align-items:center"><input class="n w-sm invconteo" data-conteo="kiosko" value="${it.conteoKiosko!==undefined?esc(it.conteoKiosko):''}" placeholder="${num(valInv(cat,it,cfg,"kiosko"))}">${pesoPorUnidad(cat,it)?`<button class="btn ghost mini no-print" data-act="peso" title="Contar por peso: escribe los gramos netos y se convierten solos">⚖</button>`:""}</span>${it.conteoPeso&&it.conteoKiosko!==undefined&&String(it.conteoPeso.total)===String(it.conteoKiosko)?`<div class="muted" style="font-size:11px">por peso</div>`:""}</td>
       <td class="num" data-diff>${diffCell(it.conteoKiosko,valInv(cat,it,cfg,"kiosko"))}</td>
       <td>${stateCell(valInv(cat,it,cfg,"kiosko"),it[cfg.indMin])}</td>
       <td class="num muted">${num(valInv(cat,it,cfg,"bodega"))} ${cfg.origUnit}</td>
@@ -1552,6 +1569,7 @@ function paintInv(){
     <p class="legend"><span class="pill ok">OK</span> sobre el mínimo · <span class="pill warn">Bajo</span> en o bajo el mínimo · <span class="pill bad">Agotado</span> sin existencias. Caducidad: 🟡 ≤14 días o vencido.</p>`;
   body.querySelectorAll('[data-act="tr"]').forEach(b=>{const tr=b.closest("tr");b.onclick=()=>openTraspaso(tr.dataset.cat,+tr.dataset.i);});
   body.querySelectorAll('[data-act="kx"]').forEach(b=>{const tr=b.closest("tr");b.onclick=()=>openKardex(tr.dataset.cat,+tr.dataset.i);});
+  body.querySelectorAll('[data-act="peso"]').forEach(b=>{const tr=b.closest("tr");b.onclick=()=>abrirPesaje(tr.dataset.cat,+tr.dataset.i);});
   body.querySelectorAll("[data-conteo]").forEach(inp=>{const tr=inp.closest("tr"),cat=tr.dataset.cat,i=+tr.dataset.i,which=inp.dataset.conteo;
     inp.addEventListener("input",e=>{const it=state[cat][i],cfg=INV[cat],field=which==="bodega"?"conteoBodega":"conteoKiosko";it[field]=e.target.value;
       const sys=valInv(cat,it,cfg,which),dc=tr.querySelector("[data-diff]");if(dc)dc.innerHTML=diffCell(e.target.value,sys);save();});});
@@ -1785,37 +1803,191 @@ function openEntrada(){
   draw();
 }
 function buySugerido(it,cfg){const exist=+it[cfg.stock]||0,min=+it[cfg.min]||0;return min>0?Math.max(0,Math.ceil(min*2-exist)):0;}
+/* ---------------- CONTEO POR PESO (17/10/26) ----------------
+   Perla pesa cada bote abierto, le resta el envase y dividía a mano entre los
+   gramos de un scoop. Aquí escribe solo los gramos netos —de uno o varios
+   botes abiertos— y la división la hace la pantalla con lo que Costeos ya
+   sabe: presentación ÷ scoops por bote (o la porción de un ingrediente). Con
+   decimales: redondear aquí sería inventar una diferencia en el conteo.
+   No aplica a los botes de VENTA: esos se cuentan cerrados, por pieza. */
+function pesoPorUnidad(cat,it){
+  if(cat==="proteins"){if(esBoteVenta(cat,it))return null;const p=+it.pres,s=+it.scoops;return p>0&&s>0?{g:p/s,u:"scoop",us:"scoops",porBote:s}:null;}
+  if(cat==="shakeIngs"||cat==="foodIngs"){const q=+it.porcionQty,un=String(it.unidad||"").toLowerCase();return q>0&&(un==="g"||un==="ml")?{g:q,u:"porción",us:"porciones",porBote:porcPres(it)||0,ml:un==="ml"}:null;}
+  return null;}
+function r2(x){return Math.round(x*100)/100;}
+function abrirPesaje(cat,i){
+  const it=state[cat][i],cfg=INV[cat],pu=pesoPorUnidad(cat,it),host=document.getElementById("modalHost");if(!pu)return;
+  const prev=it.conteoPeso||{};const lineas=Array.isArray(prev.gramos)&&prev.gramos.length?prev.gramos.slice():[""];
+  let cerrados=prev.cerrados||"";
+  const g=pu.ml?"ml":"g";
+  const pintar=()=>{
+    const neto=lineas.reduce((a,x)=>a+(+x||0),0),abiertos=neto/pu.g,cer=(+cerrados||0)*(pu.porBote||0),total=r2(abiertos+cer);
+    const sys=valInv(cat,it,cfg,"kiosko");
+    host.innerHTML=`<div class="modal-bg"><div class="modal" style="max-width:520px">
+      <h3>⚖ Conteo por peso</h3>
+      <div class="sub">${esc(cfg.name(it))}</div>
+      <div class="kxgen">
+        <span><b>Presentación:</b> ${esc(cat==="proteins"?(it.pres+" g"):(it.cont+" "+(it.unidad||"")))}</span>
+        ${pu.porBote?`<span><b>${pu.us[0].toUpperCase()+pu.us.slice(1)} por ${cat==="proteins"?"bote":"presentación"}:</b> ${num(r2(pu.porBote))}</span>`:""}
+        <span><b>${g==="ml"?"Mililitros":"Gramos"} por ${pu.u}:</b> ${num(r2(pu.g))} ${g}</span>
+      </div>
+      <p class="hint" style="margin:0 0 var(--s2)">Pesa cada ${cat==="proteins"?"bote":"envase"} abierto, réstale el envase vacío y escribe lo que queda.</p>
+      ${lineas.map((x,k)=>`<div class="eline"><label style="min-width:140px">${cat==="proteins"?"Bote":"Envase"} abierto ${k+1} (${g} netos)</label>
+        <input class="n w-sm" data-l="${k}" inputmode="decimal" value="${esc(x)}" placeholder="0">
+        <span class="muted">= ${num(r2((+x||0)/pu.g))} ${pu.us}</span>
+        ${lineas.length>1?`<button class="btn ghost mini" data-q="${k}" title="Quitar">✕</button>`:""}</div>`).join("")}
+      <button class="btn ghost mini" id="ps_mas">+ Otro ${cat==="proteins"?"bote":"envase"} abierto</button>
+      ${pu.porBote?`<div class="eline" style="margin-top:var(--s3)"><label style="min-width:140px">Cerrados, sin abrir</label>
+        <input class="n w-sm" id="ps_cer" inputmode="numeric" value="${esc(cerrados)}" placeholder="0">
+        <span class="muted">× ${num(r2(pu.porBote))} = ${num(r2(cer))} ${pu.us}</span></div>`:""}
+      <div class="preview" style="margin-top:var(--s3)">
+        ${num(r2(neto))} ${g} ÷ ${num(r2(pu.g))} ${g} = <b>${num(r2(abiertos))} ${pu.us}</b> abiertos${cer?` + ${num(r2(cer))} cerrados`:""}<br>
+        Conteo: <b style="font-size:20px">${num(total)} ${pu.us}</b> · el sistema dice ${num(sys)} · diferencia ${diffCell(total,sys)}
+      </div>
+      <div class="mrow"><button class="btn ghost mini" id="ps_no">Cancelar</button><button class="btn mini" id="ps_ok">Usar como conteo</button></div>
+    </div></div>`;
+    host.querySelectorAll("[data-l]").forEach(inp=>{inp.oninput=e=>{lineas[+inp.dataset.l]=e.target.value.replace(",",".");refrescar(inp);};
+      inp.onkeydown=e=>{if(e.key==="Enter"){lineas.push("");pintar();const u=host.querySelectorAll("[data-l]");u[u.length-1].focus();}};});
+    host.querySelectorAll("[data-q]").forEach(b=>b.onclick=()=>{lineas.splice(+b.dataset.q,1);pintar();});
+    const cer2=host.querySelector("#ps_cer");if(cer2)cer2.oninput=e=>{cerrados=e.target.value;refrescar(cer2);};
+    host.querySelector("#ps_mas").onclick=()=>{lineas.push("");pintar();const u=host.querySelectorAll("[data-l]");u[u.length-1].focus();};
+    host.querySelector("#ps_no").onclick=()=>host.innerHTML="";
+    host.querySelector(".modal-bg").onclick=ev=>{if(ev.target.classList.contains("modal-bg"))host.innerHTML="";};
+    host.querySelector("#ps_ok").onclick=()=>{
+      it.conteoKiosko=String(total);
+      it.conteoPeso={gramos:lineas.filter(x=>x!==""),cerrados,gPorUnidad:r2(pu.g),total,cuando:new Date().toISOString()};
+      save();host.innerHTML="";paintInv();};};
+  /* Repinta conservando el cursor en el campo que se está escribiendo. */
+  const refrescar=inp=>{const sel=inp.dataset.l!=null?'[data-l="'+inp.dataset.l+'"]':"#"+inp.id,pos=inp.selectionStart;pintar();const n=host.querySelector(sel);if(n){n.focus();try{n.setSelectionRange(pos,pos);}catch(e){}}};
+  pintar();
+  const primero=host.querySelector("[data-l]");if(primero)primero.focus();}
+/* ---------------- KARDEX (17/10/26) ----------------
+   Lo que el SISTEMA descontó, venta por venta, con su ticket y la existencia
+   que fue quedando. Antes este Kardex era la lista que Costeos apuntaba en su
+   documento (compras, traspasos y conteos hechos aquí) y por eso nunca vio
+   una venta. Ahora lee `inventario_movimientos` por fn_costos_kardex: la
+   MISMA lectura que el Kardex de Admin (fn_kardex), con el saldo después de
+   cada renglón. Lo apuntado en Costeos sigue abajo, plegado, de referencia. */
+const KX_TIPO={venta:"Venta",compra:"Compra",entrada:"Entrada",conteo:"Conteo",ajuste:"Ajuste",costeos:"Ajuste Costeos",traspaso:"Traspaso",reinicio:"Reinicio",cancelacion:"Cancelación",produccion:"Producción",merma:"Merma",caducado:"Caducado",danado:"Dañado",error_preparacion:"Error de preparación",consumo_interno:"Consumo interno",otro:"Salida"};
+const KX_GRUPO={venta:"ventas",cancelacion:"ventas",compra:"compras",entrada:"compras",traspaso:"compras",conteo:"ajustes",ajuste:"ajustes",costeos:"ajustes",reinicio:"ajustes"};
+let kx=null;
+function kxFecha(iso){return new Date(iso).toLocaleDateString("es-MX",{timeZone:"America/Merida",day:"2-digit",month:"short",year:"numeric"});}
+function kxHora(iso){return new Date(iso).toLocaleTimeString("es-MX",{timeZone:"America/Merida",hour:"2-digit",minute:"2-digit"});}
+function kxUnidad(cat,cfg,alm){return cat==="proteins"?"scoops":(alm==="bodega"?cfg.origUnit:cfg.indUnit);}
+function kxDesde(p){if(p==="todo")return null;const d=new Date(Date.now()-(+p)*86400000);return d.toLocaleDateString("en-CA",{timeZone:"America/Merida"});}
 function openKardex(cat,i){
-  const cfg=INV[cat],it=state[cat][i],name=cfg.name(it),host=document.getElementById("modalHost");
-  const kx=Array.isArray(it.kardex)?it.kardex:[];
-  let prev=null;const marked=kx.map(mv=>{let up=false;if(mv.tipo==="compra"&&mv.precio!==""&&mv.precio!=null){const pr=+mv.precio;if(prev!=null&&pr>prev)up=true;prev=pr;}return Object.assign({},mv,{_up:up});});
-  const body=marked.length?marked.map(mv=>`<tr>
-      <td>${esc(mv.f||"")}</td>
-      <td><span class="kxtag ${mv.tipo||""}">${esc(mv.tipo||"")}</span></td>
-      <td class="muted">${esc(mv.factura||mv.doc||"")}</td>
-      <td class="num">${mv.ent?num(mv.ent):""}</td>
-      <td class="num">${mv.sal?num(mv.sal):""}</td>
-      <td class="num">${(mv.exist!==""&&mv.exist!=null)?num(mv.exist):""}</td>
-      <td class="num">${(mv.precio!==""&&mv.precio!=null)?fmt(mv.precio)+(mv._up?' <span class="kxup" title="Subió de precio">▲</span>':''):""}</td>
-      <td>${mv.cad?cadCell(mv.cad):'<span class="muted">—</span>'}</td>
-      <td class="muted" style="font-size:11px">${esc(mv.nota||mv.pago||mv.prov||"")}</td></tr>`).join("")
-    :`<tr><td colspan="9" class="muted" style="text-align:center;padding:14px">Aún no hay movimientos. Las <b>compras</b> (entradas por factura), <b>traspasos</b> a kiosko y <b>ajustes</b> de conteo aparecerán aquí.</td></tr>`;
-  host.innerHTML=`<div class="modal-bg"><div class="modal" style="max-width:840px">
+  kx={cat,i,alm:invView==="bodega"?"bodega":"kiosko",periodo:"30",tipo:"todos",datos:null,error:null,abierto:{},tickets:{}};
+  pintarKardex();cargarKardex();}
+async function cargarKardex(){
+  const k=kx;if(!k)return;const it=state[k.cat][k.i];
+  if(!sb||!sessToken){k.error="Sin conexión con el sistema: solo se ve lo apuntado en Costeos.";pintarKardex();return;}
+  k.datos=null;k.error=null;pintarKardex();
+  try{
+    const r=await sb.rpc("fn_costos_kardex",{p_token:sessToken,p_nombre:nombreSync(k.cat,it),p_almacen:k.alm==="ambos"?null:k.alm,p_desde:kxDesde(k.periodo),p_hasta:null});
+    if(kx!==k)return;
+    if(r.error)throw r.error;
+    k.datos=r.data;
+  }catch(e){if(kx===k)k.error="No se pudo leer el Kardex del sistema: "+(e.message||e);}
+  if(kx===k)pintarKardex();}
+async function kxTicket(filaId,ordenId){
+  const k=kx;if(!k)return;
+  if(k.abierto[filaId]){delete k.abierto[filaId];pintarKardex();return;}
+  k.abierto[filaId]=true;pintarKardex();
+  if(k.tickets[ordenId])return;
+  try{const r=await sb.rpc("fn_costos_ticket",{p_token:sessToken,p_orden_id:ordenId});if(r.error)throw r.error;k.tickets[ordenId]=r.data;}
+  catch(e){k.tickets[ordenId]={error:e.message||String(e)};}
+  if(kx===k)pintarKardex();}
+function kxReferencia(f){
+  if(f.orden_id&&f.folio!=null)return `<button class="kxtk" data-tk="${esc(f.orden_id)}" data-fila="${esc(f.id)}" title="Ver el ticket">Ticket #${esc(f.folio)}</button>${f.cancelada&&f.clase==="venta"?'<span class="kxcan">cancelada</span>':""}`;
+  const n=f.nota||"";const fa=n.match(/factura\s+(\S+)/i);
+  if(f.clase==="compra")return fa?"Factura "+esc(fa[1]):"Entrada de compra";
+  if(f.clase==="conteo")return "Conteo físico";
+  if(f.clase==="costeos")return "Captura en Costeos";
+  if(f.clase==="reinicio")return "Reinicio";
+  if(f.clase==="traspaso")return /bodega/i.test(n)?"Vino de bodega":"Traspaso";
+  if(f.clase==="entrada")return "Llegó mercancía";
+  return '<span class="muted">—</span>';}
+function kxNota(f){
+  if(f.clase==="venta")return esc(f.productos||"");
+  if(f.clase==="cancelacion")return "Se canceló el ticket y regresó al inventario";
+  return esc(f.motivo&&f.motivo!==f.clase?(KX_TIPO[f.motivo]||f.motivo)+(f.nota?" · "+f.nota:""):(f.nota||""));}
+function kxTicketHtml(t,cols){
+  if(!t)return `<tr class="kxdet"><td colspan="${cols}" class="muted">Cargando ticket…</td></tr>`;
+  if(t.error)return `<tr class="kxdet"><td colspan="${cols}" class="merr" style="display:table-cell">${esc(t.error)}</td></tr>`;
+  const items=(t.items||[]).map(x=>`<li>${num(x.cantidad)}× <b>${esc(x.nombre)}</b> · ${fmt(x.precio)}${(x.extras||[]).length?`<ul>${x.extras.map(e=>`<li>${esc(e.nombre)}${+e.precio?` · +${fmt(e.precio)}`:""}</li>`).join("")}</ul>`:""}</li>`).join("");
+  return `<tr class="kxdet"><td colspan="${cols}">
+    <b>Ticket #${esc(t.folio)}</b> · ${kxFecha(t.fecha)} ${kxHora(t.fecha)} · cobró <b>${esc(t.cajero||"—")}</b>${t.cliente?` · cliente ${esc(t.cliente)}`:""} · ${esc(t.metodo_pago||"")} · total <b>${fmt(t.total)}</b>
+    ${t.estado==="cancelada"?`<div class="merr" style="display:block;margin:4px 0 0">Cancelada${t.cancelacion?": "+esc(t.cancelacion.motivo||"")+(t.cancelacion.por?" ("+esc(t.cancelacion.por)+")":""):""}</div>`:""}
+    <ul>${items}</ul></td></tr>`;}
+function pintarKardex(){
+  const k=kx,host=document.getElementById("modalHost");if(!k||!host)return;
+  const cat=k.cat,cfg=INV[cat],it=state[cat][k.i],name=cfg.name(it),d=k.datos;
+  const spb=cat==="proteins"?(+it.scoops||0):0,gps=(cat==="proteins"&&+it.pres&&spb)?(+it.pres/spb):0;
+  const botes=x=>spb&&x!=null?` <div class="u">≈ ${num(Math.round((+x/spb)*100)/100)} botes</div>`:"";
+  const tile=(t,v,u,extra)=>`<div class="kxtile"><div class="k">${t}</div><div class="v">${v==null?"—":num(v)}</div><div class="u">${u}</div>${extra||""}</div>`;
+  const tiles=d&&d.encontrado?`<div class="kxtiles">
+      ${tile("Kiosko",d.kiosko,kxUnidad(cat,cfg,"kiosko"),botes(d.kiosko))}
+      ${tile("Bodega",d.bodega,kxUnidad(cat,cfg,"bodega"),botes(d.bodega))}
+      ${cat==="proteins"?tile("Existencia total",(+d.kiosko||0)+(+d.bodega||0),"scoops",botes((+d.kiosko||0)+(+d.bodega||0))):""}
+    </div>`:"";
+  const COLS=k.alm==="ambos"?12:11;
+  let tabla="";
+  if(!d&&!k.error)tabla=`<p class="muted" style="padding:14px 0">Cargando los movimientos del sistema…</p>`;
+  else if(k.error)tabla=`<p class="merr" style="display:block">${esc(k.error)}</p>`;
+  else if(!d.encontrado)tabla=`<p class="merr" style="display:block">«${esc(nombreSync(cat,it))}» no está en el sistema con ese nombre, así que no tiene ventas que enseñar. Abajo está lo que Costeos apuntó.</p>`;
+  else{
+    const filas=(d.filas||[]).filter(f=>k.tipo==="todos"||(KX_GRUPO[f.clase]||"ajustes")===k.tipo);
+    const u=kxUnidad(cat,cfg,k.alm==="bodega"?"bodega":"kiosko");
+    const cuerpo=filas.length?filas.map(f=>{
+      const precio=f.clase==="venta"?(f.importe!=null?fmt(f.importe):""):((f.clase==="compra"||f.clase==="entrada")&&f.costo_unitario!=null?fmt(f.costo_unitario):"");
+      const fila=`<tr>
+        <td>${kxFecha(f.fecha)}</td><td>${kxHora(f.fecha)}</td>
+        <td><span class="kxtag ${esc(f.clase)}">${esc(KX_TIPO[f.clase]||f.clase)}</span></td>
+        ${k.alm==="ambos"?`<td class="muted">${esc(f.almacen||"")}</td>`:""}
+        <td>${kxReferencia(f)}</td>
+        <td class="num" style="color:var(--green)">${f.entrada!=null?"+"+num(f.entrada):""}</td>
+        <td class="num" style="color:var(--bad)">${f.salida!=null?"−"+num(f.salida):""}</td>
+        <td class="num muted">${num(f.antes)}</td>
+        <td class="num"><b>${num(f.saldo)}</b></td>
+        <td class="num">${precio}</td>
+        <td>${esc(f.responsable||"")}</td>
+        <td class="muted" style="font-size:11px;white-space:normal;min-width:220px">${kxNota(f)}</td></tr>`;
+      return fila+(f.orden_id&&k.abierto[f.id]?kxTicketHtml(k.tickets[f.orden_id],COLS):"");}).join("")
+      :`<tr><td colspan="${COLS}" class="muted" style="text-align:center;padding:14px">Sin movimientos en este periodo.</td></tr>`;
+    tabla=`<div class="scroll" style="max-height:55vh"><table><thead><tr>
+        <th>Fecha</th><th>Hora</th><th>Tipo</th>${k.alm==="ambos"?"<th>Almacén</th>":""}<th>Referencia</th><th class="num">Entradas</th><th class="num">Salidas</th><th class="num" title="Lo que había antes de este movimiento">Antes</th><th class="num">Existencia</th><th class="num">Precio</th><th>Usuario</th><th>Nota</th>
+      </tr></thead><tbody>${cuerpo}</tbody></table></div>
+      <p class="legend">En ${u}. La existencia es la que quedó después de cada movimiento. Las ventas las descuenta el cobro; aquí solo se enseñan. Toca un ticket para ver qué se vendió.${k.alm==="ambos"?" Cada almacén lleva su propio saldo.":""}</p>`;}
+  const local=Array.isArray(it.kardex)?it.kardex:[];
+  const localHtml=local.length?`<details style="margin-top:var(--s3)"><summary class="muted">Lo apuntado en Costeos antes (${local.length})</summary>
+      <div class="scroll" style="max-height:30vh"><table><thead><tr><th>Fecha</th><th>Tipo</th><th>Factura/Doc</th><th class="num">Entradas</th><th class="num">Salidas</th><th class="num">Existencia</th><th class="num">Precio</th><th>Nota</th></tr></thead><tbody>
+      ${local.slice().reverse().map(mv=>`<tr><td>${esc(mv.f||"")}</td><td><span class="kxtag ${esc(mv.tipo||"")}">${esc(mv.tipo||"")}</span></td><td class="muted">${esc(mv.factura||mv.doc||"")}</td><td class="num">${mv.ent?num(mv.ent):""}</td><td class="num">${mv.sal?num(mv.sal):""}</td><td class="num">${(mv.exist!==""&&mv.exist!=null)?num(mv.exist):""}</td><td class="num">${(mv.precio!==""&&mv.precio!=null)?fmt(mv.precio):""}</td><td class="muted" style="font-size:11px">${esc(mv.nota||mv.pago||mv.prov||"")}</td></tr>`).join("")}
+      </tbody></table></div></details>`:"";
+  const sel=(id,val,ops)=>`<select id="${id}">${ops.map(([v,t])=>`<option value="${v}" ${v===val?"selected":""}>${t}</option>`).join("")}</select>`;
+  host.innerHTML=`<div class="modal-bg"><div class="modal kxmodal">
     <h3>📜 Kardex · ${esc(name)}</h3>
     <div class="kxgen">
       <span><b>Categoría:</b> ${CATLABEL[cat]}</span><span><b>Clave:</b> ${esc(it.codigo||"—")}</span>
       <span><b>Proveedor:</b> ${esc(it.proveedor||"—")}</span><span><b>Presentación:</b> ${esc(invPres(cat,it))}</span>
-      <span><b>Bodega:</b> ${num(it[cfg.orig])} ${cfg.origUnit}</span><span><b>Kiosko:</b> ${num(it[cfg.ind])} ${cfg.indUnit}</span>
-      <span><b>Caducidad:</b> ${it[cfg.cad]?esc(it[cfg.cad]):"—"}</span>
+      ${spb?`<span><b>Scoops por bote:</b> ${num(spb)}</span>`:""}${gps?`<span><b>Gramos por scoop:</b> ${num(Math.round(gps*100)/100)} g</span>`:""}
     </div>
-    <div class="scroll" style="max-height:50vh"><table><thead><tr>
-      <th>Fecha</th><th>Tipo</th><th>Factura/Doc</th><th class="num">Entradas</th><th class="num">Salidas</th><th class="num">Existencia</th><th class="num">Precio</th><th>Caducidad</th><th>Nota</th>
-    </tr></thead><tbody>${body}</tbody></table></div>
+    ${tiles}
+    <div class="kxfil no-print">
+      ${sel("kx_alm",k.alm,[["kiosko","🛒 Kiosko"],["bodega","🏬 Bodega"],["ambos","Los dos almacenes"]])}
+      ${sel("kx_per",k.periodo,[["7","Últimos 7 días"],["30","Últimos 30 días"],["90","Últimos 90 días"],["todo","Todo"]])}
+      ${sel("kx_tipo",k.tipo,[["todos","Todos los movimientos"],["ventas","Solo ventas"],["compras","Compras, entradas y traspasos"],["ajustes","Ajustes y conteos"]])}
+    </div>
+    ${tabla}${localHtml}
     <div class="mrow"><button class="btn ghost mini" id="kx_close">Cerrar</button><button class="btn mini" id="kx_print">🖨 Imprimir</button></div>
   </div></div>`;
-  host.querySelector("#kx_close").onclick=()=>host.innerHTML="";
+  const cerrar=()=>{kx=null;host.innerHTML="";};
+  host.querySelector("#kx_close").onclick=cerrar;
   host.querySelector("#kx_print").onclick=()=>window.print();
-  host.querySelector(".modal-bg").onclick=ev=>{if(ev.target.classList.contains("modal-bg"))host.innerHTML="";};
+  host.querySelector(".modal-bg").onclick=ev=>{if(ev.target.classList.contains("modal-bg"))cerrar();};
+  host.querySelector("#kx_alm").onchange=e=>{k.alm=e.target.value;cargarKardex();};
+  host.querySelector("#kx_per").onchange=e=>{k.periodo=e.target.value;cargarKardex();};
+  host.querySelector("#kx_tipo").onchange=e=>{k.tipo=e.target.value;pintarKardex();};
+  host.querySelectorAll("[data-tk]").forEach(b=>b.onclick=()=>kxTicket(b.dataset.fila,b.dataset.tk));
 }
 function applyBuySearch(m){const q=(buyQ||"").toLowerCase().trim();
   m.querySelectorAll("tbody tr[data-cat]").forEach(tr=>{const cat=tr.dataset.cat,i=+tr.dataset.i,cfg=buyCfg(cat),it=state[cat]&&state[cat][i];if(!it||!cfg)return;

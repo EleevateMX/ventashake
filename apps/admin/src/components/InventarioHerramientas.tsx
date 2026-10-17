@@ -18,6 +18,7 @@ import { DetalleDeTicket } from './TicketsDelTurno'
 
 export const CLASES: Record<string, { texto: string; clase: string }> = {
   venta: { texto: 'Venta', clase: 'bg-sa-blueberry/15 text-sa-blueberry' },
+  cancelacion: { texto: 'Cancelación', clase: 'bg-sa-mint/30 text-sa-green-ink' },
   compra: { texto: 'Compra', clase: 'bg-sa-mint/30 text-sa-green-ink' },
   entrada: { texto: 'Entrada', clase: 'bg-sa-mint/30 text-sa-green-ink' },
   traspaso: { texto: 'Traspaso', clase: 'bg-sa-cream-warm text-sa-green-ink' },

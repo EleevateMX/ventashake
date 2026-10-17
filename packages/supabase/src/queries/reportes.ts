@@ -132,6 +132,15 @@ export async function buscarVentas(
 export const cancelarVenta = (sb: ShakeClient, ordenId: string, motivo: string) =>
   rpcRep<string>(sb, 'fn_cancelar_venta', { p_orden_id: ordenId, p_motivo: motivo })
 
+/**
+ * Regresa al inventario lo que descontó una venta YA cancelada (17/10/26).
+ * Solo si el producto no se preparó. Deja un renglón nuevo ligado al mismo
+ * ticket («Cancelación» en el Kardex); la venta original no se toca. Una
+ * sola vez por venta: el servidor rechaza la segunda.
+ */
+export const regresarInventarioVenta = (sb: ShakeClient, ordenId: string) =>
+  rpcRep<{ folio: number; renglones: number }>(sb, 'fn_venta_regresar_inventario', { p_orden_id: ordenId })
+
 export interface VentaCancelada {
   id: string
   orden_id: string

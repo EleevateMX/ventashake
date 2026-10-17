@@ -420,6 +420,26 @@ permiso `reiniciar_inventario`, que ningún rol de caja tiene).
   (JSON + CSV de existencias reales) antes de tocar nada. Simulado en
   producción con rollback: 119 renglones, 0 movimientos de sync, todo en 0.
 
+**El Kardex de Costeos enseña las ventas, y el conteo se hace por peso**
+(17/10). El 📜 de Costeos → Inventario era la lista que Costeos apuntaba en
+su documento y nunca vio una venta. Ahora lee `inventario_movimientos` con
+`fn_costos_kardex` (token de Costeos), que llama a la **misma** `fn_kardex`
+de Admin —se le deja pasar con `set_config('shake.kardex_costos')`, que
+solo una función puede poner— y le agrega quién cobró, qué producto del
+ticket explica el descuento («El Clásico (Proteína …)») y si se canceló.
+El ticket se abre con `fn_costos_ticket`. Lo apuntado por Costeos sigue
+abajo, plegado. Y en la columna *Conteo* del kiosko, el botón **⚖** recibe
+los gramos netos de uno o varios botes abiertos (más los cerrados) y los
+divide entre presentación ÷ scoops por bote, con decimales; no aplica a
+los botes de venta, que se cuentan por pieza.
+
+**Cancelar una venta puede regresar lo descontado** (17/10): casilla
+«Regresar al inventario» al cancelar en Admin, o después desde la
+bitácora (`fn_venta_regresar_inventario`, gerencia, una sola vez). Es un
+renglón nuevo ligado al mismo ticket (clase `cancelacion` en el Kardex);
+la venta no se toca. Nunca es automático: un shake hecho y tirado sí gastó
+su proteína.
+
 ### 2.4 La impresión vive fuera de la nube
 
 `agente-impresion/` es un programa Node que corre **en la PC de la tienda**
@@ -1337,6 +1357,9 @@ empaquetador y se desvían solas:
 | Dinámica con premios en la etiqueta (Trick or Shake) | Admin → **Impresoras** → *Dinámicas con premios* → «Nueva dinámica» (trae lista la de Halloween) → Guardar → **Prender** cuando el agente diga 1.6.0. Ahí se ve cuántas van, se abre la siguiente ronda y se marcan los premios entregados |
 | Cambiar el rollo de etiquetas | Kiosko → **"Caja y turno"** → PIN → "¿Cambiaste el rollo?" → Calibrar |
 | Llegó mercancía | Kiosko → **"Caja y turno"** → PIN → **"¿Llegó mercancía?"** → por caja o por pieza. Di si vino de bodega: eso la resta allá |
+| Ver el Kardex desde Costeos, con las ventas y su ticket | Costeos → **Inventario** → 📜 en el renglón. Filtra por almacén, periodo y tipo; toca «Ticket #…» para ver qué se vendió y quién cobró |
+| Contar proteína pesando los botes abiertos | Costeos → Inventario → **Kiosko** → **⚖** junto al conteo → gramos netos de cada bote abierto (y cuántos cerrados). Calcula los scoops con decimales |
+| Se canceló una venta que no se preparó | Admin → Ventas → cancelar → marca **«Regresar al inventario»** (o después, en la bitácora). Queda en el Kardex como «Cancelación» del mismo ticket |
 | Ver qué le pasó a un producto (kardex) | Admin → **Inventario** → toca el renglón. Ventas con su ticket, compras, traspasos, conteos, mermas, con quién |
 | Se tiró, caducó o se consumió algo | Admin → Inventario → **«Registrar salida»** → producto, cantidad y motivo |
 | Empezar de cero antes de un conteo | **Costeos → Inventario → «Reiniciar inventario a 0»** → bodega/kiosko, motivo y PIN de gerencia. Respalda solo y no borra historia. (El de Admin no toca Costeos: úsalo solo si no se va a capturar en Costeos) |

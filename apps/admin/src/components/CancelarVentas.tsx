@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
-  buscarVentas, cancelarVenta, cancelaciones,
+  buscarVentas, cancelarVenta, cancelaciones, regresarInventarioVenta,
   type VentaBuscada, type VentaCancelada,
 } from '@shake/supabase'
 import { mxn, mensajeDeError, hoyEnMerida, diasAntesEnMerida } from '@shake/utils'
@@ -36,6 +36,7 @@ export function CancelarVentas() {
   const [log, setLog] = useState<VentaCancelada[]>([])
   const [confirmando, setConfirmando] = useState<VentaBuscada | null>(null)
   const [motivo, setMotivo] = useState('')
+  const [regresar, setRegresar] = useState(false)
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [ok, setOk] = useState<string | null>(null)
@@ -52,14 +53,37 @@ export function CancelarVentas() {
     catch (e) { setError(mensajeDeError(e)) }
   }
 
+  async function regresarDesdeBitacora(c: VentaCancelada) {
+    if (!window.confirm(`¿Regresar al inventario lo que descontó el folio ${c.folio}?\n\nSolo si el producto no se preparó. Queda en el Kardex como «Cancelación» del mismo ticket.`)) return
+    setError(null)
+    try {
+      const r = await regresarInventarioVenta(sb, c.orden_id)
+      setOk(r.renglones > 0
+        ? `Folio ${r.folio}: regresaron ${r.renglones} insumo${r.renglones === 1 ? '' : 's'} al inventario.`
+        : `El folio ${r.folio} no había descontado nada del inventario.`)
+      setTimeout(() => setOk(null), 8000)
+    } catch (e) { setError(mensajeDeError(e)) }
+  }
+
   async function confirmar() {
     if (!confirmando || motivo.trim().length < 4) return
     setEnviando(true); setError(null)
     try {
       await cancelarVenta(sb, confirmando.id, motivo)
-      setOk(`Folio ${confirmando.folio} cancelado. Quedó registrado con tu nombre.`)
+      let extra = ''
+      if (regresar && confirmando.pagado) {
+        try {
+          const r = await regresarInventarioVenta(sb, confirmando.id)
+          extra = r.renglones > 0
+            ? ` Regresaron ${r.renglones} insumo${r.renglones === 1 ? '' : 's'} al inventario.`
+            : ' Esa venta no había descontado nada del inventario.'
+        } catch (e) {
+          extra = ` La venta sí se canceló, pero el inventario no se regresó: ${mensajeDeError(e)}`
+        }
+      }
+      setOk(`Folio ${confirmando.folio} cancelado. Quedó registrado con tu nombre.${extra}`)
       setTimeout(() => setOk(null), 8000)
-      setConfirmando(null); setMotivo('')
+      setConfirmando(null); setMotivo(''); setRegresar(false)
       await Promise.all([buscar(), recargarLog()])
     } catch (e) { setError(mensajeDeError(e)) }
     finally { setEnviando(false) }
@@ -76,8 +100,10 @@ export function CancelarVentas() {
           contra el efectivo del cajón y se queda como se arqueó. Lo que baja
           es el reporte de «Ventas diarias», y la diferencia se explica con la
           bitácora de aquí abajo.{' '}
-          <b>Tampoco regresa el inventario</b> — si el producto no llegó a
-          prepararse, ajústalo desde el kiosko en «¿Llegó mercancía?».
+          El inventario <b>no</b> se regresa solo: si el producto no llegó a
+          prepararse, marca «Regresar al inventario» al cancelar (o en la
+          bitácora, después). Queda en el Kardex como «Cancelación» del mismo
+          ticket, sin borrar la venta.
         </p>
       </Panel>
 
@@ -143,7 +169,7 @@ export function CancelarVentas() {
                     <td className={cx.tdNum}>
                       {!v.cancelada && (
                         <button
-                          onClick={() => { setConfirmando(v); setMotivo('') }}
+                          onClick={() => { setConfirmando(v); setMotivo(''); setRegresar(false) }}
                           className="text-xs text-sa-strawberry underline"
                         >
                           Cancelar
@@ -175,6 +201,7 @@ export function CancelarVentas() {
                 <th className={cx.th}>Quién</th>
                 <th className={cx.thNum}>Importe</th>
                 <th className={cx.th}>Motivo</th>
+                <th className={cx.thNum}>Inventario</th>
               </tr>
             </thead>
             <tbody className={cx.tbody}>
@@ -189,6 +216,17 @@ export function CancelarVentas() {
                     {!c.estaba_pagada && <Chip tone="neutral">no estaba pagada</Chip>}
                   </td>
                   <td className={`${cx.td} text-xs`}>{c.motivo}</td>
+                  <td className={cx.tdNum}>
+                    {c.estaba_pagada && (
+                      <button
+                        onClick={() => void regresarDesdeBitacora(c)}
+                        className="text-xs text-sa-green underline whitespace-nowrap"
+                        title="Solo si el producto no se preparó"
+                      >
+                        Regresar al inventario
+                      </button>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -220,6 +258,21 @@ export function CancelarVentas() {
               Queda escrito con tu nombre y no se puede editar después. Dentro
               de tres meses, esto es lo único que va a explicar el movimiento.
             </p>
+            {confirmando.pagado && (
+              <label className="flex gap-2 items-start mt-4 text-sm text-sa-green-ink">
+                <input
+                  type="checkbox" checked={regresar}
+                  onChange={(e) => setRegresar(e.target.checked)}
+                  className="mt-1"
+                />
+                <span>
+                  <b>Regresar al inventario</b> lo que descontó.
+                  <span className="block text-[11px] text-sa-green-ink/50 leading-snug">
+                    Solo si no se preparó: un shake hecho y tirado sí gastó su proteína.
+                  </span>
+                </span>
+              </label>
+            )}
             <div className="flex gap-3 mt-6">
               <button
                 onClick={() => { setConfirmando(null); setMotivo('') }}
