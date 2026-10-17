@@ -19,6 +19,7 @@ import { AbrirBote } from '@/components/AbrirBote'
 import { sb } from '@/lib/sb'
 import { useVentasSinInternet } from '@/store/sinInternet'
 import { useCarrito } from '@/store/carritoStore'
+import { espejoConteo, espejoAviso } from '@/store/espejo'
 
 interface Props {
   abierto: boolean
@@ -120,6 +121,50 @@ export function CorteMilo({ abierto, onCerrar }: Props) {
       manual,
     }
   }, [conteo, fondoSugerido, fondoManual])
+
+  /**
+   * Caja en vivo (17/10/26): gerencia ve desde su teléfono lo que se va
+   * contando, billete por billete, y le llega un aviso cuando alguien empieza
+   * a contar para el corte o va a entregar la caja. Solo cuando de verdad se
+   * cuenta: abrir «Caja y turno» para calibrar el rollo no avisa a nadie.
+   */
+  const [avisado, setAvisado] = useState<{ conteo: boolean; entrega: boolean }>({ conteo: false, entrega: false })
+  useEffect(() => {
+    if (!abierto) { setAvisado({ conteo: false, entrega: false }); espejoConteo(null); return }
+    const quien = empleado?.nombre ?? null
+    const aPlano = (c: Conteo) => ({
+      billetes: Object.fromEntries(Object.entries(c.billetes).filter(([, n]) => Number(n) > 0)),
+      monedas: Object.fromEntries(Object.entries(c.monedas).filter(([, n]) => Number(n) > 0)),
+    })
+    if (fase === 'cerrar' || fase === 'pinRecibe') {
+      const total = sumaConteo(conteo)
+      if (total <= 0) { espejoConteo(null); return }
+      espejoConteo({
+        modo: fase === 'pinRecibe' ? 'entrega' : 'cierre',
+        quien,
+        contado: total,
+        esperado: resumen?.efectivo_esperado != null ? Number(resumen.efectivo_esperado) : null,
+        retiro: distribucion?.retiro ?? null,
+        ...aPlano(conteo),
+      })
+      if (fase === 'cerrar' && !avisado.conteo) {
+        espejoAviso('conteo_cierre', quien)
+        setAvisado((a) => ({ ...a, conteo: true }))
+      }
+      if (fase === 'pinRecibe' && !avisado.entrega) {
+        espejoAviso('cambio_turno', quien)
+        setAvisado((a) => ({ ...a, entrega: true }))
+      }
+      return
+    }
+    if (fase === 'abrir') {
+      const total = sumaConteo(conteoApertura)
+      if (total <= 0) { espejoConteo(null); return }
+      espejoConteo({ modo: 'apertura', quien, contado: total, esperado: fondoSugerido, ...aPlano(conteoApertura) })
+      return
+    }
+    espejoConteo(null)
+  }, [abierto, fase, empleado, conteo, conteoApertura, resumen, fondoSugerido, distribucion, avisado])
 
   useEffect(() => {
     if (!abierto) return

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { sb } from '../lib/sb'
-import { cajaEnVivo, type CajaEnVivo as Datos, type MovimientoCaja } from '@shake/supabase'
+import { cajaEnVivo, type CajaEnVivo as Datos, type MovimientoCaja, type EspejoConteo } from '@shake/supabase'
 import { mxn, mensajeDeError, hace } from '@shake/utils'
 import { PageHeader, Loading, ErrorMsg, Chip, cx } from '../ui'
 
@@ -39,7 +39,7 @@ const METODO: Record<string, string> = {
 }
 
 type Filtro = 'todo' | 'ventas' | 'revisar'
-const PARA_REVISAR = new Set(['quito', 'vacio', 'sin_cobrar', 'cancelacion', 'cortesia'])
+const PARA_REVISAR = new Set(['quito', 'vacio', 'sin_cobrar', 'cancelacion', 'cortesia', 'conteo_cierre', 'cambio_turno'])
 
 function etiqueta(m: MovimientoCaja): { texto: string; tono: string } {
   switch (m.tipo) {
@@ -51,6 +51,8 @@ function etiqueta(m: MovimientoCaja): { texto: string; tono: string } {
     case 'vacio': return { texto: 'Vació el carrito', tono: 'bg-sa-strawberry/15 text-sa-strawberry' }
     case 'apertura': return { texto: 'Abrió caja', tono: 'bg-sa-cream-warm text-sa-green-ink' }
     case 'cierre': return { texto: 'Cerró caja', tono: 'bg-sa-cream-warm text-sa-green-ink' }
+    case 'conteo_cierre': return { texto: 'Empezó a contar para el corte', tono: 'bg-sa-blueberry/15 text-sa-blueberry' }
+    case 'cambio_turno': return { texto: 'Cambio de turno', tono: 'bg-sa-blueberry/15 text-sa-blueberry' }
   }
 }
 
@@ -62,10 +64,54 @@ function descripcion(m: MovimientoCaja): string {
   }
   if (m.tipo === 'apertura') return `Fondo ${mxn(Number(m.importe ?? 0))}`
   if (m.tipo === 'cierre') return `Contó ${mxn(Number(m.importe ?? 0))}`
+  if (m.tipo === 'conteo_cierre' || m.tipo === 'cambio_turno') return 'Se avisó a los teléfonos de gerencia.'
   const partes = [m.texto, m.cliente ? `para ${m.cliente}` : null,
     m.metodo ? METODO[m.metodo] ?? m.metodo : null,
     m.descuento ? `descuento ${mxn(Number(m.descuento))}` : null]
   return partes.filter(Boolean).join(' · ')
+}
+
+const MODO_CONTEO: Record<EspejoConteo['modo'], string> = {
+  cierre: 'Contando la caja para el corte',
+  entrega: 'Entregando la caja a quien sigue',
+  apertura: 'Contando el fondo para abrir',
+}
+
+/** Lo que se está contando AHORA, billete por billete. */
+function ConteoEnVivo({ c }: { c: EspejoConteo }) {
+  const dif = c.esperado != null ? Math.round((c.contado - c.esperado) * 100) / 100 : null
+  const filas = [
+    ...Object.entries(c.billetes).map(([d, n]) => ({ d: Number(d), n: Number(n), tipo: 'billete' })),
+    ...Object.entries(c.monedas).map(([d, n]) => ({ d: Number(d), n: Number(n), tipo: 'moneda' })),
+  ].filter((f) => f.n > 0).sort((a, b) => b.d - a.d || (a.tipo < b.tipo ? -1 : 1))
+  return (
+    <div className="mt-4 rounded-sa border-2 border-sa-blueberry/40 bg-sa-blueberry/5 p-4">
+      <p className="font-semibold text-sa-blueberry text-sm">● {MODO_CONTEO[c.modo]}{c.quien ? ` · ${c.quien}` : ''}</p>
+      <div className="flex flex-wrap gap-x-6 gap-y-1 mt-2 items-baseline">
+        <p><span className="text-xs text-sa-green-ink/60">Lleva contado </span><span className="font-display text-2xl tabular-nums">{mxn(c.contado)}</span></p>
+        {c.esperado != null && (
+          <p className="text-sm text-sa-green-ink/70">
+            {c.modo === 'apertura' ? 'fondo' : 'esperado'} {mxn(c.esperado)}
+            {dif != null && dif !== 0 && (
+              <b className={dif < 0 ? 'text-sa-strawberry' : 'text-sa-green'}> · {dif < 0 ? `faltan ${mxn(-dif)}` : `sobran ${mxn(dif)}`}</b>
+            )}
+            {dif === 0 && <b className="text-sa-green"> · cuadra</b>}
+          </p>
+        )}
+        {c.retiro != null && c.retiro > 0 && <p className="text-sm text-sa-green-ink/70">retiro {mxn(c.retiro)}</p>}
+      </div>
+      {filas.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-x-6 gap-y-1 mt-3 text-sm">
+          {filas.map((f) => (
+            <p key={`${f.tipo}-${f.d}`} className="flex justify-between gap-2 tabular-nums font-mono">
+              <span className="text-sa-green-ink/70">{f.n} × ${f.d}{f.tipo === 'moneda' && f.d === 20 ? ' (moneda)' : ''}</span>
+              <span>{mxn(f.n * f.d)}</span>
+            </p>
+          ))}
+        </div>
+      )}
+    </div>
+  )
 }
 
 export default function CajaEnVivo() {
@@ -150,6 +196,7 @@ export default function CajaEnVivo() {
                       </div>
                       {e.apartadas > 0 && <Chip tone="neutral">{e.apartadas} en espera</Chip>}
                     </div>
+                    {e.caja && <ConteoEnVivo c={e.caja} />}
                     <div className="mt-4">
                       {e.items.length === 0 ? (
                         <p className={`text-sm ${cx.muted}`}>Carrito vacío.</p>

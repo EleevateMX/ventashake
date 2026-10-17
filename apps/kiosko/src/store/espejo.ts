@@ -1,5 +1,5 @@
 import { idDePantalla } from '@shake/utils'
-import { publicarEspejoCaja, type EspejoEstado, type EventoCaja } from '@shake/supabase'
+import { publicarEspejoCaja, type EspejoEstado, type EventoCaja, type EspejoConteo } from '@shake/supabase'
 import { useCarrito, type ItemCarrito } from './carritoStore'
 import { leerEspera } from './espera'
 import { sb } from '@/lib/sb'
@@ -25,6 +25,27 @@ let ruta = '/'
 let cambio = new Date().toISOString()
 let pendientes: EventoCaja[] = []
 let timer: ReturnType<typeof setTimeout> | null = null
+let conteo: EspejoConteo | null = null
+
+/**
+ * Lo que se está contando en «Caja y turno» (CorteMilo), en vivo: gerencia
+ * ve billete por billete cuánto van poniendo. null al cerrar la ventana.
+ */
+export function espejoConteo(c: EspejoConteo | null): void {
+  conteo = c
+  cambio = new Date().toISOString()
+  programar(400)
+}
+
+/**
+ * Avisa a los teléfonos de gerencia: alguien empezó a contar la caja para
+ * el corte, o va a entregar la caja a quien sigue. El servidor frena los
+ * repetidos (uno por tipo cada 10 min).
+ */
+export function espejoAviso(tipo: 'conteo_cierre' | 'cambio_turno', quien: string | null): void {
+  pendientes.push({ tipo, cajero: quien })
+  programar(0)
+}
 
 /** App.tsx avisa la ruta: es el «en qué paso va». */
 export function espejoRuta(r: string): void {
@@ -66,6 +87,7 @@ async function publicar(): Promise<void> {
     total: Math.round(s.total() * 100) / 100,
     apartadas,
     cambio,
+    caja: conteo,
   }
   const eventos = pendientes
   pendientes = []

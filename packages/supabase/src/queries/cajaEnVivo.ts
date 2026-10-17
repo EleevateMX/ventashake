@@ -23,6 +23,19 @@ export interface EspejoRenglon {
   /** extras */ x?: string[]
 }
 
+/** Lo que se está contando en la ventana de «Caja y turno», en vivo. */
+export interface EspejoConteo {
+  /** cierre = corte del turno · apertura = abrir o recibir la caja · entrega = cambio de turno, esperando a quien recibe */
+  modo: 'cierre' | 'apertura' | 'entrega'
+  quien: string | null
+  contado: number
+  /** Lo que debería haber (cierre) o el fondo fijo (apertura). */
+  esperado: number | null
+  billetes: Record<string, number>
+  monedas: Record<string, number>
+  retiro?: number | null
+}
+
 export interface EspejoEstado {
   ruta: string
   cajero: string | null
@@ -33,13 +46,16 @@ export interface EspejoEstado {
   apartadas: number
   /** Cuándo cambió por última vez lo que hay en pantalla (ISO). */
   cambio: string
+  /** Solo mientras alguien cuenta la caja. */
+  caja?: EspejoConteo | null
 }
 
 export interface EventoCaja {
-  tipo: 'quito' | 'vacio'
+  /** quito/vacio quedan en la bitácora; conteo_cierre/cambio_turno avisan a gerencia. */
+  tipo: 'quito' | 'vacio' | 'conteo_cierre' | 'cambio_turno'
   cajero: string | null
-  importe: number
-  detalle: { items: { n: string; c: number }[]; ruta: string }
+  importe?: number
+  detalle?: { items: { n: string; c: number }[]; ruta: string }
 }
 
 /** El kiosko publica su pantalla. En silencio: si falla, la caja sigue. */
@@ -51,6 +67,7 @@ export async function publicarEspejoCaja(
 
 export type TipoMovimientoCaja =
   | 'venta' | 'sin_cobrar' | 'cancelacion' | 'cortesia' | 'quito' | 'vacio' | 'apertura' | 'cierre'
+  | 'conteo_cierre' | 'cambio_turno'
 
 export interface MovimientoCaja {
   ts: string

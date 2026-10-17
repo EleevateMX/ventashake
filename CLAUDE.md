@@ -805,6 +805,20 @@ cobrar quedan en `caja_eventos` (solo se agrega). Un carrito que se vacía
 EN `/pago` es una venta que se cerró (cobrada, apartada o a caja) y no
 cuenta. Leer es `fn_caja_en_vivo`, candado `fn_es_jefe()`.
 
+**Avisos de caja a gerencia** (`caja_avisos_a_gerencia.sql`): cuando
+alguien **empieza a contar para el corte**, **va a entregar la caja**
+(cambio de turno), **abre** o **cierra** caja, llega un push a los
+teléfonos de gerencia (rol admin/gerente/desarrollo; se encuentran por
+`empleado_id`, por sesión o por el **correo** de Admin → Personal). Un
+renglón en `caja_avisos` y un trigger lo reparte a `push_cola`: tabla y
+trigger, no una función «avisar», porque una función nace ejecutable por
+`anon` y quitárselo pide un `revoke`. Contar/entregar se frena a uno por
+tipo cada 10 min; apertura y cierre van en un bloque que se traga errores
+(viven en la cadena del corte). Mientras se cuenta, el kiosko publica el
+conteo billete por billete (`espejoConteo` desde CorteMilo) y Caja en
+vivo lo enseña con lo esperado y lo que falta o sobra. Abrir «Caja y
+turno» solo para calibrar no avisa: el aviso sale al primer billete.
+
 **Ticket de caja** (impresora «Caja — Tickets», ESC/POS en 192.168.1.50,
 con su propio agente fuera de este repo): `configuracion_ticket` y
 `fn_encolar_ticket_venta` los dejó otra sesión; el encolado automático en
