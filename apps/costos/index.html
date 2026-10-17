@@ -1018,11 +1018,13 @@ function renderParams(m){const p=state.params;
 }
 let _claveCTimer=null;
 function syncClaveCompras(val){
-  // fn_entrada_confirmar/cancelar validan la clave contra la tabla real
-  // parametros.clave_compras (no contra este JSON) — se sincroniza aquí
-  // para que no queden desalineadas.
+  // Ya no se copia a parametros.clave_compras (17/10/26): desde el 31/08
+  // esa tabla no se puede escribir sin sesión de personal y la copia fallaba
+  // en silencio, así que el servidor rechazaba la clave que esta pantalla
+  // aceptaba. fn_entrada_confirmar/cancelar y fn_catalogo_publicar leen
+  // ahora la clave de compras y la de encargado de ESTE documento, que se
+  // guarda con el resto (clave_de_compras_la_de_costeos.sql).
   clearTimeout(_claveCTimer);
-  _claveCTimer=setTimeout(()=>{sb.from("parametros").update({clave_compras:val}).eq("id","default").then(()=>{});},600);
 }
 
 /* ---------------- PROTEÍNAS ---------------- */

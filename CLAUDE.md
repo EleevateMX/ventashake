@@ -1667,6 +1667,16 @@ empaquetador y se desvían solas:
   `transferencias` y `caja_cortes`: escribir exige `fn_es_staff()`, y
   `anon` ya no tiene el permiso de tabla. La condicion es `fn_es_staff()`
   y **no `authenticated`**, porque todo cliente de Rewards lo es.
+- **Una copia que se escribe sin sesión se queda vieja en silencio.**
+  Costeos copiaba su «Clave de compras» a `parametros.clave_compras` con un
+  UPDATE directo; desde el 31/08 `anon` no puede escribir `parametros` y la
+  copia dejó de llegar sin un solo error. La pantalla aceptaba la clave (la
+  compara contra su documento) y el servidor la rechazaba (contra la
+  copia): Perla no pudo dar entrada a mercancía el 16 y 17/10. Ahora
+  `fn_entrada_confirmar`, `fn_entrada_cancelar` y `fn_catalogo_publicar`
+  aceptan la clave de compras **o la de encargado** del documento de
+  Costeos (`clave_de_compras_la_de_costeos.sql`). Al cerrar una tabla a
+  `anon`, busca quién la escribía con `.update(` desde las pantallas.
 - **Costeos no usa Supabase Auth**, tiene su propio login (`app_users`).
   Validaba bien la contrasena pero **no dejaba sesion**: seguia hablando
   como `anon`, asi que se rodeaba llamando a `app_data` directo — y ahi
