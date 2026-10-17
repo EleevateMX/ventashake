@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { mancuernasPorCompra } from '@shake/utils'
 import { useNavigate } from 'react-router-dom'
 import { listarAlmacenes } from '@shake/supabase'
 import type { ModoPagoKiosko } from '@shake/types'
@@ -181,7 +182,7 @@ export function Carrito() {
               <div className="flex-1 min-w-0">
                 <p className="font-display text-xl leading-tight truncate">{usuario.nombre}</p>
                 <p className="font-mono text-[11px] uppercase tracking-wide text-sa-banana">
-                  {usuario.mancuernas ?? 0} mancuernas · suma {Math.min(100, Math.floor(total() / 10))} con esta compra
+                  {usuario.mancuernas ?? 0} mancuernas · suma {mancuernasPorCompra(total())} con esta compra
                 </p>
               </div>
               <button

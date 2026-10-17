@@ -6,7 +6,7 @@ import {
   crearOrden, cobrarOrden, cobrarOrdenDividido, canjearCupon, registrarAplicacionPromo,
 } from '@shake/supabase'
 import { imprimirTicket, type TicketData } from '@shake/ui'
-import { mxn, mensajeDeError } from '@shake/utils'
+import { mxn, mensajeDeError, mancuernasPorCompra } from '@shake/utils'
 import type { MetodoPago } from '@shake/types'
 import {
   PagoDividido, DIVISION_INICIAL, partesDeDivision, type Division,
@@ -109,7 +109,7 @@ export function Cobro() {
         })
       }
 
-      const gana = cliente ? Math.min(100, Math.floor(totalNeto / 10)) : 0
+      const gana = cliente ? mancuernasPorCompra(totalNeto) : 0
       const ticket: TicketData = {
         folio: orden.folio,
         fecha: new Date(),
@@ -278,7 +278,7 @@ export function Cobro() {
           {cliente && (
             <div className="bg-sa-green/10 border border-sa-green/30 rounded-sa px-4 py-2.5 mb-4">
               <p className="font-mono text-xs text-sa-green-ink leading-tight">
-                🏋️ {cliente.nombre} ganará ~{Math.min(100, Math.floor(totalNeto / 10))} mancuernas con esta compra
+                🏋️ {cliente.nombre} ganará ~{mancuernasPorCompra(totalNeto)} mancuernas con esta compra
               </p>
             </div>
           )}
