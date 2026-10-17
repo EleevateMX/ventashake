@@ -4,6 +4,7 @@ import { empleadoDeLaSesion } from '@shake/supabase'
 import { sb } from './lib/sb'
 import Dashboard from './pages/Dashboard'
 import EnVivo from './pages/EnVivo'
+import CajaEnVivo from './pages/CajaEnVivo'
 import Diagnostico from './pages/Diagnostico'
 import Ayuda from './pages/Ayuda'
 import Peticiones from './pages/Peticiones'
@@ -31,7 +32,7 @@ import Empleados from './pages/Empleados'
 import Impresoras from './pages/Impresoras'
 import Sistema from './pages/Sistema'
 
-type Tab = 'dashboard' | 'envivo' | 'diagnostico' | 'menu' | 'revision' | 'categorias' | 'combos' | 'extras' | 'inventario' | 'promos' | 'ventas' | 'cortes' | 'comprobantes' | 'clientes' | 'nombres' | 'metas' | 'rewards' | 'empleados' | 'impresoras' | 'descargas' | 'costeos' | 'ayuda' | 'peticiones' | 'avisos' | 'aliados' | 'soporte' | 'pulso' | 'sistema'
+type Tab = 'dashboard' | 'envivo' | 'caja' | 'diagnostico' | 'menu' | 'revision' | 'categorias' | 'combos' | 'extras' | 'inventario' | 'promos' | 'ventas' | 'cortes' | 'comprobantes' | 'clientes' | 'nombres' | 'metas' | 'rewards' | 'empleados' | 'impresoras' | 'descargas' | 'costeos' | 'ayuda' | 'peticiones' | 'avisos' | 'aliados' | 'soporte' | 'pulso' | 'sistema'
 
 const w = 18
 
@@ -199,6 +200,12 @@ const IconAliados = () => (
   </svg>
 )
 
+const IconCajaEnVivo = () => (
+  <svg width={w} height={w} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="4" width="18" height="12" rx="2" /><path d="M8 20h8" /><path d="M12 16v4" /><circle cx="12" cy="10" r="2.2" />
+  </svg>
+)
+
 const IconCosteos = () => (
   <svg width={w} height={w} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <rect x="5" y="3" width="14" height="18" rx="2" /><path d="M8 7h8" /><path d="M8 11h2M12 11h2M16 11h0" /><path d="M8 15h2M12 15h2M16 15v2" /><path d="M8 18h2M12 18h2" />
@@ -208,6 +215,7 @@ const IconCosteos = () => (
 const navItems: { id: Tab; label: string; Icon: () => ReactElement; soloSoporte?: boolean }[] = [
   { id: 'dashboard', label: 'Dashboard', Icon: IconDashboard },
   { id: 'envivo', label: 'En vivo', Icon: IconEnVivo },
+  { id: 'caja', label: 'Caja en vivo', Icon: IconCajaEnVivo },
   { id: 'diagnostico', label: 'Diagnóstico', Icon: IconDiagnostico },
   { id: 'menu', label: 'Menú', Icon: IconMenu },
   { id: 'revision', label: 'Revisión del menú', Icon: IconRevision },
@@ -290,6 +298,7 @@ export default function App() {
       <main className="flex-1 min-w-0 p-4 md:p-8">
         {tab === 'dashboard' && <Dashboard />}
         {tab === 'envivo' && <EnVivo />}
+        {tab === 'caja' && <CajaEnVivo />}
         {tab === 'diagnostico' && <Diagnostico />}
         {tab === 'metas' && <Metas />}
         {tab === 'rewards' && <Rewards />}

@@ -792,6 +792,30 @@ las 12 horas, la misma vigencia que usa el navegador.
   —la TV de folios, que está de cara al cliente—. Por eso el botón solo
   sale para el kiosko.
 
+### 2.4.8.5 Caja en vivo y ticket de caja (17/10/26)
+
+**Admin → Caja en vivo** (lo pidió Adrián, sirve en el teléfono): arriba lo
+que la pantalla del kiosko tiene AHORA —quién cobra, en qué paso va, el
+carrito— y abajo el turno: lo cobrado por método, el efectivo que debería
+haber en el cajón y cada movimiento, incluidos los que no dejan venta. No
+es video: el kiosko publica un vistazo (`store/espejo.ts` →
+`fn_caja_espejo_publicar`, abierta a `anon`) al cambiar algo y late cada
+20 s. Lo que se **quita** del carrito y los carritos que se **vacían** sin
+cobrar quedan en `caja_eventos` (solo se agrega). Un carrito que se vacía
+EN `/pago` es una venta que se cerró (cobrada, apartada o a caja) y no
+cuenta. Leer es `fn_caja_en_vivo`, candado `fn_es_jefe()`.
+
+**Ticket de caja** (impresora «Caja — Tickets», ESC/POS en 192.168.1.50,
+con su propio agente fuera de este repo): `configuracion_ticket` y
+`fn_encolar_ticket_venta` los dejó otra sesión; el encolado automático en
+cada cobro nace apagado. El kiosko tiene **«🧾 Imprimir ticket»** en ¡Listo!
+y en cada pedido del historial (`fn_ticket_imprimir`: la primera vez el
+ticket de siempre, luego copias con `copia_de` y `reimpresion: true`; no
+apila si ya hay uno en cola; 48 h y 5 copias como tope). **El instalador
+del agente de etiquetas solo toma impresoras con estación** (`cocina_id`):
+la de tickets no tiene, y si la tomara le rotaría el token al agente de
+caja y le mandaría TSPL.
+
 ### 2.4.6 La sorpresa no se anuncia
 
 La app del cliente **ya no dice cuántas compras le faltan** para el premio
@@ -1389,6 +1413,8 @@ empaquetador y se desvían solas:
 | Dar una cortesía (sale en $0 y baja inventario) | Kiosko → cobro → **🎁 Cortesía** → motivo → PIN de quien pueda (hoy Perla y Adrián). Quién puede y cuáles se dieron: Admin → Personal → **Permisos** → *Cortesías* |
 | Conectar un lector de QR para Rewards | 2D de escritorio que lea pantallas, USB en modo teclado. Pruébalo en el Bloc de notas: debe salir `SHK-…` y saltar de renglón. El kiosko ya acepta el código aunque el guion llegue como otro signo |
 | Buscar en «Abrir un bote» o «¿Llegó mercancía?» | Toca el buscador: sale el teclado en pantalla (letras y números, sin acentos) |
+| Ver la caja en vivo (qué tiene la pantalla, qué se cobró, qué se quitó) | Admin → **Caja en vivo**, también desde el teléfono. «Para revisar» junta lo que se quitó del carrito, los carritos vaciados, lo que no se cobró, cancelaciones y cortesías |
+| El cliente pide su ticket impreso, o lo quiere otra vez | Kiosko → en ¡Listo! **«🧾 Imprimir ticket»**; después, Historial de pedidos → el pedido → «🧾 Imprimir ticket» |
 | Ver qué ventas están apartadas, a distancia | Admin → **En vivo**, arriba del todo. Toca una para ver qué lleva, de qué hora es el ticket y a qué hora entró cada producto |
 
 ---

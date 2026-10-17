@@ -6,6 +6,7 @@ import { resolverModoKiosko } from './lib/modoKiosko'
 import { CandadoCajero } from './components/CandadoCajero'
 import { useCarrito, ultimoCajero } from './store/carritoStore'
 import { vigilarVentasSinInternet } from './store/sinInternet'
+import { arrancarEspejo, espejoRuta } from './store/espejo'
 import { sb } from './lib/sb'
 import { conRespaldo } from './lib/respaldo'
 import { contextoDePago } from './lib/contextoPago'
@@ -30,6 +31,14 @@ export default function App() {
   // Además, la vista de celular NUNCA pide el PIN del turno: es del cliente.
   const rutaActual = useLocation().pathname
   const esVistaCelular = rutaActual.startsWith('/pedido/') || rutaActual.startsWith('/recibo/')
+
+  // Caja en vivo (Admin): esta pantalla publica lo que tiene enfrente. La
+  // vista del celular del cliente no publica nada: no es la caja.
+  useEffect(() => {
+    if (esVistaCelular) return
+    return arrancarEspejo()
+  }, [esVistaCelular])
+  useEffect(() => { espejoRuta(rutaActual) }, [rutaActual])
 
   const cajero = useCarrito((s) => s.cajero)
   const setCajero = useCarrito((s) => s.setCajero)
