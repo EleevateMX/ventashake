@@ -147,7 +147,11 @@ if (-not $AnonKey) {
 
 Paso 'Consultando las impresoras dadas de alta'
 try {
-  $impresoras = Obtener-Impresoras $AnonKey | Where-Object { $_.activa }
+  # Solo las etiquetadoras de barra y cocina (las que tienen estacion).
+  # La impresora de tickets de la caja (sin estacion) tiene su propio agente:
+  # si este instalador la tomara, le rotaria el token -- y el agente de caja
+  # dejaria de imprimir -- y ademas le mandaria TSPL a una impresora ESC/POS.
+  $impresoras = Obtener-Impresoras $AnonKey | Where-Object { $_.activa -and $_.cocina_id }
 } catch {
   Malo "No se pudo hablar con Supabase: $($_.Exception.Message)"
   Write-Host '    Revisa la anon key y que este equipo tenga internet.'
