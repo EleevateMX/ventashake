@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { historialPedidos, nombreParaOrdenar, type PedidoHistorial } from '@shake/supabase'
 import { mensajeDeError } from '@shake/utils'
 import { sb } from '@/lib/sb'
+import { BotonTicket } from '@/components/BotonTicket'
 
 interface Props {
   abierto: boolean
@@ -10,6 +11,7 @@ interface Props {
 
 /**
  * Los últimos 5 pedidos pagados, con quién los pidió y qué lleva cada uno.
+ * Cada uno trae «Imprimir ticket» por si el cliente regresa por él.
  *
  * Vive detrás de un botón en la confirmación porque su momento es justo
  * después de vender: "¿este de quién era?", "¿qué llevaba el de Rosa?" —
@@ -103,6 +105,9 @@ export function HistorialPedidos({ abierto, onCerrar }: Props) {
                   </li>
                 ))}
               </ul>
+              <div className="mt-3">
+                <BotonTicket folio={p.folio} tono={i === 0 ? 'oscuro' : 'claro'} compacto />
+              </div>
             </article>
           ))}
         </div>

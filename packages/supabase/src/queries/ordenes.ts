@@ -326,6 +326,33 @@ export async function historialPedidos(sb: ShakeClient, limite = 5): Promise<Ped
   return rpc<PedidoHistorial[]>(sb, 'fn_historial_pedidos', { p_limite: limite })
 }
 
+// --------------------------- ticket de caja ---------------------------
+
+export interface ResultadoTicket {
+  /** en_cola: va a la impresora · ya_en_cola: ya había uno esperando · sin_impresora */
+  estado: 'en_cola' | 'ya_en_cola' | 'sin_impresora'
+  reimpresion?: boolean
+  folio: number
+}
+
+/**
+ * Manda a la impresora de tickets de la caja el ticket de una venta pagada
+ * (`fn_ticket_imprimir`, 17/10/26). La primera vez es el ticket de siempre;
+ * después, una copia marcada como reimpresión. Por id o por folio.
+ */
+export async function imprimirTicket(
+  sb: ShakeClient, venta: { ordenId?: string | null; folio?: number | null },
+): Promise<ResultadoTicket> {
+  return rpc<ResultadoTicket>(sb, 'fn_ticket_imprimir', {
+    p_orden_id: venta.ordenId ?? null, p_folio: venta.folio ?? null,
+  })
+}
+
+/** ¿Hay impresora de tickets en la caja?, ¿y ya sale el ticket solo al cobrar? */
+export async function estadoTicketCaja(sb: ShakeClient): Promise<{ hay_impresora: boolean; auto: boolean }> {
+  return rpc<{ hay_impresora: boolean; auto: boolean }>(sb, 'fn_ticket_estado_caja', {})
+}
+
 // --------------------------- panel en vivo ---------------------------
 
 export interface PanelEnVivo {

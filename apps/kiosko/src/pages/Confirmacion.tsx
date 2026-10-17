@@ -5,6 +5,7 @@ import { cerrarSesion } from '@shake/supabase'
 import { sb } from '@/lib/sb'
 import { QrRewards } from '@/components/QrRewards'
 import { HistorialPedidos } from '@/components/HistorialPedidos'
+import { BotonTicket } from '@/components/BotonTicket'
 import type { ItemCarrito, UsuarioKiosko } from '@/store/carritoStore'
 
 interface EstadoConfirmacion {
@@ -189,6 +190,9 @@ export function Confirmacion() {
         <p className="font-mono text-xs uppercase tracking-[0.25em] text-sa-cream/50">
           Menú en {segundos}s
         </p>
+        {/* Ticket impreso solo si el cliente lo pide. Una venta sin internet
+            todavía no existe en el servidor: su ticket sale al registrarse. */}
+        {!sinInternet && !esDemo && <BotonTicket ordenId={ordenId} />}
         <button
           onClick={() => setVerHistorial(true)}
           className="border border-sa-cream/30 text-sa-cream px-6 h-12 rounded-full font-display text-lg hover:bg-sa-cream/10 active:scale-95 transition-all"
