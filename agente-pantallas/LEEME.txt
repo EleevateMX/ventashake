@@ -35,11 +35,18 @@ INSTALACION
 ----------------------------------------------------------------
 
   1. Node.js 20 o superior.
-  2. Copia .env.example como .env y llena SUPABASE_ANON_KEY
-     y RPC_ASIGNACIONES.
-  3. npm install
-  4. npm run buscar     <- lista las teles con su IP y nombre
-  5. npm start
+  2. En Admin -> Pantallas (TV), boton "Generar llave del
+     empujador". Se ve UNA SOLA VEZ: copiala en ese momento.
+  3. Copia .env.example como .env y llena SUPABASE_ANON_KEY
+     y PANTALLAS_TOKEN (la llave del paso 2).
+  4. npm install
+  5. npm run buscar     <- lista las teles con su IP y nombre
+  6. npm start
+
+  Si la llave es mala, el agente NO se queda reintentando: se
+  detiene de golpe para que el servicio lo marque como caido y
+  alguien revise el .env. Un bucle silencioso con una llave
+  muerta es peor que una caida visible.
 
 ----------------------------------------------------------------
 PRIMERO: SABER QUE TELES HAY
@@ -61,31 +68,49 @@ PRIMERO: SABER QUE TELES HAY
 DE DONDE SALE QUE MUESTRA CADA UNA
 ----------------------------------------------------------------
 
-  De la funcion de la base que se ponga en RPC_ASIGNACIONES.
-  Tiene que devolver filas con al menos:
+  De `fn_pantallas_tv_agente`, firmada con la llave. Devuelve
+  cada TV activa con sus `diapositivas` ya filtradas por fecha
+  y ordenadas. El contrato completo esta en
+  docs/pantallas-tv.md del repo.
 
-    ip     IP de la tele (la llave)
-    url    direccion del contenido
+  La rotacion la lleva el agente con el reloj de cada imagen
+  (`segundos`), no el ciclo de consulta. Por eso una TV de 8
+  segundos rota cada 8 aunque la asignacion se pida cada 45.
 
-  Y opcionalmente:
+  Las TVs con contenido `pedidos` o `nada` vienen sin
+  diapositivas: el agente NO las toca. Esas las pone el
+  navegador de la propia TV.
 
-    nombre   para los logs
-    tipo     'imagen' o 'video'   (por defecto imagen)
-    titulo   lo que se manda en los metadatos
-    activa   false deja esa tele en paz
+  IMPORTANTE: las URLs tienen que ser alcanzables DESDE LA
+  TELE. El que descarga la imagen es el televisor, no esta PC.
 
-  IMPORTANTE: la `url` tiene que ser alcanzable DESDE LA TELE.
-  Una direccion tipo localhost no sirve: el que descarga el
-  archivo es el televisor, no esta PC.
+----------------------------------------------------------------
+CUANDO GERENCIA TOCA "VOLVER A PONER SU CONTENIDO"
+----------------------------------------------------------------
+
+  La asignacion trae `reenganchar_desde`. Si es mas nuevo que
+  el ultimo empuje, el agente repone el contenido en la
+  siguiente vuelta, sin esperar a que se cumpla el tiempo de
+  la diapositiva.
 
 ----------------------------------------------------------------
 EL REPORTE
 ----------------------------------------------------------------
 
-  Si se llena RPC_REPORTE, el agente manda en cada ciclo que
-  esta mostrando cada tele DE VERDAD — no lo que se le mando.
-  Esa diferencia importa: una tele puede aceptar el contenido
-  y aun asi estar en otra entrada.
+  `fn_pantallas_tv_reportar` recibe, por cada TV, que esta
+  mostrando DE VERDAD — no lo que se le mando. Esa diferencia
+  importa: una tele puede aceptar el contenido y aun asi estar
+  en otra entrada.
+
+  Cuatro estados posibles:
+
+    mostrando      todo bien
+    sin_respuesta  apagada, en standby o fuera de la red
+    otra_entrada   alguien le cambio la entrada; se reengancho
+    error          la TV rechazo el contenido
+
+  Se reporta en cuanto algo cambia, y si nada cambia, cada
+  REPORTE_SEGUNDOS. Admin pinta "sin reporte" a los 3 minutos.
 
   Sin RPC_REPORTE funciona igual, pero el estado solo sale por
   consola y Admin no se entera.
@@ -94,11 +119,11 @@ EL REPORTE
 PROBARLO SIN LA FUNCION DE LA BASE
 ----------------------------------------------------------------
 
-  Pon ASIGNACIONES_ARCHIVO apuntando a un JSON local con las
-  mismas filas (hay un ejemplo-asignaciones.json en esta
-  carpeta). Manda sobre RPC_ASIGNACIONES y permite probar el
-  empuje real contra las teles antes de que exista nada en la
-  base.
+  Pon ASIGNACIONES_ARCHIVO apuntando a un JSON con la misma
+  forma que devuelve la funcion (hay un
+  ejemplo-asignaciones.json en esta carpeta). Manda sobre el
+  RPC y permite probar el empuje real contra las teles sin
+  tocar la base ni gastar una llave.
 
 ----------------------------------------------------------------
 SI ALGO FALLA
@@ -117,7 +142,14 @@ SI ALGO FALLA
       descargar: compruebalo abriendo esa misma URL desde otra
       maquina de la red.
 
-  Una fila que se ignora con "no trae ip+url"
-      La funcion de la base esta devolviendo otros nombres de
-      campo. El aviso lista las llaves que llegaron; con eso
-      se ajusta el mapeo en src/asignaciones.ts.
+  "La llave del empujador no sirve"
+      Se genero otra llave en Admin y esta quedo invalidada,
+      o se copio mal. Genera una nueva y actualiza el .env.
+
+  No se ve que rote
+      Pon VERBOSO=1 en el .env y reinicia: cada avance queda
+      registrado con el nombre de la diapositiva.
+
+  Una fila que se ignora con "falta id o ip"
+      La TV esta dada de alta sin IP en Admin. Corre
+      `npm run buscar` para saber cual tiene.
