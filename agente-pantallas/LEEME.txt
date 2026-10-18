@@ -126,6 +126,26 @@ PROBARLO SIN LA FUNCION DE LA BASE
   tocar la base ni gastar una llave.
 
 ----------------------------------------------------------------
+COMO SABER SI ESTA VIVO
+----------------------------------------------------------------
+
+  El agente deja un archivo `estado.json` en su propia carpeta
+  cada vez que habla con el servidor:
+
+    ok          true si la ultima consulta salio bien
+    pantallas   cuantas TV le toca atender
+    error       que fallo, si fallo
+    en          cuando fue
+
+  Si ese archivo tiene mas de un par de minutos, el agente no
+  esta corriendo. Es lo primero que hay que mirar, y es lo que
+  revisa el instalador antes de decir LISTO.
+
+  El .env se lee de ESTA carpeta, no de la carpeta actual. Como
+  servicio de Windows el directorio de trabajo puede ser otro, y
+  antes el agente arrancaba sin configuracion y moria callado.
+
+----------------------------------------------------------------
 SI ALGO FALLA
 ----------------------------------------------------------------
 

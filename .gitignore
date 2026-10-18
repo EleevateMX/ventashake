@@ -32,3 +32,6 @@ apps/admin/public/descargas/
 
 # Lo deja la CLI de Supabase al desplegar funciones
 supabase/.temp/
+
+# Constancia local del agente de pantallas (de cada PC, no del repo)
+agente-pantallas/estado.json

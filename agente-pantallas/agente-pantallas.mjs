@@ -398,52 +398,6 @@ var require_main = __commonJS({
   }
 });
 
-// node_modules/dotenv/lib/env-options.js
-var require_env_options = __commonJS({
-  "node_modules/dotenv/lib/env-options.js"(exports, module) {
-    var options = {};
-    if (process.env.DOTENV_CONFIG_ENCODING != null) {
-      options.encoding = process.env.DOTENV_CONFIG_ENCODING;
-    }
-    if (process.env.DOTENV_CONFIG_PATH != null) {
-      options.path = process.env.DOTENV_CONFIG_PATH;
-    }
-    if (process.env.DOTENV_CONFIG_QUIET != null) {
-      options.quiet = process.env.DOTENV_CONFIG_QUIET;
-    }
-    if (process.env.DOTENV_CONFIG_DEBUG != null) {
-      options.debug = process.env.DOTENV_CONFIG_DEBUG;
-    }
-    if (process.env.DOTENV_CONFIG_OVERRIDE != null) {
-      options.override = process.env.DOTENV_CONFIG_OVERRIDE;
-    }
-    if (process.env.DOTENV_CONFIG_DOTENV_KEY != null) {
-      options.DOTENV_KEY = process.env.DOTENV_CONFIG_DOTENV_KEY;
-    }
-    module.exports = options;
-  }
-});
-
-// node_modules/dotenv/lib/cli-options.js
-var require_cli_options = __commonJS({
-  "node_modules/dotenv/lib/cli-options.js"(exports, module) {
-    var re = /^dotenv_config_(encoding|path|quiet|debug|override|DOTENV_KEY)=(.+)$/;
-    module.exports = function optionMatcher(args) {
-      const options = args.reduce(function(acc, cur) {
-        const matches = cur.match(re);
-        if (matches) {
-          acc[matches[1]] = matches[2];
-        }
-        return acc;
-      }, {});
-      if (!("quiet" in options)) {
-        options.quiet = "true";
-      }
-      return options;
-    };
-  }
-});
-
 // node_modules/tslib/tslib.es6.mjs
 var tslib_es6_exports = {};
 __export(tslib_es6_exports, {
@@ -4798,8 +4752,8 @@ var require_RealtimeChannel = __commonJS({
       }
       /** @internal */
       _notThisChannelEvent(event, ref) {
-        const { close, error, leave, join } = constants_1.CHANNEL_EVENTS;
-        const events = [close, error, leave, join];
+        const { close, error, leave, join: join2 } = constants_1.CHANNEL_EVENTS;
+        const events = [close, error, leave, join2];
         return ref && events.includes(event) && ref !== this.joinPush.ref;
       }
       /** @internal */
@@ -14306,19 +14260,12 @@ var require_main4 = __commonJS({
   }
 });
 
-// node_modules/dotenv/config.js
-(function() {
-  require_main().config(
-    Object.assign(
-      {},
-      require_env_options(),
-      require_cli_options()(process.argv)
-    )
-  );
-})();
-
 // src/index.ts
+var import_dotenv = __toESM(require_main(), 1);
 import { hostname } from "node:os";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { writeFileSync } from "node:fs";
 
 // node_modules/@supabase/supabase-js/dist/index.mjs
 var dist_exports = {};
@@ -22729,7 +22676,9 @@ async function reportar(sb, rpc, token, reportes) {
 }
 
 // src/index.ts
-var VERSION = "1.1.0";
+var AQUI = dirname(fileURLToPath(import.meta.url));
+(0, import_dotenv.config)({ path: join(AQUI, ".env") });
+var VERSION = "1.2.0";
 var env = (k, d = "") => process.env[k]?.trim() || d;
 var num = (k, d) => Number(env(k)) || d;
 var SUPABASE_URL = env("SUPABASE_URL");
@@ -22775,6 +22724,19 @@ async function refrescarRed(forzar = false) {
     }
   }
 }
+function anotarEstado(ok, pantallas, error) {
+  try {
+    writeFileSync(join(AQUI, "estado.json"), JSON.stringify({
+      version: VERSION,
+      agente: AGENTE,
+      ok,
+      pantallas,
+      error,
+      en: (/* @__PURE__ */ new Date()).toISOString()
+    }, null, 2) + "\n");
+  } catch {
+  }
+}
 async function sincronizarAsignaciones() {
   const lista = await obtenerAsignaciones(cliente(), {
     rpc: RPC_ASIGNACIONES,
@@ -22800,6 +22762,7 @@ async function sincronizarAsignaciones() {
     }
   }
   for (const id of [...tvs.keys()]) if (!vistos.has(id)) tvs.delete(id);
+  anotarEstado(true, lista.length, null);
 }
 function anotar(e, estadoR, mostrando, transporte, err) {
   e.ultimoReporte = { id: e.asignada.id, estado: estadoR, mostrando, transporte, error: err };
@@ -22926,6 +22889,7 @@ async function main() {
       await vuelta(toca);
       if (toca) ultimaAsignacion = ahora;
     } catch (e) {
+      anotarEstado(false, 0, e instanceof Error ? e.message : String(e));
       if (e instanceof LlaveInvalida) {
         log.error(e.message);
         process.exit(1);

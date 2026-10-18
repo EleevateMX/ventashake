@@ -1,5 +1,17 @@
-import 'dotenv/config'
+import { config as cargarEnv } from 'dotenv'
 import { hostname } from 'node:os'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { writeFileSync } from 'node:fs'
+
+/** Carpeta del propio agente, no la carpeta actual. */
+const AQUI = dirname(fileURLToPath(import.meta.url))
+
+// El .env se carga por ruta explicita y no con `dotenv/config`, que lo
+// busca en el directorio de trabajo. Como Servicio de Windows ese
+// directorio puede ser C:\Windows\system32, y el agente arrancaba sin
+// configuracion y moria en silencio. Mismo arreglo que el de caja 1.0.2.
+cargarEnv({ path: join(AQUI, '.env') })
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { descubrir, describir, estado, poner, type Pantalla } from './dlna.js'
 import {
@@ -8,7 +20,7 @@ import {
 } from './asignaciones.js'
 import { log } from './log.js'
 
-const VERSION = '1.1.0'
+const VERSION = '1.2.0'
 
 const env = (k: string, d = '') => process.env[k]?.trim() || d
 const num = (k: string, d: number) => Number(env(k)) || d
@@ -85,6 +97,27 @@ async function refrescarRed(forzar = false): Promise<void> {
   }
 }
 
+/**
+ * Deja constancia en disco de la ultima conversacion con el servidor.
+ *
+ * El instalador la lee para saber si el agente quedo DE VERDAD en linea.
+ * No se le puede preguntar al servidor: las funciones que leen el latido
+ * son de gerencia, y llamar a `fn_pantallas_tv_agente` para comprobarlo
+ * escribiria el mismo latido que se quiere verificar — siempre diria que
+ * si, aunque el agente estuviera muerto.
+ */
+function anotarEstado(ok: boolean, pantallas: number, error: string | null): void {
+  try {
+    writeFileSync(join(AQUI, 'estado.json'), JSON.stringify({
+      version: VERSION, agente: AGENTE, ok, pantallas, error,
+      en: new Date().toISOString(),
+    }, null, 2) + '\n')
+  } catch {
+    // Si no se puede escribir (carpeta de solo lectura), el agente sigue:
+    // esto es diagnostico, no parte de su trabajo.
+  }
+}
+
 async function sincronizarAsignaciones(): Promise<void> {
   const lista = await obtenerAsignaciones(cliente(), {
     rpc: RPC_ASIGNACIONES, archivo: ASIGNACIONES_ARCHIVO,
@@ -108,6 +141,8 @@ async function sincronizarAsignaciones(): Promise<void> {
   }
   // Una TV que ya no viene en la asignacion se olvida: dejo de tocarla.
   for (const id of [...tvs.keys()]) if (!vistos.has(id)) tvs.delete(id)
+
+  anotarEstado(true, lista.length, null)
 }
 
 function anotar(e: EstadoTv, estadoR: EstadoReporte, mostrando: string | null,
@@ -272,6 +307,7 @@ async function main(): Promise<void> {
       await vuelta(toca)
       if (toca) ultimaAsignacion = ahora
     } catch (e) {
+      anotarEstado(false, 0, e instanceof Error ? e.message : String(e))
       if (e instanceof LlaveInvalida) {
         // Reintentar en bucle con una llave muerta solo llena el log. Se
         // para en seco para que el servicio lo marque como caido y alguien

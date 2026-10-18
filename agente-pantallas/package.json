@@ -1,6 +1,6 @@
 {
   "name": "shakeaholic-agente-pantallas",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "private": true,
   "description": "Mantiene cada televisión del local mostrando lo que Admin le asignó, empujándolo por DLNA.",
   "type": "module",

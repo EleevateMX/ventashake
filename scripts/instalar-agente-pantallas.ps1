@@ -248,6 +248,61 @@ try {
 }
 Pop-Location
 
+# ---------------------------------------------------------------------------
+# 8. Comprobar que de verdad quedo en linea
+# ---------------------------------------------------------------------------
+# "Servicio corriendo" solo dice que Windows lo arranco, no que el agente
+# hable con el servidor: si se cae al empezar, Windows lo reinicia en
+# silencio y en Admin nunca aparece.
+#
+# A diferencia del de caja, aqui NO se le puede preguntar al servidor: las
+# funciones que leen el latido son de gerencia y el instalador solo tiene
+# la llave publica. Y llamar a fn_pantallas_tv_agente para comprobarlo
+# escribiria el mismo latido que se quiere verificar: diria que si aunque
+# el agente estuviera muerto. Por eso el agente deja constancia en
+# estado.json cada vez que habla con el servidor, y eso es lo que se lee.
+Paso 'Esperando a que el agente se reporte (hasta 60 s)'
+$marca   = Join-Path $Destino 'estado.json'
+$enLinea = $false
+$detalle = $null
+Remove-Item $marca -Force -EA SilentlyContinue
+$inicio = Get-Date
+while (((Get-Date) - $inicio).TotalSeconds -lt 60) {
+  Start-Sleep -Seconds 5
+  if (-not (Test-Path $marca)) { continue }
+  try {
+    $e = Get-Content $marca -Raw | ConvertFrom-Json
+    if ([datetime]$e.en -lt $inicio.ToUniversalTime()) { continue }   # constancia vieja
+    if ($e.ok) {
+      $enLinea = $true
+      $detalle = "$($e.pantallas) pantalla(s) asignada(s)"
+      break
+    }
+    $detalle = $e.error
+  } catch { }
+}
+if ($enLinea) {
+  Bien "en linea: hablo con el servidor ($detalle)"
+  if ($detalle -like '0 pantalla*') {
+    Aviso 'todavia no hay ninguna TV asignada: dalas de alta en Admin -> Pantallas (TV)'
+  }
+} else {
+  Malo 'El servicio arranco pero el agente NO se ha reportado.'
+  if ($detalle) { Write-Host "    Lo ultimo que dijo: $detalle" -ForegroundColor Yellow }
+  $logs = Get-ChildItem (Join-Path $Destino 'daemon') -Filter '*.log' -EA SilentlyContinue |
+          Sort-Object LastWriteTime -Descending
+  foreach ($l in $logs) {
+    Write-Host ''
+    Write-Host "    --- $($l.Name) (ultimas lineas) ---" -ForegroundColor Yellow
+    Get-Content $l.FullName -Tail 15 -EA SilentlyContinue | ForEach-Object { Write-Host "    $_" }
+  }
+  if (-not $logs) { Write-Host '    No hay bitacora del servicio en la carpeta daemon.' }
+  Write-Host ''
+  Write-Host '    Manda una foto de esta ventana. Mientras, se puede correr a mano:'
+  Write-Host "    doble clic en $Destino\iniciar.bat (y dejar esa ventana abierta)."
+  exit 1
+}
+
 Write-Host ''
 Write-Host '  LISTO' -ForegroundColor Green
 Write-Host "  Instalado en: $Destino  (version $version)"
