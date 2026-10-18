@@ -52,7 +52,8 @@ const DESCARGAS: Descarga[] = [
     detalle:
       'El de la impresora de tickets (192.168.1.50), aparte del de etiquetas: si uno ' +
       'se cae, el otro sigue. Toma la llave de la PC, saca el token de «Caja — Tickets», ' +
-      'prueba la impresora y lo deja como servicio de Windows. Clic derecho → ' +
+      'imprime una prueba y lo deja corriendo en una ventana minimizada que arranca sola al ' +
+      'prender la PC. No dice «listo» hasta que Admin lo ve en línea. Clic derecho → ' +
       'Ejecutar como administrador.',
   },
   {

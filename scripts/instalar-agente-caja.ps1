@@ -4,8 +4,15 @@
 #  Deja la impresora de tickets (la de caja, ESC/POS, sin estacion) lista:
 #  baja el agente de `agente-caja/` del repo, saca el token de la impresora
 #  "Caja - Tickets" dada de alta en Admin, escribe el .env, prueba que la
-#  impresora conteste y lo deja como Servicio de Windows (arranca solo al
-#  prender la PC, aunque nadie inicie sesion).
+#  impresora conteste, imprime una prueba directa y lo deja corriendo en su
+#  propia ventana minimizada, que se levanta sola si se cae y arranca al
+#  prender la PC -- igual que el agente de etiquetas, que es el camino que ya
+#  funciona en esa PC todos los dias.
+#
+#  Sin Servicio de Windows a proposito (18/10/26): la primera version usaba
+#  node-windows, que necesitaba bajar paquetes al instalar, corria como otra
+#  cuenta y, cuando el agente se caia al arrancar, Windows lo reiniciaba en
+#  silencio. Dos instalaciones quedaron "corriendo" sin imprimir nada.
 #
 #  Es APARTE del agente de etiquetas (instalar-agente-impresion.ps1), y ese
 #  instalador NO toca esta impresora: si la tomara, le rotaria el token y le
@@ -15,7 +22,7 @@
 #  (Admin -> Descargas), clic derecho -> ejecutar como administrador.
 #
 #  Se puede correr las veces que haga falta: genera un token nuevo, reescribe
-#  el .env y reinicia el servicio con la version nueva.
+#  el .env y vuelve a arrancar el agente con la version nueva.
 # ============================================================================
 
 param(
@@ -29,7 +36,8 @@ $ErrorActionPreference = 'Stop'
 
 $SupabaseUrl = 'https://zyjtnaystsporbuzcmqk.supabase.co'
 $Crudo       = "https://raw.githubusercontent.com/EleevateMX/ventashake/$Rama/agente-caja"
-$Archivos    = @('agente-caja.mjs', 'instalar-servicio.mjs', 'iniciar.bat', 'instalar-servicio.bat', 'LEEME.txt', '.env.example')
+$Archivos    = @('agente-caja.mjs', 'iniciar.bat', 'LEEME.txt', '.env.example')
+$Ventana     = 'Shakeaholic - agente de tickets de caja'
 $Servicio    = 'Shakeaholic Agente de Caja'
 
 function Escribir($ruta, $texto) {
@@ -152,35 +160,29 @@ if (-not $versionOk) {
 # ve "conectado" sin imprimir nada. Solo se tocan procesos del agente de
 # CAJA (agente-caja.mjs), nunca el de etiquetas.
 Paso 'Buscando un agente de caja anterior'
+$habia = $false
+# El servicio de la version anterior del instalador: se detiene y se QUITA.
+# Si se quedara, al prender la PC arrancaria otra copia con el token viejo.
 $svc = Get-CimInstance Win32_Service -EA SilentlyContinue | Where-Object { $_.DisplayName -eq $Servicio }
-if ($svc) {
-  if ($svc.State -ne 'Stopped') {
-    Stop-Service -Name $svc.Name -Force -EA SilentlyContinue
-    Start-Sleep -Seconds 2
-  }
-  Bien "servicio detenido ($($svc.Name))"
+foreach ($x in @($svc | Where-Object { $_ })) {
+  if ($x.State -ne 'Stopped') { Stop-Service -Name $x.Name -Force -EA SilentlyContinue; Start-Sleep -Seconds 2 }
+  & sc.exe delete $x.Name | Out-Null
+  Bien "quitado el servicio de Windows anterior ($($x.Name))"
+  $habia = $true
 }
+Remove-Item (Join-Path $Destino 'daemon') -Recurse -Force -EA SilentlyContinue
+# La ventana que lo relanza (si no se cierra primero, lo vuelve a arrancar
+# con el .env viejo en cuanto se mata el node) y el node mismo.
+$ventanas = Get-CimInstance Win32_Process -Filter "Name = 'cmd.exe'" -EA SilentlyContinue |
+            Where-Object { $_.CommandLine -like '*arrancar-agente-caja*' }
 $sueltos = Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" -EA SilentlyContinue |
            Where-Object { $_.CommandLine -like '*agente-caja.mjs*' }
-foreach ($p in @($sueltos | Where-Object { $_ })) {
+foreach ($p in (@($ventanas) + @($sueltos) | Where-Object { $_ })) {
   Stop-Process -Id $p.ProcessId -Force -EA SilentlyContinue
-  Bien "detenido el que corria en ventana (pid $($p.ProcessId))"
+  $habia = $true
 }
-if (-not $svc -and -not $sueltos) { Bien 'no habia ninguno' }
-
-# Un servicio registrado desde OTRA carpeta (por ejemplo Descargas) se
-# quita: si no, al prender la PC arrancaria esa copia con el token viejo.
-$reusar = $false
-if ($svc) {
-  if ($svc.PathName -like "*$Destino*") {
-    $reusar = $true
-  } else {
-    Aviso "el servicio anterior corria desde otra carpeta: $($svc.PathName)"
-    & sc.exe delete $svc.Name | Out-Null
-    Start-Sleep -Seconds 2
-    Bien 'quitado; se registra de nuevo desde la carpeta de siempre'
-  }
-}
+if ($ventanas -or $sueltos) { Start-Sleep -Seconds 2; Bien 'detenido el agente que estaba corriendo' }
+if (-not $habia) { Bien 'no habia ninguno' }
 
 # ---------------------------------------------------------------------------
 # 4. Bajar el agente
@@ -229,54 +231,80 @@ Escribir (Join-Path $Destino '.env') $env_txt
 Bien '.env escrito con token nuevo'
 
 # ---------------------------------------------------------------------------
-# 6. Servicio de Windows
+# 6. Prueba directa en papel
 # ---------------------------------------------------------------------------
-Push-Location $Destino
-try {
-  if ($reusar) {
-    Paso 'Arrancando el servicio con la version nueva'
-    Start-Service -Name $svc.Name
-    Bien 'servicio corriendo'
-  } else {
-    Paso 'Registrando el servicio de Windows (la primera vez tarda)'
-    & npm install node-windows --no-save --no-audit --no-fund --loglevel=error
-    if ($LASTEXITCODE -ne 0) { throw "npm install node-windows devolvio $LASTEXITCODE" }
-    & node instalar-servicio.mjs
-    if ($LASTEXITCODE -ne 0) { throw "instalar-servicio.mjs devolvio $LASTEXITCODE" }
-    Start-Sleep -Seconds 5
-    $nuevo = Get-CimInstance Win32_Service -EA SilentlyContinue | Where-Object { $_.DisplayName -eq $Servicio }
-    # node-windows dice "ya estaba instalado" si encuentra su carpeta daemon
-    # de un intento anterior, aunque Windows ya no tenga el servicio. Se
-    # borra esa carpeta y se intenta una vez mas.
-    if (-not $nuevo -and (Test-Path (Join-Path $Destino 'daemon'))) {
-      Aviso 'habia restos de un servicio anterior; se limpian y se intenta otra vez'
-      Remove-Item (Join-Path $Destino 'daemon') -Recurse -Force -EA SilentlyContinue
-      & node instalar-servicio.mjs
-      Start-Sleep -Seconds 5
-      $nuevo = Get-CimInstance Win32_Service -EA SilentlyContinue | Where-Object { $_.DisplayName -eq $Servicio }
-    }
-    if (-not $nuevo) { throw 'el servicio no aparecio en Windows' }
-    if ($nuevo.State -ne 'Running') { Start-Service -Name $nuevo.Name -EA SilentlyContinue }
-    Bien 'servicio registrado y corriendo'
+# Antes de arrancar el agente: si esto no sale, el problema es la impresora
+# o la red, no el agente ni el servidor. Es un papelito con la hora.
+if ($responde) {
+  Paso 'Imprimiendo una prueba directa'
+  $cliente = New-Object System.Net.Sockets.TcpClient
+  try {
+    $cliente.Connect($imp.ip, $puerto)
+    $flujo = $cliente.GetStream()
+    $hora = (Get-Date).ToString('dd/MM/yyyy HH:mm')
+    $texto = "SHAKEAHOLIC`nPrueba del agente de caja`n$hora`n$($env:COMPUTERNAME)`n`n`n`n"
+    # [byte[]] delante: sumar arreglos en PowerShell da object[], y Write lo rechaza.
+    [byte[]]$bytes = @(0x1B, 0x40, 0x1B, 0x61, 0x01) + [System.Text.Encoding]::ASCII.GetBytes($texto) + @(0x1D, 0x56, 0x42, 0x00)
+    $flujo.Write($bytes, 0, $bytes.Length)
+    $flujo.Flush()
+    Start-Sleep -Milliseconds 500
+    Bien 'mandada: debe salir un papelito "Prueba del agente de caja"'
+  } catch {
+    Malo "No se pudo mandar la prueba: $($_.Exception.Message)"
+  } finally {
+    $cliente.Dispose()
   }
-} catch {
-  Pop-Location
-  Malo "No quedo como servicio: $($_.Exception.Message)"
-  Write-Host '    Mientras se arregla, se puede correr a mano: doble clic en'
-  Write-Host "    $Destino\iniciar.bat (y dejar esa ventana abierta)."
-  exit 1
 }
-Pop-Location
 
 # ---------------------------------------------------------------------------
-# 7. Comprobar que de verdad quedo en linea
+# 7. Dejarlo corriendo (y que arranque solo al prender la PC)
 # ---------------------------------------------------------------------------
-# "Servicio corriendo" solo dice que Windows lo arranco, no que el agente
-# hable con el servidor: si se cae al empezar, Windows lo reinicia en
-# silencio y Admin nunca lo ve en linea. Se le pregunta al servidor si ya
-# latio con el token nuevo, y si no, se ensena el error del servicio aqui
-# mismo en vez de decir LISTO.
-Paso 'Esperando a que el agente se reporte (hasta 45 s)'
+# Una ventana que relanza el agente si se cae: es lo que hace un servicio,
+# pero a la vista. Va minimizada; si alguien la cierra, no salen tickets.
+Paso 'Dejandolo corriendo'
+$bat = Join-Path $Destino 'arrancar-agente-caja.bat'
+$bat_txt = @"
+@echo off
+title $Ventana
+cd /d "$Destino"
+:otra
+node agente-caja.mjs
+echo.
+echo El agente se detuvo. Se vuelve a arrancar en 10 segundos...
+timeout /t 10 /nobreak >nul
+goto otra
+"@
+[System.IO.File]::WriteAllText($bat, ($bat_txt -replace "`r?`n", "`r`n") + "`r`n", [System.Text.Encoding]::ASCII)
+
+# Inicio de TODOS los usuarios, no el del usuario actual: el instalador corre
+# elevado y Windows puede haber cambiado de perfil (CLAUDE.md 2.6); el
+# arranque quedaria en un perfil que nadie abre.
+foreach ($carpeta in @([Environment]::GetFolderPath('CommonStartup'), [Environment]::GetFolderPath('CommonDesktopDirectory'))) {
+  try {
+    $wsh = New-Object -ComObject WScript.Shell
+    $lnk = $wsh.CreateShortcut((Join-Path $carpeta 'Agente de tickets de caja.lnk'))
+    $lnk.TargetPath = $bat
+    $lnk.WorkingDirectory = $Destino
+    $lnk.WindowStyle = 7
+    $lnk.Save()
+  } catch {
+    Aviso "no se pudo dejar el acceso en $($carpeta): $($_.Exception.Message)"
+  }
+}
+Bien 'arranca solo al prender la PC (y hay acceso en el escritorio)'
+
+$arranque = Get-Date
+Start-Process -FilePath $bat -WorkingDirectory $Destino -WindowStyle Minimized
+Bien "corriendo en su ventana minimizada: '$Ventana'"
+
+# ---------------------------------------------------------------------------
+# 8. Comprobar que de verdad quedo en linea
+# ---------------------------------------------------------------------------
+# Que la ventana este abierta no dice que el agente hable con el servidor:
+# si se cae al empezar, la ventana lo relanza cada 10 s y Admin nunca lo ve
+# en linea. Se le pregunta al servidor si ya latio con el token nuevo, y si
+# no, se ensena aqui mismo lo que dice el agente en vez de decir LISTO.
+Paso 'Esperando a que el agente se reporte con el servidor (hasta 45 s)'
 $enLinea = $false
 $inicio = Get-Date
 while (((Get-Date) - $inicio).TotalSeconds -lt 45) {
@@ -285,7 +313,7 @@ while (((Get-Date) - $inicio).TotalSeconds -lt 45) {
     $yo = @(Invoke-RestMethod -Method Post -Uri "$SupabaseUrl/rest/v1/rpc/fn_admin_impresoras" `
       -Headers (Cabeceras $AnonKey) -ContentType 'application/json' -Body '{}') |
       Where-Object { $_.id -eq $imp.id } | Select-Object -First 1
-    if ($yo -and $yo.ultima_conexion -and ([datetime]$yo.ultima_conexion).ToUniversalTime() -gt $inicio.ToUniversalTime().AddSeconds(-5)) {
+    if ($yo -and $yo.ultima_conexion -and ([datetime]$yo.ultima_conexion).ToUniversalTime() -gt $arranque.ToUniversalTime().AddSeconds(-5)) {
       $enLinea = $true
       break
     }
@@ -294,18 +322,25 @@ while (((Get-Date) - $inicio).TotalSeconds -lt 45) {
 if ($enLinea) {
   Bien 'en linea: Admin ya lo ve'
 } else {
-  Malo 'El servicio arranco pero el agente NO se ha reportado.'
-  $logs = Get-ChildItem (Join-Path $Destino 'daemon') -Filter '*.log' -EA SilentlyContinue |
-          Sort-Object LastWriteTime -Descending
-  foreach ($l in $logs) {
-    Write-Host ''
-    Write-Host "    --- $($l.Name) (ultimas lineas) ---" -ForegroundColor Yellow
-    Get-Content $l.FullName -Tail 15 -EA SilentlyContinue | ForEach-Object { Write-Host "    $_" }
-  }
-  if (-not $logs) { Write-Host '    No hay bitacora del servicio en la carpeta daemon.' }
+  Malo 'El agente arranco pero NO se ha reportado con el servidor.'
+  # Se detiene la ventana y se corre una vez a la vista para ensenar por que.
+  Get-CimInstance Win32_Process -EA SilentlyContinue |
+    Where-Object { $_.CommandLine -like '*arrancar-agente-caja*' -or $_.CommandLine -like '*agente-caja.mjs*' } |
+    ForEach-Object { Stop-Process -Id $_.ProcessId -Force -EA SilentlyContinue }
+  $salida = Join-Path $env:TEMP 'agente-caja-salida.txt'
+  $errores = Join-Path $env:TEMP 'agente-caja-errores.txt'
+  $p = Start-Process -FilePath 'node' -ArgumentList 'agente-caja.mjs' -WorkingDirectory $Destino `
+         -RedirectStandardOutput $salida -RedirectStandardError $errores -NoNewWindow -PassThru
+  Start-Sleep -Seconds 12
+  Stop-Process -Id $p.Id -Force -EA SilentlyContinue
   Write-Host ''
-  Write-Host '    Manda una foto de esta ventana. Mientras, se puede correr a mano:'
-  Write-Host "    doble clic en $Destino\iniciar.bat (y dejar esa ventana abierta)."
+  Write-Host '    --- lo que dice el agente ---' -ForegroundColor Yellow
+  foreach ($f in @($salida, $errores)) {
+    Get-Content $f -Tail 20 -EA SilentlyContinue | ForEach-Object { Write-Host "    $_" }
+  }
+  Write-Host ''
+  Write-Host '    Manda una foto de esta ventana.'
+  Write-Host "    Se puede volver a arrancar con el acceso 'Agente de tickets de caja' del escritorio."
   exit 1
 }
 
@@ -313,7 +348,9 @@ Write-Host ''
 Write-Host '  LISTO' -ForegroundColor Green
 Write-Host "  Instalado en: $Destino  (version $version)"
 Write-Host ''
-Write-Host '  Corre como servicio: arranca solo al prender la PC, sin ventana.'
+Write-Host "  Corre en la ventana minimizada '$Ventana'. No la cierres:"
+Write-Host '  si se cierra, no salen tickets (al prender la PC vuelve sola).'
+Write-Host '  Si habia tickets pedidos desde el kiosko, ya van a salir.'
 Write-Host "  En Admin -> Impresoras, '$($imp.nombre)' debe verse en linea en menos de un minuto."
 Write-Host ''
 Write-Host '  Para probar: en el kiosko, al terminar una venta, "Imprimir ticket".'

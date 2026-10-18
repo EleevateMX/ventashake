@@ -834,10 +834,18 @@ caja y le mandaría TSPL.
 empaquetado (dotenv + supabase-js adentro, sin `npm install`), versión en su
 línea `var VERSION`. Se instala con **Admin → Descargas → «Agente de tickets
 de caja»** (`scripts/instalar-agente-caja.bat` → `.ps1`): toma la llave de la
-PC, rota el token de la impresora **sin estación**, escribe el `.env` y lo
-deja como servicio de Windows («Shakeaholic Agente de Caja», node-windows).
-Detiene ANTES de rotar cualquier agente de caja vivo —con el token nuevo, uno
-viejo late y no imprime— y quita un servicio registrado desde otra carpeta.
+PC, rota el token de la impresora **sin estación**, escribe el `.env`,
+imprime una prueba directa por TCP y lo deja en una **ventana minimizada que
+lo relanza si se cae** (acceso en el Inicio de *todos* los usuarios: el
+instalador corre elevado y el perfil puede ser otro). **No es servicio de
+Windows, a propósito**: la primera versión usaba node-windows y quedó dos
+veces «corriendo» sin reportarse nunca (el agente buscaba su `.env` en la
+carpeta actual; la 1.0.2 lo busca junto al `.mjs`). El instalador quita ese
+servicio viejo, detiene cualquier agente de caja ANTES de rotar el token
+—con el token nuevo, uno viejo late y no imprime— y **no dice LISTO hasta
+que el servidor ve el latido**; si no llega, corre el agente a la vista y
+enseña lo que dice. «Rotar token» en Admin sobre la de caja la deja sin
+agente: el token nuevo lo saca el instalador.
 La 1.0.1 marca `*** REIMPRESION ***` (el payload de las copias trae
 `reimpresion: true`). Admin → Descargas y En vivo comparan la de caja contra
 `agente_caja` / `AGENTE_CAJA_ESPERADO`, no contra la de etiquetas.

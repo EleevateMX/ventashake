@@ -22,11 +22,22 @@ INSTALACION (lo normal)
     - toma la llave que ya tiene la PC,
     - saca el token de "Caja - Tickets" de Admin,
     - escribe el .env,
-    - prueba que la impresora conteste,
-    - y lo deja como Servicio de Windows (arranca solo al prender).
+    - imprime un papelito de prueba directo a la impresora,
+    - lo deja corriendo en la ventana minimizada
+      "Shakeaholic - agente de tickets de caja", que se vuelve a
+      levantar sola si el agente se cae y arranca al prender la PC,
+    - y NO dice LISTO hasta que el servidor lo ve en linea. Si no,
+      ensena en pantalla lo que dice el agente.
 
   Se puede correr las veces que haga falta: reinstala encima y
-  reinicia el servicio con la version nueva.
+  vuelve a arrancar el agente con la version nueva.
+
+  No va como Servicio de Windows a proposito: asi se instalo al
+  principio y quedo "corriendo" sin imprimir. Va igual que el agente
+  de etiquetas, que ya funciona en esa PC todos los dias.
+
+  NO toques "Rotar token" de la impresora de caja en Admin: deja al
+  agente sin servir. Si hace falta token nuevo, corre el instalador.
 
 ----------------------------------------------------------------
 A MANO (solo si el instalador no se puede usar)
@@ -39,8 +50,7 @@ A MANO (solo si el instalador no se puede usar)
        IMPRESORA_TOKEN     (Admin > Impresoras > "Caja - Tickets")
   4. Prueba: doble clic en  iniciar.bat
      Debe decir "Impresora responde." y quedarse esperando.
-  5. Servicio: clic derecho en  instalar-servicio.bat
-     > "Ejecutar como administrador"
+  5. Dejar esa ventana abierta todo el horario.
 
 ----------------------------------------------------------------
 COMO SABER SI ESTA VIVO
@@ -69,5 +79,6 @@ SI ALGO FALLA
       Encendida, con papel, cable de red. Luego: ping 192.168.1.50
 
   "Token de impresora invalido"
-      Alguien genero un token nuevo. Vuelve a correr el
-      instalador: saca uno y reinicia el servicio.
+      Alguien genero un token nuevo (o toco "Rotar token" en
+      Admin). Vuelve a correr el instalador: saca uno y arranca
+      el agente otra vez.
