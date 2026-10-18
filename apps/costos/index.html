@@ -583,6 +583,21 @@ async function recargarDelServidor(){
   await cargarVivo();render();setSaved("Sincronizado ✓");botonGuardar("guardado");
   return true;
 }
+/* «↻ Actualizar» (18/10/26): trae lo que hay AHORA en el servidor —el
+   documento y la existencia real— sin perder lo que esta pestaña tenga
+   pendiente: primero lo guarda, y solo si se guardó vuelve a leer. Con dos
+   pestañas abiertas (como las tiene Perla), es la forma de ver lo que hizo
+   la otra o lo que se vendió mientras tanto. */
+async function refrescarExistencias(btn){
+  const txt=btn?btn.textContent:"";
+  if(btn){btn.disabled=true;btn.textContent="Actualizando…";}
+  try{
+    if(saveTimer){clearTimeout(saveTimer);saveTimer=null;}
+    if(sucio||guardadoEnCurso)await dbWrite();
+    if(sucio){alert("No se pudo guardar lo pendiente, así que no se recargó (para no perderlo). Revisa el internet y vuelve a intentar.");return;}
+    await recargarDelServidor();
+  }finally{if(btn&&btn.isConnected){btn.disabled=false;btn.textContent=txt;}}
+}
 async function leerVersion(){
   try{const v=await sb.rpc('fn_costos_version',{p_token:sessToken});return v.error?null:v.data;}catch(e){return null;}
 }
@@ -797,9 +812,15 @@ function openTraspaso(cat,i){
     <div class="mrow"><button class="btn ghost mini" id="tr_cancel">Cancelar</button><button class="btn mini" id="tr_ok">Confirmar traspaso</button></div>
   </div></div>`;
   const qty=host.querySelector("#tr_qty"),prev=host.querySelector("#tr_prev"),err=host.querySelector("#tr_err");
+  /* Lo que hay de verdad (ya con ventas y entradas), no el número que
+     Costeos tenía apuntado: con ése el traspaso decía «bodega 1 → 0» y en
+     el sistema seguía apareciendo uno (18/10/26). El kiosko se enseña en
+     la unidad del traspaso (piezas, scoops o porciones). */
+  const bodReal=()=>+valInv(cat,item,cfg,"bodega")||0;
+  const kioReal=()=>{const v=vivoDe(cat,item,cfg,"kiosko");return v!==undefined?v*(factorInv(cat,item,cfg,"kiosko")||1):(+item[cfg.ind]||0);};
   function upd(){const q=+qty.value||0;const disp=q*eq;
     prev.innerHTML= eq>0
-      ? `Equivalencia: <b>${eq} ${cfg.indUnit}</b> por ${cfg.origUnit.replace(/s$/,'')}.<br>Bodega: ${num(item[cfg.orig])} → <b>${num((+item[cfg.orig]||0)-q)}</b> ${cfg.origUnit}<br>Kiosko: ${num(item[cfg.ind])} → <b>${num((+item[cfg.ind]||0)+disp)}</b> ${cfg.indUnit}`
+      ? `Equivalencia: <b>${eq} ${cfg.indUnit}</b> por ${cfg.origUnit.replace(/s$/,'')}.<br>Bodega: ${num(bodReal())} → <b>${num(bodReal()-q)}</b> ${cfg.origUnit}<br>Kiosko: ${num(kioReal())} → <b>${num(kioReal()+disp)}</b> ${cfg.indUnit}`
       : `<span style="color:var(--bad)">Falta definir la equivalencia (${cfg.equivLbl}) de este producto en su catálogo.</span>`;}
   upd();qty.addEventListener("input",upd);
   host.querySelector("#tr_cancel").onclick=()=>host.innerHTML="";
@@ -808,11 +829,15 @@ function openTraspaso(cat,i){
     err.style.display="none";
     if(eq<=0){err.textContent="Define la equivalencia en el catálogo antes de traspasar.";err.style.display="block";return;}
     if(q<=0){err.textContent="Cantidad inválida.";err.style.display="block";return;}
-    if((+item[cfg.orig]||0)<q){err.textContent="No hay suficientes "+cfg.origUnit+" en bodega.";err.style.display="block";return;}
+    if(bodReal()<q){err.textContent="En bodega hay "+num(bodReal())+" "+cfg.origUnit+": no alcanza para "+num(q)+". Si acaban de llegar, dales entrada primero (Compras → Dar entrada).";err.style.display="block";return;}
     if(clave!==String(state.params.clave)){err.textContent="Clave incorrecta.";err.style.display="block";return;}
     item[cfg.orig]=(+item[cfg.orig]||0)-q;item[cfg.ind]=(+item[cfg.ind]||0)+q*eq;
     kardexPush(cat,i,{f:new Date().toISOString().slice(0,10),tipo:"traspaso",ent:0,sal:q,exist:+item[cfg.orig]||0,precio:"",cad:"",nota:"→ kiosko "+num(q*eq)+" "+cfg.indUnit});
-    persist();host.innerHTML="";render();
+    host.innerHTML="";render();
+    /* Se guarda YA (no con la pausa de siempre) y se vuelve a pedir la
+       existencia real: si no, la tabla seguía enseñando lo de antes del
+       traspaso hasta recargar la página. */
+    dbWrite().then(()=>cargarVivo()).then(()=>render());
   };
 }
 
@@ -834,7 +859,7 @@ let tab="dash",invView="todos",invSearch="",invCat="all";
    Proteina (09/10/26): el sistema guarda TODO en scoops. El kiosko ya es
    scoops (invScoops); la bodega se ensena en botes (scoops / scoops por
    bote) y el conteo de botes se manda convertido a scoops. */
-let vivoInv=null;
+let vivoInv=null, vivoEn=0;
 function nombreSync(cat,it){return cat==="proteins"?(String(it.marca||"").trim()+" - "+String(it.sabor||"").trim()):String(it.nombre||"").trim();}
 function tieneVivo(cat,cfg,which){return which==="bodega"?true:(cfg.ind==="invIndividual"||cat==="proteins");}
 /* Botes de proteina <-> scoops del sistema. Sin scoops por bote no hay
@@ -871,6 +896,9 @@ function notaCosteos(cat,it,cfg,which){const v=vivoDe(cat,it,cfg,which);if(v===u
   return v===c?"":`<div class="muted" style="font-size:11px" title="El numero que Costeos tenia apuntado. El de arriba es el del sistema: ya descuenta las ventas.">Costeos: ${num(c)}</div>`;}
 async function cargarVivo(){
   if(!sb||!sessToken)return;
+  /* vivoEn se marca aunque falle: Compras la pide al pintarse, y sin la
+     marca un error la haría pedir y repintar sin parar. */
+  vivoEn=Date.now();
   try{const r=await sb.rpc('fn_costos_existencias',{p_token:sessToken});if(!r.error&&r.data)vivoInv=r.data;}catch(e){}
 }
 /* Categoria desde el alta (30/09). Antes un producto nuevo nacia en la
@@ -925,7 +953,9 @@ function render(){const m=document.getElementById("main");
   if(tab==="bebidas")return renderResale(m,"bebidas","Bebidas","Beb");
   if(tab==="snacks")return renderResale(m,"snacks","Snacks / Treats","Pza");
   if(tab==="inv"){cargarVivo().then(()=>{if(tab==="inv")paintInv();});return renderInventario(m);}
-  if(tab==="compras")return renderCompras(m);
+  /* Compras enseña la existencia real de bodega: se vuelve a pedir al abrir,
+     como Inventario. */
+  if(tab==="compras"){if(Date.now()-vivoEn>15000)cargarVivo().then(()=>{if(tab==="compras")render();});return renderCompras(m);}
   if(tab==="combos")return renderCombosView(m);}
 
 /* ---------------- COMBOS (lectura, desde el esquema real) ----------------
@@ -1464,6 +1494,7 @@ function renderInventario(m){
    </div>
    <div class="filterbar">
      <div class="srch"><span>🔎</span><input id="invSearch" placeholder="Buscar por nombre o código…" value="${esc(invSearch)}" aria-label="Buscar producto"></div>
+     <button class="btn ghost mini no-print" id="invRefresh" title="Trae la existencia de ahora: ventas, entradas, traspasos y lo guardado desde otra pestaña">↻ Actualizar</button>
      <select id="invCat" aria-label="Filtrar por categoría">
        <option value="all" ${invCat==="all"?"selected":""}>Todas las categorías</option>
        ${Object.keys(CATLABEL).map(c=>`<option value="${c}" ${invCat===c?"selected":""}>${CATLABEL[c]}</option>`).join("")}
@@ -1473,6 +1504,7 @@ function renderInventario(m){
   const seg=m.querySelector("#invSeg");
   seg.querySelectorAll("button").forEach(b=>b.onclick=()=>{invView=b.dataset.v;seg.querySelectorAll("button").forEach(x=>x.classList.toggle("active",x===b));paintInv();});
   m.querySelector("#invSearch").addEventListener("input",e=>{invSearch=e.target.value;paintInv();});
+  m.querySelector("#invRefresh").onclick=e=>refrescarExistencias(e.currentTarget);
   m.querySelector("#invCat").addEventListener("change",e=>{invCat=e.target.value;paintInv();});
   m.querySelector("#sesIni").addEventListener("input",e=>{ses.inicio=e.target.value;save();});
   m.querySelector("#sesFin").addEventListener("input",e=>{ses.fin=e.target.value;save();});
@@ -1632,7 +1664,7 @@ async function openHistorialEntradas(){
   const host=document.getElementById("modalHost");
   host.innerHTML=`<div class="modal-bg"><div class="modal" style="max-width:820px">
     <h3>📋 Historial de entradas</h3>
-    <div class="sub">Entradas confirmadas contra el esquema real (con envío prorrateado). Cancelar revierte el stock/costo del insumo en el esquema real, pero <b>no revierte</b> el stock/costo mostrado en Inventario de costosshake (documento JSON) — corrígelo ahí a mano si hace falta.</div>
+    <div class="sub">Entradas confirmadas contra el esquema real (con envío prorrateado). Cancelar regresa la existencia real (bodega, o kiosko si entró por pieza) y el costo del insumo. <b>No corrijas el número a mano en Costeos después de cancelar</b>: el sistema ya lo quitó, y bajarlo otra vez lo restaría dos veces. Lo que ves en Inventario es lo real.</div>
     <div id="he_body" class="muted" style="padding:10px 0">Cargando…</div>
     <div class="mrow"><button class="btn ghost mini" id="he_close">Cerrar</button></div>
   </div></div>`;
@@ -1666,6 +1698,7 @@ async function openHistorialEntradas(){
       const {error}=await sb.rpc("fn_entrada_cancelar",{p_entrada_id:id,p_clave:clave});
       if(error)throw error;
       await loadRows();
+      await cargarVivo();render();
     }catch(e){alert("No se pudo cancelar: "+(e.message||String(e)));}
   }
   loadRows();
@@ -1676,7 +1709,13 @@ function openEntrada(){
   const host=document.getElementById("modalHost");
   function prodOptions(selKey){let o='<option value="">— Selecciona producto —</option>';
     BUY.forEach(cfg=>(state[cfg.cat]||[]).forEach((it,i)=>{const prov=(it[cfg.prov]||"").trim();if(ent.prov&&prov!==ent.prov)return;if(ent.q){const qq=ent.q.toLowerCase();if(cfg.name(it).toLowerCase().indexOf(qq)<0&&String(it.codigoBarras||"").toLowerCase().indexOf(qq)<0&&String(it.marca||"").toLowerCase().indexOf(qq)<0)return;}const key=cfg.cat+":"+i;const g=presDefault(cfg.cat,it);const nm=cfg.name(it);const mk=(it.marca||"").trim();const dupM=mk&&nm.toLowerCase().indexOf(mk.toLowerCase())>=0;o+=`<option value="${key}" ${key===selKey?"selected":""}>${esc(nm)}${g?" ("+esc(g)+")":""}${(mk&&!dupM)?" · "+esc(mk):""}${prov?" · "+esc(prov):""}</option>`;}));return o;}
-  function curCost(key){if(!key)return null;const a=key.split(":"),cat=a[0],i=+a[1],cfg=buyCfg(cat);return +state[cat][i][cfg.cost]||0;}
+  /* Por pieza (18/10/26): bebidas y snacks se compran por caja, pero a
+     veces llega UNA suelta («tengo el pack de 6 pero solo meto 1
+     Gatorade»). Esa va directo al kiosko, en piezas, al costo de una pieza. */
+  function sePuedePieza(key){if(!key)return false;const cat=key.split(":")[0];return (cat==="bebidas"||cat==="snacks")&&piezasPorCaja(key)>0;}
+  function piezasPorCaja(key){if(!key)return 0;const a=key.split(":"),cat=a[0],i=+a[1],it=state[cat]&&state[cat][i];return it&&INV[cat]?(INV[cat].equiv(it)||0):0;}
+  function curCost(key,pieza){if(!key)return null;const a=key.split(":"),cat=a[0],i=+a[1],cfg=buyCfg(cat);const c=+state[cat][i][cfg.cost]||0;
+    if(pieza){const pz=piezasPorCaja(key);return pz?Math.round(c/pz*100)/100:0;}return c;}
   function showErr(msg){const err=host.querySelector("#e_err");if(!err)return;err.textContent=msg;err.style.display="block";}
   function draw(){
     if(ent.step==="preview"){drawPreview();return;}
@@ -1699,28 +1738,31 @@ function openEntrada(){
     </div></div>`;
     const lc=host.querySelector("#e_lines");
     function lineMeta(ln){if(!ln.key)return null;const a=ln.key.split(":"),cat=a[0],i=+a[1],it=state[cat]&&state[cat][i],cfg=buyCfg(cat);
-      if(!it)return null;return{producto:cfg.name(it),marca:it.marca||"",proveedor:it[cfg.prov]||"",unidad:cat==="proteins"?"botes":(cat==="shakeIngs"||cat==="foodIngs")?"pres.":(cat==="empaque")?"pza":"cajas"};}
-    lc.innerHTML = ent.lines.length ? ent.lines.map((ln,j)=>{const cc=curCost(ln.key),hi=(cc!=null&&cc>0&&(+ln.precio||0)>cc);
+      if(!it)return null;return{producto:cfg.name(it),marca:it.marca||"",proveedor:it[cfg.prov]||"",unidad:ln.pieza?"piezas sueltas → van directo al kiosko":cat==="proteins"?"botes":(cat==="shakeIngs"||cat==="foodIngs")?"pres.":(cat==="empaque")?"pza":"cajas"};}
+    lc.innerHTML = ent.lines.length ? ent.lines.map((ln,j)=>{const cc=curCost(ln.key,ln.pieza),hi=(cc!=null&&cc>0&&(+ln.precio||0)>cc);
       const meta=lineMeta(ln);const importe=(+ln.cant||0)*(+ln.precio||0);
       return `<div class="eline" data-j="${j}" style="flex-direction:column;align-items:stretch;gap:4px">
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <select data-lk="${j}" style="flex:2;min-width:150px">${prodOptions(ln.key)}</select>
-        <input data-lpres="${j}" value="${esc(ln.pres||'')}" placeholder="presentación de compra" title="Presentación en que llega (se carga sola del catálogo; edítala si cambió el gramaje)" style="width:150px">
-        <input class="n" data-lcant="${j}" value="${esc(ln.cant||"")}" placeholder="cant" style="width:62px" title="Cantidad capturada (piezas reales)">
+        ${sePuedePieza(ln.key)?`<select data-lmodo="${j}" style="width:118px" title="Por caja entra a bodega. Por pieza entra suelta al kiosko.">
+          <option value="caja" ${ln.pieza?"":"selected"}>Por caja (${num(piezasPorCaja(ln.key))})</option><option value="pieza" ${ln.pieza?"selected":""}>Por pieza</option></select>`:""}
+        ${ln.pieza?"":`<input data-lpres="${j}" value="${esc(ln.pres||'')}" placeholder="presentación de compra" title="Presentación en que llega (se carga sola del catálogo; edítala si cambió el gramaje)" style="width:150px">`}
+        <input class="n" data-lcant="${j}" value="${esc(ln.cant||"")}" placeholder="${ln.pieza?"piezas":"cant"}" style="width:62px" title="${ln.pieza?"Cuántas piezas sueltas":"Cuántas cajas o presentaciones"}">
         <input type="date" data-lcad="${j}" value="${esc(ln.cad||"")}" style="width:138px" title="Caducidad">
-        <input class="n" data-lprec="${j}" value="${esc(ln.precio||"")}" placeholder="costo unitario" style="width:78px">
+        <input class="n" data-lprec="${j}" value="${esc(ln.precio||"")}" placeholder="${ln.pieza?"costo pieza":"costo unitario"}" style="width:78px" title="${ln.pieza?"Lo que costó UNA pieza":"Lo que costó cada caja o presentación"}">
         <span class="ealert ${hi?"hi":""}" data-lalert="${j}">${hi?"▲ subió":(cc!=null&&cc>0?"ant. "+fmt(cc):"")}</span>
         <button class="xbtn" data-lrm="${j}" style="padding:6px 9px">✕</button>
       </div>
       ${meta?`<div class="muted" style="font-size:11px;padding-left:2px">${esc(meta.marca)?esc(meta.marca)+" · ":""}${esc(meta.proveedor)?esc(meta.proveedor)+" · ":""}Unidad: ${meta.unidad} · Importe: <b data-limporte="${j}">${fmt(importe)}</b></div>`:""}
       </div>`;}).join("")
       : `<div class="muted" style="font-size:12px;margin:6px 0">Agrega los productos que llegaron en la factura.</div>`;
-    lc.querySelectorAll("[data-lk]").forEach(s=>s.addEventListener("change",e=>{const j=+e.target.dataset.lk;ent.lines[j].key=e.target.value;if(e.target.value){const a=e.target.value.split(":"),cat=a[0],ix=+a[1],it=state[cat][ix],cfg=buyCfg(cat);ent.lines[j].pres=presDefault(cat,it);const cc=cfg?+it[cfg.cost]||0:0;ent.lines[j].precio=cc?cc:"";}else{ent.lines[j].pres="";ent.lines[j].precio="";}draw();}));
+    lc.querySelectorAll("[data-lk]").forEach(s=>s.addEventListener("change",e=>{const j=+e.target.dataset.lk;ent.lines[j].key=e.target.value;ent.lines[j].pieza=false;if(e.target.value){const a=e.target.value.split(":"),cat=a[0],ix=+a[1],it=state[cat][ix],cfg=buyCfg(cat);ent.lines[j].pres=presDefault(cat,it);const cc=cfg?+it[cfg.cost]||0:0;ent.lines[j].precio=cc?cc:"";}else{ent.lines[j].pres="";ent.lines[j].precio="";}draw();}));
+    lc.querySelectorAll("[data-lmodo]").forEach(s=>s.addEventListener("change",e=>{const j=+e.target.dataset.lmodo,ln=ent.lines[j];ln.pieza=e.target.value==="pieza";const cc=curCost(ln.key,ln.pieza);ln.precio=cc?cc:"";draw();}));
     function updImporte(j){const im=lc.querySelector(`[data-limporte="${j}"]`);if(im)im.textContent=fmt((+ent.lines[j].cant||0)*(+ent.lines[j].precio||0));}
     lc.querySelectorAll("[data-lcant]").forEach(s=>s.addEventListener("input",e=>{const j=+e.target.dataset.lcant;ent.lines[j].cant=e.target.value;updImporte(j);}));
     lc.querySelectorAll("[data-lpres]").forEach(s=>s.addEventListener("input",e=>{ent.lines[+e.target.dataset.lpres].pres=e.target.value;}));
     lc.querySelectorAll("[data-lcad]").forEach(s=>s.addEventListener("input",e=>{ent.lines[+e.target.dataset.lcad].cad=e.target.value;}));
-    lc.querySelectorAll("[data-lprec]").forEach(s=>s.addEventListener("input",e=>{const j=+e.target.dataset.lprec;ent.lines[j].precio=e.target.value;const cc=curCost(ent.lines[j].key),al=lc.querySelector(`[data-lalert="${j}"]`);if(al){const hi=(cc!=null&&cc>0&&(+e.target.value||0)>cc);al.textContent=hi?"▲ subió":(cc!=null&&cc>0?"ant. "+fmt(cc):"");al.classList.toggle("hi",hi);}updImporte(j);}));
+    lc.querySelectorAll("[data-lprec]").forEach(s=>s.addEventListener("input",e=>{const j=+e.target.dataset.lprec;ent.lines[j].precio=e.target.value;const cc=curCost(ent.lines[j].key,ent.lines[j].pieza),al=lc.querySelector(`[data-lalert="${j}"]`);if(al){const hi=(cc!=null&&cc>0&&(+e.target.value||0)>cc);al.textContent=hi?"▲ subió":(cc!=null&&cc>0?"ant. "+fmt(cc):"");al.classList.toggle("hi",hi);}updImporte(j);}));
     lc.querySelectorAll("[data-lrm]").forEach(b=>b.onclick=()=>{ent.lines.splice(+b.dataset.lrm,1);draw();});
     host.querySelector("#e_fac").addEventListener("input",e=>ent.factura=e.target.value);
     host.querySelector("#e_pago").addEventListener("change",e=>ent.pago=e.target.value);
@@ -1757,7 +1799,7 @@ function openEntrada(){
       <h3>📥 Vista previa · prorrateo de envío</h3>
       <div class="sub">Revisa cómo queda el costo de cada producto con el envío ya repartido antes de confirmar. Esto es lo que se va a guardar — no se puede deshacer con "Cancelar", solo con fn_entrada_cancelar desde Supabase.</div>
       <div class="scroll"><table><thead><tr><th>Producto</th><th class="num">Cant.</th><th class="num">Costo unit.</th><th class="num">Envío prorrateado</th><th class="num">Costo unit. final</th><th class="num">Importe</th></tr></thead><tbody>
-        ${p.lineas.map(l=>`<tr><td>${esc(l.nombre)}</td><td class="num">${num(l.cantidad)}</td><td class="num">${fmt(l.costo_unitario_capturado)}</td><td class="num">${fmt(l.envio_prorrateado)}</td><td class="num"><b>${fmt(l.costo_unitario_final)}</b></td><td class="num">${fmt(l.importe_final)}</td></tr>`).join("")}
+        ${p.lineas.map((l,k)=>`<tr><td>${esc(l.nombre)}${ent.resolved&&ent.resolved[k]&&ent.resolved[k].line.pieza?' <span class="pill warn">por pieza → kiosko</span>':''}</td><td class="num">${num(l.cantidad)}</td><td class="num">${fmt(l.costo_unitario_capturado)}</td><td class="num">${fmt(l.envio_prorrateado)}</td><td class="num"><b>${fmt(l.costo_unitario_final)}</b></td><td class="num">${fmt(l.importe_final)}</td></tr>`).join("")}
       </tbody><tfoot><tr><td colspan="2"></td><td class="num muted">Mercancía: ${fmt(p.subtotal_mercancia)}</td><td class="num muted">Envío: ${fmt(p.costo_envio)}</td><td colspan="2" class="num"><b>Total: ${fmt(p.total)}</b></td></tr></tfoot></table></div>
       <div class="mfield" style="margin-top:10px"><label>Clave de compras (o de encargado)</label><input id="e_clave2" type="password" placeholder="••••"></div>
       <div class="merr" id="e_err"></div>
@@ -1774,7 +1816,9 @@ function openEntrada(){
     const btn=host.querySelector("#e_confirm");if(btn){btn.disabled=true;btn.textContent="Guardando…";}
     try{
       const almacenId=await getBodegaId();
-      const lineas=ent.resolved.map(r=>({insumo_id:r.insumo_id,cantidad:+r.line.cant,costo_unitario:(r.line.precio!==""&&r.line.precio!=null)?+r.line.precio:0,contenido:null,presentacion:r.line.pres||null,caducidad:r.line.cad||null}));
+      const lineas=ent.resolved.map(r=>r.line.pieza
+        ?{insumo_id:r.insumo_id,cantidad:+r.line.cant,costo_unitario:(r.line.precio!==""&&r.line.precio!=null)?+r.line.precio:0,contenido:null,presentacion:null,caducidad:r.line.cad||null,almacen:"kiosko",piezas_por_caja:piezasPorCaja(r.line.key)}
+        :{insumo_id:r.insumo_id,cantidad:+r.line.cant,costo_unitario:(r.line.precio!==""&&r.line.precio!=null)?+r.line.precio:0,contenido:null,presentacion:r.line.pres||null,caducidad:r.line.cad||null});
       const {error}=await sb.rpc("fn_entrada_confirmar",{p_almacen_id:almacenId,p_proveedor:ent.prov||null,p_factura:ent.factura||null,p_forma_pago:ent.pago||null,p_fecha:ent.fecha,p_costo_envio:+ent.envio||0,p_lineas:lineas,p_clave:clave});
       if(error)throw error;
       const byInsumo=new Map((ent.preview.lineas||[]).map(l=>[l.insumo_id,l]));
@@ -1784,6 +1828,20 @@ function openEntrada(){
         const cant=+r.line.cant||0,prevCost=+it[cfg.cost]||0;
         const pv=byInsumo.get(r.insumo_id);
         const costoFinal=pv?+pv.costo_unitario_final:((r.line.precio!==""&&r.line.precio!=null)?+r.line.precio:0);
+        if(r.line.pieza){
+          /* Suelta: al kiosko en piezas. El costo se sigue guardando por caja
+             (como lo guarda el servidor), para que una pieza no lo baje. */
+          const pz=piezasPorCaja(r.line.key)||1,costoCaja=costoFinal*pz;
+          it.invIndividual=(+it.invIndividual||0)+cant;
+          if(cfg.datebuy)it[cfg.datebuy]=ent.fecha;
+          if(cfg.cad&&r.line.cad)it[cfg.cad]=r.line.cad;
+          if(ent.prov&&!(it[cfg.prov]||"").trim())it[cfg.prov]=ent.prov;
+          const up=prevCost>0&&costoCaja>prevCost;
+          it[cfg.cost]=costoCaja;it.costo=costoFinal;
+          if(up)subio.push(cfg.name(it)+" ("+fmt(prevCost)+" → "+fmt(costoCaja)+" la caja)");
+          kardexPush(cat,i,{f:ent.fecha,tipo:"compra",factura:ent.factura,pago:ent.pago,prov:ent.prov||(it[cfg.prov]||""),ent:cant,sal:0,exist:+it.invIndividual||0,precio:costoFinal,cad:r.line.cad||"",pres:"Pieza",nota:"Por pieza → kiosko · "+ent.pago,subio:up});
+          return;
+        }
         it[cfg.stock]=(+it[cfg.stock]||0)+cant;
         if(cfg.datebuy)it[cfg.datebuy]=ent.fecha;
         if(cfg.cad&&r.line.cad)it[cfg.cad]=r.line.cad;
@@ -1795,7 +1853,11 @@ function openEntrada(){
         if(up)subio.push(cfg.name(it)+" ("+fmt(prevCost)+" → "+fmt(costoFinal)+")");
         kardexPush(cat,i,{f:ent.fecha,tipo:"compra",factura:ent.factura,pago:ent.pago,prov:ent.prov||(it[cfg.prov]||""),ent:cant,sal:0,exist:+it[cfg.stock]||0,precio:costoFinal,cad:r.line.cad||"",pres:r.line.pres||"",nota:((+ent.envio||0)>0?"Envío prorrateado incluido · ":"")+(r.line.pres?("Pres "+r.line.pres+" · "):"")+ent.pago,subio:up});
       });
-      save();host.innerHTML="";render();
+      /* Se guarda YA y se vuelve a pedir la existencia real: con la pausa de
+         siempre, cerrar la pestaña en ese medio segundo dejaba la entrada en
+         el sistema y no en Costeos. */
+      host.innerHTML="";render();
+      await dbWrite();await cargarVivo();render();
       if(subio.length)setTimeout(()=>alert("⚠️ Estos productos subieron de precio:\n\n• "+subio.join("\n• ")),120);
     }catch(e){showErr("No se guardó la entrada: "+(e.message||String(e)));}
     finally{const b=host.querySelector("#e_confirm");if(b){b.disabled=false;b.textContent="✓ Confirmar entrada";}}
@@ -1997,7 +2059,10 @@ function applyBuySearch(m){const q=(buyQ||"").toLowerCase().trim();
 function renderCompras(m){
   const groups={};
   BUY.forEach(cfg=>(state[cfg.cat]||[]).forEach((it,i)=>{
-    const exist=+it[cfg.stock]||0,min=+it[cfg.min]||0;
+    /* La existencia de bodega REAL (ya con entradas, traspasos y conteos)
+       cuando el sistema la tiene; si no, la de Costeos como siempre. */
+    const ic=INV[cfg.cat];
+    const exist=ic?(+valInv(cfg.cat,it,ic,"bodega")||0):(+it[cfg.stock]||0),min=+it[cfg.min]||0;
     if(buyOnlyLow && !(min>0&&exist<=min))return;
     const prov=(it[cfg.prov]||"").trim()||"Sin proveedor";
     (groups[prov]=groups[prov]||[]).push({cfg,it,i,name:cfg.name(it),exist,min,cost:+it[cfg.cost]||0,sugerido:buySugerido(it,cfg),unit:cfg.unit,pres:cfg.pres(it)});
@@ -2027,6 +2092,7 @@ function renderCompras(m){
     <div class="buyctrls no-print">
       <button class="btn" id="buyEntrada">📥 Dar entrada</button>
       <button class="btn ghost" id="buyHistorial">📋 Historial de entradas</button>
+      <button class="btn ghost" id="buyRefresh" title="Trae lo que hay ahora en el sistema: entradas, traspasos, ventas y lo que se guardó desde otra pestaña">↻ Actualizar</button>
       <button class="btn ghost${buyOnlyLow?' on':''}" id="buyLow">${buyOnlyLow?'✓ ':''}🔴 Solo bajos</button>
       <button class="btn ghost" id="buyPrint">🖨 Imprimir</button>
       <button class="btn ghost" id="buyFill">Usar sugeridos</button>
@@ -2040,6 +2106,7 @@ function renderCompras(m){
     inp.addEventListener("change",()=>render());});
   m.querySelector("#buyEntrada").onclick=()=>openEntrada();
   m.querySelector("#buyHistorial").onclick=()=>openHistorialEntradas();
+  m.querySelector("#buyRefresh").onclick=e=>refrescarExistencias(e.currentTarget);
   m.querySelector("#buyLow").onclick=()=>{buyOnlyLow=!buyOnlyLow;render();};
   m.querySelector("#buyPrint").onclick=()=>window.print();
   m.querySelector("#buyFill").onclick=()=>{BUY.forEach(cfg=>(state[cfg.cat]||[]).forEach(it=>{const s=buySugerido(it,cfg);it.comprar=s?String(s):"";}));save();render();};

@@ -433,6 +433,26 @@ los gramos netos de uno o varios botes abiertos (más los cerrados) y los
 divide entre presentación ÷ scoops por bote, con decimales; no aplica a
 los botes de venta, que se cuentan por pieza.
 
+**Las entradas de Costeos se contaban DOS veces en bodega** (desde julio,
+arreglado el 18/10, `entradas_sin_doble_conteo.sql`). `fn_entrada_confirmar`
+sumaba a `inventario_stock`, Costeos se sumaba lo mismo en su documento y la
+sincronización volvía a sumar la diferencia: llegaba 1 paquete, bodega decía
+2, y al traspasarlo quedaba 1 fantasma. Pasó en TODA entrada de bebidas,
+snacks y proteína (el empaque no: Costeos lo apunta en `stock`, que la sync no
+lee); los conteos de Perla lo venían tapando. Ahora la entrada sube también
+`costos_stock_sync.ultimo_valor` en la misma cantidad, así que el guardado de
+Costeos ya no agrega nada; si una pestaña vieja guarda sin la entrada, se
+corrige sola cuando guarda la que sí la tiene. **La proteína entra en scoops**
+(botes × scoops, como la sync; antes 1 bote = +1 scoop). **Entrada por
+pieza**: en Costeos, «Por pieza» en bebidas y snacks → la línea va al kiosko
+en piezas (`"almacen":"kiosko"`), y el costo de compra se sigue guardando por
+caja (`piezas_por_caja`). `entrada_lineas` guarda almacén y factor, y cancelar
+regresa exactamente eso **sin** tocar el último valor de Costeos (bajarlo
+haría que su siguiente guardado lo volviera a sumar). Costeos: el traspaso
+revisa la existencia REAL de bodega, Compras enseña la real, hay «↻
+Actualizar» en Compras e Inventario, y entrada/traspaso guardan al instante y
+vuelven a pedir la existencia.
+
 **Cancelar una venta puede regresar lo descontado** (17/10): casilla
 «Regresar al inventario» al cancelar en Admin, o después desde la
 bitácora (`fn_venta_regresar_inventario`, gerencia, una sola vez). Es un
@@ -1443,6 +1463,7 @@ empaquetador y se desvían solas:
 | Frases del pie de la etiqueta (temporadas, Milo) | Admin → **Impresoras** → *Frases de la etiqueta*. Cada frase con su nombre; una temporada prendida sale en sus fechas. «Probar · gasta 1» para verla en papel |
 | Dinámica con premios en la etiqueta (Trick or Shake) | Admin → **Impresoras** → *Dinámicas con premios* → «Nueva dinámica» (trae lista la de Halloween) → Guardar → **Prender** cuando el agente diga 1.6.0. Ahí se ve cuántas van, se abre la siguiente ronda y se marcan los premios entregados |
 | Cambiar el rollo de etiquetas | Kiosko → **"Caja y turno"** → PIN → "¿Cambiaste el rollo?" → Calibrar |
+| Dar entrada a una sola pieza (el pack es de 6 y llegó 1) | Costeos → **Compras** → «Dar entrada» → el producto → **«Por pieza»** → cuántas y el costo de UNA. Va directo al kiosko |
 | Llegó mercancía | Kiosko → **"Caja y turno"** → PIN → **"¿Llegó mercancía?"** → por caja o por pieza. Di si vino de bodega: eso la resta allá |
 | Ver el Kardex desde Costeos, con las ventas y su ticket | Costeos → **Inventario** → 📜 en el renglón. Filtra por almacén, periodo y tipo; toca «Ticket #…» para ver qué se vendió y quién cobró |
 | Contar proteína pesando los botes abiertos | Costeos → Inventario → **Kiosko** → **⚖** junto al conteo → gramos netos de cada bote abierto (y cuántos cerrados). Calcula los scoops con decimales |

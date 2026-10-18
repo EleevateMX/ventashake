@@ -90,3 +90,29 @@ Detalle en `docs/combos-promociones.md`.
   transacción del UPDATE (seguro); `registrarMovimiento` del cliente hace
   read-modify-write — si dos dispositivos capturan a la vez puede perderse
   un delta. Fase 9: mover a RPC con `update ... set stock = stock + n`.
+
+## Entradas de compra sin doble conteo (18/10/26)
+
+Hasta el 17/10, cada entrada de Costeos (bebidas, snacks, proteína) se sumaba
+dos veces en bodega: una en `fn_entrada_confirmar` y otra cuando Costeos
+guardaba su documento con la misma entrada y la sincronización copiaba la
+diferencia. Al traspasar al kiosko quedaba un paquete «fantasma» en bodega.
+
+Ahora:
+
+1. `fn_entrada_confirmar` suma la existencia **y** sube
+   `costos_stock_sync.ultimo_valor` en la misma cantidad. Cuando Costeos
+   guarda, la diferencia es cero.
+2. La proteína entra en **scoops** (botes × scoops por bote del documento de
+   Costeos), igual que la sincronización.
+3. Una línea con `"almacen":"kiosko"` entra **por pieza** al kiosko. Costeos
+   lo ofrece en bebidas y snacks («Por pieza»). El costo de compra del insumo
+   se guarda por caja (`piezas_por_caja`).
+4. `entrada_lineas.almacen_id` y `factor_stock` dicen a dónde y cómo entró
+   cada línea; `fn_entrada_cancelar` regresa exactamente eso y **no** toca el
+   último valor de Costeos.
+
+Comprobado en producción dentro de una transacción que se deshizo: entrada
+de 1 paquete → bodega +1; guardar Costeos → sigue +1; traspaso → bodega 0,
+kiosko +4; 1 pieza suelta → kiosko +1; cancelar → regresa. Proteína: 2 botes
+de 65 scoops → +130.
