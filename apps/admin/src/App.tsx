@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard'
 import EnVivo from './pages/EnVivo'
 import CajaEnVivo from './pages/CajaEnVivo'
 import Pantallas from './pages/Pantallas'
+import TicketCaja from './pages/TicketCaja'
 import Diagnostico from './pages/Diagnostico'
 import Ayuda from './pages/Ayuda'
 import Peticiones from './pages/Peticiones'
@@ -33,7 +34,7 @@ import Empleados from './pages/Empleados'
 import Impresoras from './pages/Impresoras'
 import Sistema from './pages/Sistema'
 
-type Tab = 'dashboard' | 'envivo' | 'caja' | 'diagnostico' | 'menu' | 'revision' | 'categorias' | 'combos' | 'extras' | 'inventario' | 'promos' | 'ventas' | 'cortes' | 'comprobantes' | 'clientes' | 'nombres' | 'metas' | 'rewards' | 'empleados' | 'impresoras' | 'pantallas' | 'descargas' | 'costeos' | 'ayuda' | 'peticiones' | 'avisos' | 'aliados' | 'soporte' | 'pulso' | 'sistema'
+type Tab = 'dashboard' | 'envivo' | 'caja' | 'diagnostico' | 'menu' | 'revision' | 'categorias' | 'combos' | 'extras' | 'inventario' | 'promos' | 'ventas' | 'cortes' | 'comprobantes' | 'clientes' | 'nombres' | 'metas' | 'rewards' | 'empleados' | 'impresoras' | 'ticket' | 'pantallas' | 'descargas' | 'costeos' | 'ayuda' | 'peticiones' | 'avisos' | 'aliados' | 'soporte' | 'pulso' | 'sistema'
 
 const w = 18
 
@@ -207,6 +208,12 @@ const IconCajaEnVivo = () => (
   </svg>
 )
 
+const IconTicket = () => (
+  <svg width={w} height={w} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M6 3h12v18l-2-1.5L14 21l-2-1.5L10 21l-2-1.5L6 21z" /><path d="M9 8h6M9 12h6M9 16h3" />
+  </svg>
+)
+
 const IconPantallas = () => (
   <svg width={w} height={w} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <rect x="2" y="4" width="20" height="13" rx="2" /><path d="M8 21h8" /><path d="M10 9l5 2.5L10 14z" />
@@ -243,6 +250,7 @@ const navItems: { id: Tab; label: string; Icon: () => ReactElement; soloSoporte?
   { id: 'aliados', label: 'Aliados', Icon: IconAliados },
   { id: 'empleados', label: 'Personal', Icon: IconEmpleados },
   { id: 'impresoras', label: 'Impresoras', Icon: IconImpresoras },
+  { id: 'ticket', label: 'Ticket de caja', Icon: IconTicket },
   { id: 'pantallas', label: 'Pantallas (TV)', Icon: IconPantallas },
   { id: 'descargas', label: 'Descargas', Icon: IconDescargas },
   { id: 'ayuda', label: '¿Qué hago si…?', Icon: IconAyuda },
@@ -308,6 +316,7 @@ export default function App() {
         {tab === 'envivo' && <EnVivo />}
         {tab === 'caja' && <CajaEnVivo />}
         {tab === 'pantallas' && <Pantallas />}
+        {tab === 'ticket' && <TicketCaja />}
         {tab === 'diagnostico' && <Diagnostico />}
         {tab === 'metas' && <Metas />}
         {tab === 'rewards' && <Rewards />}

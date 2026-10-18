@@ -75,8 +75,17 @@ if (-not $AnonKey) {
 # una vez y se queda en el .env.
 Paso 'Llave del empujador'
 if (-not $Token) {
-  $Token = Leer-DelEnv (Join-Path $Destino '.env') 'PANTALLAS_TOKEN'
-  if ($Token) { Bien 'se reutiliza la que ya tiene esta PC' }
+  $guardada = Leer-DelEnv (Join-Path $Destino '.env') 'PANTALLAS_TOKEN'
+  if ($guardada) {
+    # Se pregunta: si gerencia genero una llave nueva, la guardada ya no sirve
+    # y reutilizarla en silencio deja el agente "corriendo" sin poder hablar.
+    Write-Host ''
+    Write-Host ("   Esta PC ya tiene una llave (termina en " + $guardada.Substring([Math]::Max(0, $guardada.Length - 4)) + ").") -ForegroundColor Yellow
+    Write-Host '   Si generaste una NUEVA en Admin, pegala aqui. Si no, solo presiona Enter.'
+    $otra = (Read-Host '   Llave nueva (o Enter)').Trim()
+    if ($otra) { $Token = $otra; Bien 'se usa la llave nueva' }
+    else { $Token = $guardada; Bien 'se reutiliza la que ya tiene esta PC' }
+  }
 }
 if (-not $Token) {
   Write-Host ''
@@ -278,7 +287,10 @@ while (((Get-Date) - $inicio).TotalSeconds -lt 60) {
   if (-not (Test-Path $marca)) { continue }
   try {
     $e = Get-Content $marca -Raw | ConvertFrom-Json
-    if ([datetime]$e.en -lt $inicio.ToUniversalTime()) { continue }   # constancia vieja
+    # Las DOS en UTC: en Windows PowerShell 5.1 `[datetime]"...Z"` da hora
+    # LOCAL, y comparada contra UTC una constancia recien escrita en Merida
+    # (UTC-6) parecia de hace seis horas: nunca decia "en linea" (18/10/26).
+    if (([datetime]$e.en).ToUniversalTime() -lt $inicio.ToUniversalTime()) { continue }   # constancia vieja
     if ($e.ok) {
       $enLinea = $true
       $detalle = "$($e.pantallas) pantalla(s) asignada(s)"

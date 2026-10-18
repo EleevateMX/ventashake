@@ -85,6 +85,7 @@ export default function Pantallas() {
   const [ocupado, setOcupado] = useState<string | null>(null)
   const [editando, setEditando] = useState<Partial<PantallaTv> | null>(null)
   const [llave, setLlave] = useState<string | null>(null)
+  const [verLlave, setVerLlave] = useState(false)
   const [grupo, setGrupo] = useState<'promos' | 'menu'>('promos')
   const hoy = hoyEnMerida()
 
@@ -168,7 +169,7 @@ export default function Pantallas() {
               disabled={ocupado === 'llave'}
               onClick={() => {
                 if (ag?.tiene_llave && !window.confirm('Ya hay una llave. Si generas otra, el empujador que use la anterior deja de funcionar hasta que le pongas la nueva. ¿Seguir?')) return
-                void hacer('llave', async () => setLlave(await nuevaLlavePantallasTv(sb)))
+                void hacer('llave', async () => { setVerLlave(false); setLlave(await nuevaLlavePantallasTv(sb)) })
               }}
             >
               {ag?.tiene_llave ? 'Generar llave nueva' : 'Generar llave del empujador'}
@@ -177,13 +178,22 @@ export default function Pantallas() {
         </div>
         {llave && (
           <div className="mt-4 rounded-sa border border-sa-banana bg-sa-banana/20 p-4">
-            <p className="text-sm text-sa-green-ink font-medium">Esta es la llave del empujador. Cópiala ahora: no se vuelve a ver.</p>
+            <p className="text-sm text-sa-green-ink font-medium">Llave nueva lista. Cópiala ahora: no se vuelve a ver.</p>
+            {/* Tapada a propósito (18/10/26): dos llaves seguidas se fueron en
+                capturas de pantalla mandadas por chat. «Copiar» la lleva al
+                portapapeles sin que aparezca en ninguna foto. */}
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              <code className="font-mono text-xs break-all bg-white px-3 py-2 rounded-sa border border-sa-green-ink/10 flex-1 min-w-0">{llave}</code>
+              <code className="font-mono text-xs break-all bg-white px-3 py-2 rounded-sa border border-sa-green-ink/10 flex-1 min-w-0 select-none">
+                {verLlave ? llave : `tv_${'•'.repeat(24)}${llave.slice(-4)}`}
+              </code>
+              <button className={cx.btnSec} onClick={() => setVerLlave((v) => !v)}>{verLlave ? 'Tapar' : 'Ver'}</button>
               <button className={cx.btnSec} onClick={() => void navigator.clipboard?.writeText(llave).then(() => setOk('Llave copiada.'))}>Copiar</button>
-              <button className={cx.btnSec} onClick={() => setLlave(null)}>Ya la guardé</button>
+              <button className={cx.btnSec} onClick={() => { setLlave(null); setVerLlave(false) }}>Ya la guardé</button>
             </div>
-            <p className="text-xs text-sa-green-ink/60 mt-2">Va en el archivo de configuración del empujador, en la PC de la tienda. No la mandes por chat.</p>
+            <p className="text-xs text-sa-green-ink/60 mt-2">
+              Se pega en la PC de la tienda cuando el instalador de pantallas la pide. No le tomes foto ni la mandes por chat:
+              quien la tenga puede hacerse pasar por el empujador.
+            </p>
           </div>
         )}
         {ag?.llave_creada_en && !llave && (

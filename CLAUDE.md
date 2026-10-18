@@ -830,6 +830,14 @@ del agente de etiquetas solo toma impresoras con estación** (`cocina_id`):
 la de tickets no tiene, y si la tomara le rotaría el token al agente de
 caja y le mandaría TSPL.
 
+**Lo que dice el ticket se edita en Admin → Ticket de caja** (18/10):
+datos del negocio, pie, Rewards, WiFi, cuándo imprime solo, y el **Milo de
+arriba** (se sube un PNG, se convierte a 1 bit con ancho y umbral a la vista,
+`logoTicket.ts` con pruebas). El agente lo lee cada minuto. Las funciones de
+escritura (`fn_actualizar_configuracion_ticket`, `fn_logo_ticket_*`) nacieron
+**sin candado** y abiertas a `anon` —cualquiera podía cambiar el QR de
+Rewards— y quedaron con `fn_es_jefe()` (`ticket_de_caja_admin.sql`).
+
 **El agente de tickets vive en `agente-caja/`** (18/10): un solo `.mjs`
 empaquetado (dotenv + supabase-js adentro, sin `npm install`), versión en su
 línea `var VERSION`. Se instala con **Admin → Descargas → «Agente de tickets
@@ -1469,6 +1477,7 @@ empaquetador y se desvían solas:
 | Conectar un lector de QR para Rewards | 2D de escritorio que lea pantallas, USB en modo teclado. Pruébalo en el Bloc de notas: debe salir `SHK-…` y saltar de renglón. El kiosko ya acepta el código aunque el guion llegue como otro signo |
 | Buscar en «Abrir un bote» o «¿Llegó mercancía?» | Toca el buscador: sale el teclado en pantalla (letras y números, sin acentos) |
 | Ver la caja en vivo (qué tiene la pantalla, qué se cobró, qué se quitó) | Admin → **Caja en vivo**, también desde el teléfono. «Para revisar» junta lo que se quitó del carrito, los carritos vaciados, lo que no se cobró, cancelaciones y cortesías |
+| Cambiar lo que dice el ticket de caja o el Milo de arriba | Admin → **Ticket de caja**. «+ Subir otro Milo» (PNG con fondo transparente), ajusta ancho y «qué tan oscuro», guarda. Sale en el siguiente ticket |
 | El cliente pide su ticket impreso, o lo quiere otra vez | Kiosko → en ¡Listo! **«🧾 Imprimir ticket»**; después, Historial de pedidos → el pedido → «🧾 Imprimir ticket» |
 | Qué transmite cada TV, o cambiarle el contenido | Admin → **Pantallas (TV)** → en la TV, «Le toca»: Promos, Menú, Pedidos o Nada. Las imágenes de promos y menú se suben ahí mismo, con fechas si son de temporada |
 | Ver qué ventas están apartadas, a distancia | Admin → **En vivo**, arriba del todo. Toca una para ver qué lleva, de qué hora es el ticket y a qué hora entró cada producto |
