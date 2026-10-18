@@ -3,8 +3,10 @@
 # ============================================================================
 #  Deja las televisiones mostrando lo que gerencia les asigno en
 #  Admin -> Pantallas (TV): baja el agente de `agente-pantallas/` del repo,
-#  escribe el .env, busca las TVs en la red y lo deja como Servicio de
-#  Windows (arranca solo al prender la PC, aunque nadie inicie sesion).
+#  escribe el .env, busca las TVs en la red y lo deja corriendo en su propia
+#  ventana minimizada, que se levanta sola si se cae y arranca al prender la
+#  PC. Igual que el agente de etiquetas y el de caja: node-windows daba
+#  problemas en esa PC y se abandono.
 #
 #  Es APARTE del agente de etiquetas y del de caja. Los tres conviven en la
 #  misma PC con nombres de servicio distintos: si uno se cae, los otros
@@ -31,8 +33,9 @@ $ErrorActionPreference = 'Stop'
 
 $SupabaseUrl = 'https://zyjtnaystsporbuzcmqk.supabase.co'
 $Crudo       = "https://raw.githubusercontent.com/EleevateMX/ventashake/$Rama/agente-pantallas"
-$Archivos    = @('agente-pantallas.mjs', 'instalar-servicio.mjs', 'iniciar.bat',
-                 'instalar-servicio.bat', 'buscar-tvs.bat', 'LEEME.txt', '.env.example')
+$Archivos    = @('agente-pantallas.mjs', 'iniciar.bat', 'buscar-tvs.bat', 'LEEME.txt', '.env.example')
+$Ventana     = 'Shakeaholic - agente de pantallas'
+# Solo para QUITAR el servicio que dejaba la version anterior del instalador.
 $Servicio    = 'Shakeaholic Agente de Pantallas'
 
 function Escribir($ruta, $texto) {
@@ -125,33 +128,31 @@ if (-not $versionOk) {
 # Dos empujadores a la vez se pelean la misma TV: uno pone una imagen y el
 # otro la quita medio segundo despues. Solo se tocan procesos de ESTE agente.
 Paso 'Buscando un agente de pantallas anterior'
+$habia = $false
+# El servicio que dejaba la version anterior de este instalador: se detiene
+# y se QUITA. Si se quedara, al prender la PC arrancaria otra copia.
 $svc = Get-CimInstance Win32_Service -EA SilentlyContinue | Where-Object { $_.DisplayName -eq $Servicio }
-if ($svc) {
-  if ($svc.State -ne 'Stopped') {
-    Stop-Service -Name $svc.Name -Force -EA SilentlyContinue
-    Start-Sleep -Seconds 2
-  }
-  Bien "servicio detenido ($($svc.Name))"
+foreach ($x in @($svc | Where-Object { $_ })) {
+  if ($x.State -ne 'Stopped') { Stop-Service -Name $x.Name -Force -EA SilentlyContinue; Start-Sleep -Seconds 2 }
+  & sc.exe delete $x.Name | Out-Null
+  Bien "quitado el servicio de Windows anterior ($($x.Name))"
+  $habia = $true
 }
+Remove-Item (Join-Path $Destino 'daemon') -Recurse -Force -EA SilentlyContinue
+
+# Dos empujadores a la vez se pelean la misma TV: uno pone una imagen y el
+# otro la quita medio segundo despues. Se mata la ventana que relanza ANTES
+# que el node, o lo vuelve a levantar con el .env viejo.
+$ventanas = Get-CimInstance Win32_Process -Filter "Name = 'cmd.exe'" -EA SilentlyContinue |
+            Where-Object { $_.CommandLine -like '*arrancar-agente-pantallas*' }
 $sueltos = Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" -EA SilentlyContinue |
            Where-Object { $_.CommandLine -like '*agente-pantallas.mjs*' }
-foreach ($p in @($sueltos | Where-Object { $_ })) {
-  Stop-Process -Id $p.ProcessId -Force -EA SilentlyContinue
-  Bien "detenido el que corria en ventana (pid $($p.ProcessId))"
+foreach ($x in (@($ventanas) + @($sueltos) | Where-Object { $_ })) {
+  Stop-Process -Id $x.ProcessId -Force -EA SilentlyContinue
+  $habia = $true
 }
-if (-not $svc -and -not $sueltos) { Bien 'no habia ninguno' }
-
-$reusar = $false
-if ($svc) {
-  if ($svc.PathName -like "*$Destino*") {
-    $reusar = $true
-  } else {
-    Aviso "el servicio anterior corria desde otra carpeta: $($svc.PathName)"
-    & sc.exe delete $svc.Name | Out-Null
-    Start-Sleep -Seconds 2
-    Bien 'quitado; se registra de nuevo desde la carpeta de siempre'
-  }
-}
+if ($ventanas -or $sueltos) { Start-Sleep -Seconds 2; Bien 'detenido el agente que estaba corriendo' }
+if (-not $habia) { Bien 'no habia ninguno' }
 
 # ---------------------------------------------------------------------------
 # 4. Bajar el agente
@@ -212,41 +213,46 @@ Escribir (Join-Path $Destino '.env') $env_txt
 Bien '.env escrito'
 
 # ---------------------------------------------------------------------------
-# 7. Servicio de Windows
+# 7. Dejarlo corriendo (y que arranque solo al prender la PC)
 # ---------------------------------------------------------------------------
-Push-Location $Destino
-try {
-  if ($reusar) {
-    Paso 'Arrancando el servicio con la version nueva'
-    Start-Service -Name $svc.Name
-    Bien 'servicio corriendo'
-  } else {
-    Paso 'Registrando el servicio de Windows (la primera vez tarda)'
-    & npm install node-windows --no-save --no-audit --no-fund --loglevel=error
-    if ($LASTEXITCODE -ne 0) { throw "npm install node-windows devolvio $LASTEXITCODE" }
-    & node instalar-servicio.mjs
-    if ($LASTEXITCODE -ne 0) { throw "instalar-servicio.mjs devolvio $LASTEXITCODE" }
-    Start-Sleep -Seconds 5
-    $nuevo = Get-CimInstance Win32_Service -EA SilentlyContinue | Where-Object { $_.DisplayName -eq $Servicio }
-    if (-not $nuevo -and (Test-Path (Join-Path $Destino 'daemon'))) {
-      Aviso 'habia restos de un servicio anterior; se limpian y se intenta otra vez'
-      Remove-Item (Join-Path $Destino 'daemon') -Recurse -Force -EA SilentlyContinue
-      & node instalar-servicio.mjs
-      Start-Sleep -Seconds 5
-      $nuevo = Get-CimInstance Win32_Service -EA SilentlyContinue | Where-Object { $_.DisplayName -eq $Servicio }
-    }
-    if (-not $nuevo) { throw 'el servicio no aparecio en Windows' }
-    if ($nuevo.State -ne 'Running') { Start-Service -Name $nuevo.Name -EA SilentlyContinue }
-    Bien 'servicio registrado y corriendo'
+# Una ventana que relanza el agente si se cae: es lo que hace un servicio,
+# pero a la vista. Va minimizada; si alguien la cierra, las TV se quedan en
+# lo ultimo que se les puso.
+Paso 'Dejandolo corriendo'
+$bat = Join-Path $Destino 'arrancar-agente-pantallas.bat'
+$bat_txt = @"
+@echo off
+title $Ventana
+cd /d "$Destino"
+:otra
+node agente-pantallas.mjs
+echo.
+echo El agente se detuvo. Se vuelve a arrancar en 10 segundos...
+timeout /t 10 /nobreak >nul
+goto otra
+"@
+[System.IO.File]::WriteAllText($bat, ($bat_txt -replace "`r?`n", "`r`n") + "`r`n", [System.Text.Encoding]::ASCII)
+
+# Inicio de TODOS los usuarios, no el del usuario actual: el instalador corre
+# elevado y Windows puede haber cambiado de perfil; el arranque quedaria en
+# un perfil que nadie abre.
+foreach ($carpeta in @([Environment]::GetFolderPath('CommonStartup'), [Environment]::GetFolderPath('CommonDesktopDirectory'))) {
+  try {
+    $wsh = New-Object -ComObject WScript.Shell
+    $lnk = $wsh.CreateShortcut((Join-Path $carpeta 'Agente de pantallas.lnk'))
+    $lnk.TargetPath = $bat
+    $lnk.WorkingDirectory = $Destino
+    $lnk.WindowStyle = 7
+    $lnk.Save()
+  } catch {
+    Aviso "no se pudo dejar el acceso en $($carpeta): $($_.Exception.Message)"
   }
-} catch {
-  Pop-Location
-  Malo "No quedo como servicio: $($_.Exception.Message)"
-  Write-Host '    Mientras se arregla, se puede correr a mano: doble clic en'
-  Write-Host "    $Destino\iniciar.bat (y dejar esa ventana abierta)."
-  exit 1
 }
-Pop-Location
+Bien 'arranca solo al prender la PC (y hay acceso en el escritorio)'
+
+$arranque = Get-Date
+Start-Process -FilePath $bat -WorkingDirectory $Destino -WindowStyle Minimized
+Bien "corriendo en su ventana minimizada: '$Ventana'"
 
 # ---------------------------------------------------------------------------
 # 8. Comprobar que de verdad quedo en linea
@@ -287,19 +293,26 @@ if ($enLinea) {
     Aviso 'todavia no hay ninguna TV asignada: dalas de alta en Admin -> Pantallas (TV)'
   }
 } else {
-  Malo 'El servicio arranco pero el agente NO se ha reportado.'
+  Malo 'El agente arranco pero NO se ha reportado con el servidor.'
   if ($detalle) { Write-Host "    Lo ultimo que dijo: $detalle" -ForegroundColor Yellow }
-  $logs = Get-ChildItem (Join-Path $Destino 'daemon') -Filter '*.log' -EA SilentlyContinue |
-          Sort-Object LastWriteTime -Descending
-  foreach ($l in $logs) {
-    Write-Host ''
-    Write-Host "    --- $($l.Name) (ultimas lineas) ---" -ForegroundColor Yellow
-    Get-Content $l.FullName -Tail 15 -EA SilentlyContinue | ForEach-Object { Write-Host "    $_" }
-  }
-  if (-not $logs) { Write-Host '    No hay bitacora del servicio en la carpeta daemon.' }
+  # Se detiene la ventana y se corre una vez a la vista para ensenar por que.
+  Get-CimInstance Win32_Process -EA SilentlyContinue |
+    Where-Object { $_.CommandLine -like '*arrancar-agente-pantallas*' -or $_.CommandLine -like '*agente-pantallas.mjs*' } |
+    ForEach-Object { Stop-Process -Id $_.ProcessId -Force -EA SilentlyContinue }
+  $salida  = Join-Path $env:TEMP 'agente-pantallas-salida.txt'
+  $errores = Join-Path $env:TEMP 'agente-pantallas-errores.txt'
+  $pr = Start-Process -FilePath 'node' -ArgumentList 'agente-pantallas.mjs' -WorkingDirectory $Destino `
+          -RedirectStandardOutput $salida -RedirectStandardError $errores -NoNewWindow -PassThru
+  Start-Sleep -Seconds 12
+  Stop-Process -Id $pr.Id -Force -EA SilentlyContinue
   Write-Host ''
-  Write-Host '    Manda una foto de esta ventana. Mientras, se puede correr a mano:'
-  Write-Host "    doble clic en $Destino\iniciar.bat (y dejar esa ventana abierta)."
+  Write-Host '    --- lo que dice el agente ---' -ForegroundColor Yellow
+  foreach ($f in @($salida, $errores)) {
+    Get-Content $f -Tail 20 -EA SilentlyContinue | ForEach-Object { Write-Host "    $_" }
+  }
+  Write-Host ''
+  Write-Host '    Manda una foto de esta ventana.'
+  Write-Host "    Se puede volver a arrancar con el acceso 'Agente de pantallas' del escritorio."
   exit 1
 }
 
@@ -307,7 +320,8 @@ Write-Host ''
 Write-Host '  LISTO' -ForegroundColor Green
 Write-Host "  Instalado en: $Destino  (version $version)"
 Write-Host ''
-Write-Host '  Corre como servicio: arranca solo al prender la PC, sin ventana.'
+Write-Host "  Corre en la ventana minimizada '$Ventana'. No la cierres:"
+Write-Host '  si se cierra, las TV se quedan en lo ultimo que se les puso.'
 Write-Host '  En Admin -> Pantallas (TV) debe decir "Empujador - en linea" en menos'
 Write-Host '  de un minuto, y cada TV con contenido asignado, "Mostrando".'
 Write-Host ''

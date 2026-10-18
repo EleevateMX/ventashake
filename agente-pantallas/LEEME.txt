@@ -43,6 +43,11 @@ INSTALACION
   5. npm run buscar     <- lista las teles con su IP y nombre
   6. npm start
 
+  En la PC de la tienda no se instala a mano: se usa
+  `instalar-agente-pantallas.bat` de Admin -> Descargas, que
+  deja el agente en una ventana minimizada que se relanza sola
+  y arranca al prender la PC.
+
   Si la llave es mala, el agente NO se queda reintentando: se
   detiene de golpe para que el servicio lo marque como caido y
   alguien revise el .env. Un bucle silencioso con una llave
