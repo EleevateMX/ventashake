@@ -54,6 +54,18 @@ function Cabeceras($anonKey) {
   return $h
 }
 
+# La lista de impresoras, como lista. En Windows PowerShell 5.1 (el de la
+# PC de la tienda) Invoke-RestMethod entrega un arreglo JSON como UN solo
+# objeto, y `@(Invoke-RestMethod ...)` queda como una lista con la lista
+# adentro: el filtro miraba "la lista entera" y no encontraba ninguna
+# impresora (18/10/26, la primera corrida en la tienda). Devolverla desde
+# una funcion la desenvuelve; es lo que ya hacia el instalador de etiquetas.
+function Obtener-Impresoras($anonKey) {
+  $r = Invoke-RestMethod -Method Post -Uri "$SupabaseUrl/rest/v1/rpc/fn_admin_impresoras" `
+    -Headers (Cabeceras $anonKey) -ContentType 'application/json' -Body '{}'
+  return @($r | ForEach-Object { $_ })
+}
+
 function Probar-Impresora($ip, $puerto) {
   $cliente = New-Object System.Net.Sockets.TcpClient
   try {
@@ -85,8 +97,7 @@ if (-not $AnonKey) {
 # ---------------------------------------------------------------------------
 Paso 'Buscando la impresora de tickets en Admin'
 try {
-  $lista = @(Invoke-RestMethod -Method Post -Uri "$SupabaseUrl/rest/v1/rpc/fn_admin_impresoras" `
-    -Headers (Cabeceras $AnonKey) -ContentType 'application/json' -Body '{}')
+  $lista = Obtener-Impresoras $AnonKey
 } catch {
   Malo "No se pudo hablar con Supabase: $($_.Exception.Message)"
   Write-Host '    Revisa la llave y que este equipo tenga internet.'
@@ -310,9 +321,7 @@ $inicio = Get-Date
 while (((Get-Date) - $inicio).TotalSeconds -lt 45) {
   Start-Sleep -Seconds 5
   try {
-    $yo = @(Invoke-RestMethod -Method Post -Uri "$SupabaseUrl/rest/v1/rpc/fn_admin_impresoras" `
-      -Headers (Cabeceras $AnonKey) -ContentType 'application/json' -Body '{}') |
-      Where-Object { $_.id -eq $imp.id } | Select-Object -First 1
+    $yo = Obtener-Impresoras $AnonKey | Where-Object { $_.id -eq $imp.id } | Select-Object -First 1
     if ($yo -and $yo.ultima_conexion -and ([datetime]$yo.ultima_conexion).ToUniversalTime() -gt $arranque.ToUniversalTime().AddSeconds(-5)) {
       $enLinea = $true
       break

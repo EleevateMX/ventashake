@@ -1396,6 +1396,13 @@ empaquetador y se desvían solas:
   Bypass`, o sea permiso solo para esa ejecución. Cada `.bat` descargable se
   quita además la marca a sí mismo con `Unblock-File` al arrancar. El único
   permiso que debe aparecer es el UAC del instalador, una vez.
+- **`@(Invoke-RestMethod …)` en Windows PowerShell 5.1 no es la lista**:
+  el arreglo JSON sale como UN objeto y `@()` lo mete en otra lista, así que
+  un `Where-Object` mira «la lista entera» y no encuentra nada. El primer
+  instalador del agente de caja contestó en la tienda «No hay impresora de
+  tickets activa» con la impresora ahí (18/10). En PowerShell 7 no pasa, por
+  eso probarlo con `pwsh` no lo enseña. Se desenvuelve devolviéndolo desde
+  una función (`Obtener-Impresoras`), como ya hacía el de etiquetas.
 - Los `.bat`/`.ps1` deben ser **ASCII puro**:
   `node scripts/verificar-scripts-ascii.mjs` lo verifica.
 
