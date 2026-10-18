@@ -1,0 +1,123 @@
+================================================================
+  SHAKEAHOLIC — AGENTE DE PANTALLAS
+================================================================
+
+Mantiene cada television del local mostrando lo que Admin le
+asigno. Si alguien cambia de entrada o apaga la tele, la
+reengancha sola en el siguiente ciclo.
+
+Corre en la misma PC que los otros agentes, como proceso
+APARTE: si este se cae, las comandas y los tickets siguen
+saliendo.
+
+----------------------------------------------------------------
+LO QUE PUEDE Y LO QUE NO
+----------------------------------------------------------------
+
+  PUEDE    empujar imagenes y videos por DLNA
+  PUEDE    detectar que esta mostrando cada tele y reportarlo
+  PUEDE    reengancharla si alguien le cambio la entrada
+
+  NO PUEDE encender una tele apagada
+  NO PUEDE abrirle el navegador a una URL
+
+  Las dos ultimas necesitan el puerto 36669 de Hisense, que
+  exige un certificado de cliente que vive dentro de la app
+  RemoteNOW. No hay forma de hacerlo por red.
+
+  Consecuencia: el contenido dinamico (pedidos listos) NO va
+  por aqui. Eso se abre una vez en el navegador de la tele y
+  se actualiza solo. Este agente es para menu y promos, que
+  son imagenes o video.
+
+----------------------------------------------------------------
+INSTALACION
+----------------------------------------------------------------
+
+  1. Node.js 20 o superior.
+  2. Copia .env.example como .env y llena SUPABASE_ANON_KEY
+     y RPC_ASIGNACIONES.
+  3. npm install
+  4. npm run buscar     <- lista las teles con su IP y nombre
+  5. npm start
+
+----------------------------------------------------------------
+PRIMERO: SABER QUE TELES HAY
+----------------------------------------------------------------
+
+  npm run buscar
+
+  Da la IP y el nombre exacto de cada una, que es lo que Admin
+  necesita para asignarles contenido. Ejemplo real del local:
+
+    192.168.1.73    Barra trasera
+    192.168.1.76    Barra larga
+    192.168.1.80    Caja shakeaholic
+
+  Una tele en standby NO aparece: VIDAA apaga su servicio DLNA
+  con la pantalla. Enciendela y vuelve a correrlo.
+
+----------------------------------------------------------------
+DE DONDE SALE QUE MUESTRA CADA UNA
+----------------------------------------------------------------
+
+  De la funcion de la base que se ponga en RPC_ASIGNACIONES.
+  Tiene que devolver filas con al menos:
+
+    ip     IP de la tele (la llave)
+    url    direccion del contenido
+
+  Y opcionalmente:
+
+    nombre   para los logs
+    tipo     'imagen' o 'video'   (por defecto imagen)
+    titulo   lo que se manda en los metadatos
+    activa   false deja esa tele en paz
+
+  IMPORTANTE: la `url` tiene que ser alcanzable DESDE LA TELE.
+  Una direccion tipo localhost no sirve: el que descarga el
+  archivo es el televisor, no esta PC.
+
+----------------------------------------------------------------
+EL REPORTE
+----------------------------------------------------------------
+
+  Si se llena RPC_REPORTE, el agente manda en cada ciclo que
+  esta mostrando cada tele DE VERDAD — no lo que se le mando.
+  Esa diferencia importa: una tele puede aceptar el contenido
+  y aun asi estar en otra entrada.
+
+  Sin RPC_REPORTE funciona igual, pero el estado solo sale por
+  consola y Admin no se entera.
+
+----------------------------------------------------------------
+PROBARLO SIN LA FUNCION DE LA BASE
+----------------------------------------------------------------
+
+  Pon ASIGNACIONES_ARCHIVO apuntando a un JSON local con las
+  mismas filas (hay un ejemplo-asignaciones.json en esta
+  carpeta). Manda sobre RPC_ASIGNACIONES y permite probar el
+  empuje real contra las teles antes de que exista nada en la
+  base.
+
+----------------------------------------------------------------
+SI ALGO FALLA
+----------------------------------------------------------------
+
+  "ninguna tele respondio al descubrimiento"
+      Las teles estan apagadas, o esta PC esta en otra red o
+      en otra VLAN. El descubrimiento es por multicast y no
+      cruza routers.
+
+  "no esta en la red (apagada o en standby)"
+      Normal si la tele esta apagada. Vuelve sola al encenderla.
+
+  "NO acepto el contenido"
+      La tele rechazo la URL. Casi siempre es que no la puede
+      descargar: compruebalo abriendo esa misma URL desde otra
+      maquina de la red.
+
+  Una fila que se ignora con "no trae ip+url"
+      La funcion de la base esta devolviendo otros nombres de
+      campo. El aviso lista las llaves que llegaron; con eso
+      se ajusta el mapeo en src/asignaciones.ts.

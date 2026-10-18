@@ -1,0 +1,18 @@
+[
+  {
+    "ip": "192.168.1.76",
+    "nombre": "Barra larga",
+    "url": "http://192.168.1.90:8080/promos/loop.mp4",
+    "tipo": "video",
+    "titulo": "Promos Shakeaholic",
+    "activa": true
+  },
+  {
+    "ip": "192.168.1.73",
+    "nombre": "Barra trasera",
+    "url": "http://192.168.1.90:8080/menu/menu.jpg",
+    "tipo": "imagen",
+    "titulo": "Menu",
+    "activa": true
+  }
+]
