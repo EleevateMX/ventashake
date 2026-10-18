@@ -842,6 +842,19 @@ La 1.0.1 marca `*** REIMPRESION ***` (el payload de las copias trae
 `reimpresion: true`). Admin → Descargas y En vivo comparan la de caja contra
 `agente_caja` / `AGENTE_CAJA_ESPERADO`, no contra la de etiquetas.
 
+### 2.4.8.6 Las TVs se asignan desde Admin (18/10/26)
+
+**Admin → Pantallas (TV)**: cada TV con su IP y lo que le toca (promos,
+menú, pedidos o nada), y **qué está mostrando**. Las Hisense (VIDAA) no se
+dejan encender ni abrir el navegador por red; solo reciben imágenes por
+**DLNA**. Las empuja un programa de la PC de la tienda (el «empujador», lo
+hace otra sesión) que lee `fn_pantallas_tv_agente` y reporta con
+`fn_pantallas_tv_reportar`, con **su propia llave** (Admin la genera, se ve
+una vez, se guarda el hash). «Pedidos listos» es el navegador de la TV
+abierto a mano en `pantalla.shakeaholic.mx`, que late en `pantalla_espejo`
+(`folios:xxxx`). Contrato completo en `docs/pantallas-tv.md`. Las imágenes
+van al bucket público `pantallas`, con fechas opcionales por temporada.
+
 ### 2.4.6 La sorpresa no se anuncia
 
 La app del cliente **ya no dice cuántas compras le faltan** para el premio
@@ -1442,6 +1455,7 @@ empaquetador y se desvían solas:
 | Buscar en «Abrir un bote» o «¿Llegó mercancía?» | Toca el buscador: sale el teclado en pantalla (letras y números, sin acentos) |
 | Ver la caja en vivo (qué tiene la pantalla, qué se cobró, qué se quitó) | Admin → **Caja en vivo**, también desde el teléfono. «Para revisar» junta lo que se quitó del carrito, los carritos vaciados, lo que no se cobró, cancelaciones y cortesías |
 | El cliente pide su ticket impreso, o lo quiere otra vez | Kiosko → en ¡Listo! **«🧾 Imprimir ticket»**; después, Historial de pedidos → el pedido → «🧾 Imprimir ticket» |
+| Qué transmite cada TV, o cambiarle el contenido | Admin → **Pantallas (TV)** → en la TV, «Le toca»: Promos, Menú, Pedidos o Nada. Las imágenes de promos y menú se suben ahí mismo, con fechas si son de temporada |
 | Ver qué ventas están apartadas, a distancia | Admin → **En vivo**, arriba del todo. Toca una para ver qué lleva, de qué hora es el ticket y a qué hora entró cada producto |
 
 ---
