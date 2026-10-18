@@ -17,6 +17,7 @@ export default tseslint.config(
       'agente-impresion/dist/**',
       'apps/costos/**', // index.html estático del cliente, no TS
       'agente-caja/agente-caja.mjs', // agente de tickets ya empaquetado (esbuild), no se edita a mano
+      'agente-pantallas/agente-pantallas.mjs', // agente de pantallas ya empaquetado (esbuild), no se edita a mano
     ],
   },
   js.configs.recommended,
@@ -43,7 +44,7 @@ export default tseslint.config(
   },
   {
     // Utilidades de línea de comandos: corren en Node, no en el navegador.
-    files: ['scripts/**/*.mjs', 'agente-caja/*.mjs'],
+    files: ['scripts/**/*.mjs', 'agente-caja/*.mjs', 'agente-pantallas/*.mjs'],
     languageOptions: {
       globals: { console: 'readonly', process: 'readonly', URL: 'readonly' },
     },

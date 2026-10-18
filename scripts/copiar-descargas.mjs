@@ -36,6 +36,7 @@ const ARCHIVOS = [
   'abrir-caja-y-admin.bat',
   'instalar-agente-impresion.bat',
   'instalar-agente-caja.bat',
+  'instalar-agente-pantallas.bat',
   'escanear-equipo.bat',
   'diagnostico-agente.bat',
 ]
@@ -56,9 +57,12 @@ const agente = JSON.parse(readFileSync(join(RAIZ, 'agente-impresion/package.json
 // la linea `var VERSION = "x.y.z"` del propio agente.
 const agenteCaja =
   /var VERSION = "([0-9.]+)"/.exec(readFileSync(join(RAIZ, 'agente-caja/agente-caja.mjs'), 'utf8'))?.[1] ?? null
+// El de pantallas igual: un solo .mjs empaquetado con su version adentro.
+const agentePantallas =
+  /var VERSION = "([0-9.]+)"/.exec(readFileSync(join(RAIZ, 'agente-pantallas/agente-pantallas.mjs'), 'utf8'))?.[1] ?? null
 writeFileSync(
   join(DESTINO, 'version.json'),
-  JSON.stringify({ agente: agente.version, agente_caja: agenteCaja, generado: new Date().toISOString() }, null, 2) + '\n',
+  JSON.stringify({ agente: agente.version, agente_caja: agenteCaja, agente_pantallas: agentePantallas, generado: new Date().toISOString() }, null, 2) + '\n',
 )
 
-console.log(`Copiados ${ARCHIVOS.length} instaladores + version.json (agente ${agente.version}, caja ${agenteCaja})`)
+console.log(`Copiados ${ARCHIVOS.length} instaladores + version.json (agente ${agente.version}, caja ${agenteCaja}, pantallas ${agentePantallas})`)

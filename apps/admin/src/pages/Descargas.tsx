@@ -56,6 +56,17 @@ const DESCARGAS: Descarga[] = [
       'Ejecutar como administrador.',
   },
   {
+    archivo: 'instalar-agente-pantallas.bat',
+    titulo: 'Agente de pantallas (TV)',
+    cuando: 'En la PC de la tienda, una vez (o para actualizarlo)',
+    detalle:
+      'Mantiene cada televisión mostrando lo que se le asignó en Pantallas (TV) y la ' +
+      'reengancha si alguien le cambió la entrada. Aparte de los otros dos agentes: si ' +
+      'uno se cae, los demás siguen. Pide la llave del empujador la primera vez —la de ' +
+      'Pantallas (TV) → «Generar llave»— y la reutiliza después. Clic derecho → ' +
+      'Ejecutar como administrador.',
+  },
+  {
     archivo: 'abrir-shakeaholic.bat',
     titulo: 'Abrir la tienda',
     cuando: 'Si alguien borró el acceso directo del escritorio',

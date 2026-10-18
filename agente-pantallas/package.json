@@ -4,11 +4,13 @@
   "private": true,
   "description": "Mantiene cada televisión del local mostrando lo que Admin le asignó, empujándolo por DLNA.",
   "type": "module",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "start": "tsx src/index.ts",
     "dev": "tsx watch src/index.ts",
-    "buscar": "tsx src/buscar.ts",
+    "buscar": "tsx src/index.ts --buscar",
     "typecheck": "tsc --noEmit",
     "empaquetar": "esbuild src/index.ts --bundle --platform=node --target=node20 --format=esm --outfile=agente-pantallas.mjs --banner:js=\"import{createRequire as __cr}from'node:module';const require=__cr(import.meta.url);\""
   },
@@ -16,7 +18,9 @@
     "@supabase/supabase-js": "^2.47.0",
     "dotenv": "^16.4.5"
   },
-  "optionalDependencies": { "node-windows": "^1.0.0-beta.8" },
+  "optionalDependencies": {
+    "node-windows": "^1.0.0-beta.8"
+  },
   "devDependencies": {
     "@types/node": "^22.10.0",
     "esbuild": "^0.24.2",

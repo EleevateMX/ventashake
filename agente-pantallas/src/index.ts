@@ -1,6 +1,6 @@
 import 'dotenv/config'
 import { hostname } from 'node:os'
-import { createClient } from '@supabase/supabase-js'
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { descubrir, describir, estado, poner, type Pantalla } from './dlna.js'
 import {
   obtenerAsignaciones, reportar, LlaveInvalida,
@@ -31,16 +31,32 @@ const TIC_MS = 1000
 /** Registrar cada avance de diapositiva. Util al instalar, ruidoso a diario. */
 const VERBOSO = env('VERBOSO') === '1'
 
-if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  console.error('Faltan SUPABASE_URL / SUPABASE_ANON_KEY. Copia .env.example como .env.')
-  process.exit(1)
-}
-if (!TOKEN && !ASIGNACIONES_ARCHIVO) {
-  console.error('Falta PANTALLAS_TOKEN. Generala en Admin -> Pantallas -> "Generar llave del empujador".')
-  process.exit(1)
+// `--buscar` solo mira la red: no debe exigir configuracion. Es lo primero
+// que se corre en una PC recien instalada, antes de tener nada en el .env.
+const SOLO_BUSCAR = process.argv.includes('--buscar')
+if (!SOLO_BUSCAR) {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    console.error('Faltan SUPABASE_URL / SUPABASE_ANON_KEY. Copia .env.example como .env.')
+    process.exit(1)
+  }
+  if (!TOKEN && !ASIGNACIONES_ARCHIVO) {
+    console.error('Falta PANTALLAS_TOKEN. Generala en Admin -> Pantallas -> "Generar llave del empujador".')
+    process.exit(1)
+  }
 }
 
-const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false } })
+/**
+ * Cliente perezoso.
+ *
+ * Se crea al primer uso y no al cargar el modulo: `createClient` revienta
+ * sin URL, y `--buscar` tiene que funcionar en una PC recien instalada que
+ * todavia no tiene .env. Se descubrio probando el bundle, no el fuente.
+ */
+let _sb: SupabaseClient | null = null
+function cliente(): SupabaseClient {
+  if (!_sb) _sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false } })
+  return _sb
+}
 
 /** Lo que el agente sabe de cada TV entre vueltas. */
 interface EstadoTv {
@@ -70,7 +86,7 @@ async function refrescarRed(forzar = false): Promise<void> {
 }
 
 async function sincronizarAsignaciones(): Promise<void> {
-  const lista = await obtenerAsignaciones(sb, {
+  const lista = await obtenerAsignaciones(cliente(), {
     rpc: RPC_ASIGNACIONES, archivo: ASIGNACIONES_ARCHIVO,
     token: TOKEN, version: VERSION, agente: AGENTE,
   })
@@ -201,7 +217,7 @@ async function vuelta(pedirAsignacion: boolean): Promise<void> {
   }
 
   if (pendientes.length > 0) {
-    await reportar(sb, RPC_REPORTE, TOKEN, pendientes)
+    await reportar(cliente(), RPC_REPORTE, TOKEN, pendientes)
     const mal = pendientes.filter(r => r.estado !== 'mostrando')
     for (const r of mal) {
       const tv = [...tvs.values()].find(x => x.asignada.id === r.id)
@@ -210,7 +226,38 @@ async function vuelta(pedirAsignacion: boolean): Promise<void> {
   }
 }
 
+/**
+ * `--buscar`: lista las TVs de la red con su IP y su nombre.
+ *
+ * Vive aqui y no en un archivo aparte porque lo que se instala en la tienda
+ * es UN solo .mjs empaquetado. Un script suelto no llegaria a la PC, y es
+ * justo lo primero que hace falta ahi para dar de alta las pantallas.
+ */
+async function soloBuscar(): Promise<void> {
+  console.log('Buscando televisiones en la red...\n')
+  const hallazgos = await descubrir()
+  if (hallazgos.size === 0) {
+    console.log('Ninguna respondio.')
+    console.log('Revisa que esten encendidas y que esta PC este en la misma red.')
+    console.log('Una TV en standby no aparece: VIDAA apaga su DLNA con la pantalla.')
+    return
+  }
+  console.log(`${hallazgos.size} television(es):\n`)
+  for (const [, { loc }] of hallazgos) {
+    const p = await describir(loc)
+    if (!p) continue
+    const e = await estado(p)
+    console.log(`  IP:      ${p.ip}`)
+    console.log(`  Nombre:  ${p.nombre}`)
+    console.log(`  Estado:  ${e?.transporte ?? 'sin respuesta'}`)
+    if (e?.uri) console.log(`  Muestra: ${e.uri}`)
+    console.log()
+  }
+  console.log('Da de alta estas IP en Admin -> Pantallas (TV).')
+}
+
 async function main(): Promise<void> {
+  if (process.argv.includes('--buscar')) { await soloBuscar(); return }
   log.info(`Agente de PANTALLAS v${VERSION} — ${AGENTE}`)
   log.info(`origen: ${ASIGNACIONES_ARCHIVO ? `archivo ${ASIGNACIONES_ARCHIVO}` : `rpc ${RPC_ASIGNACIONES ?? '(sin definir)'}`}`)
   if (!RPC_REPORTE) log.aviso('sin RPC_REPORTE: el estado solo sale por consola')
