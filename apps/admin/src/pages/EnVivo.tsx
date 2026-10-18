@@ -34,7 +34,7 @@ const AGENTE_ESPERADO = '1.6.0'
 // La impresora de tickets de la caja lleva su propio agente (agente-caja/),
 // con su propia versión: compararla contra la de etiquetas la pintaría vieja
 // para siempre.
-const AGENTE_CAJA_ESPERADO = '1.0.1'
+const AGENTE_CAJA_ESPERADO = '1.0.2'
 const esDeCaja = (nombre: string) => /caja|ticket/i.test(nombre)
 
 const METODOS: Record<string, { etiqueta: string; icono: string }> = {

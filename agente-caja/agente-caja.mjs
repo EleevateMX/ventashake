@@ -13821,7 +13821,10 @@ var require_main4 = __commonJS({
 (function() {
   require_main().config(
     Object.assign(
-      {},
+      // El .env junto al agente, no en la carpeta actual: como servicio de
+      // Windows la carpeta actual puede ser otra, y sin .env el agente se
+      // cerraba antes de hablar con nadie.
+      { path: require("node:path").join(require("node:path").dirname(require("node:url").fileURLToPath(import.meta.url)), ".env") },
       require_env_options(),
       require_cli_options()(process.argv)
     )
@@ -22063,7 +22066,7 @@ function estaViva(host, puerto, timeoutMs = 3e3) {
 }
 
 // src/index.ts
-var VERSION = "1.0.1";
+var VERSION = "1.0.2";
 function requerido(clave) {
   const v = process.env[clave]?.trim();
   if (!v) {

@@ -268,6 +268,47 @@ try {
 }
 Pop-Location
 
+# ---------------------------------------------------------------------------
+# 7. Comprobar que de verdad quedo en linea
+# ---------------------------------------------------------------------------
+# "Servicio corriendo" solo dice que Windows lo arranco, no que el agente
+# hable con el servidor: si se cae al empezar, Windows lo reinicia en
+# silencio y Admin nunca lo ve en linea. Se le pregunta al servidor si ya
+# latio con el token nuevo, y si no, se ensena el error del servicio aqui
+# mismo en vez de decir LISTO.
+Paso 'Esperando a que el agente se reporte (hasta 45 s)'
+$enLinea = $false
+$inicio = Get-Date
+while (((Get-Date) - $inicio).TotalSeconds -lt 45) {
+  Start-Sleep -Seconds 5
+  try {
+    $yo = @(Invoke-RestMethod -Method Post -Uri "$SupabaseUrl/rest/v1/rpc/fn_admin_impresoras" `
+      -Headers (Cabeceras $AnonKey) -ContentType 'application/json' -Body '{}') |
+      Where-Object { $_.id -eq $imp.id } | Select-Object -First 1
+    if ($yo -and $yo.ultima_conexion -and ([datetime]$yo.ultima_conexion).ToUniversalTime() -gt $inicio.ToUniversalTime().AddSeconds(-5)) {
+      $enLinea = $true
+      break
+    }
+  } catch { }
+}
+if ($enLinea) {
+  Bien 'en linea: Admin ya lo ve'
+} else {
+  Malo 'El servicio arranco pero el agente NO se ha reportado.'
+  $logs = Get-ChildItem (Join-Path $Destino 'daemon') -Filter '*.log' -EA SilentlyContinue |
+          Sort-Object LastWriteTime -Descending
+  foreach ($l in $logs) {
+    Write-Host ''
+    Write-Host "    --- $($l.Name) (ultimas lineas) ---" -ForegroundColor Yellow
+    Get-Content $l.FullName -Tail 15 -EA SilentlyContinue | ForEach-Object { Write-Host "    $_" }
+  }
+  if (-not $logs) { Write-Host '    No hay bitacora del servicio en la carpeta daemon.' }
+  Write-Host ''
+  Write-Host '    Manda una foto de esta ventana. Mientras, se puede correr a mano:'
+  Write-Host "    doble clic en $Destino\iniciar.bat (y dejar esa ventana abierta)."
+  exit 1
+}
+
 Write-Host ''
 Write-Host '  LISTO' -ForegroundColor Green
 Write-Host "  Instalado en: $Destino  (version $version)"
