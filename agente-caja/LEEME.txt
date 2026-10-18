@@ -1,0 +1,73 @@
+================================================================
+  SHAKEAHOLIC - AGENTE DE IMPRESION DE CAJA
+================================================================
+
+Imprime los TICKETS DE VENTA y los CORTES DE CAJA en la impresora
+de caja (3nStar RPT006S, 192.168.1.50).
+
+Es un programa APARTE del agente de etiquetas de barra y cocina.
+Los dos pueden correr en la misma PC al mismo tiempo sin
+estorbarse: si uno se cae, el otro sigue imprimiendo. Esa
+separacion es intencional.
+
+----------------------------------------------------------------
+INSTALACION (lo normal)
+----------------------------------------------------------------
+
+  Admin > Descargas > "Agente de tickets de caja"
+  Baja  instalar-agente-caja.bat  y en la PC de la caja:
+    clic derecho > "Ejecutar como administrador"
+
+  El solo:
+    - toma la llave que ya tiene la PC,
+    - saca el token de "Caja - Tickets" de Admin,
+    - escribe el .env,
+    - prueba que la impresora conteste,
+    - y lo deja como Servicio de Windows (arranca solo al prender).
+
+  Se puede correr las veces que haga falta: reinstala encima y
+  reinicia el servicio con la version nueva.
+
+----------------------------------------------------------------
+A MANO (solo si el instalador no se puede usar)
+----------------------------------------------------------------
+
+  1. Node.js 20 o superior  (node --version)
+  2. Copia esta carpeta a  C:\Shakeaholic\agente-caja
+  3. Copia .env.example como .env y llena:
+       SUPABASE_ANON_KEY   (la misma de las apps)
+       IMPRESORA_TOKEN     (Admin > Impresoras > "Caja - Tickets")
+  4. Prueba: doble clic en  iniciar.bat
+     Debe decir "Impresora responde." y quedarse esperando.
+  5. Servicio: clic derecho en  instalar-servicio.bat
+     > "Ejecutar como administrador"
+
+----------------------------------------------------------------
+COMO SABER SI ESTA VIVO
+----------------------------------------------------------------
+
+  En Admin > Impresoras, la fila "Caja - Tickets" debe mostrar
+  una conexion reciente. El agente manda un latido cada 30 s.
+
+----------------------------------------------------------------
+LA IMPRESION AUTOMATICA VIENE APAGADA
+----------------------------------------------------------------
+
+  Instalar esto NO hace que salgan tickets solos en cada cobro.
+  Lo normal es el boton del kiosko: "Imprimir ticket" en la
+  pantalla de Listo, y "Reimprimir" en el historial de pedidos.
+  La reimpresion sale marcada  *** REIMPRESION ***  (version
+  1.0.1 o mas nueva).
+
+  Si algun dia se quiere en cada venta: Admin > Ticket.
+
+----------------------------------------------------------------
+SI ALGO FALLA
+----------------------------------------------------------------
+
+  "La impresora no responde"
+      Encendida, con papel, cable de red. Luego: ping 192.168.1.50
+
+  "Token de impresora invalido"
+      Alguien genero un token nuevo. Vuelve a correr el
+      instalador: saca uno y reinicia el servicio.

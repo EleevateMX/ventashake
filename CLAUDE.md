@@ -830,6 +830,18 @@ del agente de etiquetas solo toma impresoras con estación** (`cocina_id`):
 la de tickets no tiene, y si la tomara le rotaría el token al agente de
 caja y le mandaría TSPL.
 
+**El agente de tickets vive en `agente-caja/`** (18/10): un solo `.mjs`
+empaquetado (dotenv + supabase-js adentro, sin `npm install`), versión en su
+línea `var VERSION`. Se instala con **Admin → Descargas → «Agente de tickets
+de caja»** (`scripts/instalar-agente-caja.bat` → `.ps1`): toma la llave de la
+PC, rota el token de la impresora **sin estación**, escribe el `.env` y lo
+deja como servicio de Windows («Shakeaholic Agente de Caja», node-windows).
+Detiene ANTES de rotar cualquier agente de caja vivo —con el token nuevo, uno
+viejo late y no imprime— y quita un servicio registrado desde otra carpeta.
+La 1.0.1 marca `*** REIMPRESION ***` (el payload de las copias trae
+`reimpresion: true`). Admin → Descargas y En vivo comparan la de caja contra
+`agente_caja` / `AGENTE_CAJA_ESPERADO`, no contra la de etiquetas.
+
 ### 2.4.6 La sorpresa no se anuncia
 
 La app del cliente **ya no dice cuántas compras le faltan** para el premio
@@ -1391,6 +1403,7 @@ empaquetador y se desvían solas:
 | Saber si el POS está sano | Admin → **¿Qué hago si…?** — cobra de mentira y lo deshace |
 | Actualizar el agente de impresión | Solo, al abrir el día siguiente |
 | Instalar en una PC nueva | Admin → **Descargas** → "Instalar todo" |
+| Instalar o actualizar el agente de la impresora de tickets | En la PC de la caja: Admin → **Descargas** → «Agente de tickets de caja» → clic derecho → *Ejecutar como administrador* |
 | Frases del pie de la etiqueta (temporadas, Milo) | Admin → **Impresoras** → *Frases de la etiqueta*. Cada frase con su nombre; una temporada prendida sale en sus fechas. «Probar · gasta 1» para verla en papel |
 | Dinámica con premios en la etiqueta (Trick or Shake) | Admin → **Impresoras** → *Dinámicas con premios* → «Nueva dinámica» (trae lista la de Halloween) → Guardar → **Prender** cuando el agente diga 1.6.0. Ahí se ve cuántas van, se abre la siguiente ronda y se marcan los premios entregados |
 | Cambiar el rollo de etiquetas | Kiosko → **"Caja y turno"** → PIN → "¿Cambiaste el rollo?" → Calibrar |

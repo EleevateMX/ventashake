@@ -31,6 +31,11 @@ const RESPALDO_MS = 10_000
  * Subela junto con VERSION_AGENTE del agente.
  */
 const AGENTE_ESPERADO = '1.6.0'
+// La impresora de tickets de la caja lleva su propio agente (agente-caja/),
+// con su propia versión: compararla contra la de etiquetas la pintaría vieja
+// para siempre.
+const AGENTE_CAJA_ESPERADO = '1.0.1'
+const esDeCaja = (nombre: string) => /caja|ticket/i.test(nombre)
 
 const METODOS: Record<string, { etiqueta: string; icono: string }> = {
   efectivo: { etiqueta: 'Efectivo', icono: '💵' },
@@ -493,7 +498,10 @@ export default function EnVivo() {
               </span>
             ))}
             <span className="flex-1" />
-            {panel.impresoras.map((i) => (
+            {panel.impresoras.map((i) => {
+              const esperado = esDeCaja(i.nombre) ? AGENTE_CAJA_ESPERADO : AGENTE_ESPERADO
+              const instalador = esDeCaja(i.nombre) ? 'instalar-agente-caja.bat' : 'instalar-agente-impresion.bat'
+              return (
               <span
                 key={i.nombre}
                 className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm border ${
@@ -509,18 +517,19 @@ export default function EnVivo() {
                     actualizaron" de "lo actualizaron y falla otra cosa". */}
                 <span
                   className={`font-mono text-[10px] px-1.5 py-0.5 rounded-full ${
-                    i.version === AGENTE_ESPERADO
+                    i.version === esperado
                       ? 'bg-sa-mint/40 text-sa-green-ink'
                       : 'bg-sa-banana/40 text-sa-coffee'
                   }`}
-                  title={i.version === AGENTE_ESPERADO
+                  title={i.version === esperado
                     ? 'Agente al día'
-                    : `Agente viejo — corre instalar-agente-impresion.bat (esperado ${AGENTE_ESPERADO})`}
+                    : `Agente viejo — corre ${instalador} (esperado ${esperado})`}
                 >
                   {i.version ? `v${i.version}` : 'v?'}
                 </span>
               </span>
-            ))}
+              )
+            })}
           </div>
 
           {/* Último movimiento, siempre a la vista */}

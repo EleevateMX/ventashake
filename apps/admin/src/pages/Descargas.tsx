@@ -46,6 +46,16 @@ const DESCARGAS: Descarga[] = [
       'Esto sirve para forzarlo hoy sin esperar a mañana.',
   },
   {
+    archivo: 'instalar-agente-caja.bat',
+    titulo: 'Agente de tickets de caja',
+    cuando: 'En la PC de la caja, una vez (o para actualizarlo)',
+    detalle:
+      'El de la impresora de tickets (192.168.1.50), aparte del de etiquetas: si uno ' +
+      'se cae, el otro sigue. Toma la llave de la PC, saca el token de «Caja — Tickets», ' +
+      'prueba la impresora y lo deja como servicio de Windows. Clic derecho → ' +
+      'Ejecutar como administrador.',
+  },
+  {
     archivo: 'abrir-shakeaholic.bat',
     titulo: 'Abrir la tienda',
     cuando: 'Si alguien borró el acceso directo del escritorio',
@@ -94,6 +104,7 @@ function estaAlDia(instalada: string | null | undefined, publicada: string): boo
 export default function Descargas() {
   const [impresoras, setImpresoras] = useState<ImpresoraAdmin[] | null>(null)
   const [publicada, setPublicada] = useState<string | null>(null)
+  const [publicadaCaja, setPublicadaCaja] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -103,7 +114,10 @@ export default function Descargas() {
     // Mismo origen: es el archivo que dejó el build de esta misma app.
     fetch('/descargas/version.json', { cache: 'no-store' })
       .then((r) => r.json())
-      .then((j) => setPublicada(j.agente))
+      .then((j) => {
+        setPublicada(j.agente)
+        setPublicadaCaja(j.agente_caja ?? null)
+      })
       .catch(() => setPublicada(null))
   }, [])
 
@@ -124,7 +138,11 @@ export default function Descargas() {
           )}
           <div className="space-y-3">
             {impresoras?.map((i) => {
-              const alDia = publicada ? estaAlDia(i.agente_version, publicada) : true
+              // La de tickets (sin estación) tiene su propio agente y su propia
+              // versión: compararla contra la de etiquetas siempre diría «falta».
+              const esCaja = !i.cocina_id
+              const meta = esCaja ? publicadaCaja : publicada
+              const alDia = meta ? estaAlDia(i.agente_version, meta) : true
               return (
                 <div
                   key={i.id}
@@ -138,7 +156,7 @@ export default function Descargas() {
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="font-mono text-xs text-sa-green-ink/60">
-                      agente {i.agente_version ?? '—'}
+                      {esCaja ? 'agente de caja' : 'agente'} {i.agente_version ?? '—'}
                     </span>
                     <span
                       className={`px-3 py-1 rounded-full text-xs font-semibold ${
@@ -147,7 +165,7 @@ export default function Descargas() {
                           : 'bg-sa-banana/40 text-sa-coffee'
                       }`}
                     >
-                      {alDia ? 'Al día' : `Falta ${publicada}`}
+                      {alDia ? 'Al día' : `Falta ${meta}`}
                     </span>
                   </div>
                 </div>

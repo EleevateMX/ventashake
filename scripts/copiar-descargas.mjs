@@ -35,6 +35,7 @@ const ARCHIVOS = [
   'abrir-shakeaholic.bat',
   'abrir-caja-y-admin.bat',
   'instalar-agente-impresion.bat',
+  'instalar-agente-caja.bat',
   'escanear-equipo.bat',
   'diagnostico-agente.bat',
 ]
@@ -51,9 +52,13 @@ for (const nombre of ARCHIVOS) {
 
 // La version del agente, para que Admin pueda decir si la PC esta al dia.
 const agente = JSON.parse(readFileSync(join(RAIZ, 'agente-impresion/package.json'), 'utf8'))
+// El de tickets de caja es un solo archivo empaquetado: su version vive en
+// la linea `var VERSION = "x.y.z"` del propio agente.
+const agenteCaja =
+  /var VERSION = "([0-9.]+)"/.exec(readFileSync(join(RAIZ, 'agente-caja/agente-caja.mjs'), 'utf8'))?.[1] ?? null
 writeFileSync(
   join(DESTINO, 'version.json'),
-  JSON.stringify({ agente: agente.version, generado: new Date().toISOString() }, null, 2) + '\n',
+  JSON.stringify({ agente: agente.version, agente_caja: agenteCaja, generado: new Date().toISOString() }, null, 2) + '\n',
 )
 
-console.log(`Copiados ${ARCHIVOS.length} instaladores + version.json (agente ${agente.version})`)
+console.log(`Copiados ${ARCHIVOS.length} instaladores + version.json (agente ${agente.version}, caja ${agenteCaja})`)
