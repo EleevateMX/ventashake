@@ -4,7 +4,7 @@ import { descubrir, describir, estado, poner, type Pantalla } from './dlna.js'
 import { obtenerAsignaciones, reportar, type Asignacion, type Reporte } from './asignaciones.js'
 import { log } from './log.js'
 
-var VERSION = '1.0.0'
+const VERSION = '1.0.0'
 
 const env = (k: string, d = '') => process.env[k]?.trim() || d
 const num = (k: string, d: number) => Number(env(k)) || d
