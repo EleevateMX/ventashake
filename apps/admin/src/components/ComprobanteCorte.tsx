@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { sb } from '../lib/sb'
 import {
-  comprobanteCorte, reenviarComprobante, correosCortes, guardarCorreosCortes,
+  comprobanteCorte, reenviarComprobante, correosCortes, guardarCorreosCortes, imprimirCorteEnCaja,
 } from '@shake/supabase'
 import type { ComprobanteCorte as Datos, CorreosCortes } from '@shake/supabase'
 import { comprobanteCorteHtml, comprobanteCorteTicketHtml, folioDeCorte, mensajeDeError } from '@shake/utils'
@@ -35,10 +35,33 @@ export function ComprobanteCorte({ corteId }: { corteId: string }) {
   }
 
   /**
-   * El mismo comprobante en 80 mm, para la impresora de tickets de la tienda.
-   * Sale por el diálogo del navegador: en la PC de la caja, se elige la
-   * térmica (Chrome la recuerda la siguiente vez).
+   * A la impresora de caja (18/10/26): se encola para «Caja — Tickets» y la
+   * saca el agente de caja, esté quien esté viendo Admin y desde donde sea.
+   * Antes este botón abría el diálogo del navegador e imprimía en la
+   * impresora de la computadora de quien lo tocaba.
    */
+  const [mandando, setMandando] = useState(false)
+  async function imprimirEnCaja() {
+    setError(null)
+    setMandando(true)
+    try {
+      const r = await imprimirCorteEnCaja(sb, corteId)
+      const msg =
+        r.estado === 'sin_impresora' ? 'No hay impresora de caja dada de alta (Admin → Impresoras).'
+        : r.estado === 'ya_en_cola' ? 'Ya va en camino a la impresora de caja: espera unos segundos.'
+        : `${r.reimpresion ? 'Copia mandada' : 'Mandado'} a la impresora de caja.`
+      const agente = r.estado !== 'sin_impresora' && r.agente_en_linea === false
+        ? ' Ojo: el agente de caja no está en línea; sale en cuanto vuelva a prenderse.' : ''
+      if (r.estado === 'sin_impresora') setError(msg)
+      else { setAviso(msg + agente); setTimeout(() => setAviso(null), 8000) }
+    } catch (e) {
+      setError(mensajeDeError(e))
+    } finally {
+      setMandando(false)
+    }
+  }
+
+  /** El mismo comprobante en 80 mm por el diálogo del navegador, en ESTA computadora. */
   function imprimirTicket() {
     if (!datos) return
     const w = window.open('', '_blank', 'width=380,height=640')
@@ -68,8 +91,13 @@ export function ComprobanteCorte({ corteId }: { corteId: string }) {
       />
       <div className="flex flex-col gap-2 min-w-[200px]">
         <p className="font-mono text-sm">{folioDeCorte(datos.folio)}</p>
-        <button className={cx.btnPrimary} onClick={imprimirTicket}>Imprimir en ticket (80 mm)</button>
+        <button className={cx.btnPrimary} disabled={mandando} onClick={() => void imprimirEnCaja()}>
+          {mandando ? 'Mandando…' : 'Imprimir en la impresora de caja'}
+        </button>
         <button className={cx.btnSec} onClick={imprimir}>Imprimir en hoja o guardar PDF</button>
+        <button className={`${cx.btnSec} !text-xs !py-2`} onClick={imprimirTicket} title="Abre el diálogo de impresión de esta computadora, en formato de ticket">
+          Ticket 80 mm en esta computadora
+        </button>
         <button className={cx.btnSec} onClick={() => void reenviar()}>Mandar por correo otra vez</button>
         {!datos.recibe && (
           <p className={`${cx.muted} text-xs max-w-[240px]`}>

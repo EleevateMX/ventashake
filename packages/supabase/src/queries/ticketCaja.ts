@@ -87,3 +87,20 @@ export async function activarLogoTicket(sb: ShakeClient, id: string | null): Pro
 export async function borrarLogoTicket(sb: ShakeClient, id: string): Promise<void> {
   await rpc<unknown>(sb, 'fn_logo_ticket_borrar', { p_logo_id: id })
 }
+
+export interface ResultadoImprimirCorte {
+  estado: 'en_cola' | 'ya_en_cola' | 'sin_impresora'
+  folio: number
+  reimpresion?: boolean
+  /** ¿El agente de caja latió en los últimos 2 minutos? Si no, el papel sale cuando vuelva. */
+  agente_en_linea?: boolean
+}
+
+/**
+ * Manda el comprobante de un corte a la impresora de caja (la de tickets),
+ * no al diálogo del navegador. La primera vez sale el de siempre; después,
+ * copias marcadas como reimpresión. Solo gerencia.
+ */
+export async function imprimirCorteEnCaja(sb: ShakeClient, corteId: string): Promise<ResultadoImprimirCorte> {
+  return rpc<ResultadoImprimirCorte>(sb, 'fn_corte_imprimir_caja', { p_corte_id: corteId })
+}

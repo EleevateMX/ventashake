@@ -1448,7 +1448,7 @@ empaquetador y se desvían solas:
 | Saber si un día cuadró, o ventas de la semana/mes/año | Admin → **Ventas** → *Historial y cierre del día*. Toca el día; «Bajar de Clip» para conciliar tarjeta y Clip; si no cuadró, deja una aclaración |
 | Revisar el arqueo de un turno | Admin → **Cortes de caja** (desglose de billetes, y **Tickets** del turno) |
 | Cambio de turno (Regina → Andrés) | Kiosko → **Caja y turno** → contar → **Cerrar turno · retirar $X** (se retira eso, se deja el fondo) → **Entregar a quien sigue** → quien recibe pone su PIN, cuenta y **Iniciar turno** |
-| Imprimir el comprobante del corte en la impresora de tickets | Al cerrar el corte (kiosko o POS) → **«🧾 Imprimir comprobante de corte»** → elegir la térmica en el diálogo (Chrome la recuerda). O Admin → Comprobantes → **«Imprimir en ticket (80 mm)»** desde la PC de la caja |
+| Imprimir el comprobante del corte en la impresora de tickets | Sale **solo al cerrar** si está prendido Admin → Ticket de caja → «Imprimir el corte al cerrar caja». Otra vez, desde donde sea: Admin → **Comprobantes** (o Cortes) → **«Imprimir en la impresora de caja»** — va a la cola de «Caja — Tickets» y lo saca el agente de caja (`fn_corte_imprimir_caja`, gerencia; copias marcadas como reimpresión) |
 | Ver, imprimir o reenviar el comprobante de un corte | Admin → **Comprobantes** (todos, por fecha y persona, con quién entregó y quién recibió) o Admin → **Cortes de caja** → **Comprobante**. En Cortes, arriba: el fondo fijo y quién recibe los comprobantes por correo |
 | Consultar un ticket | Admin → **Cortes de caja** → *Tickets* → buscar por folio o nombre |
 | Ver si algo se está atorando ahora | Admin → **Pulso** (solo rol `desarrollo`) |
