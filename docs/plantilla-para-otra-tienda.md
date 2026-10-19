@@ -15,25 +15,27 @@ copiar**.
 
 ## 1. Qué tamaño tiene esto en realidad
 
-Para calibrar antes de prometer fechas. Medido el 17/09/26:
+Para calibrar antes de prometer fechas. Medido el 17/09/26 y otra vez el
+19/10/26 — en un mes el sistema casi duplicó su base:
 
-| | |
-|---|---|
-| Apps (React + Vite, salvo una) | **9** |
-| Paquetes compartidos | 6 |
-| Líneas de TypeScript/HTML propias | **37 541** |
-| Tablas | 62 |
-| Vistas | 7 |
-| **Funciones de Postgres** | **161** |
-| Triggers | 27 |
-| Políticas RLS | 101 |
-| Tipos enum | 20 |
-| Migraciones guardadas | 146 |
-| Edge Functions | 7 |
-| Tareas programadas (pg_cron) | 8 |
-| Documentos en `docs/` | 51 |
+| | 17/09 | **19/10** |
+|---|---|---|
+| Apps | 9 | **11** (+ checador, + app nativa de iOS) |
+| Paquetes compartidos | 6 | 6 |
+| Líneas de TypeScript/HTML propias | 37 541 | **~62 000** |
+| Tablas | 62 | **111** |
+| Vistas | 7 | 8 |
+| **Funciones de Postgres** | 161 | **363** |
+| Triggers | 27 | 37 |
+| Políticas RLS | 101 | 111 |
+| Migraciones aplicadas en la base | 198 | **326** |
+| Migraciones guardadas en el repo | 146 | 252 |
+| Edge Functions | 7 | **17** |
+| Tareas programadas (pg_cron) | 8 | 10 |
+| Programas en la PC de la tienda | 1 | **3** (etiquetas, tickets, TVs) |
+| Documentos en `docs/` | 51 | 57 |
 
-**Lo importante de esa tabla no es el total, es dónde está el peso: 161
+**Lo importante de esa tabla no es el total, es dónde está el peso: 363
 funciones de Postgres.** La lógica de negocio de este sistema vive en la
 base de datos, no en el frontend. El frontend es una cara bonita sobre
 `fn_crear_orden`, `fn_cobrar_orden`, `fn_sync_app_data`… Quien piense en
@@ -75,8 +77,10 @@ Esto es el producto. No lo reescribas:
 - **El inventario**: recetas → `inventario_movimientos` →
   `inventario_stock`, con el upsert que hace nacer el renglón (si no, el
   descuento falla callado; nos costó 30 días descubrirlo).
-- **La impresión**: `agente-impresion/` completo, más
-  `fn_imprimir_reclamar_trabajos` y `fn_imprimir_latido`.
+- **La impresión**: `agente-impresion/` (etiquetas, TSPL) y
+  `agente-caja/` (tickets, ESC/POS) completos, más la cola
+  `trabajos_impresion`, `fn_imprimir_reclamar_trabajos`,
+  `fn_imprimir_latido` y `fn_imprimir_confirmar`. Ver la sección 9.1.
 - **Los scripts de la PC** (`scripts/`): arranque, acomodo de pantallas,
   instalador. Cambian rutas y nombres, no la lógica.
 - **`packages/brand/tokens.css`** como *mecanismo* — los valores cambian,
@@ -147,7 +151,9 @@ comprobable.
 6. **Edge Functions + sus secrets** (pasarela, `staff-login`).
 7. **Apps**: `.env` por app, proyectos de Cloudflare Pages, dominios.
 8. **Catálogo** — lo último, porque depende de decidir 3.3.
-9. **La PC de la tienda**: agente de impresión, impresoras, scripts.
+9. **La PC de la tienda**: agente de etiquetas, agente de tickets,
+   impresoras con IP fija (reservada en el router), scripts. Y el de TVs
+   si aplica.
 
 > ### ⚠ El repo NO puede reconstruir la base — y hay un comando que lo arregla
 >
@@ -269,3 +275,249 @@ En este orden, y no más de lo necesario:
 | Inventario | `CLAUDE.md` 2.3.5 y `fn_descontar_inventario_por_orden` |
 | Impresión | `CLAUDE.md` 2.4 y `agente-impresion/` |
 | Qué NO se puede portar tal cual | `docs/correr-sin-supabase.md` |
+| Todo lo construido, con veredicto | La sección 9 de este documento |
+
+---
+
+## 9. Todo lo que se construyó, y si conviene llevárselo (al 19/10/26)
+
+Tres veredictos:
+
+- **✅ Tómalo**: está probado en venta real y no depende del giro.
+- **🔧 Tómalo, pero ajústalo**: la idea sirve; los detalles son de aquí.
+- **⛔ No lo tomes así**: aquí funciona porque ya está vivo y moverlo
+  cuesta, pero en una tienda nueva sale más barato hacerlo bien desde el
+  día uno.
+
+### 9.1 Impresión — lo que más vale llevarse
+
+Hay **tres programas** en la PC de la tienda, cada uno con su impresora:
+
+| Programa | Carpeta | Imprime en | Idioma | Se instala con |
+|---|---|---|---|---|
+| Etiquetas de comanda | `agente-impresion/` | Etiquetadoras de red (barra, cocina) | TSPL | `instalar-todo.bat` / `instalar-agente-impresion.bat` |
+| Tickets de caja | `agente-caja/` | Térmica de 80 mm (`:9100`) | ESC/POS | Admin → Descargas → «Agente de tickets de caja» |
+| TVs | `agente-pantallas/` | TVs por DLNA | — | `instalar-agente-pantallas` |
+
+**Cómo funcionan las tres impresoras.** La base tiene una cola,
+`trabajos_impresion`, y cada impresora tiene su token. El agente reclama
+sus trabajos, los imprime y confirma. Late cada pocos segundos reportando
+su versión, y Admin la compara contra la esperada. Una reimpresión es una
+copia ligada al original (`copia_de`), con tope de copias, y no se apila
+si ya hay una en cola.
+
+- ✅ **La cola, el token por impresora y el latido con versión.** Con eso
+  se sabe a distancia si la impresora está viva y al día.
+- ✅ **Imprimir solo desde un trigger, envuelto en un bloque que se traga
+  sus propios errores.** Una impresora rota nunca debe frenar un cobro ni
+  un corte. Aquí están envueltos el ticket de venta, el corte, la comanda
+  y la dinámica de premios.
+- ✅ **La forma de instalar**:
+  - se reparte un `.bat` que se quita solo la marca de internet y corre el
+    `.ps1` con `-ExecutionPolicy Bypass` (nunca un `.ps1` suelto);
+  - la llave pública la toma del `.env` de la PC;
+  - imprime una prueba directa por TCP antes de nada;
+  - deja una ventana minimizada que se relanza si se cae, con acceso en el
+    Inicio de **todos** los usuarios;
+  - **no dice LISTO hasta que el servidor ve el latido**.
+- ✅ **Admin → Ticket de caja**: datos del negocio, pie, QR de Rewards, QR
+  del WiFi, cuándo imprime solo y el logo convertido a 1 bit
+  (`packages/utils/src/logoTicket.ts`, con pruebas).
+- ✅ **Botones desde el kiosko**: calibrar al cambiar el rollo, «Probar ·
+  gasta 1» y «Imprimir ticket». Así nadie tiene que ir a la PC.
+- ✅ **Admin manda el corte a la impresora de caja**
+  (`fn_corte_imprimir_caja`), no al diálogo del navegador de quien está
+  viendo Admin.
+- 🔧 **Frases del pie por temporada y dinámicas con premios** («Trick or
+  Shake»). Son de la marca; llévalas solo si el negocio nuevo va a hacer
+  esas dinámicas.
+- ⛔ **Servicio de Windows (node-windows).** Quedó dos veces «corriendo»
+  sin reportarse nunca. La ventana que se relanza sola funciona.
+- ⛔ **Que cualquiera con la llave pública pueda rotar el token de una
+  impresora** (`fn_rotar_token_impresora` y `fn_admin_impresoras` abiertas
+  a `anon`, porque el instalador corre en una PC sin sesión). En la nueva,
+  Admin genera un **código de instalación de un solo uso** y el instalador
+  lo pide.
+- ⛔ **Mandar la cabecera de papel (`SIZE`, `GAP`) delante de cada
+  etiqueta.** Es la sospecha principal de las tres etiquetas en blanco por
+  comanda. En la nueva, prueba desde el principio con la cabecera una sola
+  vez.
+- **Qué comprar**: etiquetadora TSPL de red y térmica ESC/POS de red, las
+  dos con **IP fija reservada en el router**. Las de USB obligan a
+  instalar drivers y amarran la impresora a una PC.
+
+### 9.2 Caja y dinero
+
+- ✅ **El dinero se calcula en el servidor**: pago dividido que valida las
+  partes antes de insertar, mixto con la tarjeta primero, y la máquina de
+  estados que no deja regresar.
+- ✅ **Clip**: las rutas reales (CLAUDE.md 2.3), preguntar en vez de creerle
+  al webhook, y el barrido cada 2 min. Y enseñarle a la tienda que
+  `ERR10_04` es la app del Pinpad cerrada.
+- ✅ **Contar por denominación** al abrir y al cerrar, separando billetes y
+  monedas (el $20 existe como los dos: `efectivo.ts`).
+- ✅ **Fondo fijo y cambio de turno**: se calcula el retiro y qué se queda,
+  quien recibe firma con su PIN, y sale el comprobante con folio. En Admin
+  están **Comprobantes**, y el corte se imprime solo al cerrar, en la de
+  caja.
+- ✅ **El cierre del día se calcula en vivo, no se guarda**; solo se guardan
+  las aclaraciones. Incluye la conciliación con la API de transacciones
+  de Clip.
+- ✅ **Vender sin internet**: efectivo o terminal del banco, folio
+  provisional, comanda por la red local, y se registra al volver con una
+  función que envuelve a las de siempre. **Pon además un segundo internet
+  (4G con failover)**: es lo que más resuelve.
+- ✅ **Caja en vivo y avisos push a gerencia** (empieza a contar, entrega,
+  abre, cierra) y la bitácora de lo que se quita del carrito.
+- ✅ **Cortesías** a $0, con PIN de una lista nominal (ni gerencia la trae
+  por rol) y que sí bajan inventario.
+- ✅ **Ventas en espera en el navegador**, no en la base, y al retomarlas
+  se refrescan contra el precio de hoy.
+- ⛔ **Las funciones del cobro abiertas a `anon`** (sección 5). El kiosko
+  debe sostener su sesión desde el día uno.
+- ⛔ **El correo de cortes sin proveedor.** Aquí quedó construido y
+  esperando llave de Resend. Decide al arrancar si va o no; una cola que
+  nunca sale es un indicador que no vuelve a verde.
+
+### 9.3 Inventario
+
+- ✅ **El descuento por trigger al cobrar, con upsert.** Que pueda quedar en
+  negativo es a propósito: un negativo se ve.
+- ✅ **Kardex por renglón**, salidas con motivo, reinicio con PIN y
+  cancelación que regresa lo descontado (opcional y una sola vez).
+- ✅ **La mercancía entra como MOVIMIENTO** (kiosko → «¿Llegó
+  mercancía?»), por caja o por pieza, y el traspaso resta en el origen.
+- ✅ **Un combo descuenta lo que se eligió** (`inventario_como` y
+  `combo_fijos`), armado en Admin → Combos con semáforo.
+- ✅ **«Lo que no descuenta» y Revisión del menú**: nombran con nombre y
+  apellido lo que está chueco, sin arreglarlo solos.
+- ⛔ **El modelo de Costeos**: un documento JSON que manda la
+  **diferencia** contra su último número. Casi todos los bugs caros de
+  inventario salieron de ahí:
+  - entradas contadas dos veces;
+  - 630 insumos fantasma;
+  - una pestaña vieja que deshacía ventas;
+  - recetas que no se reapuntan al renombrar;
+  - productos partidos en dos.
+
+  En la nueva: catálogo en **tablas**, inventario **solo por
+  movimientos**, y que ninguna pantalla mande un total, solo eventos.
+  Costeos puede seguir siendo la hoja donde se calcula el costo, pero sin
+  ser dueño de la existencia.
+- 🔧 **Proteína en scoops.** La idea (una unidad base y la presentación
+  como factor) sí se lleva; en una panadería serán gramos o piezas por
+  lote (sección 7).
+
+### 9.4 Menú, comanda y cocina
+
+- ✅ **Las reglas de qué se ofrece, qué se elige solo y qué se cobra viven
+  en `@shake/utils`** (`extras.ts`, `observaciones.ts`, `gruposDeExtras`,
+  `dobleScoopDe`, `otrasPartes`). Tienen pruebas, y las importan el
+  kiosko y el POS. Su espejo en la base es `fn_clase_extra`.
+- ✅ **Las reglas de los extras**:
+  - observaciones con alcance por categoría o por producto;
+  - «elige una» que nunca preselecciona algo que cobra;
+  - «solo si…» (`requiere_grupo`);
+  - un extra se puede vender suelto como su gemelo.
+- ✅ **La comanda**: cada extra cuelga de su producto, el combo se reparte
+  por estación y cada tarjeta dice dónde va la otra parte.
+- ✅ **`traerTodo()`** para paginar: PostgREST corta en 1 000 filas y no
+  avisa.
+- 🔧 **Kiosko y POS como dos apps.** Aquí la tienda cobra desde el kiosko en
+  modo cajero y el POS quedó de respaldo. Dos puertas a la misma venta se
+  separan solas; en la nueva, empieza con **una sola app de caja**.
+- ⛔ **Productos gemelos** (el mismo artículo como bebida costeada y como
+  extra sin costear, con la misma clave). Un artículo, un producto.
+
+### 9.5 TVs
+
+- ✅ **Admin → Pantallas (TV)**: qué le toca a cada TV, qué está mostrando
+  y las imágenes con fechas de temporada. El empujador entra con su
+  propia llave, que Admin genera y enseña una sola vez.
+- ✅ **La TV de folios** que late y se ve en Admin.
+- ⛔ **TVs Hisense VIDAA.** No dejan encenderse ni abrir el navegador por
+  red; solo aceptan imágenes por DLNA, y su puerto de control pide un
+  certificado de su app. **En la nueva, un stick HDMI o una mini PC que
+  abra la URL**: la pantalla se vuelve una página web más y el empujador
+  sobra.
+
+### 9.6 Personal
+
+- ✅ **El checador** (CLAUDE.md 2.8):
+  - guarda eventos, no turnos;
+  - la hora la pone el servidor y nada se edita ni se borra;
+  - reglas por persona, por día de la semana y excepciones de una fecha;
+  - una sola comida por jornada;
+  - un turno sin salida caduca a las 12 h como mínimo.
+- ✅ **Permisos por persona**, y el corte con candado **en el servidor**
+  (`hint = 'requiere_autorizacion'` → PIN de quien sí puede).
+- ✅ **Descuento de personal calculado en el servidor**: envuelve a
+  `fn_crear_orden`, con clave bcrypt o un QR de 2 minutos desde la app.
+- 🔧 **Expediente y contratos.** Llévalos, pero la plantilla del contrato
+  la revisa el abogado del negocio nuevo; la de aquí dice BORRADOR a
+  propósito.
+- 🔧 **Checador desde el teléfono.** Viene apagado. Si se usa, primero
+  hay que hacer el código que rota en el kiosko: la geocerca sola se
+  puede engañar.
+
+### 9.7 Clientes (Rewards y apps)
+
+- 🔧 **Todo esto es caro de sostener**: tarjeta 13+1, mancuernas, PWA, app
+  nativa de iOS, Apple Wallet, avisos push y pedidos por la app (estos
+  nacen apagados). Tómalo **solo si el negocio nuevo lo va a usar desde el
+  inicio**. La app de iOS pide cuenta de Apple Developer, ficha a mano y
+  revisión.
+- ✅ **«La sorpresa no se anuncia»**, y que el servidor no mande el número.
+  Esconderlo solo en la pantalla sería teatro.
+
+### 9.8 La PC y la operación
+
+- ✅ **La PC**: `instalar-todo.bat` partido en dos mitades (elevada y de
+  usuario), el arranque en orden (internet → agente → pantallas →
+  actualizar al final) y `pantallas.ps1`, que reparte las ventanas por
+  tamaño de monitor.
+- ✅ **Admin → Descargas** con la versión de cada agente, y los
+  instaladores se copian en el build, no se duplican en el repo.
+- ✅ **Admin → «¿Qué hago si…?»** (una venta de prueba que se deshace),
+  **Pulso**, y **En vivo** con el sello de «hace N s».
+- ✅ **`hoyEnMerida()`**: la fecha del negocio no es la de UTC. **Cambia la
+  zona horaria** si la tienda nueva está en otro lado.
+- ✅ **`.bat`/`.ps1` en ASCII puro** (`verificar-scripts-ascii.mjs`), y
+  probar con **Windows PowerShell 5.1**, no con `pwsh`:
+  - `@(Invoke-RestMethod)` anida el arreglo;
+  - `[datetime]"…Z"` sale en hora local.
+
+### 9.9 Los patrones de base de datos que más ahorraron
+
+Todos están contados en CLAUDE.md sección 4. Los que más conviene llevarse
+desde el primer día:
+
+1. **Envolver, no tocar**: `fn_venta_sin_internet`, `fn_cortesia_crear`,
+   `fn_crear_orden_personal` y `fn_cerrar_corte_con_fondo` llaman a las
+   del dinero sin cambiarlas.
+2. **El parche anclado** para funciones grandes: el ancla debe aparecer
+   exactamente N veces, o no se aplica.
+3. **Todo lo que cuelga de la cadena del cobro se traga sus propios
+   errores.**
+4. **Probar cobrando dentro de una transacción que se deshace**, no con un
+   `select`.
+5. **Cada candado se prueba por HTTP con la llave publicable.** Hay que
+   revocar a `anon` **y** a PUBLIC, y si contesta el mensaje de tu propio
+   candado, la puerta sigue abierta.
+6. **`search_path` con `extensions`** en toda función que use `crypt`.
+7. **`statement_timeout` por función**, nunca para el rol entero.
+8. **Exportar las migraciones** (`scripts/exportar-migraciones.sh`) y, en
+   la nueva, **guardarlas todas en el repo desde la primera**. Así el
+   repo sí reconstruye la base.
+
+### 9.10 El orden recomendado para la tienda nueva
+
+Lo mínimo para abrir primero, y lo demás cuando haya ventas:
+
+1. Dinero y caja: crear, cobrar, el corte con fondo fijo y la pasarela.
+2. Las comandas en pantalla y el agente de etiquetas.
+3. El ticket de caja con su agente.
+4. Inventario por movimientos, con kardex.
+5. Checador y permisos.
+6. Caja en vivo, cierre del día y TVs.
+7. Rewards y apps, al final y solo si se van a usar.
