@@ -939,7 +939,22 @@ function catSelect(it,porDefecto,estilo){
 function renderNav(){
   document.getElementById("nav").innerHTML=TABS.map(([id,n])=>`<button data-tab="${id}" class="${id===tab?'active':''}">${n}</button>`).join("");
   document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{tab=b.dataset.tab;renderNav();render();window.scrollTo(0,0);});}
-function render(){const m=document.getElementById("main");
+function render(){renderTab();pintarRepetidos();}
+// Aviso arriba de cualquier pestaña mientras haya nombres repetidos entre
+// secciones: el problema no se ve en ninguna otra parte hasta que una entrada
+// o un conteo sale mal.
+function pintarRepetidos(){
+  const m=document.getElementById("main");if(!m)return;
+  const rep=nombresRepetidos();if(!rep.length)return;
+  const d=document.createElement("div");
+  d.className="card";
+  d.style.cssText="border:1px solid #E04E5C;background:#fff4f4;margin-bottom:var(--s3,12px)";
+  d.innerHTML=`<b style="color:#B3261E">⚠ Nombres repetidos entre secciones</b>
+    <div class="muted" style="margin:4px 0 6px">El sistema reconoce cada insumo por su nombre. Con el nombre repetido, los dos comparten existencia, uno no descuenta y las entradas salen mal. Cámbiale el nombre a uno de los dos (por ejemplo, a la bebida: «Ghost Energy - …»).</div>
+    <ul style="margin:0;padding-left:18px">${rep.map(e=>`<li>«${escTxt(e.nombre)}» — ${escTxt(e.secciones.join(" y "))}</li>`).join("")}</ul>`;
+  m.insertBefore(d,m.firstChild);
+}
+function renderTab(){const m=document.getElementById("main");
   if(catsAdmin===null&&TABS_CON_CATEGORIA.indexOf(tab)>=0){catsAdmin=false;
     cargarCategorias().then(()=>{if(TABS_CON_CATEGORIA.indexOf(tab)>=0)render();});}
   if(tab==="dash")return renderDash(m);
@@ -1649,14 +1664,58 @@ async function getBodegaId(){
   if(error||!data)throw new Error("No se encontró el almacén de bodega en el esquema real.");
   return _bodegaIdCache=data.id;
 }
+// El nombre como lo guarda la sincronización: sin espacios de más y sin
+// distinguir mayúsculas. «Ghost - X » (con espacio al final) es el mismo insumo.
+function normNombre(s){return String(s==null?"":s).trim().replace(/\s+/g," ").toLowerCase();}
+// Lo que cada sección de Costeos le da de nombre a su insumo, con los mismos
+// filtros que fn_sync_app_data.
+const SECCIONES_INSUMO=[
+  {cat:"proteins",label:"Proteínas",nombre:p=>{const m=String(p.marca||"").trim(),s=String(p.sabor||"").trim();return (m===""||m==="Nueva"||s===""||s==="—"||s==="-")?"":m+" - "+s;}},
+  {cat:"shakeIngs",label:"Ingredientes · Shakes",nombre:i=>i.nombre},
+  {cat:"foodIngs",label:"Ingredientes · Alimentos",nombre:i=>i.nombre},
+  {cat:"empaque",label:"Empaque",nombre:e=>String(e.nombre||"").trim()==="Nuevo empaque"?"":e.nombre},
+  {cat:"bebidas",label:"Bebidas",nombre:b=>b.nombre},
+  {cat:"snacks",label:"Snacks",nombre:s=>s.nombre},
+];
+/**
+ * Nombres que se repiten ENTRE secciones (19/10/26). El sistema identifica
+ * cada insumo por su nombre: si una bebida se llama igual que una proteína
+ * («Ghost - Blue Raspberry»), las dos comparten el mismo insumo — una no
+ * descuenta, la existencia se mezcla y la entrada de la bebida contaba la
+ * caja como bote. Devuelve [{nombre, secciones:[label…], cats:[cat…]}].
+ */
+function nombresRepetidos(){
+  const m=new Map();
+  for(const sec of SECCIONES_INSUMO){
+    for(const it of (state[sec.cat]||[])){
+      const visto=String(sec.nombre(it)||"").trim().replace(/\s+/g," ");if(!visto)continue;
+      const k=visto.toLowerCase();
+      if(!m.has(k))m.set(k,{nombre:visto,secciones:[],cats:[]});
+      const e=m.get(k);if(e.cats.indexOf(sec.cat)<0){e.cats.push(sec.cat);e.secciones.push(sec.label);}
+    }
+  }
+  return [...m.values()].filter(e=>e.cats.length>1);
+}
 async function resolveInsumoIds(lines){
   const tipos=[...new Set(lines.map(l=>CAT2TIPO[l.key.split(":")[0]]))];
-  const {data,error}=await sb.from("insumos").select("id,nombre,tipo").in("tipo",tipos);
-  if(error)throw error;
-  const byKey=new Map(data.map(r=>[r.tipo+"|"+r.nombre.toLowerCase(),r.id]));
+  // Paginado: proteína + reventa ya pasan de 1 000 renglones y PostgREST
+  // corta sin avisar (CLAUDE.md, «PostgREST corta en 1000 filas»).
+  const data=[];
+  for(let desde=0;;desde+=1000){
+    const {data:pag,error}=await sb.from("insumos").select("id,nombre,tipo,activo").in("tipo",tipos)
+      .order("activo",{ascending:false}).order("id").range(desde,desde+999);
+    if(error)throw error;
+    data.push(...pag);
+    if(pag.length<1000)break;
+  }
+  const byKey=new Map();
+  for(const r of data){const k=r.tipo+"|"+normNombre(r.nombre);if(!byKey.has(k))byKey.set(k,r.id);}
+  const repetidos=new Map(nombresRepetidos().map(e=>[e.nombre.toLowerCase(),e]));
   return lines.map(l=>{
     const a=l.key.split(":"),cat=a[0],i=+a[1],it=state[cat][i],cfg=buyCfg(cat);
-    const nombre=cfg.name(it);
+    const nombre=String(cfg.name(it)||"").trim().replace(/\s+/g," ");
+    const rep=repetidos.get(nombre.toLowerCase());
+    if(rep)return {line:l,insumo_id:null,nombre,repetido:rep};
     return {line:l,insumo_id:byKey.get(CAT2TIPO[cat]+"|"+nombre.toLowerCase())||null,nombre};
   });
 }
@@ -1784,6 +1843,8 @@ function openEntrada(){
     const btn=host.querySelector("#e_prev");if(btn){btn.disabled=true;btn.textContent="Calculando…";}
     try{
       const resolved=await resolveInsumoIds(valid);
+      const choque=resolved.filter(r=>r.repetido);
+      if(choque.length){showErr(choque.map(r=>"«"+r.nombre+"» se llama igual en "+r.repetido.secciones.join(" y ")+".").join(" ")+" Con el nombre repetido las dos comparten inventario y la entrada saldría mal. Cámbiale el nombre a uno (por ejemplo, a la bebida: «Ghost Energy - …»), espera a que diga «Guardado» y vuelve a intentar.");return;}
       const sinResolver=resolved.filter(r=>!r.insumo_id);
       if(sinResolver.length){showErr("No se pudo ubicar en el catálogo real: "+sinResolver.map(r=>r.nombre).join(", ")+". Guarda el catálogo (espera a que aparezca \"Guardado\") y vuelve a intentar.");return;}
       const lineas=resolved.map(r=>({insumo_id:r.insumo_id,cantidad:+r.line.cant,costo_unitario:(r.line.precio!==""&&r.line.precio!=null)?+r.line.precio:0}));

@@ -106,6 +106,19 @@ Consecuencias que hay que respetar:
   scoop, `precioBote` > 0 vende el bote. El sufijo `- B` / `- R` en el
   sabor es legado que sigue funcionando, pero ya no hace falta.
 
+- **Un nombre no se repite entre secciones** (19/10). La sincronización
+  reconoce el insumo SOLO por nombre: «Ghost - Blue Raspberry» (bebida) y
+  «GHOST - Blue Raspberry» (proteína) eran el mismo insumo. La bebida no
+  descontaba, la proteína le escribía su costo encima, el scoop no
+  descontaba, y la entrada contaba una caja de bebida como bote (×30).
+  Costeos ahora pinta arriba «⚠ Nombres repetidos entre secciones» y no da
+  entrada a un nombre repetido; la entrada ya solo multiplica por scoops
+  lo que es `tipo = 'proteina'`. La salida es renombrar uno en Costeos (las
+  bebidas Ghost → «Ghost Energy - …»). Hacer la sync por tipo + nombre es
+  el arreglo de fondo, pero toca ~8 funciones (existencias, conteo, kardex
+  de Costeos también buscan por nombre): no se hizo con la tienda abierta.
+  `nombres_repetidos_entre_secciones.sql`.
+
 - **Admin → Costeos lo muestra en un marco** (15/10): es la MISMA app, no
   una copia — dos Costeos se separarían solos. Costeos solo deja que Admin
   lo enmarque (`frame-ancestors` en `apps/costos/_headers`, que el build
