@@ -466,6 +466,19 @@ revisa la existencia REAL de bodega, Compras enseña la real, hay «↻
 Actualizar» en Compras e Inventario, y entrada/traspaso guardan al instante y
 vuelven a pedir la existencia.
 
+**La entrada elige a dónde va** (20/10, `entrada_con_destino.sql`): cada
+renglón de proteína, bebida o snack trae «→ Bodega / → Kiosko». Por omisión
+la proteína de barra (fila con precio de scoop) va al **kiosko** —se abre
+ahí— y el bote de venta y las cajas a **bodega**. La línea manda `almacen`
+y `unidad` (`presentacion` | `caja` | `pieza`); el servidor convierte: la
+proteína a scoops **en los dos almacenes** (antes solo en bodega), la caja
+al kiosko a piezas, y una línea sin `unidad` es pieza suelta (lo que
+mandaba el Costeos anterior). El traspaso de un **bote de venta** se enseña
+en botes («Kiosko: 2 → 3 botes»): el sistema ya lo guardaba bien (70
+scoops = 1 bote, y venderlo descuenta 70), solo se leía como si fuera para
+scoops. Abrir un bote de venta para la barra sigue en el kiosko («¿Abriste
+un bote de venta para la barra?»).
+
 **Cancelar una venta puede regresar lo descontado** (17/10): casilla
 «Regresar al inventario» al cancelar en Admin, o después desde la
 bitácora (`fn_venta_regresar_inventario`, gerencia, una sola vez). Es un

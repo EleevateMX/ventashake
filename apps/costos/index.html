@@ -818,9 +818,17 @@ function openTraspaso(cat,i){
      la unidad del traspaso (piezas, scoops o porciones). */
   const bodReal=()=>+valInv(cat,item,cfg,"bodega")||0;
   const kioReal=()=>{const v=vivoDe(cat,item,cfg,"kiosko");return v!==undefined?v*(factorInv(cat,item,cfg,"kiosko")||1):(+item[cfg.ind]||0);};
-  function upd(){const q=+qty.value||0;const disp=q*eq;
+  /* Un bote de VENTA se pasa y se enseña en botes (20/10/26): la ventana decía
+     «Kiosko: 0 → 70 scoops» y parecía que se iba a vender por scoop. El
+     sistema lo guarda igual (70 scoops = 1 bote, y venderlo descuenta 70);
+     solo cambia cómo se lee. La proteína de la barra sigue en scoops. */
+  const boteVenta=esBoteVenta(cat,item),kf=boteVenta?(eq||1):1,kUnidad=boteVenta?"botes":cfg.indUnit;
+  function upd(){const q=+qty.value||0;const disp=q*eq/kf;
     prev.innerHTML= eq>0
-      ? `Equivalencia: <b>${eq} ${cfg.indUnit}</b> por ${cfg.origUnit.replace(/s$/,'')}.<br>Bodega: ${num(bodReal())} → <b>${num(bodReal()-q)}</b> ${cfg.origUnit}<br>Kiosko: ${num(kioReal())} → <b>${num(kioReal()+disp)}</b> ${cfg.indUnit}`
+      ? (boteVenta
+          ? `Bote de venta: pasa <b>cerrado</b>, 1 bote de bodega = 1 bote en el kiosko.<br>`
+          : `Equivalencia: <b>${eq} ${cfg.indUnit}</b> por ${cfg.origUnit.replace(/s$/,'')}.<br>`)
+        +`Bodega: ${num(bodReal())} → <b>${num(bodReal()-q)}</b> ${cfg.origUnit}<br>Kiosko: ${num(kioReal()/kf)} → <b>${num(kioReal()/kf+disp)}</b> ${kUnidad}`
       : `<span style="color:var(--bad)">Falta definir la equivalencia (${cfg.equivLbl}) de este producto en su catálogo.</span>`;}
   upd();qty.addEventListener("input",upd);
   host.querySelector("#tr_cancel").onclick=()=>host.innerHTML="";
@@ -832,7 +840,7 @@ function openTraspaso(cat,i){
     if(bodReal()<q){err.textContent="En bodega hay "+num(bodReal())+" "+cfg.origUnit+": no alcanza para "+num(q)+". Si acaban de llegar, dales entrada primero (Compras → Dar entrada).";err.style.display="block";return;}
     if(clave!==String(state.params.clave)){err.textContent="Clave incorrecta.";err.style.display="block";return;}
     item[cfg.orig]=(+item[cfg.orig]||0)-q;item[cfg.ind]=(+item[cfg.ind]||0)+q*eq;
-    kardexPush(cat,i,{f:new Date().toISOString().slice(0,10),tipo:"traspaso",ent:0,sal:q,exist:+item[cfg.orig]||0,precio:"",cad:"",nota:"→ kiosko "+num(q*eq)+" "+cfg.indUnit});
+    kardexPush(cat,i,{f:new Date().toISOString().slice(0,10),tipo:"traspaso",ent:0,sal:q,exist:+item[cfg.orig]||0,precio:"",cad:"",nota:"→ kiosko "+(boteVenta?num(q)+" botes":num(q*eq)+" "+cfg.indUnit)});
     host.innerHTML="";render();
     /* Se guarda YA (no con la pausa de siempre) y se vuelve a pedir la
        existencia real: si no, la tabla seguía enseñando lo de antes del
@@ -1723,7 +1731,7 @@ async function openHistorialEntradas(){
   const host=document.getElementById("modalHost");
   host.innerHTML=`<div class="modal-bg"><div class="modal" style="max-width:820px">
     <h3>📋 Historial de entradas</h3>
-    <div class="sub">Entradas confirmadas contra el esquema real (con envío prorrateado). Cancelar regresa la existencia real (bodega, o kiosko si entró por pieza) y el costo del insumo. <b>No corrijas el número a mano en Costeos después de cancelar</b>: el sistema ya lo quitó, y bajarlo otra vez lo restaría dos veces. Lo que ves en Inventario es lo real.</div>
+    <div class="sub">Entradas confirmadas contra el esquema real (con envío prorrateado). Cancelar regresa la existencia real del lugar a donde entró (bodega o kiosko) y el costo del insumo. <b>No corrijas el número a mano en Costeos después de cancelar</b>: el sistema ya lo quitó, y bajarlo otra vez lo restaría dos veces. Lo que ves en Inventario es lo real.</div>
     <div id="he_body" class="muted" style="padding:10px 0">Cargando…</div>
     <div class="mrow"><button class="btn ghost mini" id="he_close">Cerrar</button></div>
   </div></div>`;
@@ -1773,6 +1781,15 @@ function openEntrada(){
      Gatorade»). Esa va directo al kiosko, en piezas, al costo de una pieza. */
   function sePuedePieza(key){if(!key)return false;const cat=key.split(":")[0];return (cat==="bebidas"||cat==="snacks")&&piezasPorCaja(key)>0;}
   function piezasPorCaja(key){if(!key)return 0;const a=key.split(":"),cat=a[0],i=+a[1],it=state[cat]&&state[cat][i];return it&&INV[cat]?(INV[cat].equiv(it)||0):0;}
+  /* A dónde entra (20/10/26). La proteína de la barra (la fila que se vende
+     por scoop) se abre en el kiosko, así que va directo allá; un bote de
+     venta o una caja pueden quedarse en bodega o ir al anaquel. El sistema
+     guarda la proteína en scoops en los dos lugares; aquí solo se elige. */
+  function catDe(key){return key?key.split(":")[0]:"";}
+  function itemDe(key){const a=key.split(":");return state[a[0]]&&state[a[0]][+a[1]];}
+  function puedeDestino(key){const c=catDe(key);return c==="proteins"||c==="bebidas"||c==="snacks";}
+  function destPorOmision(key){const c=catDe(key);if(c==="proteins"&&itemDe(key))return esBoteVenta(c,itemDe(key))?"bodega":"kiosko";return "bodega";}
+  function destDe(ln){if(ln.pieza)return "kiosko";if(!puedeDestino(ln.key))return "bodega";return ln.dest||destPorOmision(ln.key);}
   function curCost(key,pieza){if(!key)return null;const a=key.split(":"),cat=a[0],i=+a[1],cfg=buyCfg(cat);const c=+state[cat][i][cfg.cost]||0;
     if(pieza){const pz=piezasPorCaja(key);return pz?Math.round(c/pz*100)/100:0;}return c;}
   function showErr(msg){const err=host.querySelector("#e_err");if(!err)return;err.textContent=msg;err.style.display="block";}
@@ -1797,7 +1814,14 @@ function openEntrada(){
     </div></div>`;
     const lc=host.querySelector("#e_lines");
     function lineMeta(ln){if(!ln.key)return null;const a=ln.key.split(":"),cat=a[0],i=+a[1],it=state[cat]&&state[cat][i],cfg=buyCfg(cat);
-      if(!it)return null;return{producto:cfg.name(it),marca:it.marca||"",proveedor:it[cfg.prov]||"",unidad:ln.pieza?"piezas sueltas → van directo al kiosko":cat==="proteins"?"botes":(cat==="shakeIngs"||cat==="foodIngs")?"pres.":(cat==="empaque")?"pza":"cajas"};}
+      if(!it)return null;const dest=destDe(ln),eq=INV[cat]?(INV[cat].equiv(it)||0):0;
+      const unidad=ln.pieza?"piezas sueltas → kiosko"
+        :cat==="proteins"?(esBoteVenta(cat,it)
+            ?(dest==="kiosko"?"botes de venta → kiosko (cada bote entra como 1 bote al anaquel)":"botes de venta → bodega")
+            :(dest==="kiosko"?`botes → kiosko, para abrirse por scoops (${eq||"?"} scoops c/u)`:"botes → bodega"))
+        :(cat==="bebidas"||cat==="snacks")?(dest==="kiosko"?`cajas → kiosko (${eq||"?"} piezas c/u)`:"cajas → bodega")
+        :(cat==="shakeIngs"||cat==="foodIngs")?"pres. → bodega":(cat==="empaque")?"pza → bodega":"cajas → bodega";
+      return{producto:cfg.name(it),marca:it.marca||"",proveedor:it[cfg.prov]||"",unidad};}
     lc.innerHTML = ent.lines.length ? ent.lines.map((ln,j)=>{const cc=curCost(ln.key,ln.pieza),hi=(cc!=null&&cc>0&&(+ln.precio||0)>cc);
       const meta=lineMeta(ln);const importe=(+ln.cant||0)*(+ln.precio||0);
       return `<div class="eline" data-j="${j}" style="flex-direction:column;align-items:stretch;gap:4px">
@@ -1805,6 +1829,8 @@ function openEntrada(){
         <select data-lk="${j}" style="flex:2;min-width:150px">${prodOptions(ln.key)}</select>
         ${sePuedePieza(ln.key)?`<select data-lmodo="${j}" style="width:118px" title="Por caja entra a bodega. Por pieza entra suelta al kiosko.">
           <option value="caja" ${ln.pieza?"":"selected"}>Por caja (${num(piezasPorCaja(ln.key))})</option><option value="pieza" ${ln.pieza?"selected":""}>Por pieza</option></select>`:""}
+        ${puedeDestino(ln.key)?`<select data-ldest="${j}" style="width:112px" ${ln.pieza?"disabled":""} title="${ln.pieza?"Las piezas sueltas van al kiosko":"A dónde entra: bodega o directo al kiosko"}">
+          <option value="bodega" ${destDe(ln)==="bodega"?"selected":""}>→ Bodega</option><option value="kiosko" ${destDe(ln)==="kiosko"?"selected":""}>→ Kiosko</option></select>`:""}
         ${ln.pieza?"":`<input data-lpres="${j}" value="${esc(ln.pres||'')}" placeholder="presentación de compra" title="Presentación en que llega (se carga sola del catálogo; edítala si cambió el gramaje)" style="width:150px">`}
         <input class="n" data-lcant="${j}" value="${esc(ln.cant||"")}" placeholder="${ln.pieza?"piezas":"cant"}" style="width:62px" title="${ln.pieza?"Cuántas piezas sueltas":"Cuántas cajas o presentaciones"}">
         <input type="date" data-lcad="${j}" value="${esc(ln.cad||"")}" style="width:138px" title="Caducidad">
@@ -1815,7 +1841,8 @@ function openEntrada(){
       ${meta?`<div class="muted" style="font-size:11px;padding-left:2px">${esc(meta.marca)?esc(meta.marca)+" · ":""}${esc(meta.proveedor)?esc(meta.proveedor)+" · ":""}Unidad: ${meta.unidad} · Importe: <b data-limporte="${j}">${fmt(importe)}</b></div>`:""}
       </div>`;}).join("")
       : `<div class="muted" style="font-size:12px;margin:6px 0">Agrega los productos que llegaron en la factura.</div>`;
-    lc.querySelectorAll("[data-lk]").forEach(s=>s.addEventListener("change",e=>{const j=+e.target.dataset.lk;ent.lines[j].key=e.target.value;ent.lines[j].pieza=false;if(e.target.value){const a=e.target.value.split(":"),cat=a[0],ix=+a[1],it=state[cat][ix],cfg=buyCfg(cat);ent.lines[j].pres=presDefault(cat,it);const cc=cfg?+it[cfg.cost]||0:0;ent.lines[j].precio=cc?cc:"";}else{ent.lines[j].pres="";ent.lines[j].precio="";}draw();}));
+    lc.querySelectorAll("[data-ldest]").forEach(s=>s.addEventListener("change",e=>{ent.lines[+e.target.dataset.ldest].dest=e.target.value;draw();}));
+    lc.querySelectorAll("[data-lk]").forEach(s=>s.addEventListener("change",e=>{const j=+e.target.dataset.lk;ent.lines[j].key=e.target.value;ent.lines[j].pieza=false;ent.lines[j].dest=e.target.value?destPorOmision(e.target.value):"";if(e.target.value){const a=e.target.value.split(":"),cat=a[0],ix=+a[1],it=state[cat][ix],cfg=buyCfg(cat);ent.lines[j].pres=presDefault(cat,it);const cc=cfg?+it[cfg.cost]||0:0;ent.lines[j].precio=cc?cc:"";}else{ent.lines[j].pres="";ent.lines[j].precio="";}draw();}));
     lc.querySelectorAll("[data-lmodo]").forEach(s=>s.addEventListener("change",e=>{const j=+e.target.dataset.lmodo,ln=ent.lines[j];ln.pieza=e.target.value==="pieza";const cc=curCost(ln.key,ln.pieza);ln.precio=cc?cc:"";draw();}));
     function updImporte(j){const im=lc.querySelector(`[data-limporte="${j}"]`);if(im)im.textContent=fmt((+ent.lines[j].cant||0)*(+ent.lines[j].precio||0));}
     lc.querySelectorAll("[data-lcant]").forEach(s=>s.addEventListener("input",e=>{const j=+e.target.dataset.lcant;ent.lines[j].cant=e.target.value;updImporte(j);}));
@@ -1840,6 +1867,8 @@ function openEntrada(){
     showErr("");const err=host.querySelector("#e_err");if(err)err.style.display="none";
     const valid=ent.lines.filter(l=>l.key&&(+l.cant||0)>0);
     if(!valid.length){showErr("Agrega al menos un producto con cantidad.");return;}
+    const sinEq=valid.filter(l=>destDe(l)==="kiosko"&&!l.pieza&&!(piezasPorCaja(l.key)>0));
+    if(sinEq.length){showErr("Para mandarlo al kiosko hace falta saber cuánto trae: "+sinEq.map(l=>{const it=itemDe(l.key);return catDe(l.key)==="proteins"?protKey(it)+" (scoops por bote)":(it.nombre+" (piezas por caja)");}).join(", ")+". Llénalo en su pestaña, o mándalo a bodega.");return;}
     const btn=host.querySelector("#e_prev");if(btn){btn.disabled=true;btn.textContent="Calculando…";}
     try{
       const resolved=await resolveInsumoIds(valid);
@@ -1860,7 +1889,7 @@ function openEntrada(){
       <h3>📥 Vista previa · prorrateo de envío</h3>
       <div class="sub">Revisa cómo queda el costo de cada producto con el envío ya repartido antes de confirmar. Esto es lo que se va a guardar — no se puede deshacer con "Cancelar", solo con fn_entrada_cancelar desde Supabase.</div>
       <div class="scroll"><table><thead><tr><th>Producto</th><th class="num">Cant.</th><th class="num">Costo unit.</th><th class="num">Envío prorrateado</th><th class="num">Costo unit. final</th><th class="num">Importe</th></tr></thead><tbody>
-        ${p.lineas.map((l,k)=>`<tr><td>${esc(l.nombre)}${ent.resolved&&ent.resolved[k]&&ent.resolved[k].line.pieza?' <span class="pill warn">por pieza → kiosko</span>':''}</td><td class="num">${num(l.cantidad)}</td><td class="num">${fmt(l.costo_unitario_capturado)}</td><td class="num">${fmt(l.envio_prorrateado)}</td><td class="num"><b>${fmt(l.costo_unitario_final)}</b></td><td class="num">${fmt(l.importe_final)}</td></tr>`).join("")}
+        ${p.lineas.map((l,k)=>`<tr><td>${esc(l.nombre)}${ent.resolved&&ent.resolved[k]?(ent.resolved[k].line.pieza?' <span class="pill warn">por pieza → kiosko</span>':destDe(ent.resolved[k].line)==="kiosko"?' <span class="pill warn">→ kiosko</span>':' <span class="pill">→ bodega</span>'):''}</td><td class="num">${num(l.cantidad)}</td><td class="num">${fmt(l.costo_unitario_capturado)}</td><td class="num">${fmt(l.envio_prorrateado)}</td><td class="num"><b>${fmt(l.costo_unitario_final)}</b></td><td class="num">${fmt(l.importe_final)}</td></tr>`).join("")}
       </tbody><tfoot><tr><td colspan="2"></td><td class="num muted">Mercancía: ${fmt(p.subtotal_mercancia)}</td><td class="num muted">Envío: ${fmt(p.costo_envio)}</td><td colspan="2" class="num"><b>Total: ${fmt(p.total)}</b></td></tr></tfoot></table></div>
       <div class="mfield" style="margin-top:10px"><label>Clave de compras (o de encargado)</label><input id="e_clave2" type="password" placeholder="••••"></div>
       <div class="merr" id="e_err"></div>
@@ -1877,9 +1906,14 @@ function openEntrada(){
     const btn=host.querySelector("#e_confirm");if(btn){btn.disabled=true;btn.textContent="Guardando…";}
     try{
       const almacenId=await getBodegaId();
-      const lineas=ent.resolved.map(r=>r.line.pieza
-        ?{insumo_id:r.insumo_id,cantidad:+r.line.cant,costo_unitario:(r.line.precio!==""&&r.line.precio!=null)?+r.line.precio:0,contenido:null,presentacion:null,caducidad:r.line.cad||null,almacen:"kiosko",piezas_por_caja:piezasPorCaja(r.line.key)}
-        :{insumo_id:r.insumo_id,cantidad:+r.line.cant,costo_unitario:(r.line.precio!==""&&r.line.precio!=null)?+r.line.precio:0,contenido:null,presentacion:r.line.pres||null,caducidad:r.line.cad||null});
+      const lineas=ent.resolved.map(r=>{
+        const o={insumo_id:r.insumo_id,cantidad:+r.line.cant,costo_unitario:(r.line.precio!==""&&r.line.precio!=null)?+r.line.precio:0,contenido:null,presentacion:r.line.pieza?null:(r.line.pres||null),caducidad:r.line.cad||null};
+        if(destDe(r.line)==="kiosko"){
+          o.almacen="kiosko";o.piezas_por_caja=piezasPorCaja(r.line.key);
+          // El servidor convierte: proteína → scoops; caja → piezas; pieza → tal cual.
+          o.unidad=r.line.pieza?"pieza":(catDe(r.line.key)==="proteins"?"presentacion":"caja");
+        }
+        return o;});
       const {error}=await sb.rpc("fn_entrada_confirmar",{p_almacen_id:almacenId,p_proveedor:ent.prov||null,p_factura:ent.factura||null,p_forma_pago:ent.pago||null,p_fecha:ent.fecha,p_costo_envio:+ent.envio||0,p_lineas:lineas,p_clave:clave});
       if(error)throw error;
       const byInsumo=new Map((ent.preview.lineas||[]).map(l=>[l.insumo_id,l]));
@@ -1903,7 +1937,12 @@ function openEntrada(){
           kardexPush(cat,i,{f:ent.fecha,tipo:"compra",factura:ent.factura,pago:ent.pago,prov:ent.prov||(it[cfg.prov]||""),ent:cant,sal:0,exist:+it.invIndividual||0,precio:costoFinal,cad:r.line.cad||"",pres:"Pieza",nota:"Por pieza → kiosko · "+ent.pago,subio:up});
           return;
         }
-        it[cfg.stock]=(+it[cfg.stock]||0)+cant;
+        /* Directo al kiosko: se apunta en la unidad del kiosko, la misma que
+           el servidor (proteína en scoops, bebidas y snacks en piezas). Así
+           el siguiente guardado de Costeos no lo vuelve a sumar. */
+        const alKiosko=destDe(r.line)==="kiosko",inv=INV[cat],eqK=inv?(inv.equiv(it)||0):0;
+        if(alKiosko&&inv){it[inv.ind]=(+it[inv.ind]||0)+cant*eqK;}
+        else it[cfg.stock]=(+it[cfg.stock]||0)+cant;
         if(cfg.datebuy)it[cfg.datebuy]=ent.fecha;
         if(cfg.cad&&r.line.cad)it[cfg.cad]=r.line.cad;
         if(ent.prov&&!(it[cfg.prov]||"").trim())it[cfg.prov]=ent.prov;
@@ -1912,7 +1951,7 @@ function openEntrada(){
         it[cfg.cost]=costoFinal;
         if(cat==="bebidas"||cat==="snacks"){const pz=+it.equivPiezas||0;it.costo=pz?costoFinal/pz:0;}
         if(up)subio.push(cfg.name(it)+" ("+fmt(prevCost)+" → "+fmt(costoFinal)+")");
-        kardexPush(cat,i,{f:ent.fecha,tipo:"compra",factura:ent.factura,pago:ent.pago,prov:ent.prov||(it[cfg.prov]||""),ent:cant,sal:0,exist:+it[cfg.stock]||0,precio:costoFinal,cad:r.line.cad||"",pres:r.line.pres||"",nota:((+ent.envio||0)>0?"Envío prorrateado incluido · ":"")+(r.line.pres?("Pres "+r.line.pres+" · "):"")+ent.pago,subio:up});
+        kardexPush(cat,i,{f:ent.fecha,tipo:"compra",factura:ent.factura,pago:ent.pago,prov:ent.prov||(it[cfg.prov]||""),ent:cant,sal:0,exist:alKiosko&&inv?(+it[inv.ind]||0):(+it[cfg.stock]||0),precio:costoFinal,cad:r.line.cad||"",pres:r.line.pres||"",nota:(alKiosko?"Directo al kiosko ("+num(cant*eqK)+" "+unidadInv(cat,it,inv,"kiosko")+") · ":"")+((+ent.envio||0)>0?"Envío prorrateado incluido · ":"")+(r.line.pres?("Pres "+r.line.pres+" · "):"")+ent.pago,subio:up});
       });
       /* Se guarda YA y se vuelve a pedir la existencia real: con la pausa de
          siempre, cerrar la pestaña en ese medio segundo dejaba la entrada en
