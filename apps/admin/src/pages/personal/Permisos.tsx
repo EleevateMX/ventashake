@@ -7,6 +7,7 @@ import { mensajeDeError } from '@shake/utils'
 import { sb } from '../../lib/sb'
 import { Panel, Loading, ErrorMsg, OkMsg, Chip, cx } from '../../ui'
 import { CortesiasAdmin } from '../../components/CortesiasAdmin'
+import { CuponesAdmin } from '../../components/CuponesAdmin'
 
 /**
  * Qué puede hacer cada quien en la caja.
@@ -163,6 +164,7 @@ export default function Permisos() {
       </p>
 
       <CortesiasAdmin />
+      <CuponesAdmin />
     </div>
   )
 }

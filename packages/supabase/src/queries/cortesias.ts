@@ -48,7 +48,7 @@ export async function crearCortesia(
     ...(i.linea ? { linea: i.linea } : {}),
     ...(i.padre_linea ? { padre_linea: i.padre_linea } : {}),
   }))
-  const r = await rpc<CortesiaCreada>(sb, 'fn_cortesia_crear', {
+  const r = await rpc<CortesiaCreada & { ok?: boolean; error?: string }>(sb, 'fn_cortesia_crear', {
     p_pin: datos.pin,
     p_motivo: datos.motivo,
     p_sucursal_id: datos.sucursal_id,
@@ -59,6 +59,10 @@ export async function crearCortesia(
     p_nombre_cliente: datos.nombre_cliente ?? null,
     p_para_llevar: datos.para_llevar ?? null,
   })
+  // Un PIN que no puede dar cortesías se CONTESTA ({ok:false}) en vez de
+  // lanzar error, para que el intento fallido quede contado en el freno
+  // de PIN (`cortesia_freno_de_pin.sql`). Sin folio no hubo cortesía.
+  if (r.ok === false || !r.id) throw new Error(r.error ?? 'No se pudo dar la cortesía.')
   return { ...r, valor: Number(r.valor), folio: Number(r.folio) }
 }
 

@@ -12,8 +12,9 @@ import { TecladoNombre } from '@/components/TecladoNombre'
 import { PrepararDespues } from '@/components/PrepararDespues'
 import { ClavePersonal } from '@/components/ClavePersonal'
 import { Cortesia } from '@/components/Cortesia'
+import { Cupon, descuentoEnPantalla, type CuponEnPantalla } from '@/components/Cupon'
 import { sb } from '@/lib/sb'
-import { canjearMancuernas, canjearSellos, cotizarPersonal, crearCortesia } from '@shake/supabase'
+import { aplicarCupon, canjearMancuernas, canjearSellos, cotizarPersonal, crearCortesia } from '@shake/supabase'
 import type { IdentidadPersonal } from '@shake/supabase'
 import { PanelRewards, SIN_REWARDS, type DecisionRewards } from '@/components/PanelRewards'
 import { CobroEfectivo } from '@/components/CobroEfectivo'
@@ -160,14 +161,31 @@ export function Pago() {
       .catch((e) => { if (vivo) { setDescuentoPersonal(0); setAvisoPersonal(mensajeDeError(e)) } })
     return () => { vivo = false }
   }, [clavePersonal, items])
+  /**
+   * Cupón de descuento (24/10/26). El PIN ya se revisó al elegirlo; el
+   * descuento lo aplica el servidor a la orden ANTES de cobrar
+   * (`aplicarCupon`). Aquí solo se enseña la misma cuenta. No se junta con
+   * el precio de personal.
+   */
+  const [cupon, setCupon] = useState<CuponEnPantalla | null>(null)
+  const descuentoCupon = descuentoEnPantalla(cupon, items)
+  useEffect(() => { if (clavePersonal) setCupon(null) }, [clavePersonal])
+
+  /** Aplica el cupón a la orden recién creada y devuelve lo que queda por cobrar. */
+  async function conCupon(orden: { id: string; total: number }): Promise<number> {
+    if (!cupon) return orden.total
+    const r = await aplicarCupon(sb, orden.id, cupon.autorizacion_id)
+    return r.total_a_pagar
+  }
+
   const totalConCanjes = useMemo(() => {
-    const bruto = Math.max(0, total() - descuentoPromo - descuentoPersonal)
+    const bruto = Math.max(0, total() - descuentoPromo - descuentoPersonal - descuentoCupon)
     const gratis = rewards.sello
       ? items.find((i) => i.producto_id === rewards.sello!.productoId)?.precio ?? 0
       : 0
     const conSello = Math.max(0, bruto - gratis)
     return Math.max(0, conSello - rewards.mancuernas / 10)
-  }, [items, total, rewards, descuentoPromo, descuentoPersonal])
+  }, [items, total, rewards, descuentoPromo, descuentoPersonal, descuentoCupon])
   const [estado, setEstado] = useState<EstadoPago>('cargando')
   const [modo, setModo] = useState<ModoPagoKiosko | null>(null)
   const [almacen, setAlmacen] = useState<Almacen | null>(null)
@@ -432,7 +450,7 @@ export function Pago() {
       )
       ordenCreada = orden
 
-      let totalAPagar = orden.total
+      let totalAPagar = await conCupon(orden)
       if (rewards.sello) {
         const r = await canjearSellos(sb, orden.id, rewards.sello.tipo, rewards.sello.productoId)
         totalAPagar = r.total_a_pagar
@@ -649,10 +667,14 @@ export function Pago() {
         },
         items.map(lineaParaOrden),
       )
+      // El cupón va antes que todo: cambia el total que se le manda a la
+      // terminal o que se cobra aquí.
+      const conDescuento = await conCupon(orden)
+
       // Clip: el cobro viaja a la terminal física y la venta la confirma
       // el servidor cuando Clip avisa. Los demás métodos se cobran aquí.
       if (metodo === 'clip') {
-        await cobrarEnTerminal(orden)
+        await cobrarEnTerminal({ ...orden, total: conDescuento })
         return
       }
 
@@ -660,7 +682,7 @@ export function Pago() {
       // premio de sellos y después las mancuernas, porque el servidor
       // recorta las mancuernas a lo que cuesta la orden — si fuera al
       // revés se gastarían de más sobre un total que aún iba a bajar.
-      let totalAPagar = orden.total
+      let totalAPagar = conDescuento
       if (rewards.sello) {
         const r = await canjearSellos(sb, orden.id, rewards.sello.tipo, rewards.sello.productoId)
         totalAPagar = r.total_a_pagar
@@ -1002,6 +1024,10 @@ export function Pago() {
             {modo === 'cajero' && enLinea && (
               <Cortesia valor={total()} onDar={darCortesia} />
             )}
+            {/* También necesita internet, y no se junta con el precio de personal. */}
+            {modo === 'cajero' && enLinea && !clavePersonal && (
+              <Cupon items={items} aplicado={cupon} onAplicar={setCupon} onQuitar={() => setCupon(null)} />
+            )}
           </div>
         </div>
 
@@ -1017,14 +1043,19 @@ export function Pago() {
           </p>
           {/* Con promo, el precio de lista se queda tachado arriba: el
               cajero tiene que poder explicar el numero si preguntan. */}
-          {(descuentoPromo > 0 || descuentoPersonal > 0) && (
+          {(descuentoPromo > 0 || descuentoPersonal > 0 || (enLinea && descuentoCupon > 0)) && (
             <p className="font-mono text-lg text-sa-green-ink/40 line-through mt-2">
               ${total().toFixed(2)}
             </p>
           )}
           <p className="font-display text-7xl text-sa-green-ink leading-none mt-2">
-            ${Math.max(0, total() - descuentoPromo - descuentoPersonal).toFixed(2)}
+            ${Math.max(0, total() - descuentoPromo - descuentoPersonal - (enLinea ? descuentoCupon : 0)).toFixed(2)}
           </p>
+          {enLinea && cupon && descuentoCupon > 0 && (
+            <p className="font-mono text-xs uppercase tracking-wider text-sa-green-ink mt-2">
+              🎟 {cupon.nombre} · -${descuentoCupon.toFixed(2)}
+            </p>
+          )}
           {descuentoPersonal > 0 && (
             <p className="font-mono text-xs uppercase tracking-wider text-sa-mint mt-2">
               Precio de personal · -${descuentoPersonal.toFixed(2)}
@@ -1152,7 +1183,7 @@ export function Pago() {
                 <PanelRewards
                   clienteId={usuario.clienteId}
                   items={items}
-                  total={Math.max(0, total() - descuentoPromo - descuentoPersonal)}
+                  total={Math.max(0, total() - descuentoPromo - descuentoPersonal - descuentoCupon)}
                   decision={rewards}
                   onCambiar={setRewards}
                 />
