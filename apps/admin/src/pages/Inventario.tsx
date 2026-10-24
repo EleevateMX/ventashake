@@ -6,6 +6,7 @@ import { PageHeader, Loading, ErrorMsg, OkMsg, Panel, cx } from '../ui'
 import { mensajeDeError } from '@shake/utils'
 import { HuecosInventario } from '../components/HuecosInventario'
 import { ProteinaElegida } from '../components/ProteinaElegida'
+import { ProduccionAdmin } from '../components/ProduccionAdmin'
 import { KardexInsumo, RegistrarSalida, ReiniciarInventario, TIPOS_INSUMO } from '../components/InventarioHerramientas'
 
 /**
@@ -15,7 +16,7 @@ import { KardexInsumo, RegistrarSalida, ReiniciarInventario, TIPOS_INSUMO } from
  * no baja cuando se vende — que es lo que llevaba treinta días sin que
  * nadie lo notara, porque el descuento fallaba callado.
  */
-type Vista = 'existencias' | 'huecos' | 'proteina'
+type Vista = 'existencias' | 'huecos' | 'proteina' | 'produccion'
 
 export default function Inventario() {
   const [vista, setVista] = useState<Vista>('existencias')
@@ -36,13 +37,14 @@ export default function Inventario() {
     { id: 'existencias', label: 'Existencias' },
     { id: 'huecos', label: 'Lo que no descuenta' },
     { id: 'proteina', label: 'Proteína' },
+    { id: 'produccion', label: 'Producción' },
   ]
 
   return (
     <div>
       <PageHeader
         title="Inventario"
-        subtitle={vista === 'existencias' ? 'Stock por almacén · toca un producto para ver su kardex' : vista === 'proteina' ? 'De qué bote sale cada proteína · todo en scoops' : 'Lo que se vende y no baja del almacén'}
+        subtitle={vista === 'produccion' ? 'Recetas que se preparan en la tienda y se vuelven ingrediente' : vista === 'existencias' ? 'Stock por almacén · toca un producto para ver su kardex' : vista === 'proteina' ? 'De qué bote sale cada proteína · todo en scoops' : 'Lo que se vende y no baja del almacén'}
         action={
           <div className="flex gap-1">
             {pestanas.map((p) => (
@@ -58,7 +60,7 @@ export default function Inventario() {
         }
       />
 
-      {vista === 'huecos' ? <HuecosInventario /> : vista === 'proteina' ? <ProteinaElegida stock={stock} /> : <Existencias stock={stock} cargando={cargando} error={error} onCambio={cargar} />}
+      {vista === 'produccion' ? <ProduccionAdmin /> : vista === 'huecos' ? <HuecosInventario /> : vista === 'proteina' ? <ProteinaElegida stock={stock} /> : <Existencias stock={stock} cargando={cargando} error={error} onCambio={cargar} />}
     </div>
   )
 }

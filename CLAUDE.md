@@ -1254,6 +1254,47 @@ siempre; sin cliente ligado no suma mancuernas ni sellos.
   −1 y −2 en inventario; un sándwich → comanda a cocina, etiqueta y 12
   movimientos de receta; PIN que no está en la lista → rechazado.
 
+### 2.9.4 Cupones de descuento con PIN (24/10/26)
+
+Kiosko → cobro → **🎟 Cupón** → cuál ($20, 10 %, 15 % en un shake) → a qué
+shake → PIN (la MISMA lista que las cortesías). Dos pasos, como los canjes
+de Rewards: `fn_cupon_autorizar` revisa el PIN al elegir y deja una
+autorización de 20 min; ya creada la orden y ANTES de cobrar,
+`fn_cupon_aplicar` la consume y baja `ordenes.total` (sube `descuento`).
+Así sirve con efectivo, terminal, mixto y la del banco, y **`fn_crear_orden`
+no se toca**. El precio del shake no cambia; queda en `cupones_aplicados`
+cuánto valía (shake + sus extras, por unidad), cuánto se descontó y quién
+autorizó. Un cupón por venta, no se junta con precio de personal, y si el
+cobro falla y se crea otra orden el cupón pasa a la nueva (solo si la
+anterior no se cobró). La cuenta: `fn_cupon_descuento` y su espejo
+`descuentoDeCupon` (@shake/utils, con pruebas). Admin → Personal → Permisos
+→ *Cupones*: crear, apagar y ver los dados. Productos gratis → Cortesía.
+
+> **Un PIN equivocado se CONTESTA, no se lanza.** `fn_pin_registrar_intento`
+> seguido de `raise` deshace el intento: el freno de 15 fallos de la
+> cortesía **nunca contó un fallo** (9 intentos, 0 fallos). El cupón
+> contesta `{ok:false}`; la cortesía se arregla igual en
+> `cortesia_freno_de_pin.sql`, que se aplica cuando el kiosko ya trae la
+> versión que lo entiende (la vieja vaciaba el carrito).
+
+### 2.9.5 Producción de preparados (24/10/26)
+
+Kiosko → «Caja y turno» → PIN → **¿Preparaste algo?** Una receta de Costeo
+Alimentos («Salsa de Chipotle») se vuelve existencia de un ingrediente
+elaborado («Salsa Chipotle Preparada»): `fn_produccion_registrar` saca del
+kiosko lo de la receta × lotes y mete lo producido, con movimientos tipo
+`produccion` ligados a `producciones` (quién, cuándo, lotes, cuánto salió,
+nota, costo). Las cantidades salen de `recetas`, que Costeos reescribe en
+cada guardado: **no hay copia de la receta**. La liga receta → ingrediente
+vive en `produccion_recetas` (Admin → Inventario → **Producción**); el
+rendimiento por lote es el `contenido` del ingrediente salvo que ahí se
+diga otro. Si no alcanza, NO escribe y dice qué falta; se fuerza con nota.
+Un rendimiento distinto pide nota. Idempotente por el id que manda la
+pantalla. Al vender, el platillo descuenta solo la pieza preparada — si su
+receta TAMBIÉN trae envase y tapa, se descuentan dos veces (revisar en
+Costeos). `inventario_movimientos.motivo` solo acepta códigos fijos: las
+notas van en `nota`.
+
 ### 2.10 El descuento de personal lo calcula el servidor, como el dinero
 
 Admin → **Personal → Descuentos**: quién lo tiene, qué cuesta, qué se
@@ -1521,6 +1562,8 @@ empaquetador y se desvían solas:
 | Hacer el contrato de alguien | Admin → **Personal** → *Contratos*. Llena los datos, marca sus días de descanso, «Ver cómo queda» y guarda. **La plantilla la revisa tu abogado antes de firmar nada** |
 | Crear o cambiar un combo (lo fijo y lo que se elige) | Admin → **Combos**. Nace apagado; se prende cuando dice «✓ Listo». Cada opción se liga al producto del menú que descuenta. Precios y recetas de cada producto, en Costeos |
 | Dar una cortesía (sale en $0 y baja inventario) | Kiosko → cobro → **🎁 Cortesía** → motivo → PIN de quien pueda (hoy Perla y Adrián). Quién puede y cuáles se dieron: Admin → Personal → **Permisos** → *Cortesías* |
+| Cupón de descuento ($20, 10 %, 15 % en un shake) | Kiosko → cobro → **🎟 Cupón** → cuál → a qué shake → PIN de quien pueda (la misma lista de cortesías). Se cobra normal con el total ya bajado. Crear o apagar cupones y ver los dados: Admin → Personal → **Permisos** → *Cupones* |
+| Prepararon salsa chipotle (u otro preparado) | Kiosko → **"Caja y turno"** → PIN → **«¿Preparaste algo?»** → lotes y cuántos salieron. Saca los ingredientes de la receta de Costeos y suma lo preparado. Qué receta produce qué: Admin → Inventario → **Producción** |
 | Conectar un lector de QR para Rewards | 2D de escritorio que lea pantallas, USB en modo teclado. Pruébalo en el Bloc de notas: debe salir `SHK-…` y saltar de renglón. El kiosko ya acepta el código aunque el guion llegue como otro signo |
 | Buscar en «Abrir un bote» o «¿Llegó mercancía?» | Toca el buscador: sale el teclado en pantalla (letras y números, sin acentos) |
 | Ver la caja en vivo (qué tiene la pantalla, qué se cobró, qué se quitó) | Admin → **Caja en vivo**, también desde el teléfono. «Para revisar» junta lo que se quitó del carrito, los carritos vaciados, lo que no se cobró, cancelaciones y cortesías |
