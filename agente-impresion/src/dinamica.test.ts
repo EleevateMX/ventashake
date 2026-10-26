@@ -62,3 +62,56 @@ describe('Trick or Shake (agente 1.6.0)', () => {
     expect(b.folioDinamica).toBe(a.folioDinamica)
   })
 })
+
+describe('Un boleto por bebida y frases por estación (agente 1.7.0)', () => {
+  const tres = (dinamica: TrabajoImpresion['payload']['dinamica'], estacion = 'Bebidas') => trabajo({
+    folio: 9002, estacion, creado_en: '2026-10-31T20:30:00Z',
+    items: [{ nombre: '#1 Chocokiller', cantidad: 2 }, { nombre: 'Latte', cantidad: 1 }],
+    dinamica,
+  })
+
+  it('cada etiqueta lleva SU boleto, en orden', () => {
+    const boletos = [
+      { texto: 'TRICK! Sigue intentando', folio: 'R1-101' },
+      { texto: 'LITTLE TREAT! Pide tu premio', folio: 'R1-102' },
+      { texto: 'TRICK! Sigue intentando', folio: 'R1-103' },
+    ]
+    const es = etiquetasDeTrabajo(tres({ ...boletos[0], boletos }))
+    expect(es.map((e) => e.folioDinamica)).toEqual(['R1-101', 'R1-102', 'R1-103'])
+    expect(es[1].frase).toBe('LITTLE TREAT! Pide tu premio')
+  })
+
+  it('con un boleto por compra (o una base vieja) solo la primera lo lleva', () => {
+    fijarFrasesParaPrueba([{ texto: 'Hecho para ti', milo: false }])
+    const es = etiquetasDeTrabajo(tres({ texto: 'TRICK! Sigue intentando', folio: 'R1-050' }))
+    expect(es.map((e) => e.folioDinamica ?? null)).toEqual(['R1-050', null, null])
+    expect(es[1].frase).toBe('Hecho para ti')
+  })
+
+  it('las frases salen de la lista de SU estación', () => {
+    fijarFrasesParaPrueba([{ texto: 'Hecho para ti', milo: false }], null, {
+      Bebidas: [{ texto: 'Dulce o shake', milo: true }],
+      Alimentos: [{ texto: 'Buen provecho', milo: false }],
+    })
+    const [b] = etiquetasDeTrabajo(tres(null, 'Bebidas'))
+    const [a] = etiquetasDeTrabajo(tres(null, 'Alimentos'))
+    expect(b.frase).toBe('Dulce o shake')
+    expect(b.milo).toBe(true)
+    expect(a.frase).toBe('Buen provecho')
+  })
+
+  it('una lista vacía de esa estación es a propósito: sin frase, sin Milo', () => {
+    fijarFrasesParaPrueba([{ texto: 'Hecho para ti', milo: false }], null, { Bebidas: [], Alimentos: [] })
+    const [e] = etiquetasDeTrabajo(tres(null, 'Alimentos'))
+    expect(e.frase).toBe('')
+    expect(e.milo).toBe(false)
+    expect(vistaPrevia(e)).not.toContain('Hecho para ti')
+    expect(generarTSPL(e)).toContain('PRINT 1,1')
+  })
+
+  it('una estación que la base no conoce usa la lista general', () => {
+    fijarFrasesParaPrueba([{ texto: 'Hecho para ti', milo: false }], null, { Bebidas: [] })
+    const [e] = etiquetasDeTrabajo(tres(null, 'COCINA'))
+    expect(e.frase).toBe('Hecho para ti')
+  })
+})

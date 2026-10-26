@@ -536,6 +536,24 @@ pantallas muestran comandas pero **no sale papel**.
   (`trg_trabajo_dinamica`, dentro de un bloque que se traga cualquier error:
   vive en la cadena del cobro). La reimpresión repite el mismo resultado. El
   agente lo pone en la primera etiqueta con el folio junto a la fecha.
+- **El boleto es solo de barra, y puede ir en cada vaso** (26/10, agente
+  **1.7.0**, `dinamica_y_frases_por_estacion.sql`). El trigger devolvía el
+  boleto ya asignado a la orden ANTES de mirar la estación, así que la
+  comanda de cocina de una orden mixta lo repetía (15 del 24 al 26/10);
+  ahora la estación va primero. Y con «uno por compra» los demás vasos del
+  pedido salían con frase normal —16 de 99 pedidos traían 2 o 3— y el
+  cliente decía «a mí no me salió nada»: `dinamicas_etiqueta.boleto_por =
+  'bebida'` da uno por etiqueta (`dinamica_boletos.etiqueta`, la llave única
+  pasó a `(dinamica_id, orden_id, etiqueta)`), **solo si el agente de esa
+  impresora es 1.7.0**: uno viejo imprime solo el primero y un premio que no
+  se imprime nadie lo reclama. La lógica vive DENTRO del trigger: una
+  función nueva nacería abierta a `anon` y dejaría quemar boletos.
+- **Las frases van por estación y las de siempre se apagan como grupo**
+  (26/10). `frases_etiqueta.estacion` (null = barra y cocina),
+  `frases_config.siempre_activa`; `fn_imprimir_frases` agrega `por_estacion`
+  y el agente 1.7.0 la respeta (una lista vacía ahí = sin frase, a
+  propósito). El selector de impresora del editor era **solo para
+  «Probar»** y gerencia lo leía como asignación: ahora dice «Probar en».
 
 ### 2.4.5 Las observaciones salen donde tienen sentido
 

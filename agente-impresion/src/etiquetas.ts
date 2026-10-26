@@ -201,9 +201,18 @@ export function etiquetasDeTrabajo(trabajo: TrabajoImpresion, numeroDeCopia = 1)
   const nombre = p.cliente?.trim() || p.nombre?.trim() || `#${ticket}`
 
   const total = items.reduce((s, i) => s + Math.max(1, i.cantidad || 1), 0)
-  // La lista de la temporada (o la de siempre). Se elige con el mismo hash
-  // de antes: misma comanda, misma frase, y dos etiquetas no la repiten.
-  const frases = frasesVigentes()
+  // La lista de la temporada (o la de siempre) PARA ESTA ESTACIÓN (1.7.0:
+  // una frase puede ir solo a barra o solo a cocina). Se elige con el mismo
+  // hash de antes: misma comanda, misma frase, y dos etiquetas no la
+  // repiten. Puede venir vacía a propósito: entonces no sale frase.
+  const frases = frasesVigentes(destino)
+  // Los boletos de la dinámica, uno por etiqueta y en orden (1.7.0). Una
+  // base que asigna uno por compra manda solo el primero.
+  const d = p.dinamica
+  const boletos = d
+    ? (Array.isArray(d.boletos) && d.boletos.length > 0 ? d.boletos : [d])
+        .filter((b) => b && typeof b.texto === 'string' && b.texto.trim())
+    : []
 
   const etiquetas: EtiquetaComanda[] = []
   let n = 0
@@ -223,12 +232,12 @@ export function etiquetasDeTrabajo(trabajo: TrabajoImpresion, numeroDeCopia = 1)
         fecha,
         copia: Math.max(numeroDeCopia, trabajo.numero_copia ?? 1),
         ...(() => {
-          // La participación de la dinámica va en la PRIMERA etiqueta del
-          // pedido, en vez de la frase. Las demás llevan su frase de siempre.
-          const d = p.dinamica
-          if (n === 1 && d && typeof d.texto === 'string' && d.texto.trim()) {
-            return { frase: d.texto, milo: d.milo === true, folioDinamica: d.folio ?? null }
-          }
+          // La participación de la dinámica va en lugar de la frase: la
+          // etiqueta n lleva el boleto n. Con un boleto por compra solo la
+          // primera; las demás, su frase.
+          const b = boletos[n - 1]
+          if (b) return { frase: b.texto, milo: b.milo === true, folioDinamica: b.folio ?? null }
+          if (frases.length === 0) return { frase: '', milo: false }
           const f = frases[indiceFrase(ticket, n, frases.length)]
           return { frase: f.texto, milo: f.milo }
         })(),

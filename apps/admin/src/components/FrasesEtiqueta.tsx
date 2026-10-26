@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { sb } from '../lib/sb'
 import {
-  frasesAdmin, guardarFrase, guardarTemporada, probarFrase, listarImpresoras,
-  type FrasesAdmin, type FraseEtiqueta, type TemporadaEtiqueta, type ImpresoraAdmin,
+  frasesAdmin, guardarFrase, guardarTemporada, probarFrase, listarImpresoras, prenderFrasesDeSiempre,
+  type FrasesAdmin, type FraseEtiqueta, type TemporadaEtiqueta, type ImpresoraAdmin, type EstacionFrase,
 } from '@shake/supabase'
 import { mensajeDeError, limpiarFrase, renglonesFrase, problemaDeFrase } from '@shake/utils'
 import { Panel, ErrorMsg, OkMsg, cx, Chip } from '../ui'
@@ -17,7 +17,20 @@ import { Panel, ErrorMsg, OkMsg, cx, Chip } from '../ui'
  * sus frases; si no, las «de siempre».
  *
  * El agente de la PC las baja cada 10 minutos desde la versión 1.5.0.
+ *
+ * 26/10/26 (agente 1.7.0): cada frase dice DÓNDE sale —barra, cocina o
+ * las dos— y las de siempre se prenden y apagan como grupo, igual que una
+ * temporada. El selector de impresora del editor es solo para «Probar»: se
+ * leía como si asignara la frase a esa impresora.
  */
+
+const AGENTE_POR_ESTACION = '1.7.0'
+
+const DONDE: { valor: EstacionFrase | ''; texto: string; corto: string }[] = [
+  { valor: '', texto: 'Barra y cocina (las dos)', corto: '' },
+  { valor: 'Bebidas', texto: 'Solo barra (bebidas)', corto: 'solo barra' },
+  { valor: 'Alimentos', texto: 'Solo cocina (alimentos)', corto: 'solo cocina' },
+]
 
 const AGENTE_CON_FRASES = '1.5.0'
 
@@ -64,9 +77,11 @@ function EditorFrase({
   const [temporada, setTemporada] = useState<string>(inicial.temporada_id ?? '')
   const [milo, setMilo] = useState(inicial.con_milo ?? false)
   const [activa, setActiva] = useState(inicial.activa ?? true)
+  const [estacion, setEstacion] = useState<EstacionFrase | ''>(inicial.estacion ?? '')
   const [error, setError] = useState<string | null>(null)
   const [aviso, setAviso] = useState<string | null>(null)
-  const [impresora, setImpresora] = useState(impresoras[0]?.id ?? '')
+  const etiquetadoras = impresoras.filter((i) => i.cocina_id)
+  const [impresora, setImpresora] = useState(etiquetadoras[0]?.id ?? '')
   const limpio = limpiarFrase(texto)
   const problema = problemaDeFrase(limpio)
   const tempMilo = temporadas.find((t) => t.id === temporada)?.con_milo ?? false
@@ -77,6 +92,7 @@ function EditorFrase({
       await guardarFrase(sb, {
         id: inicial.id ?? null, nombre: nombre.trim() || limpio.slice(0, 40), texto: limpio,
         temporada_id: temporada || null, activa, con_milo: milo, archivar,
+        estacion: estacion || null,
       })
       onGuardada()
     } catch (e) { setError(mensajeDeError(e)) }
@@ -93,7 +109,7 @@ function EditorFrase({
 
   return (
     <div className="rounded-sa border border-sa-green-ink/15 bg-sa-cream-soft p-4 space-y-3">
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-3">
         <label className="text-sm">
           <span className={`${cx.muted} block text-xs mb-1`}>Nombre (para encontrarla)</span>
           <input id="frase-nombre" value={nombre} maxLength={40} onChange={(e) => setNombre(e.target.value)} placeholder="Ej. Halloween – calabaza" className={`${cx.input} !py-2 w-full`} />
@@ -103,6 +119,12 @@ function EditorFrase({
           <select id="frase-temporada" value={temporada} onChange={(e) => setTemporada(e.target.value)} className={`${cx.input} !py-2 w-full`}>
             <option value="">De siempre</option>
             {temporadas.map((t) => <option key={t.id} value={t.id}>{t.nombre}</option>)}
+          </select>
+        </label>
+        <label className="text-sm">
+          <span className={`${cx.muted} block text-xs mb-1`}>Dónde sale</span>
+          <select id="frase-estacion" value={estacion} onChange={(e) => setEstacion(e.target.value as EstacionFrase | '')} className={`${cx.input} !py-2 w-full`}>
+            {DONDE.map((d) => <option key={d.valor} value={d.valor}>{d.texto}</option>)}
           </select>
         </label>
       </div>
@@ -130,10 +152,12 @@ function EditorFrase({
       <div className="flex flex-wrap gap-2 items-center">
         <button className={cx.btnPrimary} disabled={!!problema} onClick={() => void guardar()}>Guardar</button>
         <button className={cx.btnSec} onClick={onCancelar}>Cancelar</button>
-        {impresoras.length > 0 && (
+        {etiquetadoras.length > 0 && (
           <span className="inline-flex items-center gap-2 ml-auto">
-            <select id="frase-impresora" value={impresora} onChange={(e) => setImpresora(e.target.value)} className={`${cx.input} !py-1.5 text-sm`}>
-              {impresoras.map((i) => <option key={i.id} value={i.id}>{i.nombre}</option>)}
+            <span className={`${cx.muted} text-xs`}>Probar en</span>
+            <select id="frase-impresora" value={impresora} onChange={(e) => setImpresora(e.target.value)} className={`${cx.input} !py-1.5 text-sm`}
+              title="Solo para la prueba: no cambia dónde sale la frase">
+              {etiquetadoras.map((i) => <option key={i.id} value={i.id}>{i.nombre}</option>)}
             </select>
             <button className={`${cx.btnSec} whitespace-nowrap`} disabled={!!problema || !impresora} onClick={() => void probar()}>Probar · gasta 1</button>
           </span>
@@ -227,6 +251,19 @@ export function FrasesEtiqueta() {
   const vigente = datos.temporadas.find((t) =>
     t.activa && t.cubre_hoy && datos.frases.some((f) => f.temporada_id === t.id && f.activa))
   const agentesViejos = datos.agentes.filter((a) => versionMenor(a.version, AGENTE_CON_FRASES))
+  const sinEstacion = datos.agentes.filter((a) => versionMenor(a.version, AGENTE_POR_ESTACION))
+  const siempre = datos.siempre_activa !== false
+  const din = datos.dinamica
+
+  async function cambiarSiempre(activa: boolean) {
+    setError(null)
+    try {
+      await prenderFrasesDeSiempre(sb, activa)
+      setOk(activa ? 'Las de siempre, prendidas.' : 'Las de siempre, apagadas: solo sale lo de la temporada.')
+      setTimeout(() => setOk(null), 5000)
+      void cargar()
+    } catch (e) { setError(mensajeDeError(e)) }
+  }
 
   return (
     <Panel className="mt-6">
@@ -239,9 +276,25 @@ export function FrasesEtiqueta() {
           </p>
         </div>
         <p className="text-sm">
-          Hoy sale: <b>{vigente ? `temporada ${vigente.nombre}` : 'las de siempre'}</b>
+          Hoy sale: <b>{vigente ? `temporada ${vigente.nombre}` : siempre ? 'las de siempre' : 'ninguna (las de siempre están apagadas)'}</b>
         </p>
       </div>
+
+      {din && (
+        <p className="mt-3 rounded-sa bg-sa-cream-soft px-3 py-2 text-sm text-sa-green-ink">
+          Corre la dinámica <b>{din.nombre}</b>: en barra, {din.boleto_por === 'bebida'
+            ? 'cada vaso lleva su boleto en lugar de la frase'
+            : 'el primer vaso de cada pedido lleva el boleto; los demás, la frase que toque'}. En cocina sale la frase
+          normal. Se cambia en <i>Dinámicas con premios</i>, abajo.
+        </p>
+      )}
+      {sinEstacion.length > 0 && agentesViejos.length === 0 && (
+        <p className="mt-3 rounded-sa bg-amber-100 text-amber-900 px-3 py-2 text-sm">
+          {sinEstacion.map((a) => a.nombre).join(', ')}: el programa de la PC es anterior a la {AGENTE_POR_ESTACION}.
+          Hasta que se actualice (solo, al abrir la tienda), «Dónde sale» no se respeta y apagar las de siempre deja la
+          lista que ya tenía.
+        </p>
+      )}
 
       {agentesViejos.length > 0 && (
         <p className="mt-3 rounded-sa bg-amber-100 text-amber-900 px-3 py-2 text-sm">
@@ -264,7 +317,14 @@ export function FrasesEtiqueta() {
                 {t && <Chip tone={t.activa ? 'si' : 'neutral'}>{t.activa ? 'prendida' : 'apagada'}</Chip>}
                 {t?.con_milo && <Chip tone="neutral">con Milo</Chip>}
                 {t && vigente?.id === t.id && <Chip tone="si">saliendo hoy</Chip>}
+                {!t && <Chip tone={siempre ? 'si' : 'neutral'}>{siempre ? 'prendidas' : 'apagadas'}</Chip>}
+                {!t && !vigente && siempre && <Chip tone="si">saliendo hoy</Chip>}
                 <span className="ml-auto flex gap-3">
+                  {!t && (
+                    <button className="text-xs underline" onClick={() => void cambiarSiempre(!siempre)}>
+                      {siempre ? 'Apagar todas' : 'Prender todas'}
+                    </button>
+                  )}
                   {t && <button className="text-xs underline" onClick={() => setEditando(`temp:${t.id}`)}>Editar temporada</button>}
                   <button className="text-xs underline" onClick={() => setEditando(`nueva:${g.id}`)}>+ Agregar frase</button>
                 </span>
@@ -290,6 +350,7 @@ export function FrasesEtiqueta() {
                         <span className={`font-medium ${f.activa ? 'text-sa-green-ink' : 'text-sa-green-ink/40 line-through'}`}>{f.nombre}</span>
                         <span className={`${cx.muted} font-mono text-xs`}>{f.texto}</span>
                         {(f.con_milo || t?.con_milo) && <Chip tone="neutral">Milo</Chip>}
+                        {f.estacion && <Chip tone="neutral">{DONDE.find((d) => d.valor === f.estacion)?.corto}</Chip>}
                         <span className="ml-auto text-xs underline opacity-60">editar</span>
                       </button>
                     )}

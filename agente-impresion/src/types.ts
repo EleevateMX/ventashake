@@ -134,6 +134,12 @@ export interface PayloadComanda {
     resultado?: string
     premio?: boolean
     campana?: string
+    /**
+     * Desde la 1.7.0: un boleto por etiqueta, en orden, cuando la dinámica
+     * da «uno por cada bebida». Los campos de arriba son los del primero
+     * (lo que lee un agente 1.6.0).
+     */
+    boletos?: Array<{ texto: string; folio: string; milo?: boolean; resultado?: string; premio?: boolean }>
   } | null
 }
 

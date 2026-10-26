@@ -30,7 +30,7 @@ const RESPALDO_MS = 10_000
  * impresora reporta otra, es que falta correr el instalador en la PC.
  * Subela junto con VERSION_AGENTE del agente.
  */
-const AGENTE_ESPERADO = '1.6.0'
+const AGENTE_ESPERADO = '1.7.0'
 // La impresora de tickets de la caja lleva su propio agente (agente-caja/),
 // con su propia versión: compararla contra la de etiquetas la pintaría vieja
 // para siempre.

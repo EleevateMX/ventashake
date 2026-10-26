@@ -295,27 +295,52 @@ export interface FraseEtiqueta {
   activa: boolean
   con_milo: boolean
   orden: number
+  /** Dónde sale (26/10/26): null = barra y cocina. */
+  estacion?: EstacionFrase | null
 }
+
+/** Las dos estaciones con etiquetadora. Una frase sin estación sale en las dos. */
+export type EstacionFrase = 'Bebidas' | 'Alimentos'
 
 export interface FrasesAdmin {
   hoy: string
+  /** Las de siempre como grupo: apagadas, no salen ni cuando no hay temporada. */
+  siempre_activa?: boolean
   temporadas: TemporadaEtiqueta[]
   frases: FraseEtiqueta[]
   agentes: { nombre: string; version: string | null }[]
+  /** La dinámica con premios que está corriendo hoy, si hay. */
+  dinamica?: { nombre: string; estacion: string; boleto_por: 'compra' | 'bebida' } | null
 }
 
 export async function frasesAdmin(sb: ShakeClient): Promise<FrasesAdmin> {
   return (await rpc<FrasesAdmin>(sb, 'fn_frases_admin', {})) ?? { hoy: '', temporadas: [], frases: [], agentes: [] }
 }
 
+/** Prender o apagar las de siempre como grupo. */
+export async function prenderFrasesDeSiempre(sb: ShakeClient, activa: boolean): Promise<void> {
+  await rpc(sb, 'fn_frases_siempre', { p_activa: activa })
+}
+
 export async function guardarFrase(
   sb: ShakeClient,
-  f: { id?: string | null; nombre: string; texto: string; temporada_id: string | null; activa: boolean; con_milo: boolean; archivar?: boolean },
+  f: {
+    id?: string | null; nombre: string; texto: string; temporada_id: string | null; activa: boolean; con_milo: boolean
+    archivar?: boolean
+    /** undefined = no tocarla; null = barra y cocina. */
+    estacion?: EstacionFrase | null
+  },
 ): Promise<string> {
-  return rpc<string>(sb, 'fn_frase_guardar', {
+  const id = await rpc<string>(sb, 'fn_frase_guardar', {
     p_id: f.id ?? null, p_nombre: f.nombre, p_texto: f.texto, p_temporada_id: f.temporada_id,
     p_activa: f.activa, p_con_milo: f.con_milo, p_archivar: f.archivar ?? false,
   })
+  // Dónde sale va aparte: `fn_frase_guardar` conserva su firma (cambiarla
+  // la duplicaría).
+  if (f.estacion !== undefined && !f.archivar) {
+    await rpc(sb, 'fn_frase_estacion', { p_id: id, p_estacion: f.estacion })
+  }
+  return id
 }
 
 export async function guardarTemporada(
@@ -379,6 +404,8 @@ export interface DinamicaEtiqueta {
   rondas_max: number
   tamano_ronda: number
   estacion: string
+  /** 'compra' = un boleto por pedido; 'bebida' = uno por etiqueta (agente 1.7.0). */
+  boleto_por?: 'compra' | 'bebida'
   principal_desde: number | null
   principal_hasta: number | null
   /** Qué no cuadra (la suma, el rango…). Null = lista para prender. */
@@ -401,6 +428,7 @@ export interface GuardarDinamica {
   tamano_ronda: number
   principal_desde: number | null
   principal_hasta: number | null
+  boleto_por?: 'compra' | 'bebida'
   resultados: ResultadoDinamica[]
 }
 

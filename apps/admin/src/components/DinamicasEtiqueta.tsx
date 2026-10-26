@@ -22,6 +22,8 @@ import { Panel, ErrorMsg, OkMsg, cx, Chip } from '../ui'
  */
 
 const AGENTE_CON_DINAMICAS = '1.6.0'
+/** Un boleto por etiqueta (cada bebida del pedido) desde el agente 1.7.0. */
+const AGENTE_POR_BEBIDA = '1.7.0'
 
 function versionMenor(v: string | null, minima: string): boolean {
   if (!v) return true
@@ -39,6 +41,7 @@ const hora = (iso: string | null) => iso
 const TRICK_OR_SHAKE: Omit<DinamicaEtiqueta, 'id' | 'activa' | 'problema' | 'rondas' | 'premios' | 'estacion'> = {
   nombre: 'Halloween · Trick or Shake',
   desde: null, hasta: null,
+  boleto_por: 'bebida',
   rondas_max: 3, tamano_ronda: 150,
   principal_desde: 100, principal_hasta: 150,
   resultados: [
@@ -66,9 +69,10 @@ function Previa({ texto, milo }: { texto: string; milo: boolean }) {
 
 type Borrador = Omit<DinamicaEtiqueta, 'id' | 'activa' | 'problema' | 'rondas' | 'premios' | 'estacion'> & { id?: string }
 
-function Editor({ inicial, yaEmpezo, onGuardada, onCancelar }: {
+function Editor({ inicial, yaEmpezo, agentes, onGuardada, onCancelar }: {
   inicial: Borrador
   yaEmpezo: boolean
+  agentes: { nombre: string; version: string | null }[]
   onGuardada: () => void
   onCancelar: () => void
 }) {
@@ -83,6 +87,7 @@ function Editor({ inicial, yaEmpezo, onGuardada, onCancelar }: {
   const premios = d.resultados.filter((r) => r.es_premio).reduce((s, r) => s + (Number(r.cantidad) || 0), 0)
   const principales = d.resultados.filter((r) => r.es_principal).reduce((s, r) => s + (Number(r.cantidad) || 0), 0)
 
+  const viejosPorBebida = agentes.filter((a) => /barra|bebida/i.test(a.nombre) && versionMenor(a.version, AGENTE_POR_BEBIDA)).map((a) => a.nombre)
   const set = <K extends keyof Borrador>(k: K, v: Borrador[K]) => setD((x) => ({ ...x, [k]: v }))
   const setRes = (i: number, cambios: Partial<ResultadoDinamica>) =>
     setD((x) => ({ ...x, resultados: x.resultados.map((r, j) => (j === i ? { ...r, ...cambios } : r)) }))
@@ -128,6 +133,19 @@ function Editor({ inicial, yaEmpezo, onGuardada, onCancelar }: {
         <label className="block text-sm">Etiquetas por ronda
           <input type="number" min={1} max={5000} className={`${cx.input} mt-1`} value={d.tamano_ronda}
             onChange={(e) => set('tamano_ronda', Number(e.target.value) || 0)} />
+        </label>
+        <label className="block text-sm sm:col-span-2">Boletos
+          <select className={`${cx.input} mt-1`} value={d.boleto_por ?? 'compra'}
+            onChange={(e) => set('boleto_por', e.target.value as 'compra' | 'bebida')}>
+            <option value="bebida">Uno por cada bebida (cada vaso lleva el suyo)</option>
+            <option value="compra">Uno por compra (solo el primer vaso del pedido)</option>
+          </select>
+          {d.boleto_por === 'bebida' && viejosPorBebida.length > 0 && (
+            <span className="block text-xs text-amber-900 bg-amber-100 rounded-sa px-2 py-1 mt-1">
+              {viejosPorBebida.join(', ')} todavía no tiene el programa {AGENTE_POR_BEBIDA}: mientras, sale uno por
+              compra. Se actualiza solo al abrir la tienda.
+            </span>
+          )}
         </label>
       </div>
 
@@ -207,7 +225,10 @@ function Editor({ inicial, yaEmpezo, onGuardada, onCancelar }: {
       <div className="rounded-sa bg-white border border-sa-green-ink/10 px-3 py-2 text-sm">
         <b>Resumen:</b> {d.rondas_max * d.tamano_ronda} participaciones · {d.rondas_max * (premios - principales)} premios
         {' '}· {d.rondas_max * principales} premio{d.rondas_max * principales === 1 ? '' : 's'} mayor{d.rondas_max * principales === 1 ? '' : 'es'}.
-        {' '}Una por compra con bebida; el resultado va en la primera etiqueta y no se repite al reimprimir.
+        {' '}{d.boleto_por === 'bebida'
+          ? 'Una por cada bebida: cada vaso lleva su resultado.'
+          : 'Una por compra con bebida: el resultado va en el primer vaso; los demás llevan frase.'}
+        {' '}Sale solo en las etiquetas de barra y no se repite al reimprimir.
       </div>
 
       {error && <ErrorMsg>{error}</ErrorMsg>}
@@ -222,7 +243,7 @@ function Editor({ inicial, yaEmpezo, onGuardada, onCancelar }: {
 export function DinamicasEtiqueta() {
   const [lista, setLista] = useState<DinamicaEtiqueta[] | null>(null)
   const [impresoras, setImpresoras] = useState<ImpresoraAdmin[]>([])
-  const [agentesViejos, setAgentesViejos] = useState<string[]>([])
+  const [agentes, setAgentes] = useState<{ nombre: string; version: string | null }[]>([])
   const [editando, setEditando] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [ok, setOk] = useState<string | null>(null)
@@ -231,7 +252,7 @@ export function DinamicasEtiqueta() {
   useEffect(() => {
     void cargar()
     listarImpresoras(sb).then((l) => setImpresoras(l.filter((i) => i.activa))).catch(() => {})
-    frasesAdmin(sb).then((f) => setAgentesViejos(f.agentes.filter((a) => versionMenor(a.version, AGENTE_CON_DINAMICAS)).map((a) => a.nombre))).catch(() => {})
+    frasesAdmin(sb).then((f) => setAgentes(f.agentes)).catch(() => {})
   }, [])
 
   const avisar = (m: string) => { setOk(m); setTimeout(() => setOk(null), 5000) }
@@ -242,6 +263,7 @@ export function DinamicasEtiqueta() {
 
   if (!lista) return error ? <ErrorMsg>{error}</ErrorMsg> : <p className={cx.muted}>Cargando dinámicas…</p>
 
+  const agentesViejos = agentes.filter((a) => versionMenor(a.version, AGENTE_CON_DINAMICAS)).map((a) => a.nombre)
   const barra = impresoras.find((i) => /barra|bebida/i.test(i.nombre)) ?? impresoras[0]
 
   return (
@@ -250,8 +272,8 @@ export function DinamicasEtiqueta() {
         <div>
           <h2 className="font-display text-xl text-sa-green-ink">Dinámicas con premios</h2>
           <p className={`${cx.muted} text-sm mt-1 max-w-2xl`}>
-            La etiqueta del vaso como boleto: en la primera etiqueta de cada compra con bebida sale el resultado,
-            con su folio, en lugar de la frase. Las cantidades por ronda son exactas y el orden es al azar; nadie
+            La etiqueta del vaso como boleto: en las etiquetas de barra sale el resultado, con su folio, en lugar
+            de la frase — en cada vaso o solo en el primero del pedido, según la dinámica. En cocina nunca. Las cantidades por ronda son exactas y el orden es al azar; nadie
             ve qué sigue. Al reimprimir sale el mismo resultado sin gastar otro.
           </p>
         </div>
@@ -269,7 +291,7 @@ export function DinamicasEtiqueta() {
       {error && <div className="mt-3"><ErrorMsg>{error}</ErrorMsg></div>}
 
       {editando === 'nueva' && (
-        <Editor inicial={{ ...TRICK_OR_SHAKE }} yaEmpezo={false}
+        <Editor inicial={{ ...TRICK_OR_SHAKE }} yaEmpezo={false} agentes={agentes}
           onGuardada={() => { setEditando(null); avisar('Guardada. Préndela cuando quieras que empiece.'); void cargar() }}
           onCancelar={() => setEditando(null)} />
       )}
@@ -290,6 +312,7 @@ export function DinamicasEtiqueta() {
                 <span className={`${cx.muted} text-xs`}>
                   {d.desde || d.hasta ? `${d.desde ?? '…'} → ${d.hasta ?? '…'}` : 'sin fechas'} · {d.rondas_max} ronda{d.rondas_max === 1 ? '' : 's'} de {d.tamano_ronda}
                   {d.principal_desde != null ? ` · premio mayor entre la ${d.principal_desde} y la ${d.principal_hasta ?? d.tamano_ronda}` : ''}
+                  {' · '}{d.boleto_por === 'bebida' ? 'un boleto por bebida' : 'un boleto por compra'}
                 </span>
                 <div className="flex-1" />
                 <button className={cx.btnSec} onClick={() => setEditando(editando === d.id ? null : d.id)}>Editar</button>
@@ -304,8 +327,8 @@ export function DinamicasEtiqueta() {
                 <Editor inicial={{
                   id: d.id, nombre: d.nombre, desde: d.desde, hasta: d.hasta, rondas_max: d.rondas_max,
                   tamano_ronda: d.tamano_ronda, principal_desde: d.principal_desde, principal_hasta: d.principal_hasta,
-                  resultados: d.resultados,
-                }} yaEmpezo={d.rondas.length > 0}
+                  boleto_por: d.boleto_por ?? 'compra', resultados: d.resultados,
+                }} yaEmpezo={d.rondas.length > 0} agentes={agentes}
                   onGuardada={() => { setEditando(null); avisar('Guardada.'); void cargar() }}
                   onCancelar={() => setEditando(null)} />
               )}
