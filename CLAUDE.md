@@ -1953,6 +1953,19 @@ empaquetador y se desvían solas:
   `fn_imprimir_liberar_vencidos` y `fn_encolar_comanda_para_pedido`.
   Ninguna se cierra de golpe: ya sabemos cómo termina eso.
 
+- **Cerrar una tabla a `anon` deja sin datos a quien la leía, y no truena.**
+  El 22/08 `seguridad_cierra_pii_anon` quitó `sel_clientes_caja` (datos
+  personales) mirando 24 h de logs: «0 lecturas». Pero el kiosko y el POS
+  identificaban al cliente de Rewards con `.from('clientes')` directo, y
+  desde ahí la búsqueda contestaba **«no existe» siempre**, por código o por
+  teléfono: de 9 867 ventas hasta el 29/10, **ninguna quedó ligada a un
+  cliente** y nadie sumó mancuernas en caja. Se descubrió cuando Adrián
+  compró un lector de QR y «no funcionaba» — el lector sí escribía
+  `shk-c60014`. Ahora `identificarCliente` va por `fn_cliente_para_caja`
+  (`cliente_para_caja.sql`): código o teléfono exacto, devuelve solo id,
+  nombre, código, teléfono enmascarado, mancuernas y cupones vigentes, y
+  frena a los 30 fallos en 15 min. Al cerrar una tabla, el `grep` es de
+  `.from('<tabla>')` en `apps/` y `packages/`, no los logs de un día.
 - **Antes de cerrarle una función a `anon`, busca quién la llama fuera del
   navegador.** Le quité `anon` a `fn_admin_impresoras` para tapar una fuga
   de IPs, sin ver que es la misma que usa

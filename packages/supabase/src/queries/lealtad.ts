@@ -1,6 +1,6 @@
 import type { Cliente, Cupon } from '@shake/types'
 import type { ShakeClient } from '../client'
-import { esCodigoCliente, normalizarCodigoEscaneado } from '@shake/utils'
+import { normalizarCodigoEscaneado } from '@shake/utils'
 
 // rpc no está en los tipos generados; se castea el nombre (mismo patrón que ordenes.ts).
 type RpcFn = (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>
@@ -22,22 +22,22 @@ export async function identificarCliente(
   sb: ShakeClient,
   telefonoOCodigo: string,
 ): Promise<ClienteConLealtad | null> {
-  // El lector puede mandar `SHK'AF8B0C` (teclado de otro idioma): se
-  // normaliza aquí para que el kiosko y el POS lo reconozcan igual.
+  // El lector puede mandar `SHK'AF8B0C` o `shk-af8b0c` (teclado de otro
+  // idioma, mayúsculas apagadas): se normaliza aquí y otra vez en el servidor.
   const q = normalizarCodigoEscaneado(telefonoOCodigo)
   if (!q) return null
-  const esCodigo = esCodigoCliente(q)
-  const { data, error } = await sb
-    .from('clientes')
-    .select('*, cupones(*)')
-    .eq(esCodigo ? 'codigo' : 'telefono', esCodigo ? q.toUpperCase() : q)
-    .eq('activo', true)
-    .limit(1)
-    .maybeSingle()
-  if (error) throw error
-  if (!data) return null
-  const cli = data as ClienteConLealtad
-  // solo cupones activos y vigentes
+  // Por el SERVIDOR, no leyendo `clientes`: desde el 22/08 la caja (que cobra
+  // como anon) no puede leer esa tabla —datos personales— y la búsqueda
+  // directa contestaba «no existe» siempre (29/10/26, cliente_para_caja.sql).
+  // La función devuelve solo lo que la caja usa: id, nombre, código,
+  // teléfono enmascarado, mancuernas y cupones vigentes.
+  const r = await rpc<{ ok: boolean; error?: string; cliente: ClienteConLealtad | null }>(
+    sb, 'fn_cliente_para_caja', { p_texto: q },
+  )
+  if (!r.ok) throw new Error(r.error ?? 'No se pudo buscar al cliente.')
+  if (!r.cliente) return null
+  const cli = r.cliente
+  // solo cupones activos y vigentes (el servidor ya filtra; se deja por si acaso)
   const ahora = Date.now()
   cli.cupones = (cli.cupones ?? []).filter(
     (c) => c.estado === 'activo' && new Date(c.vence_en).getTime() >= ahora,
