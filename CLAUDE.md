@@ -1582,6 +1582,7 @@ empaquetador y se desvían solas:
 | Dar una cortesía (sale en $0 y baja inventario) | Kiosko → cobro → **🎁 Cortesía** → motivo → PIN de quien pueda (hoy Perla y Adrián). Quién puede y cuáles se dieron: Admin → Personal → **Permisos** → *Cortesías* |
 | Cupón de descuento ($20, 10 %, 15 % en un shake) | Kiosko → cobro → **🎟 Cupón** → cuál → a qué shake → PIN de quien pueda (la misma lista de cortesías). Se cobra normal con el total ya bajado. Crear o apagar cupones y ver los dados: Admin → Personal → **Permisos** → *Cupones* |
 | Prepararon salsa chipotle (u otro preparado) | Kiosko → **"Caja y turno"** → PIN → **«¿Preparaste algo?»** → lotes y cuántos salieron. Saca los ingredientes de la receta de Costeos y suma lo preparado. Qué receta produce qué: Admin → Inventario → **Producción** |
+| Que el cliente sume mancuernas | En la pantalla de cobro sale sola la franja **«🏋️ ¿Suma mancuernas?»**: el cliente escanea su QR y queda ligado sin tocar nada (el kiosko escucha al lector mientras la franja está a la vista). «Teléfono» para buscarlo por número; «No» la esconde en esa venta. Suma 1 por cada $14 |
 | Conectar un lector de QR para Rewards | 2D de escritorio que lea pantallas, USB en modo teclado. Pruébalo en el Bloc de notas: debe salir `SHK-…` y saltar de renglón. El kiosko ya acepta el código aunque el guion llegue como otro signo |
 | Buscar en «Abrir un bote» o «¿Llegó mercancía?» | Toca el buscador: sale el teclado en pantalla (letras y números, sin acentos) |
 | Ver la caja en vivo (qué tiene la pantalla, qué se cobró, qué se quitó) | Admin → **Caja en vivo**, también desde el teléfono. «Para revisar» junta lo que se quitó del carrito, los carritos vaciados, lo que no se cobró, cancelaciones y cortesías |
@@ -1964,7 +1965,11 @@ empaquetador y se desvían solas:
   `shk-c60014`. Ahora `identificarCliente` va por `fn_cliente_para_caja`
   (`cliente_para_caja.sql`): código o teléfono exacto, devuelve solo id,
   nombre, código, teléfono enmascarado, mancuernas y cupones vigentes, y
-  frena a los 30 fallos en 15 min. Al cerrar una tabla, el `grep` es de
+  frena a los 30 fallos en 15 min. Y la pregunta ya no depende de que
+  alguien se acuerde del botón del carrito: el cobro trae la franja
+  «¿Suma mancuernas?» (`PreguntaRewards.tsx`), que escucha al lector —ráfaga
+  de teclas a <60 ms que termina en Enter— y quita el código si cayó en el
+  nombre del pedido. Al cerrar una tabla, el `grep` es de
   `.from('<tabla>')` en `apps/` y `packages/`, no los logs de un día.
 - **Antes de cerrarle una función a `anon`, busca quién la llama fuera del
   navegador.** Le quité `anon` a `fn_admin_impresoras` para tapar una fuga

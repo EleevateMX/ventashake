@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   crearOrden, crearOrdenKioskoCaja, cobrarOrden, nombresPedidoFrecuentes,
@@ -17,6 +17,8 @@ import { sb } from '@/lib/sb'
 import { aplicarCupon, canjearMancuernas, canjearSellos, cotizarPersonal, crearCortesia } from '@shake/supabase'
 import type { IdentidadPersonal } from '@shake/supabase'
 import { PanelRewards, SIN_REWARDS, type DecisionRewards } from '@/components/PanelRewards'
+import { PreguntaRewards } from '@/components/PreguntaRewards'
+import type { ClienteConLealtad } from '@shake/supabase'
 import { CobroEfectivo } from '@/components/CobroEfectivo'
 import { CobroMixto, type TerminalTarjeta } from '@/components/CobroMixto'
 import { CobroNoPaso } from '@/components/CobroNoPaso'
@@ -101,9 +103,21 @@ function ProcesandoOverlay({ monto }: { monto: number }) {
 
 export function Pago() {
   const navigate = useNavigate()
-  const { items, total, usuario, cajero, nombrePedido, setNombrePedido,
+  const { items, total, usuario, setUsuario, cajero, nombrePedido, setNombrePedido,
           paraLlevar, setParaLlevar, prepararA, setPrepararA, limpiar } = useCarrito()
   const [rewards, setRewards] = useState<DecisionRewards>(SIN_REWARDS)
+
+  /** «¿Suma mancuernas?» antes de cobrar: el cliente que se identifica aquí es el de la venta. */
+  const elegirCliente = useCallback((c: ClienteConLealtad | null) => {
+    setRewards(SIN_REWARDS)
+    setUsuario(c ? { nombre: c.nombre, email: null, clienteId: c.id, mancuernas: c.mancuernas } : null)
+  }, [setUsuario])
+  /** Si el lector tecleó el QR dentro del nombre del pedido, se quita de ahí. */
+  const quitarCodigoDelNombre = useCallback((texto: string) => {
+    const actual = useCarrito.getState().nombrePedido
+    const i = actual.toUpperCase().indexOf(texto.toUpperCase())
+    if (i >= 0) setNombrePedido((actual.slice(0, i) + actual.slice(i + texto.length)).trim())
+  }, [setNombrePedido])
   /**
    * Sin internet se cobra distinto (ver `confirmarSinInternet`): solo
    * efectivo o la terminal del banco, sin canjes ni precio de personal,
@@ -1179,6 +1193,14 @@ export function Pago() {
             <>
               {/* El canje va ANTES de los botones de cobro: es una decisión
                   que cambia el monto, no algo que se agrega después. */}
+              {!clavePersonal && (
+                <PreguntaRewards
+                  total={Math.max(0, total() - descuentoPromo - descuentoPersonal - descuentoCupon)}
+                  cliente={usuario?.clienteId ? usuario : null}
+                  onCliente={elegirCliente}
+                  onCodigoEscrito={quitarCodigoDelNombre}
+                />
+              )}
               {usuario?.clienteId && (
                 <PanelRewards
                   clienteId={usuario.clienteId}
