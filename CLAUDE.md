@@ -239,6 +239,22 @@ hacer cortes.
   (`comprobanteCorteTicketHtml`) sin la tarjeta y en negro, por el diálogo
   del navegador como el ticket de venta. La ventana se abre **antes** del
   `await`: abierta después, el navegador la bloquea por emergente.
+- **El comprobante es el turno completo, no solo el efectivo** (01/11,
+  `corte_comprobante_completo.sql`). Perla: «la tira únicamente refleja las
+  ventas en efectivo». `_corte_detalle(corte)` arma UNA vez ventas por
+  método (efectivo, Clip, banco, con tickets), cancelaciones
+  (`ventas_canceladas` del turno: sin cobrar / **devoluciones** = ya
+  cobradas, el sistema no tiene otra devolución), cortesías (tickets,
+  productos, valor) y descuentos (cupón, personal, promoción, Rewards), y
+  lo leen `fn_corte_comprobante` (Admin, tira del navegador, correo),
+  `fn_encolar_corte_caja` y `fn_corte_imprimir_caja` (la reimpresión lo
+  recalcula). Es SECURITY INVOKER: nace abierta a anon y así no abre nada.
+  **La aritmética del cajón no cambió**: una venta cancelada sigue en las
+  ventas y en el esperado (el corte 189 cuadró con el folio 12202 cancelado
+  adentro), igual que en `vw_corte_resumen`. «Órdenes» contaba los reintentos
+  de Clip sin cobrar (84 contra 74 tickets cobrados): la tira nueva dice
+  tickets cobrados. El agente de caja **1.1.0** imprime las secciones; uno
+  viejo sigue imprimiendo la tira de antes hasta reinstalarlo.
 - **Admin → Comprobantes** es el archivo: `fn_comprobantes_cortes(desde, hasta)` (solo gerencia, máximo un año). «Quién recibe» sale de `corte_anterior_id`; los 127 cortes viejos se enlazaron el 09/10 (sin fondo esperado: ese día no existía).
 - Todo en `docs/corte-y-cambio-de-turno.md`.
 

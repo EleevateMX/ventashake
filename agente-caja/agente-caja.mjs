@@ -21846,6 +21846,7 @@ function armarCorte(cfg, c, ancho = COLUMNAS_80MM) {
   L.push("");
   L.push(centrar("CORTE DE CAJA"));
   L.push(centrar(`Folio ${c.folio}`));
+  if (c.reimpresion) L.push(centrar("*** REIMPRESION ***"));
   L.push(regla("="));
   L.push(parear("Caja", c.caja ?? "\u2014"));
   L.push(parear("Abrio", c.abrio ?? "\u2014"));
@@ -21853,16 +21854,57 @@ function armarCorte(cfg, c, ancho = COLUMNAS_80MM) {
   if (c.autorizo) L.push(parear("Autorizo", c.autorizo));
   L.push(parear("Apertura", fecha(c.abierto_en)));
   L.push(parear("Cierre", fecha(c.cerrado_en)));
-  L.push(parear("Ordenes", String(c.num_ordenes)));
+  const d = c.detalle;
+  if (d) {
+    // 1.1.0 (01/11/26): el corte completo. Lo arma `_corte_detalle` en la
+    // base, el MISMO que lee Admin: el papel y la pantalla no pueden diferir.
+    const nn = (x) => Number(x?.n ?? 0);
+    const mm = (x) => Number(x?.monto ?? 0);
+    const met = d.metodos ?? {};
+    L.push(regla());
+    L.push(centrar("VENTAS POR METODO DE PAGO"));
+    L.push(regla());
+    L.push(parear(`Efectivo (${nn(met.efectivo)})`, pesos(mm(met.efectivo))));
+    L.push(parear(`Tarjeta Clip (${nn(met.clip)})`, pesos(mm(met.clip))));
+    L.push(parear(`Tarjeta banco (${nn(met.tarjeta)})`, pesos(mm(met.tarjeta))));
+    for (const [k, x] of Object.entries(met)) {
+      if (!["efectivo", "clip", "tarjeta"].includes(k)) L.push(parear(`${k} (${nn(x)})`, pesos(mm(x))));
+    }
+    L.push(parear(`TOTAL (${Number(d.tickets_cobrados ?? 0)} tickets)`, pesos(d.total_cobrado)));
+    L.push(regla());
+    L.push(centrar("CANCELACIONES Y DEVOLUCIONES"));
+    L.push(regla());
+    const can = d.cancelaciones ?? {};
+    L.push(parear(`Canceladas (${nn(can.sin_cobrar)})`, pesos(mm(can.sin_cobrar))));
+    L.push(parear(`Devoluciones (${nn(can.cobradas)})`, pesos(mm(can.cobradas))));
+    if (nn(can.cobradas) > 0) L.push("  (ya cobradas: siguen en ventas y esperado)");
+    L.push(regla());
+    L.push(centrar("CORTESIAS"));
+    L.push(regla());
+    const co = d.cortesias ?? {};
+    L.push(parear(`${Number(co.tickets ?? 0)} tickets, ${Number(co.productos ?? 0)} productos`, pesos(co.valor)));
+    L.push(regla());
+    L.push(centrar("DESCUENTOS"));
+    L.push(regla());
+    const de = d.descuentos ?? {};
+    L.push(parear(`Aplicados (${Number(de.n ?? 0)})`, pesos(de.monto)));
+    const tipos = [["cupon", "Cupones"], ["personal", "Precio personal"], ["promocion", "Promociones"], ["otros", "Rewards y otros"]];
+    for (const [k, t] of tipos) {
+      const x = de.por_tipo?.[k];
+      if (x && nn(x) > 0) L.push(parear(`  ${t} (${nn(x)})`, pesos(mm(x))));
+    }
+  } else {
+    L.push(parear("Ordenes", String(c.num_ordenes)));
+    L.push(regla());
+    L.push(centrar("VENTAS DEL TURNO"));
+    L.push(regla());
+    L.push(parear("Efectivo", pesos(c.ventas_efectivo)));
+    if (c.total_tarjeta) L.push(parear("Tarjeta", pesos(c.total_tarjeta)));
+    if (c.total_clip) L.push(parear("Clip", pesos(c.total_clip)));
+    L.push(parear("TOTAL VENDIDO", pesos(c.total_pagado)));
+  }
   L.push(regla());
-  L.push(centrar("VENTAS DEL TURNO"));
-  L.push(regla());
-  L.push(parear("Efectivo", pesos(c.ventas_efectivo)));
-  if (c.total_tarjeta) L.push(parear("Tarjeta", pesos(c.total_tarjeta)));
-  if (c.total_clip) L.push(parear("Clip", pesos(c.total_clip)));
-  L.push(parear("TOTAL VENDIDO", pesos(c.total_pagado)));
-  L.push(regla());
-  L.push(centrar("ARQUEO DE EFECTIVO"));
+  L.push(centrar(d ? "RESUMEN DE CAJA" : "ARQUEO DE EFECTIVO"));
   L.push(regla());
   L.push(parear("Fondo inicial", pesos(c.fondo_inicial)));
   L.push(parear("+ Ventas en efectivo", pesos(c.ventas_efectivo)));
@@ -22066,7 +22108,7 @@ function estaViva(host, puerto, timeoutMs = 3e3) {
 }
 
 // src/index.ts
-var VERSION = "1.0.2";
+var VERSION = "1.1.0";
 function requerido(clave) {
   const v = process.env[clave]?.trim();
   if (!v) {

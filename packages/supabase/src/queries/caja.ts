@@ -1,6 +1,7 @@
 import type { Caja, CajaCorte, CorteResumen, Json } from '@shake/types'
 import type { Conteo } from '@shake/utils'
 import type { ShakeClient } from '../client'
+import type { DetalleCorte } from '@shake/utils'
 
 export async function listarCajas(sb: ShakeClient): Promise<Caja[]> {
   const { data, error } = await sb.from('cajas').select('*').eq('activa', true).order('nombre')
@@ -262,6 +263,8 @@ export interface ComprobanteCorte {
   recibido_notas: string | null
   corte_siguiente_id: string | null
   corte_siguiente_folio: number | null
+  /** Ventas por método, cancelaciones, cortesías y descuentos (01/11/26). */
+  detalle?: DetalleCorte | null
 }
 
 const NUMEROS_COMPROBANTE = [

@@ -74,3 +74,52 @@ describe('comprobante del corte', () => {
     expect(copia).toBe(original)
   })
 })
+
+describe('comprobante completo (01/11/26): todo el turno, no solo el efectivo', () => {
+  // Los números reales del corte 189 (31/10/26).
+  const conDetalle: DatosComprobanteCorte = {
+    ...base,
+    ventas_efectivo: 2793, efectivo_esperado: 5793, efectivo_contado: 5793, diferencia: 0,
+    total_clip: 4965.99, total_pagado: 7758.99,
+    detalle: {
+      metodos: { efectivo: { n: 28, monto: 2793 }, clip: { n: 47, monto: 4965.99 } },
+      tickets_cobrados: 74, total_cobrado: 7758.99,
+      cancelaciones: { sin_cobrar: { n: 0, monto: 0 }, cobradas: { n: 1, monto: 89 } },
+      cortesias: { tickets: 1, productos: 1, valor: 89 },
+      descuentos: { n: 7, monto: 111, por_tipo: { personal: { n: 2, monto: 86 }, promocion: { n: 5, monto: 25 } } },
+    },
+  }
+
+  it('desglosa las ventas por método, con la tarjeta aunque sea cero', () => {
+    const h = comprobanteCorteHtml(conDetalle)
+    for (const t of [
+      'VENTAS POR MÉTODO DE PAGO', 'Efectivo (28)', '$2,793.00',
+      'Tarjeta · Clip (47)', '$4,965.99', 'Tarjeta · banco (0)',
+      'Total · 74 tickets', '$7,758.99',
+    ]) expect(h).toContain(t)
+  })
+
+  it('cancelaciones, devoluciones, cortesías y descuentos, con cantidad e importe', () => {
+    const h = comprobanteCorteHtml(conDetalle)
+    for (const t of [
+      'CANCELACIONES Y DEVOLUCIONES', 'Canceladas (0)', 'Devoluciones (1)', '$89.00',
+      'CORTESÍAS', '1 tickets · 1 productos',
+      'DESCUENTOS', 'Aplicados (7)', '$111.00', 'Precio de personal (2)', '$86.00', 'Promociones (5)', '$25.00',
+      'RESUMEN DE CAJA', 'Efectivo esperado', '$5,793.00', 'Efectivo contado', 'Diferencia',
+    ]) expect(h).toContain(t)
+    // Un tipo de descuento que no hubo no ensucia el papel.
+    expect(h).not.toContain('Cupones (')
+  })
+
+  it('la tira de 80 mm dice exactamente lo mismo', () => {
+    const t = comprobanteCorteTicketHtml(conDetalle)
+    expect(t).toContain('Tarjeta · Clip (47)')
+    expect(t).toContain('Aplicados (7)')
+  })
+
+  it('un corte de antes, sin detalle, sale como siempre', () => {
+    const h = comprobanteCorteHtml({ ...base, detalle: null })
+    expect(h).toContain('Órdenes del turno')
+    expect(h).not.toContain('VENTAS POR MÉTODO')
+  })
+})

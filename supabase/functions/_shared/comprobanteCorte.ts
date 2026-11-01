@@ -48,7 +48,42 @@ export interface DatosComprobanteCorte {
   recibido_esperado: number | null
   recibido_diferencia: number | null
   recibido_notas: string | null
+  /**
+   * El detalle del turno (01/11/26, `_corte_detalle` en la base): ventas por
+   * método, cancelaciones, cortesías y descuentos. Lo arma el servidor una
+   * vez y lo leen Admin, esta tira y la del agente de caja, para que no
+   * digan cosas distintas. Los cortes anteriores no lo traían: sin él, el
+   * comprobante sale como antes.
+   */
+  detalle?: DetalleCorte | null
 }
+
+export interface MontoContado { n: number; monto: number }
+
+export interface DetalleCorte {
+  /** Por método de pago (`efectivo`, `clip`, `tarjeta`…), sin la cortesía. */
+  metodos: Record<string, MontoContado>
+  tickets_cobrados: number
+  total_cobrado: number
+  cancelaciones: { sin_cobrar: MontoContado; cobradas: MontoContado }
+  cortesias: { tickets: number; productos: number; valor: number }
+  descuentos: { n: number; monto: number; por_tipo: Record<string, MontoContado> }
+}
+
+/** Cómo se llama cada método en el papel, y en qué orden sale. */
+const METODOS: [string, string][] = [
+  ['efectivo', 'Efectivo'],
+  ['clip', 'Tarjeta · Clip'],
+  ['tarjeta', 'Tarjeta · banco'],
+  ['otro', 'Otro'],
+]
+
+const TIPOS_DESCUENTO: [string, string][] = [
+  ['cupon', 'Cupones'],
+  ['personal', 'Precio de personal'],
+  ['promocion', 'Promociones'],
+  ['otros', 'Rewards y otros'],
+]
 
 const BILLETES_C = [1000, 500, 200, 100, 50, 20]
 const MONEDAS_C = [20, 10, 5, 2, 1]
@@ -116,6 +151,56 @@ function renglon(etiqueta: string, valor: string, opciones: { fuerte?: boolean; 
 </tr>`
 }
 
+function titulo(texto: string): string {
+  return `<tr><td colspan="2" style="padding:6px 0 2px;font-family:${SANS};font-size:11px;font-weight:700;letter-spacing:1px;color:${GRIS}">${esc(texto.toUpperCase())}</td></tr>`
+}
+
+function nota(texto: string): string {
+  return `<tr><td colspan="2" style="padding:0 0 2px;font-family:${SANS};font-size:11px;color:${GRIS}">${esc(texto)}</td></tr>`
+}
+
+/** Las secciones del detalle: lo que pidió gerencia que diga el corte. */
+function seccionesDetalle(d: DetalleCorte): string[] {
+  const f: string[] = []
+  const n = (x: MontoContado | undefined) => Number(x?.n ?? 0)
+  const m = (x: MontoContado | undefined) => Number(x?.monto ?? 0)
+
+  f.push(titulo('Ventas por método de pago'))
+  for (const [clave, etiqueta] of METODOS) {
+    const x = d.metodos?.[clave]
+    // Efectivo y las dos terminales salen siempre (un cero también informa);
+    // «Otro» solo si hubo.
+    if (clave === 'otro' && !x) continue
+    f.push(renglon(`${etiqueta} (${n(x)})`, pesos(m(x))))
+  }
+  for (const [clave, x] of Object.entries(d.metodos ?? {})) {
+    if (!METODOS.some(([k]) => k === clave)) f.push(renglon(`${clave} (${n(x)})`, pesos(m(x))))
+  }
+  f.push(renglon(`Total · ${Number(d.tickets_cobrados ?? 0)} tickets`, pesos(d.total_cobrado), { fuerte: true }))
+
+  f.push(separador())
+  f.push(titulo('Cancelaciones y devoluciones'))
+  f.push(renglon(`Canceladas (${n(d.cancelaciones?.sin_cobrar)})`, pesos(m(d.cancelaciones?.sin_cobrar))))
+  f.push(renglon(`Devoluciones (${n(d.cancelaciones?.cobradas)})`, pesos(m(d.cancelaciones?.cobradas))))
+  if (n(d.cancelaciones?.cobradas) > 0) {
+    f.push(nota('Devolución = venta ya cobrada que se canceló. Sigue sumada en las ventas y en el efectivo esperado.'))
+  }
+
+  f.push(separador())
+  f.push(titulo('Cortesías'))
+  const ct = d.cortesias ?? { tickets: 0, productos: 0, valor: 0 }
+  f.push(renglon(`${Number(ct.tickets)} tickets · ${Number(ct.productos)} productos`, pesos(ct.valor)))
+
+  f.push(separador())
+  f.push(titulo('Descuentos'))
+  f.push(renglon(`Aplicados (${Number(d.descuentos?.n ?? 0)})`, pesos(d.descuentos?.monto)))
+  for (const [clave, etiqueta] of TIPOS_DESCUENTO) {
+    const x = d.descuentos?.por_tipo?.[clave]
+    if (x && n(x) > 0) f.push(renglon(`  · ${etiqueta} (${n(x)})`, pesos(m(x)), { color: GRIS }))
+  }
+  return f
+}
+
 function separador(): string {
   return `<tr><td colspan="2" style="padding:6px 0"><div style="border-top:1px dashed ${LINEA}"></div></td></tr>`
 }
@@ -133,7 +218,13 @@ export function comprobanteCorteCuerpo(c: DatosComprobanteCorte): string {
   filas.push(renglon('Recibe', c.recibe ? esc(c.recibe) : 'pendiente', { fuerte: true, color: c.recibe ? TINTA : GRIS }))
   if (c.autorizo && c.autorizo !== c.entrega) filas.push(renglon('Autorizó el corte', esc(c.autorizo)))
   filas.push(separador())
-  filas.push(renglon('Órdenes del turno', String(c.num_ordenes ?? 0)))
+  if (c.detalle) {
+    filas.push(...seccionesDetalle(c.detalle))
+    filas.push(separador())
+    filas.push(titulo('Resumen de caja'))
+  } else {
+    filas.push(renglon('Órdenes del turno', String(c.num_ordenes ?? 0)))
+  }
   filas.push(renglon('Fondo inicial', pesos(c.fondo_inicial)))
   filas.push(renglon('Ventas en efectivo', pesos(c.ventas_efectivo)))
   filas.push(renglon('Efectivo esperado', pesos(c.efectivo_esperado), { fuerte: true }))
