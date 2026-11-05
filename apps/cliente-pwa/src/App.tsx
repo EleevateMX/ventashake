@@ -12,7 +12,8 @@ import { AliadosTab } from './Aliados'
 import { CuentaTab } from './Cuenta'
 import { PersonalTab, PersonalView, EntrarPersonal } from './PersonalView'
 import { VueltaDePago } from './VueltaDePago'
-import { IconoTarjeta, IconoVaso, IconoEtiqueta, IconoPersona, IconoTienda } from './Iconos'
+import { IconoTarjeta, IconoVaso, IconoEtiqueta, IconoPersona, IconoTienda, IconoDescarga } from './Iconos'
+import { alCambiarInstalable, estaInstalada, instalar, sePuedeInstalar } from './lib/instalar'
 import { Boton, tacto } from './ui'
 
 /** Las secciones de la app, como pestañas de abajo. Las mismas que en iOS. */
@@ -75,6 +76,12 @@ function Bienvenida() {
   const [trabajando, setTrabajando] = useState(false)
   const [pidiendoPin, setPidiendoPin] = useState(false)
   const toques = useRef<number[]>([])
+  // Quien llega por shakeaholic.mx/app desde Android aterriza aquí, sin
+  // cuenta todavía: si Chrome ya ofrece instalarla, el botón sale desde ya
+  // y no hasta después de entrar.
+  const [, repintar] = useState(0)
+  useEffect(() => alCambiarInstalable(() => repintar((n) => n + 1)), [])
+  const ofrecerInstalar = sePuedeInstalar() && !estaInstalada()
 
   async function entrar() {
     setTrabajando(true)
@@ -114,6 +121,12 @@ function Bienvenida() {
         <Boton onClick={() => void entrar()} disabled={trabajando} className="!font-body !font-semibold !text-lg !py-4">
           <span className="inline-flex items-center gap-2.5"><span className="font-bold text-xl">G</span>Continuar con Google</span>
         </Boton>
+        {ofrecerInstalar && (
+          <button onClick={() => void instalar()}
+            className="w-full flex items-center justify-center gap-2 rounded-full border border-sa-cream/30 py-3 text-sa-cream font-semibold">
+            <IconoDescarga className="w-5 h-5" />Instalar la app en tu celular
+          </button>
+        )}
         <p className="text-xs text-sa-cream/45 text-center">Tu nombre y tus compras se usan solo para darte tus recompensas.</p>
       </div>
       <EntrarPersonal abierta={pidiendoPin} alCerrar={() => setPidiendoPin(false)} />

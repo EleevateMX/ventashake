@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Shakeaholic Rewards</title>
+<meta name="description" content="Junta mancuernas en cada compra y cámbialas por tus favoritos. App para iPhone y Android.">
+<meta property="og:title" content="Shakeaholic Rewards">
+<meta property="og:description" content="Junta mancuernas en cada compra y cámbialas por tus favoritos.">
+<meta property="og:image" content="https://shakeaholic.mx/logo.png">
+<meta property="og:url" content="https://shakeaholic.mx/app">
+<meta name="theme-color" content="#1A2E26">
+<link rel="icon" href="/logo.png">
+<script>
+/*
+ * Un solo link para la app (05/11/26): shakeaholic.mx/app.
+ *
+ * iPhone/iPad  -> la ficha de la App Store.
+ * Android      -> la app web (PWA), donde Chrome ofrece instalarla.
+ * Computadora  -> esta misma pagina, con los dos botones y un QR.
+ *
+ * Corre en el <head>, antes de pintar: el que va a otro lado no ve un
+ * parpadeo. Si la redireccion no ocurre (navegador raro, ?ver), la pagina
+ * de abajo sirve de respaldo con los dos botones.
+ *
+ * Android dentro de Instagram/Facebook/TikTok NO se redirige: ese navegador
+ * no deja instalar una PWA. Se le ofrece abrirla en Chrome.
+ *
+ * iPadOS se presenta como Mac: se reconoce por la pantalla tactil.
+ */
+(function () {
+  var IOS = 'https://apps.apple.com/mx/app/shakeaholic-rewards/id6819849860';
+  var ANDROID = 'https://rewards.shakeaholic.mx/';
+  var ua = navigator.userAgent || '';
+  var esIOS = /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+  var esAndroid = !esIOS && /Android/i.test(ua);
+  var enOtraApp = /FBAN|FBAV|FB_IAB|Instagram|TikTok|musical_ly|BytedanceWebview|Line\//i.test(ua);
+  var verPagina = /[?&]ver\b/.test(location.search);
+  var html = document.documentElement;
+  html.setAttribute('data-so', esIOS ? 'ios' : esAndroid ? 'android' : 'otro');
+  if (enOtraApp) html.setAttribute('data-en-otra-app', '');
+  if (verPagina) return;
+  if (esIOS) location.replace(IOS);
+  else if (esAndroid && !enOtraApp) location.replace(ANDROID);
+})();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bagel+Fat+One&family=DM+Mono:wght@400;500&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&display=swap">
+<style>
+/* La marca no tiene version oscura. Valores de packages/brand/tokens.css. */
+:root {
+  --verde: #2C4A3E;
+  --verde-hondo: #1A2E26;
+  --tinta: #14241D;
+  --crema: #E8E6CC;
+  --papel: #F6F5EA;
+  --linea: #CFCDB2;
+  --suave: #4D5F57;
+  --menta: #88C0A0;
+  --platano: #F0C649;
+  --display: "Bagel Fat One", "Arial Rounded MT Bold", system-ui, sans-serif;
+  --cuerpo: "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "DM Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  min-height: 100dvh; background: var(--verde-hondo); color: var(--crema);
+  font-family: var(--cuerpo); font-size: 16px; line-height: 1.5;
+  -webkit-text-size-adjust: 100%;
+  display: flex; align-items: center; justify-content: center;
+  padding: max(32px, env(safe-area-inset-top)) 16px max(32px, env(safe-area-inset-bottom));
+}
+main { width: 100%; max-width: 400px; display: grid; gap: 28px; text-align: center; }
+.milo { width: 132px; height: auto; margin: 0 auto; display: block; }
+h1 { font-family: var(--display); font-weight: 400; font-size: 34px; line-height: 1.1; margin: 0; }
+.lema { margin: 8px auto 0; max-width: 300px; color: rgba(232, 230, 204, .75); }
+.botones { display: grid; gap: 12px; }
+.boton {
+  display: flex; align-items: center; gap: 14px; text-align: left;
+  padding: 14px 18px; border-radius: 18px; text-decoration: none;
+  background: transparent; color: var(--crema); border: 1.5px solid rgba(232, 230, 204, .3);
+}
+.boton svg { width: 28px; height: 28px; flex-shrink: 0; }
+.boton b { display: block; font-size: 17px; font-weight: 700; line-height: 1.2; }
+.boton small { display: block; font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; opacity: .65; margin-bottom: 2px; }
+/* El boton del sistema que se detecto va lleno; el otro, delineado. */
+html[data-so="ios"] .boton.ios,
+html[data-so="android"] .boton.android,
+html[data-so="otro"] .boton { background: var(--crema); color: var(--tinta); border-color: var(--crema); }
+html[data-so="android"] .botones .android { order: -1; }
+/* Dentro de Instagram/Facebook el lleno es «Abrir en Chrome»: el resto, delineado. */
+html[data-so="android"][data-en-otra-app] .botones .boton { background: transparent; color: var(--crema); border-color: rgba(232, 230, 204, .3); }
+.chrome { display: none; }
+html[data-so="android"][data-en-otra-app] .chrome { display: grid; gap: 8px; }
+.chrome p { margin: 0; font-size: 14px; color: rgba(232, 230, 204, .75); }
+.qr { display: none; }
+html[data-so="otro"] .qr { display: grid; gap: 10px; justify-items: center; }
+.qr .marco { background: #fff; padding: 14px; border-radius: 18px; width: 172px; height: 172px; }
+.qr p { margin: 0; font-size: 14px; color: rgba(232, 230, 204, .75); }
+.pie { font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: rgba(232, 230, 204, .45); }
+.pie a { color: inherit; }
+</style>
+</head>
+<body>
+<main>
+  <div>
+    <img class="milo" src="/milo-transparent.png" alt="Milo, la mascota de Shakeaholic">
+    <h1>Shakeaholic Rewards</h1>
+    <p class="lema">Junta mancuernas en cada compra y cámbialas por tus favoritos.</p>
+  </div>
+
+  <div class="chrome">
+    <a class="boton android" href="intent://rewards.shakeaholic.mx/#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=https%3A%2F%2Frewards.shakeaholic.mx%2F;end">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>
+      <span><small>Para instalarla</small><b>Abrir en Chrome</b></span>
+    </a>
+    <p>Desde esta app no se puede instalar. En Chrome sí.</p>
+  </div>
+
+  <div class="botones">
+    <a class="boton ios" href="https://apps.apple.com/mx/app/shakeaholic-rewards/id6819849860">
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.37 12.6c.02 2.35 2.06 3.13 2.08 3.14-.02.06-.33 1.12-1.07 2.21-.65.95-1.32 1.89-2.38 1.91-1.04.02-1.38-.62-2.57-.62-1.2 0-1.57.6-2.56.64-1.03.04-1.81-1.02-2.47-1.97-1.34-1.95-2.37-5.5-.99-7.9.68-1.19 1.91-1.95 3.24-1.97 1.01-.02 1.97.68 2.59.68.62 0 1.78-.84 3-.72.51.02 1.94.21 2.86 1.56-.07.05-1.71 1-1.73 3.04zM14.4 6.85c.55-.67.92-1.59.82-2.51-.79.03-1.75.53-2.32 1.19-.51.59-.95 1.53-.83 2.43.88.07 1.78-.45 2.33-1.11z"/></svg>
+      <span><small>iPhone</small><b>Descargar en App Store</b></span>
+    </a>
+    <a class="boton android" href="https://rewards.shakeaholic.mx/">
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.6 9.48l1.84-3.18a.38.38 0 0 0-.66-.38l-1.86 3.22a11.4 11.4 0 0 0-9.84 0L5.22 5.92a.38.38 0 0 0-.66.38L6.4 9.48A10.8 10.8 0 0 0 1 18h22a10.8 10.8 0 0 0-5.4-8.52zM7 15.25a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5zm10 0a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5z"/></svg>
+      <span><small>Android</small><b>Abrir la app e instalarla</b></span>
+    </a>
+  </div>
+
+  <div class="qr">
+    <div class="marco">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 25 25" shape-rendering="crispEdges" role="img" aria-label="Código QR de shakeaholic.mx/app"><path stroke="#14241D" d="M0 0.5h7m3 0h1m1 0h2m2 0h1m1 0h7M0 1.5h1m5 0h1m3 0h3m2 0h1m2 0h1m5 0h1M0 2.5h1m1 0h3m1 0h1m1 0h3m3 0h3m1 0h1m1 0h3m1 0h1M0 3.5h1m1 0h3m1 0h1m1 0h3m1 0h3m3 0h1m1 0h3m1 0h1M0 4.5h1m1 0h3m1 0h1m1 0h3m5 0h1m1 0h1m1 0h3m1 0h1M0 5.5h1m5 0h1m1 0h2m1 0h3m1 0h2m1 0h1m5 0h1M0 6.5h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7M8 7.5h3m1 0h1m1 0h1m1 0h1M0 8.5h1m1 0h5m3 0h4m4 0h5M1 9.5h2m4 0h1m2 0h1m1 0h2m2 0h1m2 0h1m3 0h1M1 10.5h2m1 0h1m1 0h1m1 0h2m2 0h4m3 0h3m1 0h2M2 11.5h2m7 0h2m2 0h1m2 0h1m5 0h1M0 12.5h4m1 0h3m1 0h6m2 0h4m1 0h3M0 13.5h4m1 0h1m2 0h3m1 0h2m2 0h1m2 0h1m1 0h1m1 0h1M0 14.5h1m2 0h4m1 0h1m1 0h1m1 0h1m1 0h3m1 0h4m1 0h2M0 15.5h1m3 0h2m1 0h1m2 0h1m1 0h1m1 0h2m1 0h4m3 0h1M0 16.5h1m1 0h1m1 0h1m1 0h1m1 0h1m4 0h8m1 0h1M8 17.5h1m1 0h2m1 0h4m3 0h2M0 18.5h7m3 0h1m1 0h1m3 0h1m1 0h1m1 0h1m1 0h3M0 19.5h1m5 0h1m1 0h1m1 0h1m1 0h1m3 0h1m3 0h2M0 20.5h1m1 0h3m1 0h1m1 0h2m3 0h1m1 0h6m1 0h1M0 21.5h1m1 0h3m1 0h1m1 0h2m1 0h1m1 0h1m3 0h2m1 0h5M0 22.5h1m1 0h3m1 0h1m1 0h2m3 0h2m6 0h2m1 0h1M0 23.5h1m5 0h1m2 0h1m2 0h1m1 0h3m2 0h3m2 0h1M0 24.5h7m1 0h3m1 0h3m2 0h1m1 0h6"/></svg>
+    </div>
+    <p>Escanéalo con la cámara de tu celular.</p>
+  </div>
+
+  <p class="pie"><a href="https://shakeaholic.mx">shakeaholic.mx</a></p>
+</main>
+</body>
+</html>

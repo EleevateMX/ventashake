@@ -10,6 +10,13 @@ const URL_REWARDS =
     // Si la variable en Cloudflare aún trae la URL vieja, se traduce sola.
     .replace('shake-cliente-pwa.pages.dev', 'rewards.shakeaholic.mx')
 
+/**
+ * El QR y el botón de «Únete» van al link único (public/app/index.html):
+ * desde un iPhone abre la App Store, desde Android la app web. El QR de la
+ * carta lo escanea un celular, así que tiene que servirle a los dos.
+ */
+const URL_APP = 'https://shakeaholic.mx/app'
+
 const WHATSAPP = 'https://wa.me/529995044797'
 
 /**
@@ -45,7 +52,7 @@ export default function App() {
     // consulta falla, la página sigue viéndose — la carta es un plus, no el
     // motivo por el que alguien entra.
     listarProductosParaVenta(sb).then(setProductos).catch(() => setProductos([]))
-    QRCode.toDataURL(URL_REWARDS, {
+    QRCode.toDataURL(URL_APP, {
       width: 320, margin: 2, color: { dark: '#14241D', light: '#FFFFFF' },
     }).then(setQr).catch(() => setQr(''))
   }, [])
@@ -209,7 +216,7 @@ export default function App() {
         </div>
         <div className="qr-card">
           {qr && <img src={qr} alt="Código QR para entrar a Shakeaholic Rewards" />}
-          <a className="btn" href={URL_REWARDS}>Únete a Rewards</a>
+          <a className="btn" href={URL_APP}>Únete a Rewards</a>
         </div>
       </section>
 

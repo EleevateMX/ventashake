@@ -1605,6 +1605,7 @@ empaquetador y se desvían solas:
 | Cambiar lo que dice el ticket de caja o el Milo de arriba | Admin → **Ticket de caja**. «+ Subir otro Milo» (PNG con fondo transparente), ajusta ancho y «qué tan oscuro», guarda. Sale en el siguiente ticket |
 | El cliente pide su ticket impreso, o lo quiere otra vez | Kiosko → en ¡Listo! **«🧾 Imprimir ticket»**; después, Historial de pedidos → el pedido → «🧾 Imprimir ticket» |
 | Qué transmite cada TV, o cambiarle el contenido | Admin → **Pantallas (TV)** → en la TV, «Le toca»: Promos, Menú, Pedidos o Nada. Las imágenes de promos y menú se suben ahí mismo, con fechas si son de temporada |
+| Dar un solo link para bajar la app (redes, WhatsApp, ticket) | **`shakeaholic.mx/app`**: iPhone → App Store, Android → la app web con «Instalar», computadora → los dos botones y un QR. Dentro de Instagram/Facebook en Android ofrece «Abrir en Chrome» (ahí no se puede instalar). `?ver` enseña la página sin redirigir. Vive en `apps/web/public/app/index.html`. Para que el ticket imprima UN solo QR: Admin → Ticket de caja → pon `https://shakeaholic.mx/app` en los dos enlaces |
 | Ver qué ventas están apartadas, a distancia | Admin → **En vivo**, arriba del todo. Toca una para ver qué lleva, de qué hora es el ticket y a qué hora entró cada producto |
 
 ---
