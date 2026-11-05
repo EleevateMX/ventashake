@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
-import { mancuernasPorCompra } from '@shake/utils'
+import { mancuernasPorCompra, montoQueNoSuma } from '@shake/utils'
+import { useReglasMancuernas } from '@/lib/reglasMancuernas'
 import { useNavigate } from 'react-router-dom'
 import { listarAlmacenes } from '@shake/supabase'
 import type { ModoPagoKiosko } from '@shake/types'
@@ -14,6 +15,7 @@ export function Carrito() {
   const navigate = useNavigate()
   const { items, incrementar, decrementar, extrasDe, total, totalItems, usuario, setUsuario } =
     useCarrito()
+  const reglas = useReglasMancuernas()
   // Los extras se pintan DEBAJO de su producto, no como líneas sueltas: es la
   // misma agrupación que sale en la comanda, así que lo que ve el cajero es
   // lo que va a ver quien prepara.
@@ -182,7 +184,7 @@ export function Carrito() {
               <div className="flex-1 min-w-0">
                 <p className="font-display text-xl leading-tight truncate">{usuario.nombre}</p>
                 <p className="font-mono text-[11px] uppercase tracking-wide text-sa-banana">
-                  {usuario.mancuernas ?? 0} mancuernas · suma {mancuernasPorCompra(total())} con esta compra
+                  {usuario.mancuernas ?? 0} mancuernas · suma {mancuernasPorCompra(total(), reglas, montoQueNoSuma(items, reglas))} con esta compra
                 </p>
               </div>
               <button

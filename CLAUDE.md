@@ -971,9 +971,22 @@ previa. `aviso_desde = 0` apaga el guiño.
 
 Y en el mismo lugar está **"Cómo está armado"**: todos los parámetros del
 programa con la columna *dónde vive cada uno*, porque no se tocan igual —
-la tasa de canje es una función, los sellos son una tabla editable, y lo
-que se gana por peso vive **dentro del trigger que corre en cada cobro** y
-por eso no tiene botón.
+la tasa de canje es una función y los sellos son una tabla editable.
+
+**Lo que se gana ya se edita, y se elige qué no suma** (05/11,
+`rewards_ganancia_editable.sql`). Admin → Rewards → *Cómo se ganan las
+mancuernas*: pesos por mancuerna, tope por ticket e interruptor
+(`rewards_ganancia`, una fila, nació en 14/100/prendido) y *Lo que no
+suma* por categoría o producto (`rewards_no_acumulan`, nació vacía: todo
+suma como antes). Los extras siguen a su producto. `fn_acumular_mancuernas`
+las lee en cada cobro (base = total − recargas − lo que no suma) y ahora va
+**dentro de un bloque que se traga errores**: un cliente sin puntos es mejor
+que una caja que no cobra. Kiosko y POS prometen lo mismo con
+`fn_rewards_reglas` (pública) + `mancuernasPorCompra(total, reglas, noSuma)`
+y `montoQueNoSuma` en `@shake/utils`, con caché en el navegador
+(`lib/reglasMancuernas.ts`). Probado cobrando con rollback: 9 / 3 / 0 / 5 /
+0. El panel decía $10 desde el 17/10 con el servidor dando $14: ahora lee la
+tabla. Fijos todavía: tasa de canje (10 = $1) y cupón cada 100.
 
 ### 2.8 El reloj checador se checa en la barra, y nada se borra
 
@@ -1598,7 +1611,7 @@ empaquetador y se desvían solas:
 | Dar una cortesía (sale en $0 y baja inventario) | Kiosko → cobro → **🎁 Cortesía** → motivo → PIN de quien pueda (hoy Perla y Adrián). Quién puede y cuáles se dieron: Admin → Personal → **Permisos** → *Cortesías* |
 | Cupón de descuento ($20, 10 %, 15 % en un shake) | Kiosko → cobro → **🎟 Cupón** → cuál → a qué shake → PIN de quien pueda (la misma lista de cortesías). Se cobra normal con el total ya bajado. Crear o apagar cupones y ver los dados: Admin → Personal → **Permisos** → *Cupones* |
 | Prepararon salsa chipotle (u otro preparado) | Kiosko → **"Caja y turno"** → PIN → **«¿Preparaste algo?»** → lotes y cuántos salieron. Saca los ingredientes de la receta de Costeos y suma lo preparado. Qué receta produce qué: Admin → Inventario → **Producción** |
-| Que el cliente sume mancuernas | En la pantalla de cobro sale sola la franja **«🏋️ ¿Suma mancuernas?»**: el cliente escanea su QR y queda ligado sin tocar nada (el kiosko escucha al lector mientras la franja está a la vista). «Teléfono» para buscarlo por número; «No» la esconde en esa venta. Suma 1 por cada $14 |
+| Que el cliente sume mancuernas | En la pantalla de cobro sale sola la franja **«🏋️ ¿Suma mancuernas?»**: el cliente escanea su QR y queda ligado sin tocar nada (el kiosko escucha al lector mientras la franja está a la vista). «Teléfono» para buscarlo por número; «No» la esconde en esa venta. Suma 1 por cada $14 (se cambia en Admin → Rewards) |
 | Conectar un lector de QR para Rewards | 2D de escritorio que lea pantallas, USB en modo teclado. Pruébalo en el Bloc de notas: debe salir `SHK-…` y saltar de renglón. El kiosko ya acepta el código aunque el guion llegue como otro signo |
 | Buscar en «Abrir un bote» o «¿Llegó mercancía?» | Toca el buscador: sale el teclado en pantalla (letras y números, sin acentos) |
 | Ver la caja en vivo (qué tiene la pantalla, qué se cobró, qué se quitó) | Admin → **Caja en vivo**, también desde el teléfono. «Para revisar» junta lo que se quitó del carrito, los carritos vaciados, lo que no se cobró, cancelaciones y cortesías |
@@ -1606,6 +1619,7 @@ empaquetador y se desvían solas:
 | El cliente pide su ticket impreso, o lo quiere otra vez | Kiosko → en ¡Listo! **«🧾 Imprimir ticket»**; después, Historial de pedidos → el pedido → «🧾 Imprimir ticket» |
 | Qué transmite cada TV, o cambiarle el contenido | Admin → **Pantallas (TV)** → en la TV, «Le toca»: Promos, Menú, Pedidos o Nada. Las imágenes de promos y menú se suben ahí mismo, con fechas si son de temporada |
 | Dar un solo link para bajar la app (redes, WhatsApp, ticket) | **`shakeaholic.mx/app`**: iPhone → App Store, Android → la app web con «Instalar», computadora → los dos botones y un QR. Dentro de Instagram/Facebook en Android ofrece «Abrir en Chrome» (ahí no se puede instalar). `?ver` enseña la página sin redirigir. Vive en `apps/web/public/app/index.html`. Para que el ticket imprima UN solo QR: Admin → Ticket de caja → pon `https://shakeaholic.mx/app` en los dos enlaces |
+| Cambiar cuánto se gana, apagar Rewards o sacar productos que no suman mancuernas | Admin → **Rewards** → *Cómo se ganan las mancuernas*: pesos por mancuerna, tope por ticket, interruptor, y *Lo que no suma* por categoría o por producto. Aplica desde la siguiente venta; lo ya ganado no cambia |
 | Ver qué ventas están apartadas, a distancia | Admin → **En vivo**, arriba del todo. Toca una para ver qué lleva, de qué hora es el ticket y a qué hora entró cada producto |
 
 ---

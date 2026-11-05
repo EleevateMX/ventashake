@@ -7,6 +7,7 @@ import { mensajeDeError, mxn } from '@shake/utils'
 import { sb } from '../lib/sb'
 import { PageHeader, Loading, ErrorMsg, cx } from '../ui'
 import { PedidosPorLaApp } from '../components/PedidosPorLaApp'
+import { GananciaMancuernas } from '../components/GananciaMancuernas'
 
 /**
  * Rewards visto desde gerencia.
@@ -68,6 +69,7 @@ export default function Rewards() {
             />
           </div>
 
+          {pm && <GananciaMancuernas pm={pm} alGuardar={() => void cargar()} />}
           {pm && <ComoEstaArmado pm={pm} />}
           {pm && <TarjetasDeSellos pm={pm} alGuardar={() => void cargar()} />}
 
@@ -310,7 +312,7 @@ function ComoEstaArmado({ pm }: { pm: RewardsParametros }) {
             </tr>
             <tr>
               <td className="py-2">Se gana</td>
-              <td className="font-mono text-xs">1 por cada {mxn(pm.ganancia.pesos_por_mancuerna)}</td>
+              <td className="font-mono text-xs">{pm.ganancia.activo === false ? 'Apagado' : `1 por cada ${mxn(pm.ganancia.pesos_por_mancuerna)}`}</td>
               <td className="text-sa-green-ink/70">
                 O sea, {(100 / pm.ganancia.pesos_por_mancuerna / pm.canje.mancuernas_por_peso).toFixed(1)}% de vuelta
               </td>
@@ -335,9 +337,8 @@ function ComoEstaArmado({ pm }: { pm: RewardsParametros }) {
       </div>
 
       <p className="text-[11px] text-sa-green-ink/50 mt-3 leading-relaxed">
-        Lo que se <b>gana</b> por peso y el tope no se editan desde aquí: viven dentro del
-        trigger que corre en cada cobro. Cambiarlos es tocar el camino del dinero y se hace
-        con una migración, no con un botón.
+        Lo que se <b>gana</b> por peso, el tope y lo que no suma se cambian arriba, en
+        «Cómo se ganan las mancuernas». La tasa de canje y el cupón cada 100 siguen fijos.
       </p>
 
       {pm.paquetes.length > 0 && (

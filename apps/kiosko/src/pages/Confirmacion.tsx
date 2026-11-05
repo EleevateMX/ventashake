@@ -2,7 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import QRCode from 'qrcode'
 import { cerrarSesion } from '@shake/supabase'
-import { mancuernasPorCompra } from '@shake/utils'
+import { mancuernasPorCompra, montoQueNoSuma } from '@shake/utils'
+import { useReglasMancuernas } from '@/lib/reglasMancuernas'
 import { sb } from '@/lib/sb'
 import { QrRewards } from '@/components/QrRewards'
 import { HistorialPedidos } from '@/components/HistorialPedidos'
@@ -53,7 +54,10 @@ export function Confirmacion() {
   // Mismo cálculo que hace el servidor al cobrar (fn_acumular_mancuernas),
   // escrito una sola vez en @shake/utils: si aquí se queda viejo, la pantalla
   // promete mancuernas que no se abonan.
-  const puntosGanados = usuario?.clienteId ? mancuernasPorCompra(totalOrden) : 0
+  const reglas = useReglasMancuernas()
+  const puntosGanados = usuario?.clienteId
+    ? mancuernasPorCompra(totalOrden, reglas, montoQueNoSuma(state.items ?? [], reglas))
+    : 0
   const esDemo        = state.demo ?? false
   const sinInternet   = state.sinInternet ?? false
   const comandaNoSalio = state.comandaNoSalio ?? []

@@ -6,7 +6,8 @@ import {
   crearOrden, cobrarOrden, cobrarOrdenDividido, canjearCupon, registrarAplicacionPromo,
 } from '@shake/supabase'
 import { imprimirTicket, type TicketData } from '@shake/ui'
-import { mxn, mensajeDeError, mancuernasPorCompra } from '@shake/utils'
+import { mxn, mensajeDeError, mancuernasPorCompra, montoQueNoSuma } from '@shake/utils'
+import { useReglasMancuernas } from '@/lib/reglasMancuernas'
 import type { MetodoPago } from '@shake/types'
 import {
   PagoDividido, DIVISION_INICIAL, partesDeDivision, type Division,
@@ -38,6 +39,8 @@ export function Cobro() {
   /** "Me das $100 en efectivo y el resto con tarjeta" (petición del 29/08/26). */
   const [dividido, setDividido] = useState(false)
   const [division, setDivision] = useState<Division>(DIVISION_INICIAL)
+  // Las reglas de Admin → Rewards: lo que se promete es lo que abona el servidor.
+  const reglas = useReglasMancuernas()
 
   // Guarda: sin corte o sin ítems no hay nada que cobrar.
   if (!corte || !almacen || items.length === 0) {
@@ -46,6 +49,11 @@ export function Cobro() {
   }
 
   const totalNeto = neto()
+  const noSuma = montoQueNoSuma(items.map((l) => ({
+    linea: l.lineaId, producto_id: l.producto.id, precio: l.producto.precio,
+    cantidad: l.cantidad, padreLinea: l.padreLinea,
+  })), reglas)
+  const ganaria = mancuernasPorCompra(totalNeto, reglas, noSuma)
   const metodoSel = METODOS.find((m) => m.key === metodo)!
   const recibidoNum = parseFloat(recibido) || 0
   const cambio = recibidoNum - totalNeto
@@ -109,7 +117,7 @@ export function Cobro() {
         })
       }
 
-      const gana = cliente ? mancuernasPorCompra(totalNeto) : 0
+      const gana = cliente ? ganaria : 0
       const ticket: TicketData = {
         folio: orden.folio,
         fecha: new Date(),
@@ -278,7 +286,7 @@ export function Cobro() {
           {cliente && (
             <div className="bg-sa-green/10 border border-sa-green/30 rounded-sa px-4 py-2.5 mb-4">
               <p className="font-mono text-xs text-sa-green-ink leading-tight">
-                🏋️ {cliente.nombre} ganará ~{mancuernasPorCompra(totalNeto)} mancuernas con esta compra
+                🏋️ {cliente.nombre} ganará ~{ganaria} mancuernas con esta compra
               </p>
             </div>
           )}

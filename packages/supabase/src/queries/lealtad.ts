@@ -1,6 +1,6 @@
 import type { Cliente, Cupon } from '@shake/types'
 import type { ShakeClient } from '../client'
-import { normalizarCodigoEscaneado } from '@shake/utils'
+import { normalizarCodigoEscaneado, type ReglasMancuernas } from '@shake/utils'
 
 // rpc no está en los tipos generados; se castea el nombre (mismo patrón que ordenes.ts).
 type RpcFn = (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>
@@ -591,6 +591,8 @@ export interface RewardsParametros {
   ganancia: {
     pesos_por_mancuerna: number
     tope_por_orden: number
+    /** Si está apagado, ninguna compra suma. */
+    activo?: boolean
     donde: string
     editable_aqui: boolean
   }
@@ -631,6 +633,45 @@ export interface RewardsParametros {
     precio: number
     activo: boolean
   }[]
+}
+
+/**
+ * Lo que el kiosko y la caja necesitan para prometer las mismas mancuernas
+ * que abona el servidor (05/11/26). Pública: no es secreto cuánto se gana.
+ */
+export async function reglasMancuernas(sb: ShakeClient): Promise<ReglasMancuernas> {
+  return rpc<ReglasMancuernas>(sb, 'fn_rewards_reglas', {})
+}
+
+/** Cuánto se gana: pesos por mancuerna, tope por ticket, prendido. Solo gerencia. */
+export async function guardarGananciaRewards(
+  sb: ShakeClient,
+  g: { pesos_por_mancuerna: number; tope_por_orden: number; activo: boolean },
+): Promise<ReglasMancuernas> {
+  return rpc<ReglasMancuernas>(sb, 'fn_rewards_ganancia_guardar', {
+    p_pesos: g.pesos_por_mancuerna, p_tope: g.tope_por_orden, p_activo: g.activo,
+  })
+}
+
+/** Lo que gerencia sacó de Rewards, con nombres. */
+export interface NoAcumulan {
+  categorias: { categoria_id: string; nombre: string; productos: number; desde: string }[]
+  productos: { producto_id: string; nombre: string; precio: number; categoria: string | null; activo: boolean; desde: string }[]
+}
+
+export async function listarNoAcumulan(sb: ShakeClient): Promise<NoAcumulan> {
+  return rpc<NoAcumulan>(sb, 'fn_rewards_no_acumulan_admin', {})
+}
+
+/** Una categoría o un producto deja de sumar (`suma = false`) o vuelve a sumar. */
+export async function ponerSumaMancuernas(
+  sb: ShakeClient,
+  cual: { categoria_id?: string; producto_id?: string },
+  suma: boolean,
+): Promise<NoAcumulan> {
+  return rpc<NoAcumulan>(sb, 'fn_rewards_no_acumula', {
+    p_categoria: cual.categoria_id ?? null, p_producto: cual.producto_id ?? null, p_suma: suma,
+  })
 }
 
 export async function rewardsParametros(sb: ShakeClient): Promise<RewardsParametros> {

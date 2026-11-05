@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { iniciarSesionGoogle } from '@shake/supabase'
 import { useCarrito } from '@/store/carritoStore'
 import { sb } from '@/lib/sb'
-import { mensajeDeError } from '@shake/utils'
+import { mensajeDeError, mxn } from '@shake/utils'
+import { useReglasMancuernas } from '@/lib/reglasMancuernas'
 
 const GoogleIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24">
@@ -17,6 +18,7 @@ const GoogleIcon = () => (
 export function LoginLealtad() {
   const navigate = useNavigate()
   const { items, total, usuario } = useCarrito()
+  const reglas = useReglasMancuernas()
   const [cargando, setCargando] = useState(false)
   const [error, setError] = useState('')
 
@@ -92,7 +94,7 @@ export function LoginLealtad() {
                 Gana mancuernas con tu compra
               </h2>
               <p className="font-body text-sa-green-ink/60 mt-3 text-lg">
-                1 mancuerna por cada $10 de compra. Al juntar 100 se te genera
+                1 mancuerna por cada {mxn(reglas.pesos_por_mancuerna).replace(/\.00$/, '')} de compra. Al juntar 100 se te genera
                 un cupón de recompensa solo.
               </p>
             </div>

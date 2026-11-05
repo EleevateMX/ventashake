@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { identificarCliente, type ClienteConLealtad } from '@shake/supabase'
-import { esCodigoCliente, mancuernasPorCompra, mensajeDeError, normalizarCodigoEscaneado } from '@shake/utils'
+import { esCodigoCliente, mancuernasPorCompra, mensajeDeError, montoQueNoSuma, normalizarCodigoEscaneado } from '@shake/utils'
 import { sb } from '@/lib/sb'
 import { ModalCliente } from '@/components/ModalCliente'
+import { useCarrito } from '@/store/carritoStore'
+import { useReglasMancuernas } from '@/lib/reglasMancuernas'
 
 /**
  * «¿Suma mancuernas?» antes de cobrar (29/10/26, pedido de gerencia).
@@ -39,8 +41,10 @@ export function PreguntaRewards({
   const [buscando, setBuscando] = useState(false)
   const [aviso, setAviso] = useState<string | null>(null)
   const buffer = useRef({ texto: '', ultima: 0 })
-  const suma = mancuernasPorCompra(total)
-  const escuchando = !cliente && !cerrada && !modal
+  const reglas = useReglasMancuernas()
+  const items = useCarrito((s) => s.items)
+  const suma = mancuernasPorCompra(total, reglas, montoQueNoSuma(items, reglas))
+  const escuchando = !cliente && !cerrada && !modal && reglas.activo
 
   useEffect(() => {
     if (!escuchando) return
@@ -94,7 +98,8 @@ export function PreguntaRewards({
     )
   }
 
-  if (cerrada) return null
+  // Con Rewards apagado en Admin, nadie suma: no se pregunta.
+  if (cerrada || !reglas.activo) return null
 
   return (
     <>
