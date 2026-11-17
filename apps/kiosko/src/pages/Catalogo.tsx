@@ -11,6 +11,7 @@ import type { ProductoVenta, ExtraDeProducto, ObservacionVigente } from '@shake/
 import { observacionesDeProducto } from '@shake/utils'
 import { sb } from '@/lib/sb'
 import { conRespaldo, guardarRespaldo } from '@/lib/respaldo'
+import { BotonPedidosApp } from '@/components/PedidosAppCaja'
 import { ModalExtras } from '@/components/ModalExtras'
 import { CorteMilo } from '@/components/CorteMilo'
 import { HistorialPedidos } from '@/components/HistorialPedidos'
@@ -438,6 +439,7 @@ export function Catalogo({
                     Checar
                   </button>
                 )}
+                {cajero && <BotonPedidosApp />}
                 {/* Solo aparece si hay algo apartado: un boton que casi
                     siempre dice "0" es un boton que se deja de mirar. */}
                 {enEspera > 0 && (

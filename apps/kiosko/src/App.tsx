@@ -12,6 +12,8 @@ import { conRespaldo } from './lib/respaldo'
 import { contextoDePago } from './lib/contextoPago'
 import { useConexion, vigilarConexion } from './lib/conexion'
 import { AvisoSinInternet } from './components/AvisoSinInternet'
+import { AvisoPedidoApp, PanelPedidosApp } from './components/PedidosAppCaja'
+import { arrancarVigiaPedidosApp } from './store/pedidosApp'
 import { Catalogo } from './pages/Catalogo'
 import { Carrito } from './pages/Carrito'
 import { LoginLealtad } from './pages/LoginLealtad'
@@ -147,6 +149,14 @@ export default function App() {
     return () => { colgar() }
   }, [esVistaCelular])
 
+  // Pedidos de la app: la caja pregunta cada 15 s y anuncia los nuevos
+  // sobre cualquier pantalla (CLAUDE.md 2.7). Solo en modo cajero.
+  const vigilaPedidosApp = modo === 'cajero' && !!cajero && !esVistaCelular
+  useEffect(() => {
+    if (!vigilaPedidosApp) return
+    return arrancarVigiaPedidosApp()
+  }, [vigilaPedidosApp])
+
   if (modo === 'cajero' && !cajero && !esVistaCelular) {
     return <CandadoCajero onEntrar={(e) => setCajero({ id: e.id, nombre: e.nombre, rol: e.rol })} />
   }
@@ -160,6 +170,8 @@ export default function App() {
       }
     >
       {!esVistaCelular && <AvisoSinInternet />}
+      {vigilaPedidosApp && <AvisoPedidoApp />}
+      {vigilaPedidosApp && <PanelPedidosApp />}
       <Routes>
         <Route path="/" element={<Navigate to="/catalogo" replace />} />
         <Route

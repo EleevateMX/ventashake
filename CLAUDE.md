@@ -2133,6 +2133,21 @@ PWA. No tiene reglas propias: llama a las mismas funciones
   cambiara un nombre, nunca aprueba a ciegas: el pedido se queda «sin
   pagar» y la respuesta cruda queda en `pedidos_app_checkout.respuesta`. El botón de WhatsApp
   del menú es otro interruptor de la misma pantalla.
+- **Los pedidos de la app se ven y se entregan en la caja** (17/11,
+  `pedidos_app_en_la_caja.sql`). Un pedido de puro mostrador (una barra
+  Think!) no tiene comanda —a propósito: lo de mostrador no imprime
+  etiqueta— y se quedaba «Pagado · por preparar» para siempre. Ahora el
+  kiosko pregunta cada 15 s (`fn_kiosko_pedidos_app`, abierta a anon, sin
+  teléfono), **suena y lo anuncia encima de cualquier pantalla**, pone el
+  chip «N pedidos de la app» y abre un panel con todo el pedido: lo de
+  barra/cocina con su estado y **lo de mostrador en amarillo** («tómalo
+  tú»). «Marcar como entregado» (`fn_kiosko_pedido_app_entregar`) escribe en
+  `pedidos_app_entregas` y mueve lo `listo` a `entregado`; exige que barra y
+  cocina estén listas. `fn_pedido_app_estado` mira esa tabla primero, así
+  que Admin → En vivo y la app del cliente se enteran solos. El botón de
+  Admin ya sale para los de mostrador (`puede_entregar`). Vistos en
+  `localStorage` (`shake_pedidos_app_vistos_v1`): una pantalla nueva no
+  anuncia los viejos; una que se recargó sí anuncia lo que llegó en medio.
 - **Modo vitrina** (solo DEBUG): `xcrun simctl launch booted
   mx.shakeaholic.rewards -vitrina` pinta a Alejandro con 763 mancuernas
   para capturas; el menú sí es el real. En la versión de la tienda no

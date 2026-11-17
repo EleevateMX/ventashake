@@ -3,7 +3,7 @@ import { sb } from '../lib/sb'
 import {
   panelEnVivo, esperaEnVivo, pedirRecargaPantallas, pedirRetomarEspera,
   pedidosAppEnVivo, marcarPedidoAppEntregado, ETIQUETA_PEDIDO_APP,
-  type PanelEnVivo, type EsperaEnVivo, type PedidoApp,
+  type PanelEnVivo, type EsperaEnVivo, type PedidoAppCaja,
 } from '@shake/supabase'
 import { mxn, mensajeDeError, hace } from '@shake/utils'
 import { PageHeader, Loading, ErrorMsg, cx } from '../ui'
@@ -79,7 +79,7 @@ export default function EnVivo() {
    * y son justo lo contrario: lo que todavía no entró.
    */
   const [espera, setEspera] = useState<EsperaEnVivo[]>([])
-  const [pedidosApp, setPedidosApp] = useState<PedidoApp[]>([])
+  const [pedidosApp, setPedidosApp] = useState<PedidoAppCaja[]>([])
   /** Cuál apartada está abierta. Una a la vez: es una lista, no un menú. */
   const [esperaAbierta, setEsperaAbierta] = useState<string | null>(null)
   const [pidiendoDetalle, setPidiendoDetalle] = useState(false)
@@ -274,14 +274,24 @@ export default function EnVivo() {
                     {p.preparar_a && <span className={`ml-2 font-mono text-[11px] ${cx.muted}`}>para las {p.preparar_a}</span>}
                   </p>
                   <p className="text-xs text-sa-green-ink/60 truncate">{p.items ?? '—'}{p.nota ? ` · «${p.nota}»` : ''}</p>
+                  {/* Lo de mostrador no tiene comanda: se dice aparte para que
+                      nadie entregue el pedido sin la barra o la lata. */}
+                  {p.renglones?.some((r) => r.mostrador) && p.estado !== 'entregado' && (
+                    <p className="text-xs text-sa-coffee truncate">
+                      📦 Mostrador: {p.renglones.filter((r) => r.mostrador).map((r) => `${r.cantidad}× ${r.nombre}`).join(', ')}
+                    </p>
+                  )}
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <span className={`font-mono text-[11px] uppercase tracking-wide px-2 py-1 rounded-full ${
                     p.estado === 'listo' ? 'bg-sa-banana text-sa-green-ink' : p.estado === 'entregado' ? 'bg-sa-green-ink/10 text-sa-green-ink/60' : 'bg-white text-sa-green-ink/70'
                   }`}>{ETIQUETA_PEDIDO_APP[p.estado]}</span>
-                  {p.estado === 'listo' && (
+                  {/* Antes solo con «listo»: un pedido de puro mostrador no
+                      tiene comanda que se ponga lista y se quedaba «por
+                      preparar» para siempre. */}
+                  {p.pagado && p.estado !== 'entregado' && p.puede_entregar && (
                     <button className="font-mono text-[11px] uppercase tracking-wide px-3 py-1.5 rounded-full bg-sa-green text-sa-cream"
-                      onClick={() => { void marcarPedidoAppEntregado(sb, p.id).then(() => pedidosAppEnVivo(sb)).then(setPedidosApp).catch(() => {}) }}>
+                      onClick={() => { void marcarPedidoAppEntregado(sb, p.id).then(() => pedidosAppEnVivo(sb)).then(setPedidosApp).catch((e) => alert(mensajeDeError(e))) }}>
                       Entregado
                     </button>
                   )}
