@@ -488,7 +488,8 @@ en el kiosko aparece al instante en barra, cocina, TV y Admin.
 
 - Devoluciones parciales: cancelar es la única devolución.
 - Varias sucursales en la misma base.
-- Facturación electrónica (CFDI).
+- Facturación electrónica (CFDI). Existe la columna `ventas.cfdi_solicitado`,
+  pero ninguna pantalla la usa.
 - Avisos por WhatsApp/Telegram del checador.
 - Cupones de cliente con código de canje dinámico (solo mancuernas y sellos).
 - App de Android en Google Play (hoy es app web instalable).
