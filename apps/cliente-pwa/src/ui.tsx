@@ -1,5 +1,6 @@
 import milo from '@shake/brand/milo.png'
 import { useEffect, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 
 /**
  * Las piezas de interfaz que comparten todas las pantallas: la hoja crema,
@@ -86,7 +87,12 @@ export function Sheet({ abierta, alCerrar, children, alta = false }: { abierta: 
   }, [abierta, alCerrar])
 
   if (!abierta) return null
-  return (
+  // A document.body: una hoja abierta desde otra hoja (Lo quiero dentro del
+  // producto) quedaba DENTRO de la de abajo, cuya animación de subida usa
+  // transform — y un `fixed` dentro de algo con transform se acomoda contra
+  // ese algo, no contra la pantalla: la hoja de pedido salía corrida y
+  // scrolleaba con la del producto.
+  return createPortal(
     <div className="fixed inset-0 z-40 flex items-end justify-center" role="dialog" aria-modal="true">
       <button className="absolute inset-0 bg-sa-green-ink/70 sa-aparece" onClick={alCerrar} aria-label="Cerrar" />
       <div className={`relative w-full max-w-lg bg-sa-green-deep rounded-t-[28px] shadow-sa sa-sube overflow-y-auto overscroll-contain ${alta ? 'h-[94dvh]' : 'max-h-[88dvh]'}`}>
@@ -95,7 +101,8 @@ export function Sheet({ abierta, alCerrar, children, alta = false }: { abierta: 
         </div>
         <div className="px-5 pb-[calc(1.5rem+env(safe-area-inset-bottom))]">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 

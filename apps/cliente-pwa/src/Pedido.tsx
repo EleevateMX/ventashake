@@ -1,7 +1,11 @@
 import milo from '@shake/brand/milo.png'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { ProductoVenta } from '@shake/supabase'
-import { mxn } from '@shake/utils'
+import {
+  mxn, esBase, esProteina, esDobleScoop, esDobleProteina, esGalletaPromo, carneDeDoble,
+  ordenarBases, baseDeCasa, opcionDeGrupo, grupoEsOpcional, gruposDeExtras, extraDisponible,
+  notaDeBase, baseCobrada, dobleScoopDe, marcaYSabor, marcasOrdenadas, proteinaDeCasa,
+} from '@shake/utils'
 import { useEstado, nombreVisible, type ExtraProducto } from './Estado'
 import { amable } from './lib/rpc'
 import { crearPedido, enlaceDePago, abrirPago, esperarPago, type LineaPedido, type PedidoCreado } from './lib/pedidos'
@@ -10,10 +14,30 @@ import { Hoja, Boton, Sheet, claseInput, tacto } from './ui'
 type Fase = 'armando' | 'creando' | 'pagando' | 'listo'
 
 /** La hoja «Lo quiero»: cantidad, con qué va, nota, y pedir y pagar. */
-export function PedidoSheet({ producto, extras, alCerrar }: { producto: ProductoVenta; extras: ExtraProducto[]; alCerrar: () => void }) {
+/** Un extra ya limpio: precio numérico y estrella como booleano. */
+type Opcion = Omit<ExtraProducto, 'precio' | 'por_defecto'> & { precio: number; por_defecto: boolean }
+
+/**
+ * La hoja «Lo quiero»: cantidad, con qué va, nota, y pedir y pagar.
+ *
+ * Las opciones van por secciones, como en el kiosko (17/11/26, Perla: «la
+ * personalización de El Clásico sale mezclada»): proteína (marca y sabor),
+ * base, proteína adicional, los grupos de Admin, galletas y extras sueltos.
+ * Qué cae en cada sección, qué sale elegido solo y qué viaja como nota lo
+ * deciden las MISMAS reglas que el kiosko (`@shake/utils`), para que la
+ * comanda de un pedido de la app se lea igual que una de la barra.
+ */
+export function PedidoSheet({ producto, extras: crudos, alCerrar }: { producto: ProductoVenta; extras: ExtraProducto[]; alCerrar: () => void }) {
   const { pedidosConfig, cargarMisPedidos, sincronizar } = useEstado()
   const [cantidad, setCantidad] = useState(1)
-  const [elegidos, setElegidos] = useState<Record<string, string>>({})
+  const [proteinaId, setProteinaId] = useState<string | null>(null)
+  const [marcaVista, setMarcaVista] = useState<string | null>(null)
+  const [baseId, setBaseId] = useState<string | null>(null)
+  const [doble, setDoble] = useState(false)
+  const [dobleCarne, setDobleCarne] = useState<Set<string>>(new Set())
+  /** Lo tocado en cada grupo; '' = el cliente lo vació. */
+  const [porGrupo, setPorGrupo] = useState<Record<string, string>>({})
+  const [galletaId, setGalletaId] = useState<string | null>(null)
   const [sueltos, setSueltos] = useState<Set<string>>(new Set())
   const [nota, setNota] = useState('')
   const [fase, setFase] = useState<Fase>('armando')
@@ -21,42 +45,76 @@ export function PedidoSheet({ producto, extras, alCerrar }: { producto: Producto
   const [creado, setCreado] = useState<PedidoCreado | null>(null)
   const [pagoURL, setPagoURL] = useState<string | null>(null)
   const espera = useRef<ReturnType<typeof esperarPago> | null>(null)
-
-  const grupos = useMemo(() => {
-    const con = extras.filter((e) => (e.grupo ?? '') !== '')
-    return [...new Set(con.map((e) => e.grupo!))].sort().map((g) => [g, con.filter((e) => e.grupo === g)] as const)
-  }, [extras])
-  const extrasSueltos = useMemo(() => extras.filter((e) => (e.grupo ?? '') === ''), [extras])
-
-  useEffect(() => {
-    setElegidos((prev) => {
-      const n = { ...prev }
-      for (const [g, lista] of grupos) if (!n[g]) n[g] = (lista.find((e) => e.por_defecto) ?? lista[0])?.extra_id
-      return n
-    })
-  }, [grupos])
   useEffect(() => () => espera.current?.cancelar(), [])
 
+  const extras = useMemo<Opcion[]>(
+    () => crudos.map((e) => ({ ...e, precio: Number(e.precio ?? 0), por_defecto: e.por_defecto === true })),
+    [crudos],
+  )
+
+  // ── Las secciones (mismas reglas que ModalExtras del kiosko) ──
+  const bases = useMemo(() => ordenarBases(extras.filter((e) => esBase(e.nombre))), [extras])
+  const proteinas = useMemo(() => extras.filter((e) => esProteina(e.nombre)), [extras])
+  const marcas = useMemo(() => marcasOrdenadas(proteinas), [proteinas])
+  const dobles = useMemo(() => extras.filter((e) => esDobleScoop(e.nombre)), [extras])
+  const doblesCarne = useMemo(() => extras.filter(esDobleProteina), [extras])
+  const grupos = useMemo(() => gruposDeExtras(extras), [extras])
+
+  const base = bases.find((b) => b.extra_id === baseId) ?? baseDeCasa(bases)
+  const proteina = proteinas.find((p) => p.extra_id === proteinaId) ?? proteinaDeCasa(proteinas)
+  const marcaAbierta = marcaVista ?? (proteina ? marcaYSabor(proteina.nombre).marca : marcas[0] ?? null)
+  const dobleDeEsta = dobleScoopDe(dobles, proteina)
+  const elegidosDeGrupo = grupos
+    .map(({ grupo, opciones }) => {
+      const tocado = porGrupo[grupo]
+      if (tocado === '') return null
+      return opciones.find((o) => o.extra_id === tocado) ?? opcionDeGrupo(opciones)
+    })
+    .filter((e): e is Opcion => e !== null)
+  const gruposElegidos = new Set(elegidosDeGrupo.map((e) => e.grupo as string))
+  const enGrupo = new Set(grupos.map((g) => g.grupo))
+  const galletas = extras.filter((e) => esGalletaPromo(e) && extraDisponible(e, gruposElegidos))
+  const galleta = galletas.find((g) => g.extra_id === galletaId) ?? null
+  const adicionales = extras.filter(
+    (e) =>
+      !esBase(e.nombre) && !esProteina(e.nombre) && !esDobleScoop(e.nombre) && !esDobleProteina(e) &&
+      !esGalletaPromo(e) && !(e.grupo && enGrupo.has(e.grupo)) && extraDisponible(e, gruposElegidos),
+  )
+
+  /** Todo lo que viaja como renglón hijo (y se cobra). */
+  const hijos: Opcion[] = [
+    ...(baseCobrada(base) ? [base!] : []),
+    ...(proteina ? [proteina] : []),
+    ...(doble && dobleDeEsta ? [dobleDeEsta] : []),
+    ...doblesCarne.filter((e) => dobleCarne.has(e.extra_id)),
+    ...elegidosDeGrupo,
+    ...(galleta ? [galleta] : []),
+    ...adicionales.filter((e) => sueltos.has(e.extra_id)),
+  ]
+
   /** Solo para orientar: el total lo pone el servidor. */
-  const estimado = useMemo(() => {
-    const porGrupo = grupos.reduce((s, [g, lista]) => s + (lista.find((e) => e.extra_id === elegidos[g])?.precio ?? 0), 0)
-    const porSueltos = extrasSueltos.filter((e) => sueltos.has(e.extra_id)).reduce((s, e) => s + (e.precio ?? 0), 0)
-    return (producto.precio + porGrupo + porSueltos) * cantidad
-  }, [grupos, elegidos, extrasSueltos, sueltos, producto.precio, cantidad])
+  const estimado = (producto.precio + hijos.reduce((s, e) => s + e.precio, 0)) * cantidad
 
   function lineas(): LineaPedido[] {
-    const l: LineaPedido[] = [{ producto_id: producto.id, cantidad, personalizacion: nota || null, linea: 'L1', padre_linea: null }]
-    let n = 1
-    for (const [g] of grupos) { const id = elegidos[g]; if (id) { n++; l.push({ producto_id: id, cantidad, personalizacion: null, linea: `L${n}`, padre_linea: 'L1' }) } }
-    for (const id of sueltos) { n++; l.push({ producto_id: id, cantidad, personalizacion: null, linea: `L${n}`, padre_linea: 'L1' }) }
+    // La base sin costo va pegada al shake como nota, igual que en el kiosko.
+    const personalizacion = [notaDeBase(base), nota.trim()].filter(Boolean).join(', ') || null
+    const l: LineaPedido[] = [{ producto_id: producto.id, cantidad, personalizacion, linea: 'L1', padre_linea: null }]
+    hijos.forEach((e, i) => l.push({ producto_id: e.extra_id, cantidad, personalizacion: null, linea: `L${i + 2}`, padre_linea: 'L1' }))
     return l
+  }
+
+  function alternar(set: Set<string>, id: string): Set<string> {
+    const n = new Set(set)
+    if (n.has(id)) n.delete(id)
+    else n.add(id)
+    return n
   }
 
   async function pedir() {
     setMensaje(null)
     setFase('creando')
     try {
-      const c = await crearPedido(lineas(), nota || null)
+      const c = await crearPedido(lineas(), nota.trim() || null)
       setCreado(c)
       const r = await enlaceDePago(c.id)
       if (r.pagado) { await terminar(); return }
@@ -103,36 +161,85 @@ export function PedidoSheet({ producto, extras, alCerrar }: { producto: Producto
                 <button onClick={() => setCantidad((n) => Math.min(10, n + 1))} className="w-10 h-10 rounded-full bg-sa-green text-sa-cream text-2xl leading-none" aria-label="Más">+</button>
               </div>
             </Hoja>
-            {(grupos.length > 0 || extrasSueltos.length > 0) && (
-              <Hoja titulo="Con qué va">
-                {grupos.map(([grupo, lista]) => (
-                  <div key={grupo}>
-                    <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-sa-green-ink/50 mb-1.5">{grupo}</p>
-                    <div className="flex gap-2 overflow-x-auto sa-fila -mx-1 px-1 pb-0.5">
-                      {lista.map((e) => {
-                        const activa = elegidos[grupo] === e.extra_id
-                        return (
-                          <button key={e.extra_id} onClick={() => setElegidos((p) => ({ ...p, [grupo]: e.extra_id }))}
-                            className={`shrink-0 rounded-full px-3 py-2 text-[13px] font-semibold whitespace-nowrap ${activa ? 'bg-sa-green text-sa-cream' : 'bg-sa-cream-warm text-sa-green-ink'}`}>
-                            {e.nombre}{(e.precio ?? 0) > 0 ? ` +${mxn(e.precio)}` : ''}
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </div>
+            {proteinas.length > 0 && (
+              <Hoja titulo="Elige tu proteína">
+                <div className="flex gap-2 overflow-x-auto sa-fila -mx-1 px-1 pb-0.5">
+                  {marcas.map((m) => (
+                    <Chip key={m} activa={m === marcaAbierta} suave onClick={() => setMarcaVista(m)}>{m}</Chip>
+                  ))}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {proteinas.filter((p) => marcaYSabor(p.nombre).marca === marcaAbierta).map((p) => (
+                    <Chip key={p.extra_id} activa={p.extra_id === proteina?.extra_id} onClick={() => { setProteinaId(p.extra_id); tacto.ligero() }}>
+                      {marcaYSabor(p.nombre).sabor}{p.precio > 0 ? ` +${mxn(p.precio)}` : ''}
+                    </Chip>
+                  ))}
+                </div>
+                {proteina && <p className="text-xs text-sa-green-ink/60">Llevas: <b>{nombreVisible(proteina.nombre).replace(/^prote[ií]na\s*/i, '')}</b></p>}
+              </Hoja>
+            )}
+            {bases.length > 0 && (
+              <Hoja titulo="Elige tu base">
+                <div className="flex flex-wrap gap-2">
+                  {bases.map((b) => (
+                    <Chip key={b.extra_id} activa={b.extra_id === base?.extra_id} onClick={() => setBaseId(b.extra_id)}>
+                      {b.nombre}{b.precio > 0 ? ` +${mxn(b.precio)}` : ''}
+                    </Chip>
+                  ))}
+                </div>
+              </Hoja>
+            )}
+            {(dobleDeEsta || doblesCarne.length > 0) && (
+              <Hoja titulo="Proteína adicional">
+                {dobleDeEsta && (
+                  <Casilla
+                    activa={doble}
+                    onClick={() => setDoble((v) => !v)}
+                    texto={`Doble scoop${proteina ? ` · ${marcaYSabor(proteina.nombre).marca}` : ''}`}
+                    precio={dobleDeEsta.precio}
+                  />
+                )}
+                {doblesCarne.map((e) => (
+                  <Casilla key={e.extra_id} activa={dobleCarne.has(e.extra_id)} onClick={() => setDobleCarne((s) => alternar(s, e.extra_id))} texto={`Doble ${carneDeDoble(e.nombre)}`} precio={e.precio} />
                 ))}
-                {extrasSueltos.map((e) => {
-                  const on = sueltos.has(e.extra_id)
-                  return (
-                    <label key={e.extra_id} className="flex items-center justify-between gap-3 py-0.5">
-                      <span className="text-sm">{e.nombre}</span>
-                      <span className="flex items-center gap-2.5">
-                        <span className="font-mono text-xs text-sa-green">{(e.precio ?? 0) > 0 ? `+${mxn(e.precio)}` : 'incluido'}</span>
-                        <input type="checkbox" checked={on} onChange={() => setSueltos((s) => { const n = new Set(s); if (on) n.delete(e.extra_id); else n.add(e.extra_id); return n })} className="w-5 h-5 accent-sa-green" />
-                      </span>
-                    </label>
-                  )
-                })}
+              </Hoja>
+            )}
+            {grupos.map(({ grupo, opciones }) => {
+              const opcional = grupoEsOpcional(opciones)
+              const actual = elegidosDeGrupo.find((e) => e.grupo === grupo)?.extra_id
+              return (
+                <Hoja key={grupo} titulo={grupo}>
+                  {opcional && <p className="text-xs text-sa-green-ink/55 -mt-1">Opcional. Toca otra vez para quitarlo.</p>}
+                  <div className="flex flex-wrap gap-2">
+                    {opciones.map((e) => (
+                      <Chip
+                        key={e.extra_id}
+                        activa={e.extra_id === actual}
+                        onClick={() => setPorGrupo((p) => ({ ...p, [grupo]: e.extra_id === actual && opcional ? '' : e.extra_id }))}
+                      >
+                        {sinPrefijo(e.nombre, grupo)}{e.precio > 0 ? ` +${mxn(e.precio)}` : ''}
+                      </Chip>
+                    ))}
+                  </div>
+                </Hoja>
+              )
+            })}
+            {galletas.length > 0 && (
+              <Hoja titulo="Galletas">
+                <div className="flex flex-wrap gap-2">
+                  {galletas.map((g) => (
+                    <Chip key={g.extra_id} activa={g.extra_id === galleta?.extra_id} onClick={() => setGalletaId((id) => (id === g.extra_id ? null : g.extra_id))}>
+                      {g.nombre}{g.precio > 0 ? ` +${mxn(g.precio)}` : ''}
+                    </Chip>
+                  ))}
+                </div>
+              </Hoja>
+            )}
+            {adicionales.length > 0 && (
+              <Hoja titulo="Extras y adicionales">
+                {adicionales.map((e) => (
+                  <Casilla key={e.extra_id} activa={sueltos.has(e.extra_id)} onClick={() => setSueltos((s) => alternar(s, e.extra_id))} texto={e.nombre} precio={e.precio} />
+                ))}
               </Hoja>
             )}
             <Hoja titulo="Algo que debamos saber">
@@ -162,4 +269,33 @@ export function PedidoSheet({ producto, extras, alCerrar }: { producto: Producto
       </div>
     </Sheet>
   )
+}
+
+function Chip({ activa, suave = false, onClick, children }: { activa: boolean; suave?: boolean; onClick: () => void; children: ReactNode }) {
+  const on = suave ? 'bg-sa-green-ink text-sa-cream' : 'bg-sa-green text-sa-cream'
+  return (
+    <button onClick={onClick} aria-pressed={activa}
+      className={`shrink-0 rounded-full px-3 py-2 text-[13px] font-semibold whitespace-nowrap ${activa ? on : 'bg-sa-cream-warm text-sa-green-ink'}`}>
+      {children}
+    </button>
+  )
+}
+
+function Casilla({ activa, onClick, texto, precio }: { activa: boolean; onClick: () => void; texto: string; precio: number }) {
+  return (
+    <label className="flex items-center justify-between gap-3 py-0.5">
+      <span className="text-sm">{texto}</span>
+      <span className="flex items-center gap-2.5">
+        <span className="font-mono text-xs text-sa-green">{precio > 0 ? `+${mxn(precio)}` : 'incluido'}</span>
+        <input type="checkbox" checked={activa} onChange={onClick} className="w-5 h-5 accent-sa-green" />
+      </span>
+    </label>
+  )
+}
+
+/** «Preparado: Mazapán» dentro del grupo «Preparado» → «Mazapán». */
+function sinPrefijo(nombre: string, grupo: string): string {
+  if (!nombre.toLowerCase().startsWith(grupo.toLowerCase())) return nombre
+  const resto = nombre.slice(grupo.length).replace(/^\s*[:\-–]?\s*/, '')
+  return resto || nombre
 }

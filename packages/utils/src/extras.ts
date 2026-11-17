@@ -383,3 +383,54 @@ export function lecheDeTicket(renglon: {
   if (primera && esBase(primera)) return { nombre: primera, precio: 0, cobrada: false }
   return null
 }
+
+/**
+ * Orden de marcas pedido por el negocio: de la más económica a la más
+ * elevada de costo. Una marca fuera de esta lista se va al final, en
+ * alfabético — así una marca nueva dada de alta en Admin no truena nada.
+ *
+ * Vive aquí (y no en el kiosko) desde que la app del cliente también pinta
+ * «Elige tu proteína» (17/11/26): dos listas se separarían solas.
+ */
+export const ORDEN_MARCAS = [
+  'OPTIMUM',
+  'BIRDMAN FALCON',
+  'BIRDMAN FALCON PERFORMANCE',
+  'BIRDMAN FITMINGO',
+  'CBUM',
+  'ISO 100',
+  'ISOPURE',
+]
+
+/**
+ * "Proteína BIRDMAN - Fitmingo Blueberry" → marca BIRDMAN, sabor "Fitmingo
+ * Blueberry". La marca sale del NOMBRE, no de una lista fija: cuando Admin dé
+ * de alta una marca nueva (GHOST, ISO 100…), su botón aparece solo.
+ */
+export function marcaYSabor(nombre: string): { marca: string; sabor: string } {
+  const m = nombre.trim().match(/^prote[ií]na\s+(.+?)\s*[-–]\s*(.+)$/i)
+  if (m) return { marca: m[1].toUpperCase(), sabor: m[2] }
+  return { marca: 'OTRAS', sabor: nombre.replace(/^prote[ií]na\s*/i, '') }
+}
+
+/** Las marcas de una lista de proteínas, en el orden del negocio. */
+export function marcasOrdenadas(proteinas: Array<{ nombre: string }>): string[] {
+  return [...new Set(proteinas.map((p) => marcaYSabor(p.nombre).marca))].sort((a, b) => {
+    const ia = ORDEN_MARCAS.indexOf(a)
+    const ib = ORDEN_MARCAS.indexOf(b)
+    return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib) || a.localeCompare(b)
+  })
+}
+
+/**
+ * La proteína con la que sale el shake si nadie toca nada: la estrella de
+ * Admin, si no la de casa (Optimum), si no la primera.
+ */
+export function proteinaDeCasa<T extends OpcionExtra>(proteinas: T[]): T | null {
+  return (
+    proteinas.find((p) => p.por_defecto) ??
+    proteinas.find((p) => /optimum/i.test(p.nombre)) ??
+    proteinas[0] ??
+    null
+  )
+}

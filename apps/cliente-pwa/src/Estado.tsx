@@ -38,6 +38,8 @@ export interface ExtraProducto {
   grupo: string | null
   marca: string | null
   por_defecto: boolean | null
+  /** El grupo que tiene que estar elegido para que este extra aparezca (galletas → Preparado). */
+  requiere_grupo?: string | null
 }
 
 export interface SoyPersonal { es_personal: boolean; nombre?: string | null; rol?: string | null }
@@ -203,7 +205,7 @@ export function EstadoProvider({ children }: { children: ReactNode }) {
     if (cache) return cache
     const { data } = await sb
       .from('vw_producto_extras')
-      .select('extra_id,nombre,precio,grupo,marca,por_defecto')
+      .select('extra_id,nombre,precio,grupo,marca,por_defecto,requiere_grupo')
       .eq('producto_id', productoId)
       .eq('activo', true)
       .order('grupo').order('nombre')

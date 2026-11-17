@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import {
   mxn, esBase, esGalletaPromo, esProteina, esDobleScoop, dobleScoopDe, esDobleProteina, carneDeDoble,
   ordenarBases, baseDeCasa, opcionDeGrupo, grupoEsOpcional, extraDisponible, gruposDeExtras,
-  notaDeBase, baseCobrada,
+  notaDeBase, baseCobrada, marcaYSabor, marcasOrdenadas, proteinaDeCasa,
 } from '@shake/utils'
 import type { ProductoVenta, ExtraDeProducto } from '@shake/supabase'
 
@@ -46,23 +46,6 @@ interface Props {
  */
 const GRUPO_LARGO = 4
 
-const PROTEINA_DEFAULT = /optimum/i
-
-/**
- * Orden de marcas pedido por el negocio: de la más económica a la más
- * elevada de costo. Una marca fuera de esta lista se va al final, en
- * alfabético — así una marca nueva dada de alta en Admin no truena nada.
- */
-const ORDEN_MARCAS = [
-  'OPTIMUM',
-  'BIRDMAN FALCON',
-  'BIRDMAN FALCON PERFORMANCE',
-  'BIRDMAN FITMINGO',
-  'CBUM',
-  'ISO 100',
-  'ISOPURE',
-]
-
 /**
  * Observaciones rápidas, por estación. Chips y no texto libre a propósito:
  * el campo de indicaciones se quitó porque frenaba la caja y llegaba a
@@ -73,17 +56,6 @@ const ORDEN_MARCAS = [
 const OBSERVACIONES_RESPALDO: Record<string, string[]> = {
   bebidas: ['Menos hielo', 'Sin hielo', 'Extra frío', 'Sin azúcar', 'Sin crema'],
   alimentos: ['Sin tomate', 'Sin cebolla', 'Sin queso', 'Sin aderezo', 'Aderezo aparte', 'Sin picante'],
-}
-
-/**
- * "Proteína BIRDMAN - Fitmingo Blueberry" → marca BIRDMAN, sabor "Fitmingo
- * Blueberry". La marca sale del NOMBRE, no de una lista fija: cuando Admin dé
- * de alta una marca nueva (GHOST, ISO 100…), su botón aparece solo.
- */
-function marcaYSabor(nombre: string): { marca: string; sabor: string } {
-  const m = nombre.trim().match(/^prote[ií]na\s+(.+?)\s*[-–]\s*(.+)$/i)
-  if (m) return { marca: m[1].toUpperCase(), sabor: m[2] }
-  return { marca: 'OTRAS', sabor: nombre.replace(/^prote[ií]na\s*/i, '') }
 }
 
 /**
@@ -184,21 +156,14 @@ export function ModalExtras({ producto, extras, observaciones: catalogoObs, onCe
 
   // Marcas en el orden del negocio (económica → elevada); las que no están
   // en la lista van al final en alfabético.
-  const marcas = [...new Set(proteinas.map((p) => marcaYSabor(p.nombre).marca))].sort((a, b) => {
-    const ia = ORDEN_MARCAS.indexOf(a)
-    const ib = ORDEN_MARCAS.indexOf(b)
-    return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib) || a.localeCompare(b)
-  })
+  const marcas = marcasOrdenadas(proteinas)
 
   // La de casa viene marcada y es la única visible hasta que el cliente pide
   // otra. Así el caso común es cero toques.
   const lecheDefault = baseDeCasa(leches)
   const lecheElegida = leches.find((l) => l.extra_id === leche) ?? lecheDefault
   const galletaElegida = galletas.find((g) => g.extra_id === galleta) ?? null
-  const proteinaDefault =
-    proteinas.find((p) => p.por_defecto) ??
-    proteinas.find((p) => PROTEINA_DEFAULT.test(p.nombre)) ??
-    proteinas[0] ?? null
+  const proteinaDefault = proteinaDeCasa(proteinas)
   const proteinaElegida = proteinas.find((p) => p.extra_id === proteina) ?? proteinaDefault
   /**
    * El doble scoop de ESTA proteína.
