@@ -177,9 +177,12 @@ final class Estado: ObservableObject {
 
     func entrarConGoogle() async {
         do {
-            // supabase-swift abre la ventana de Google con
-            // ASWebAuthenticationSession y recibe la vuelta por el esquema.
-            _ = try await supabase.auth.signInWithOAuth(provider: .google, redirectTo: Config.vueltaLogin)
+            // Supabase regresa a la página puente (https, mismo dominio que la
+            // web) y la página salta al esquema de la app; la ventana de login
+            // escucha ESE esquema, no el de la dirección que se le dio a Supabase.
+            _ = try await supabase.auth.signInWithOAuth(provider: .google, redirectTo: Config.puenteLogin, launchFlow: { @MainActor url in
+                try await VentanaDeLogin.abrir(url, esquema: Config.vueltaLogin.scheme ?? "mx.shakeaholic.rewards")
+            })
         } catch {
             if (error as? ASWebAuthenticationSessionError)?.code == .canceledLogin { return }
             self.error = Self.amable(error)
@@ -342,4 +345,31 @@ extension Notification.Name {
     /// Se avisa cada vez que la tarjeta se trae completa (para lo que cuelga
     /// de la sesión y vive en otro objeto, como los pedidos).
     static let sesionSincronizada = Notification.Name("sesionSincronizada")
+}
+
+/// La ventana de login de Google (ASWebAuthenticationSession) escuchando el
+/// esquema de la app aunque Supabase regrese a una dirección https.
+final class VentanaDeLogin: NSObject, ASWebAuthenticationPresentationContextProviding {
+    func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
+        ASPresentationAnchor()
+    }
+
+    @MainActor
+    static func abrir(_ url: URL, esquema: String) async throws -> URL {
+        let contexto = VentanaDeLogin()
+        return try await withCheckedThrowingContinuation { continuacion in
+            let sesion = ASWebAuthenticationSession(url: url, callbackURLScheme: esquema) { vuelta, error in
+                _ = contexto
+                if let error {
+                    continuacion.resume(throwing: error)
+                } else if let vuelta {
+                    continuacion.resume(returning: vuelta)
+                } else {
+                    continuacion.resume(throwing: ASWebAuthenticationSessionError(.canceledLogin))
+                }
+            }
+            sesion.presentationContextProvider = contexto
+            sesion.start()
+        }
+    }
 }

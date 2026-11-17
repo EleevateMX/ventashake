@@ -2072,7 +2072,14 @@ PWA. No tiene reglas propias: llama a las mismas funciones
 
 - **Entrar: Apple y Google.** Apple es obligatorio si se ofrece Google
   (guideline 4.8). Google va por `signInWithOAuth` con
-  ASWebAuthenticationSession y vuelve por `mx.shakeaholic.rewards://auth`;
+  ASWebAuthenticationSession y vuelve por `mx.shakeaholic.rewards://auth`
+  **pasando por la página puente** `rewards.shakeaholic.mx/volver-app/`
+  (17/11, versión 1.1): el esquema de la app NO está en Redirect URLs de
+  Supabase, así que Supabase regresaba a la web (los logs de auth lo
+  enseñan: `referer` = la web). La página está en el mismo dominio que el
+  Site URL —Supabase la acepta sin lista— y reenvía `?code=` al esquema,
+  que la ventana de login escucha (`VentanaDeLogin` en `Estado.swift`).
+  Las metas con captura se suben desde la app (`MetasView`), ya no por la web;
   Apple, nativo con `signInWithIdToken` (proveedor Apple prendido en
   Supabase con el bundle ID como Client ID).
 - **Modo personal**: el MISMO PIN del kiosko (`staff-login` →

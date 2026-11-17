@@ -14,9 +14,15 @@ enum Config {
     static let supabaseURL = URL(string: "https://api.shakeaholic.mx")!
     static let llavePublicable = "sb_publishable_cMUhN7qNUY_AY-E4U1dCnw_fR_C9sOb"
 
-    /// El esquema con el que Supabase devuelve el login de Google a la app.
-    /// Es el mismo que ya está registrado en Supabase → Redirect URLs.
+    /// El esquema con el que el login de Google vuelve a la app.
     static let vueltaLogin = URL(string: "mx.shakeaholic.rewards://auth")!
+
+    /// A dónde le pide la app a Supabase que regrese el login de Google
+    /// (17/11/26). Supabase solo regresa a direcciones de su lista, y el
+    /// esquema de la app no estaba: el login terminaba en la web. Esta página
+    /// vive en el mismo dominio que la web (Supabase la acepta siempre) y
+    /// reenvía el `?code=` a `vueltaLogin`, que la ventana de login intercepta.
+    static let puenteLogin = URL(string: "https://rewards.shakeaholic.mx/volver-app/")!
 
     static let whatsapp = URL(string: "https://wa.me/529995044797")!
     static let web = URL(string: "https://rewards.shakeaholic.mx")!
