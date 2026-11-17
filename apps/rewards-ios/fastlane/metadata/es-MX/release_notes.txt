@@ -1,1 +1,4 @@
-Primera versión.
+- Personaliza tu pedido por secciones: proteína, base, proteína adicional y extras, con el precio a la vista.
+- Tu tarjeta ahora puede enseñar el avance de tus sellos y recompensas.
+- Código para canjear en caja: tus mancuernas y premios, más seguros.
+- Correcciones y mejoras.

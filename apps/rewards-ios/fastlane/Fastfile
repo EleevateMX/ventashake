@@ -254,13 +254,32 @@ platform :ios do
       sleep 15
     end
 
-    # 3. La versión editable recibe el build.
-    version = versiones_tienda(app).find do |v|
-      %w[PREPARE_FOR_SUBMISSION DEVELOPER_REJECTED REJECTED METADATA_REJECTED INVALID_BINARY READY_FOR_REVIEW].include?(v.app_store_state)
+    # 3. La versión editable recibe el build. Si la anterior ya está a la
+    #    venta (una actualización), no hay editable: se crea con el número
+    #    del build («1.1.0» → «1.1») — 17/11/26, la primera actualización.
+    editables = %w[PREPARE_FOR_SUBMISSION DEVELOPER_REJECTED REJECTED METADATA_REJECTED INVALID_BINARY READY_FOR_REVIEW]
+    version = versiones_tienda(app).find { |v| editables.include?(v.app_store_state) }
+    unless version
+      numero_version = build.app_version.to_s.sub(/(\.0)+\z/, "")
+      numero_version = "#{numero_version}.0" unless numero_version.include?(".")
+      publicadas = versiones_tienda(app).map(&:version_string)
+      UI.user_error!("La versión #{numero_version} ya existe (#{publicadas.join(', ')}): sube el build con otro número de versión") if publicadas.include?(numero_version)
+      UI.important("Creando la versión #{numero_version} en la tienda")
+      app.create_version!(app_version_string: numero_version, platform: "IOS")
+      version = versiones_tienda(app).find { |v| v.version_string == numero_version && editables.include?(v.app_store_state) }
+      UI.user_error!("No se pudo crear la versión #{numero_version}") unless version
     end
-    UI.user_error!("No hay una versión editable: #{versiones_tienda(app).map { |v| "#{v.version_string} #{v.app_store_state}" }.join(', ')}") unless version
     version.select_build(build_id: build.id)
     UI.success("Versión #{version.version_string} con el build #{build.version}")
+
+    # Una actualización no se puede mandar sin «Novedades»: sale de
+    # metadata/<idioma>/release_notes.txt.
+    version.get_app_store_version_localizations.each do |loc|
+      archivo = File.join(__dir__, "metadata", loc.locale, "release_notes.txt")
+      next unless File.exist?(archivo)
+      loc.update(attributes: { whats_new: File.read(archivo).strip })
+      UI.message("Novedades (#{loc.locale}) puestas")
+    end
 
     # 4. A revisión. deliver arma el envío nuevo y contesta lo de IDFA y cifrado.
     deliver(
