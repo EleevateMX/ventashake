@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import QRCode from 'qrcode'
-import { listarProductosParaVenta, type ProductoVenta } from '@shake/supabase'
+import { listarProductosParaVenta, visibleEnApp, type ProductoVenta } from '@shake/supabase'
 import { mxn } from '@shake/utils'
 import { sb } from './lib/sb'
 
@@ -51,7 +51,7 @@ export default function App() {
     // captura en costeo aparece aquí solo, sin publicar nada a mano. Si la
     // consulta falla, la página sigue viéndose — la carta es un plus, no el
     // motivo por el que alguien entra.
-    listarProductosParaVenta(sb).then(setProductos).catch(() => setProductos([]))
+    listarProductosParaVenta(sb).then((ps) => setProductos(ps.filter(visibleEnApp))).catch(() => setProductos([]))
     QRCode.toDataURL(URL_APP, {
       width: 320, margin: 2, color: { dark: '#14241D', light: '#FFFFFF' },
     }).then(setQr).catch(() => setQr(''))

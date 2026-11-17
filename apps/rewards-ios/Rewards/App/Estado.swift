@@ -110,7 +110,7 @@ final class Estado: ObservableObject {
             while true {
                 let lote: [Producto] = try await supabase
                     .from("productos")
-                    .select("id,nombre,descripcion,precio,orden,imagen_url,created_at,categorias(nombre,orden)")
+                    .select("id,nombre,descripcion,precio,orden,imagen_url,created_at,en_app,categorias(nombre,orden,en_app)")
                     .eq("activo", value: true)
                     .eq("es_extra", value: false)
                     .order("orden")
@@ -123,7 +123,8 @@ final class Estado: ObservableObject {
                 if lote.count < pagina { break }
                 desde += pagina
             }
-            menu = todos
+            // Lo interno (Locatarios) se vende en caja pero no sale en la app.
+            menu = todos.filter { $0.enApp }
         } catch {
             if menu == nil { menu = [] }
         }

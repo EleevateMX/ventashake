@@ -141,11 +141,16 @@ struct Producto: Decodable, Identifiable {
     var imagen_url: String?
     var created_at: String?
     var categorias: Categoria?
+    /// false = no sale en la app (Admin → Menú). Sin el dato, sale.
+    var en_app: Bool?
 
     struct Categoria: Decodable {
         var nombre: String
         var orden: Int?
+        var en_app: Bool?
     }
+
+    var enApp: Bool { en_app != false && categorias?.en_app != false }
 
     /// Entró al catálogo en los últimos 15 días.
     var esNuevo: Bool {

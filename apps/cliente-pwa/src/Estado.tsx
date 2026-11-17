@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
   sesionActual, usuarioActual, cerrarSesion, onCambioSesion,
-  vincularClienteAuth, miResumenLealtad, listarProductosParaVenta, listarAliados, configPedidosApp,
+  vincularClienteAuth, miResumenLealtad, listarProductosParaVenta, visibleEnApp, listarAliados, configPedidosApp,
   type ResumenLealtad, type ProductoVenta, type Aliado, type ConfigPedidosApp,
 } from '@shake/supabase'
 import { sb } from './lib/sb'
@@ -173,7 +173,8 @@ export function EstadoProvider({ children }: { children: ReactNode }) {
   const cargarMenu = useCallback(async () => {
     try {
       const productos = await listarProductosParaVenta(sb)
-      setMenu(productos)
+      // Lo interno (Locatarios) se vende en caja pero no sale aquí.
+      setMenu(productos.filter(visibleEnApp))
     } catch {
       setMenu((m) => m ?? [])
     }

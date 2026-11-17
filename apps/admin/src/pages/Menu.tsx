@@ -13,6 +13,9 @@ import {
   quitarFotoProducto,
   listarCategoriasPantalla,
   guardarCategoriaPantalla,
+  enAppAdmin,
+  ponerEnApp,
+  type EnAppAdmin,
 } from '@shake/supabase'
 import type { Producto, Categoria, Cocina } from '@shake/types'
 import type { CategoriaPantalla } from '@shake/supabase'
@@ -63,6 +66,9 @@ export default function Menu() {
 
   // A qué pantalla llega cada categoría
   const [pantallas, setPantallas] = useState<CategoriaPantalla[]>([])
+  // Qué sale en la app del cliente (17/11/26)
+  const [enApp, setEnApp] = useState<EnAppAdmin | null>(null)
+  const [cambiandoApp, setCambiandoApp] = useState<string | null>(null)
 
   /**
    * Buscador de la lista. Con cientos de productos, encontrar uno era
@@ -99,10 +105,36 @@ export default function Menu() {
       setError(null)
       // Aparte y sin bloquear: si esto falla, el resto del Menú sigue usable.
       void cargarPantallas()
+      void cargarEnApp()
     } catch (e) {
       setError(mensajeDeError(e))
     } finally {
       setCargando(false)
+    }
+  }
+
+  async function cargarEnApp() {
+    try { setEnApp(await enAppAdmin(sb)) } catch { setEnApp(null) }
+  }
+
+  /**
+   * Esconder algo de la app del cliente (y de la carta pública). El kiosko y
+   * la caja lo siguen vendiendo: es para lo interno, como Locatarios.
+   */
+  async function cambiarEnApp(cual: { categoria_id?: string; producto_id?: string }, valor: boolean) {
+    const clave = cual.categoria_id ?? cual.producto_id ?? ''
+    setCambiandoApp(clave)
+    try {
+      await ponerEnApp(sb, cual, valor)
+      if (cual.producto_id) {
+        setProductos((ps) => ps.map((p) => (p.id === cual.producto_id ? ({ ...p, en_app: valor } as Producto) : p)))
+      }
+      await cargarEnApp()
+      setOk(valor ? 'Ya sale en la app.' : 'Escondido de la app. En el kiosko y la caja se sigue vendiendo.')
+    } catch (e) {
+      setError(mensajeDeError(e))
+    } finally {
+      setCambiandoApp(null)
     }
   }
 
@@ -357,6 +389,48 @@ export default function Menu() {
           </Panel>
         )}
 
+        {/* Qué sale en la app del cliente */}
+        {enApp && (
+          <Panel title="¿Qué sale en la app?">
+            <p className={`${cx.muted} mb-4`}>
+              Lo que escondas aquí deja de salir en la <strong>app de Rewards</strong> y en la carta
+              de shakeaholic.mx, pero se sigue vendiendo en el kiosko y en la caja. Es para lo
+              interno, como Locatarios. Un producto suelto se esconde en la tabla de abajo, columna «App».
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {enApp.categorias.map((c) => (
+                <button
+                  key={c.id}
+                  disabled={cambiandoApp === c.id}
+                  onClick={() => void cambiarEnApp({ categoria_id: c.id }, !c.en_app)}
+                  className={`px-3 py-1.5 rounded-full text-sm border transition-colors disabled:opacity-50 ${
+                    c.en_app
+                      ? 'border-sa-green/30 bg-sa-mint/15 text-sa-green-ink'
+                      : 'border-sa-strawberry/40 bg-sa-strawberry/10 text-sa-strawberry line-through'
+                  }`}
+                  title={c.en_app ? 'Sale en la app · toca para esconder' : 'Escondida de la app · toca para mostrar'}
+                >
+                  {c.en_app ? '👁' : '🚫'} {c.nombre} <span className="opacity-60">· {c.productos}</span>
+                </button>
+              ))}
+            </div>
+            {enApp.productos_ocultos.length > 0 && (
+              <div className="mt-4">
+                <p className={`${cx.label} mb-2`}>Productos escondidos uno por uno</p>
+                <div className="flex flex-wrap gap-2">
+                  {enApp.productos_ocultos.map((p) => (
+                    <button key={p.id} disabled={cambiandoApp === p.id}
+                      onClick={() => void cambiarEnApp({ producto_id: p.id }, true)}
+                      className="px-3 py-1.5 rounded-full text-sm border border-sa-strawberry/40 bg-sa-strawberry/10 text-sa-strawberry disabled:opacity-50">
+                      🚫 {p.nombre} · mostrar
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </Panel>
+        )}
+
         {/* Form producto */}
         <Panel title={editId ? 'Editar producto' : 'Nuevo producto'}>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -459,6 +533,7 @@ export default function Menu() {
                     <th className={cx.th}>Onzas</th>
                     <th className={cx.thNum}>Precio</th>
                     <th className={cx.th}>Activo</th>
+                    <th className={cx.th}>App</th>
                     <th className={cx.thNum}>Acciones</th>
                   </tr>
                 </thead>
@@ -550,6 +625,21 @@ export default function Menu() {
                       </td>
                       <td className={cx.tdNum}>{mxn(p.precio)}</td>
                       <td className={cx.td}><Chip tone={p.activo ? 'si' : 'no'}>{p.activo ? 'Sí' : 'No'}</Chip></td>
+                      <td className={cx.td}>
+                        {(() => {
+                          const visible = (p as Producto & { en_app?: boolean }).en_app !== false
+                          return (
+                            <button
+                              disabled={cambiandoApp === p.id}
+                              onClick={() => void cambiarEnApp({ producto_id: p.id }, !visible)}
+                              className={`px-2.5 py-1 rounded-full text-xs border disabled:opacity-50 ${visible ? 'border-sa-green/30 text-sa-green-ink' : 'border-sa-strawberry/40 bg-sa-strawberry/10 text-sa-strawberry'}`}
+                              title={visible ? 'Sale en la app · toca para esconder' : 'Escondido de la app · toca para mostrar'}
+                            >
+                              {visible ? '👁 Sí' : '🚫 No'}
+                            </button>
+                          )
+                        })()}
+                      </td>
                       <td className={cx.tdNum}>
                         <div className="flex items-center justify-end gap-2">
                           <button

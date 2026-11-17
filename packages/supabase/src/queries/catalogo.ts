@@ -168,8 +168,22 @@ export interface ProductoVenta extends Producto {
      * internet lo decide la base igual que siempre.
      */
     va_a_pantalla?: boolean | null
+    /** `false` = no sale en la app del cliente ni en la carta pública (Locatarios). */
+    en_app?: boolean | null
     cocinas: { id: string; nombre: string; slug: string } | null
   } | null
+  /** `false` = este producto no sale en la app (Admin → Menú). */
+  en_app?: boolean | null
+}
+
+/**
+ * ¿Sale en la app del cliente y en la carta pública? (17/11/26). El kiosko y
+ * la caja venden todo; esto solo esconde lo interno (Locatarios) del menú
+ * del cliente. Sin el dato (una respuesta vieja) sale, como siempre. El
+ * pedido por la app lo vuelve a revisar el servidor.
+ */
+export function visibleEnApp(p: { en_app?: boolean | null; categorias?: { en_app?: boolean | null } | null }): boolean {
+  return p.en_app !== false && p.categorias?.en_app !== false
 }
 
 /**
@@ -181,7 +195,7 @@ export async function listarProductosParaVenta(sb: ShakeClient): Promise<Product
   return traerTodo<ProductoVenta>((desde, hasta) =>
     sb
       .from('productos')
-      .select('*, categorias(id, nombre, orden, va_a_pantalla, cocinas(id, nombre, slug))')
+      .select('*, categorias(id, nombre, orden, va_a_pantalla, en_app, cocinas(id, nombre, slug))')
       .eq('activo', true)
       .eq('es_extra', false)
       .order('orden').order('nombre').order('id')
@@ -349,7 +363,7 @@ export async function listarProductosExtra(sb: ShakeClient): Promise<ProductoVen
   return traerTodo<ProductoVenta>((desde, hasta) =>
     sb
       .from('productos')
-      .select('*, categorias(id, nombre, orden, va_a_pantalla, cocinas(id, nombre, slug))')
+      .select('*, categorias(id, nombre, orden, va_a_pantalla, en_app, cocinas(id, nombre, slug))')
       .eq('activo', true)
       .eq('es_extra', true)
       .order('nombre').order('id')
@@ -1682,5 +1696,31 @@ export async function guardarExcepcionHorario(
 
 export async function borrarExcepcionHorario(sb: ShakeClient, id: string): Promise<void> {
   const { error } = await (sb.rpc as unknown as RpcCatalogo)('fn_asistencia_excepcion_borrar', { p_id: id })
+  if (error) throw error
+}
+
+// ------------------- qué sale en la app del cliente -------------------
+
+export interface EnAppAdmin {
+  categorias: { id: string; nombre: string; en_app: boolean; productos: number }[]
+  productos_ocultos: { id: string; nombre: string; precio: number; categoria: string | null }[]
+}
+
+/** Lo que sale y lo que no en la app del cliente. Solo gerencia. */
+export async function enAppAdmin(sb: ShakeClient): Promise<EnAppAdmin> {
+  const { data, error } = await (sb.rpc as unknown as RpcCatalogo)('fn_en_app_admin', {})
+  if (error) throw error
+  return data as EnAppAdmin
+}
+
+/** Esconde (o vuelve a mostrar) una categoría o un producto en la app. */
+export async function ponerEnApp(
+  sb: ShakeClient,
+  cual: { categoria_id?: string; producto_id?: string },
+  enApp: boolean,
+): Promise<void> {
+  const { error } = await (sb.rpc as unknown as RpcCatalogo)('fn_en_app_poner', {
+    p_categoria: cual.categoria_id ?? null, p_producto: cual.producto_id ?? null, p_en_app: enApp,
+  })
   if (error) throw error
 }
