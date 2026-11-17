@@ -144,7 +144,13 @@ struct PedidoSheet: View {
     @Environment(\.dismiss) private var cerrar
 
     @State private var cantidad = 1
-    @State private var elegidos: [String: String] = [:]      // grupo → extra_id
+    @State private var proteinaId: String?
+    @State private var marcaVista: String?
+    @State private var baseId: String?
+    @State private var doble = false
+    @State private var dobleCarne: Set<String> = []
+    @State private var porGrupo: [String: String] = [:]      // grupo → extra_id ("" = lo vació)
+    @State private var galletaId: String?
     @State private var sueltos: Set<String> = []
     @State private var nota = ""
     @State private var fase: Fase = .armando
@@ -154,17 +160,53 @@ struct PedidoSheet: View {
 
     enum Fase { case armando, creando, pagando, confirmando, listo }
 
-    private var grupos: [(String, [ExtraProducto])] {
-        let d = Dictionary(grouping: extras.filter { !($0.grupo ?? "").isEmpty }) { $0.grupo ?? "" }
-        return d.keys.sorted().map { ($0, d[$0] ?? []) }
+    // ── Las secciones: mismas reglas que el kiosko (ReglasExtras) ──
+    private typealias R = ReglasExtras
+    private var bases: [ExtraProducto] { R.ordenarBases(extras.filter { R.esBase($0.nombre) }) }
+    private var proteinas: [ExtraProducto] { extras.filter { R.esProteina($0.nombre) } }
+    private var marcas: [String] { R.marcasOrdenadas(proteinas) }
+    private var dobles: [ExtraProducto] { extras.filter { R.esDobleScoop($0.nombre) } }
+    private var doblesCarne: [ExtraProducto] { extras.filter { R.esDobleProteina($0) } }
+    private var grupos: [(grupo: String, opciones: [ExtraProducto])] { R.gruposDeExtras(extras) }
+
+    private var base: ExtraProducto? { bases.first { $0.extra_id == baseId } ?? R.baseDeCasa(bases) }
+    private var proteina: ExtraProducto? { proteinas.first { $0.extra_id == proteinaId } ?? R.proteinaDeCasa(proteinas) }
+    private var marcaAbierta: String? { marcaVista ?? proteina.map { R.marcaYSabor($0.nombre).marca } ?? marcas.first }
+    private var dobleDeEsta: ExtraProducto? { R.dobleScoopDe(dobles, proteina) }
+    private var elegidosDeGrupo: [ExtraProducto] {
+        grupos.compactMap { g -> ExtraProducto? in
+            if porGrupo[g.grupo] == "" { return nil }
+            return g.opciones.first { $0.extra_id == porGrupo[g.grupo] } ?? R.opcionDeGrupo(g.opciones)
+        }
     }
-    private var extrasSueltos: [ExtraProducto] { extras.filter { ($0.grupo ?? "").isEmpty } }
+    private var gruposElegidos: Set<String> { Set(elegidosDeGrupo.compactMap { $0.grupo }) }
+    private var galletas: [ExtraProducto] { extras.filter { R.esGalletaPromo($0) && R.extraDisponible($0, gruposElegidos) } }
+    private var galleta: ExtraProducto? { galletas.first { $0.extra_id == galletaId } }
+    private var adicionales: [ExtraProducto] {
+        let enGrupo = Set(grupos.map { $0.grupo })
+        let elegidos = gruposElegidos
+        return extras.filter { e in
+            !R.esBase(e.nombre) && !R.esProteina(e.nombre) && !R.esDobleScoop(e.nombre) && !R.esDobleProteina(e)
+                && !R.esGalletaPromo(e) && !enGrupo.contains(e.grupo ?? "") && R.extraDisponible(e, elegidos)
+        }
+    }
+
+    /// Todo lo que viaja como renglón hijo (y se cobra).
+    private var hijos: [ExtraProducto] {
+        var h: [ExtraProducto] = []
+        if let b = R.baseCobrada(base) { h.append(b) }
+        if let p = proteina { h.append(p) }
+        if doble, let d = dobleDeEsta { h.append(d) }
+        h += doblesCarne.filter { dobleCarne.contains($0.extra_id) }
+        h += elegidosDeGrupo
+        if let g = galleta { h.append(g) }
+        h += adicionales.filter { sueltos.contains($0.extra_id) }
+        return h
+    }
 
     /// Solo para orientar: el total lo pone el servidor.
     private var estimado: Double {
-        let porGrupo = grupos.compactMap { g in elegidos[g.0].flatMap { id in g.1.first { $0.extra_id == id }?.precio } }.reduce(0, +)
-        let porSueltos = extrasSueltos.filter { sueltos.contains($0.extra_id) }.map { $0.precio ?? 0 }.reduce(0, +)
-        return (producto.precio + porGrupo + porSueltos) * Double(cantidad)
+        (producto.precio + hijos.map(\.valor).reduce(0, +)) * Double(cantidad)
     }
 
     var body: some View {
@@ -201,11 +243,6 @@ struct PedidoSheet: View {
             .padding(.horizontal, 22).padding(.bottom, 30)
         }
         .background(Marca.verdeProfundo.ignoresSafeArea())
-        .onAppear {
-            for (g, lista) in grupos where elegidos[g] == nil {
-                elegidos[g] = lista.first { $0.por_defecto == true }?.extra_id ?? lista.first?.extra_id
-            }
-        }
         .sheet(item: Binding(get: { pagoURL.map { PagoURL(url: $0) } }, set: { pagoURL = $0?.url })) { p in
             PaginaDePago(url: p.url).ignoresSafeArea()
                 .onDisappear { Task { await confirmar() } }
@@ -222,34 +259,12 @@ struct PedidoSheet: View {
                 }
                 .foregroundStyle(Marca.verde)
             }
-            if !grupos.isEmpty || !extrasSueltos.isEmpty {
-                Hoja(titulo: "Con qué va") {
-                    ForEach(grupos, id: \.0) { grupo, lista in
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text(grupo.uppercased()).font(Marca.mono(10)).tracking(1.5).foregroundStyle(Marca.tinta.opacity(0.5))
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 8) {
-                                    ForEach(lista) { e in
-                                        Opcion(texto: e.nombre + ((e.precio ?? 0) > 0 ? " +\(mxn(e.precio))" : ""), activa: elegidos[grupo] == e.extra_id) {
-                                            elegidos[grupo] = e.extra_id
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    ForEach(extrasSueltos) { e in
-                        Toggle(isOn: Binding(get: { sueltos.contains(e.extra_id) }, set: { on in if on { sueltos.insert(e.extra_id) } else { sueltos.remove(e.extra_id) } })) {
-                            HStack {
-                                Text(e.nombre).font(Marca.cuerpo(14))
-                                Spacer()
-                                Text((e.precio ?? 0) > 0 ? "+\(mxn(e.precio))" : "incluido").font(Marca.mono(12)).foregroundStyle(Marca.verde)
-                            }
-                        }
-                        .tint(Marca.verde)
-                    }
-                }
-            }
+            seccionProteina
+            seccionBase
+            seccionAdicional
+            seccionGrupos
+            seccionGalletas
+            seccionExtras
             Hoja(titulo: "Algo que debamos saber") {
                 TextField("Sin hielo, poco plátano…", text: $nota)
                     .font(Marca.cuerpo(15)).padding(12)
@@ -269,6 +284,101 @@ struct PedidoSheet: View {
         }
     }
 
+    @ViewBuilder private var seccionProteina: some View {
+        if !proteinas.isEmpty {
+            Hoja(titulo: "Elige tu proteína") {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(marcas, id: \.self) { m in
+                            Opcion(texto: m, activa: m == marcaAbierta) { marcaVista = m }
+                        }
+                    }
+                }
+                Pastillas {
+                    ForEach(proteinas.filter { R.marcaYSabor($0.nombre).marca == marcaAbierta }) { p in
+                        Opcion(texto: R.marcaYSabor(p.nombre).sabor + (p.valor > 0 ? " +\(mxn(p.precio))" : ""), activa: p.extra_id == proteina?.extra_id) {
+                            proteinaId = p.extra_id
+                        }
+                    }
+                }
+                if let proteina {
+                    Text("Llevas: \(R.marcaYSabor(proteina.nombre).marca) · \(R.marcaYSabor(proteina.nombre).sabor)")
+                        .font(Marca.cuerpo(12)).foregroundStyle(Marca.tinta.opacity(0.6))
+                }
+            }
+        }
+    }
+
+    @ViewBuilder private var seccionBase: some View {
+        if !bases.isEmpty {
+            Hoja(titulo: "Elige tu base") {
+                Pastillas {
+                    ForEach(bases) { b in
+                        Opcion(texto: b.nombre + (b.valor > 0 ? " +\(mxn(b.precio))" : ""), activa: b.extra_id == base?.extra_id) {
+                            baseId = b.extra_id
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder private var seccionAdicional: some View {
+        if dobleDeEsta != nil || !doblesCarne.isEmpty {
+            Hoja(titulo: "Proteína adicional") {
+                if let d = dobleDeEsta {
+                    Casilla(texto: "Doble scoop" + (proteina.map { " · " + R.marcaYSabor($0.nombre).marca } ?? ""), precio: d.valor, activa: $doble)
+                }
+                ForEach(doblesCarne) { e in
+                    Casilla(texto: "Doble " + R.carneDeDoble(e.nombre), precio: e.valor, activa: alternador(e.extra_id, en: $dobleCarne))
+                }
+            }
+        }
+    }
+
+    @ViewBuilder private var seccionGrupos: some View {
+        ForEach(grupos, id: \.grupo) { g in
+            let opcional = R.grupoEsOpcional(g.opciones)
+            let actual = elegidosDeGrupo.first { $0.grupo == g.grupo }?.extra_id
+            Hoja(titulo: g.grupo) {
+                if opcional {
+                    Text("Opcional. Toca otra vez para quitarlo.").font(Marca.cuerpo(12)).foregroundStyle(Marca.tinta.opacity(0.55))
+                }
+                Pastillas {
+                    ForEach(g.opciones) { e in
+                        Opcion(texto: R.sinPrefijo(e.nombre, g.grupo) + (e.valor > 0 ? " +\(mxn(e.precio))" : ""), activa: e.extra_id == actual) {
+                            porGrupo[g.grupo] = (e.extra_id == actual && opcional) ? "" : e.extra_id
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder private var seccionGalletas: some View {
+        if !galletas.isEmpty {
+            Hoja(titulo: "Galletas") {
+                Pastillas {
+                    ForEach(galletas) { e in
+                        Opcion(texto: e.nombre + (e.valor > 0 ? " +\(mxn(e.precio))" : ""), activa: e.extra_id == galletaId) {
+                            galletaId = galletaId == e.extra_id ? nil : e.extra_id
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder private var seccionExtras: some View {
+        if !adicionales.isEmpty {
+            Hoja(titulo: "Extras y adicionales") {
+                ForEach(adicionales) { e in
+                    Casilla(texto: e.nombre, precio: e.valor, activa: alternador(e.extra_id, en: $sueltos))
+                }
+            }
+        }
+    }
+
     private var confirmacion: some View {
         VStack(spacing: 10) {
             Image("Milo").resizable().scaledToFit().frame(width: 110)
@@ -281,11 +391,19 @@ struct PedidoSheet: View {
         .frame(maxWidth: .infinity).padding(.vertical, 20)
     }
 
+    private func alternador(_ id: String, en conjunto: Binding<Set<String>>) -> Binding<Bool> {
+        Binding(get: { conjunto.wrappedValue.contains(id) },
+                set: { on in if on { conjunto.wrappedValue.insert(id) } else { conjunto.wrappedValue.remove(id) } })
+    }
+
     private func lineas() -> [LineaPedido] {
-        var l = [LineaPedido(producto_id: producto.id, cantidad: cantidad, personalizacion: nota.isEmpty ? nil : nota, linea: "L1", padre_linea: nil)]
-        var n = 1
-        for (g, _) in grupos { if let id = elegidos[g] { n += 1; l.append(LineaPedido(producto_id: id, cantidad: cantidad, personalizacion: nil, linea: "L\(n)", padre_linea: "L1")) } }
-        for id in sueltos { n += 1; l.append(LineaPedido(producto_id: id, cantidad: cantidad, personalizacion: nil, linea: "L\(n)", padre_linea: "L1")) }
+        // La base sin costo va pegada al shake como nota, igual que en el kiosko.
+        let notaLimpia = nota.trimmingCharacters(in: .whitespaces)
+        let personalizacion = [R.notaDeBase(base), notaLimpia.isEmpty ? nil : notaLimpia].compactMap { $0 }.joined(separator: ", ")
+        var l = [LineaPedido(producto_id: producto.id, cantidad: cantidad, personalizacion: personalizacion.isEmpty ? nil : personalizacion, linea: "L1", padre_linea: nil)]
+        for (i, e) in hijos.enumerated() {
+            l.append(LineaPedido(producto_id: e.extra_id, cantidad: cantidad, personalizacion: nil, linea: "L\(i + 2)", padre_linea: "L1"))
+        }
         return l
     }
 
@@ -326,6 +444,29 @@ struct PedidoSheet: View {
 }
 
 private struct PagoURL: Identifiable { let url: URL; var id: String { url.absoluteString } }
+
+/// Pastillas que bajan de renglón (ver FilaFlexible).
+private struct Pastillas<Contenido: View>: View {
+    @ViewBuilder var contenido: Contenido
+    var body: some View {
+        let fila = FilaFlexible()
+        fila { contenido }
+    }
+}
+
+private struct Casilla: View {
+    let texto: String; let precio: Double; @Binding var activa: Bool
+    var body: some View {
+        Toggle(isOn: $activa) {
+            HStack {
+                Text(texto).font(Marca.cuerpo(14))
+                Spacer()
+                Text(precio > 0 ? "+\(mxn(precio))" : "incluido").font(Marca.mono(12)).foregroundStyle(Marca.verde)
+            }
+        }
+        .tint(Marca.verde)
+    }
+}
 
 private struct Opcion: View {
     let texto: String; let activa: Bool; let accion: () -> Void

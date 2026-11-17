@@ -137,7 +137,7 @@ final class Estado: ObservableObject {
     func extras(de productoId: String) async -> [ExtraProducto] {
         let lista: [ExtraProducto]? = try? await supabase
             .from("vw_producto_extras")
-            .select("extra_id,nombre,precio,grupo,marca,por_defecto,activo")
+            .select("extra_id,nombre,precio,grupo,marca,por_defecto,activo,requiere_grupo")
             .eq("producto_id", value: productoId)
             .eq("activo", value: true)
             .order("grupo").order("nombre")

@@ -249,5 +249,7 @@ struct ExtraProducto: Decodable, Identifiable {
     var marca: String?
     var por_defecto: Bool?
     var activo: Bool?
+    /// El grupo que tiene que estar elegido para que aparezca (galletas → Preparado).
+    var requiere_grupo: String?
     var id: String { extra_id }
 }
