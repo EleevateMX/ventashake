@@ -161,11 +161,11 @@ platform :ios do
 
   def app_tienda
     conectar
-    Spaceship::ConnectAPI::App.find(BUNDLE) || UI.user_error!("No existe la app #{BUNDLE} en App Store Connect")
+    con_reintentos("la app") { Spaceship::ConnectAPI::App.find(BUNDLE) } || UI.user_error!("No existe la app #{BUNDLE} en App Store Connect")
   end
 
   def builds_recientes(app, limite = 8)
-    Spaceship::ConnectAPI::Build.all(app_id: app.id, sort: "-uploadedDate", limit: limite, includes: "preReleaseVersion,buildBetaDetail")
+    con_reintentos("los builds") { Spaceship::ConnectAPI::Build.all(app_id: app.id, sort: "-uploadedDate", limit: limite, includes: "preReleaseVersion,buildBetaDetail") }
   end
 
   def describir_build(b)
@@ -181,7 +181,7 @@ platform :ios do
 
   # Apple contesta «Server error got 500» de vez en cuando en esta consulta
   # (17/11/26: tumbó un `publicar` con el build ya listo). Se reintenta.
-  def con_reintentos(que, veces: 4)
+  def con_reintentos(que, veces: 8)
     intento = 0
     begin
       intento += 1
