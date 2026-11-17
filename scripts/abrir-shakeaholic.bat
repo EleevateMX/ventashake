@@ -88,6 +88,25 @@ if not errorlevel 1 (
 )
 
 REM ---------------------------------------------------------------------------
+REM 2b. Agente de tickets de caja (si esta instalado en esta PC)
+REM ---------------------------------------------------------------------------
+REM  Entre el 12 y el 16/11 los cortes salieron con horas o dias de retraso:
+REM  el agente de caja no se volvia a abrir al prender la PC y nadie lo notaba,
+REM  porque las etiquetas si salian. Ahora el arranque del dia lo revisa igual
+REM  que al de etiquetas: si no esta corriendo, lo abre minimizado.
+set "AGENTECAJA=%BASE%\agente-caja\arrancar-agente-caja.bat"
+if exist "%AGENTECAJA%" (
+  tasklist /v /fi "imagename eq cmd.exe" 2>nul | find /i "Shakeaholic - agente de tickets de caja" >nul
+  if not errorlevel 1 (
+    echo   [OK] El agente de tickets de caja ya estaba corriendo.
+  ) else (
+    echo   Arrancando el agente de tickets de caja...
+    start "" /min "%AGENTECAJA%"
+    echo   [OK] Agente de caja arrancado ^(minimizado^).
+  )
+)
+
+REM ---------------------------------------------------------------------------
 REM 3. Las pantallas
 REM ---------------------------------------------------------------------------
 REM  El acomodo por monitor vive en pantallas.ps1, no aqui: un .bat no puede

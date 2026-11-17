@@ -304,6 +304,21 @@ foreach ($carpeta in @([Environment]::GetFolderPath('CommonStartup'), [Environme
 }
 Bien 'arranca solo al prender la PC (y hay acceso en el escritorio)'
 
+# Segunda red: el arranque del dia (abrir-shakeaholic.bat) tambien lo abre si
+# no esta corriendo. Esa revision es nueva (17/11), asi que aqui se trae la
+# version de hoy del arranque: si no, la PC seguiria con la de su instalacion.
+$abrir = 'C:\Shakeaholic\abrir-shakeaholic.bat'
+if (Test-Path $abrir) {
+  try {
+    $nuevo = "$abrir.nuevo"
+    Invoke-WebRequest -UseBasicParsing -Uri "https://raw.githubusercontent.com/EleevateMX/ventashake/$Rama/scripts/abrir-shakeaholic.bat" -OutFile $nuevo
+    if ((Get-Item $nuevo).Length -gt 2000) { Move-Item -Force $nuevo $abrir; Bien 'arranque del dia actualizado (tambien abre este agente)' }
+    else { Remove-Item -Force $nuevo }
+  } catch {
+    Aviso "no se pudo actualizar abrir-shakeaholic.bat: $($_.Exception.Message)"
+  }
+}
+
 $arranque = Get-Date
 Start-Process -FilePath $bat -WorkingDirectory $Destino -WindowStyle Minimized
 Bien "corriendo en su ventana minimizada: '$Ventana'"

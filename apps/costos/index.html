@@ -333,6 +333,10 @@
   /* ── Modal ─────────────────────────────────────────────────────────── */
   .modal-bg{position:fixed;inset:0;background:rgba(20,36,29,.55);display:flex;align-items:center;justify-content:center;z-index:50;padding:var(--s4);backdrop-filter:blur(2px)}
   .modal{background:#fff;border-radius:var(--r-lg);max-width:440px;width:100%;padding:var(--s5);box-shadow:var(--sh3)}
+  /* Una entrada de compra con muchos renglones pasaba del alto de la pantalla y
+     no habia forma de llegar abajo (17/11, Perla partia las compras en varias
+     entradas). Toda ventana se desplaza por dentro; el fondo no se mueve. */
+  .modal{max-height:calc(100vh - 2 * var(--s4));max-height:calc(100dvh - 2 * var(--s4));overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
   .modal h3{font-family:var(--display);color:var(--green);margin:0 0 var(--s1);font-size:var(--t-xl);font-weight:400;line-height:1.2}
   .modal .sub{color:var(--muted);font-size:var(--t-md);margin-bottom:var(--s4);line-height:1.55}
   .modal .mfield{margin-bottom:var(--s3)}
