@@ -14,6 +14,8 @@ struct Resumen: Decodable {
     var sorpresa: [Sorpresa]?
     /// El avance de cada tarjeta de sellos; solo las que gerencia prendió.
     var sellos: [Sello]?
+    /// Si la caja pide el código de canje para usar mancuernas o el premio.
+    var canje_con_codigo: Bool?
     var paquetes: [Paquete]?
     var vida: Vida?
     var ganadas_total: Double?

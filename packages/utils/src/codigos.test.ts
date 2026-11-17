@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { esCodigoCliente, esCodigoPersonal, normalizarCodigoEscaneado } from './codigos'
+import { esCodigoCliente, esCodigoPersonal, normalizarCodigoEscaneado, esCodigoCanje, digitosDeCanje } from './codigos'
 
 describe('normalizarCodigoEscaneado', () => {
   it('deja igual un código bien escrito', () => {
@@ -34,5 +34,20 @@ describe('normalizarCodigoEscaneado', () => {
     expect(normalizarCodigoEscaneado('4821')).toBe('4821')
     expect(normalizarCodigoEscaneado('Shakira')).toBe('Shakira')
     expect(esCodigoCliente('9991234567')).toBe(false)
+  })
+})
+
+describe('código de canje (SHKR)', () => {
+  it('se reconoce con cualquier separador y no se confunde con el de cliente', () => {
+    expect(normalizarCodigoEscaneado("SHKR'437913")).toBe('SHKR-437913')
+    expect(esCodigoCanje('SHKR-437913')).toBe(true)
+    expect(esCodigoCanje('SHK-A7K2M9')).toBe(false)
+    expect(esCodigoCliente('SHKR-437913')).toBe(false)
+  })
+  it('saca los 6 dígitos del QR o de lo tecleado', () => {
+    expect(digitosDeCanje('SHKR?437913')).toBe('437913')
+    expect(digitosDeCanje('437 913')).toBe('437913')
+    expect(digitosDeCanje('43791')).toBe(null)
+    expect(digitosDeCanje('SHK-A7K2M9')).toBe(null)
   })
 })

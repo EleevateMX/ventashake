@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
-  reglasMancuernas, guardarGananciaRewards, listarNoAcumulan, ponerSumaMancuernas,
+  reglasMancuernas, guardarGananciaRewards, listarNoAcumulan, ponerSumaMancuernas, guardarCanjeConCodigo,
   listarCategorias, listarProductos,
   type NoAcumulan, type RewardsParametros,
 } from '@shake/supabase'
@@ -66,6 +66,7 @@ export function GananciaMancuernas({ pm, alGuardar }: { pm: RewardsParametros; a
             productos={productos}
             alCambiar={(f) => { setFuera(f); void reglasMancuernas(sb).then(setReglas) }}
           />
+          <CanjeConCodigo reglas={reglas} alCambiar={setReglas} />
         </>
       )}
     </section>
@@ -292,6 +293,53 @@ function LoQueNoSuma({
         </ul>
       )}
       {err && <p className="text-sm text-sa-strawberry mt-3">{err}</p>}
+    </div>
+  )
+}
+
+/**
+ * Pedir el código de la app para CANJEAR (17/11/26). El QR fijo se puede
+ * fotografiar o alguien puede dar el teléfono de otra persona; con esto
+ * prendido, la caja pide el código de 6 dígitos que la app cambia cada 30 s
+ * antes de usar mancuernas o el premio de sellos. Ganar no cambia.
+ */
+function CanjeConCodigo({ reglas, alCambiar }: { reglas: ReglasMancuernas; alCambiar: (r: ReglasMancuernas) => void }) {
+  const [trabajando, setTrabajando] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+  const prendido = reglas.exigir_codigo_canje === true
+
+  async function poner(v: boolean) {
+    setTrabajando(true); setErr(null)
+    try { alCambiar(await guardarCanjeConCodigo(sb, v)) } catch (e) { setErr(mensajeDeError(e)) } finally { setTrabajando(false) }
+  }
+
+  return (
+    <div className={`mt-5 rounded-sa px-4 py-3 ${prendido ? 'bg-sa-mint/20' : 'bg-sa-cream-soft'}`}>
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div className="min-w-0 max-w-2xl">
+          <p className="font-semibold text-sa-green-ink">Pedir el código de la app para canjear</p>
+          <p className="text-xs text-sa-green-ink/60 leading-relaxed mt-0.5">
+            Con esto prendido, para <b>usar</b> mancuernas o el premio de sellos la caja pide el código de 6 dígitos
+            que la app cambia cada 30 segundos (Tu tarjeta → «Canjear en caja»). Una captura del QR o el teléfono de
+            otra persona ya no sirven para gastarle sus puntos. <b>Ganar no cambia</b>: el QR de siempre y el pase de
+            Wallet siguen sumando.
+          </p>
+          {!prendido && (
+            <p className="text-xs text-sa-coffee leading-relaxed mt-1.5">
+              Préndelo cuando la nueva versión de la app de iPhone ya esté en el App Store: quien tenga la anterior no
+              ve el botón y no podría canjear. En Android y en la web ya está.
+            </p>
+          )}
+        </div>
+        <button
+          onClick={() => void poner(!prendido)}
+          disabled={trabajando}
+          className={`shrink-0 px-4 py-2 rounded-full text-sm font-semibold disabled:opacity-50 ${prendido ? 'bg-sa-green text-sa-cream' : 'bg-white border border-sa-green-ink/20 text-sa-green-ink'}`}
+        >
+          {trabajando ? '…' : prendido ? '✓ Prendido · apagar' : 'Prender'}
+        </button>
+      </div>
+      {err && <p className="text-sm text-sa-strawberry mt-2">{err}</p>}
     </div>
   )
 }

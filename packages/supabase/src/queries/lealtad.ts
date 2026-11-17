@@ -282,6 +282,8 @@ export interface ResumenLealtad {
     lista: boolean
     texto: string | null
   }[]
+  /** Si la caja pide el código de canje para usar mancuernas o el premio. */
+  canje_con_codigo?: boolean
   /** Paquetes de recarga a la venta, con el bono que regalan. */
   paquetes?: {
     nombre: string
@@ -720,6 +722,26 @@ export async function guardarConfigSellos(
 /** Prende o apaga el avance de UNA tarjeta en la app, y su nombre. Solo gerencia. */
 export async function guardarProgresoSellos(sb: ShakeClient, tipo: string, mostrar: boolean, nombre?: string): Promise<void> {
   await rpc<unknown>(sb, 'fn_config_sellos_progreso', { p_tipo: tipo, p_mostrar: mostrar, p_nombre: nombre ?? null })
+}
+
+/**
+ * El código de canje (17/11/26): la app lo pide y lo enseña; cambia cada 30 s.
+ * El QR fijo sigue para ganar; para USAR, la caja pide este.
+ */
+export interface CodigoCanje { codigo: string; qr: string; expira_en: string; segundos: number }
+
+export async function emitirCodigoCanje(sb: ShakeClient): Promise<CodigoCanje> {
+  return rpc<CodigoCanje>(sb, 'fn_canje_codigo_emitir', {})
+}
+
+/** La caja valida el código y queda permiso de 20 min para ESE cliente. Contesta, no lanza. */
+export async function validarCodigoCanje(sb: ShakeClient, clienteId: string, codigo: string): Promise<{ ok: boolean; error?: string; valido_hasta?: string }> {
+  return rpc<{ ok: boolean; error?: string; valido_hasta?: string }>(sb, 'fn_canje_codigo_validar', { p_cliente_id: clienteId, p_codigo: codigo })
+}
+
+/** Prende o apaga que la caja pida el código para canjear. Solo gerencia. */
+export async function guardarCanjeConCodigo(sb: ShakeClient, exigir: boolean): Promise<ReglasMancuernas> {
+  return rpc<ReglasMancuernas>(sb, 'fn_canje_codigo_config', { p_exigir: exigir })
 }
 
 export interface TarjetaGenerada {

@@ -1,4 +1,5 @@
 import SwiftUI
+import Supabase
 
 struct TarjetaView: View {
     @EnvironmentObject var estado: Estado
@@ -12,6 +13,7 @@ struct TarjetaView: View {
                 MisPedidosView()
                 Pase(cliente: c) { qrGrande = c.codigo }
                 if c.codigo != nil { FilaWallet() }
+                if estado.resumen?.canje_con_codigo == true { BotonCanje() }
 
                 if let p = estado.resumen?.progreso, let meta = p.meta, meta > 0 {
                     Progreso(progreso: p)
@@ -292,6 +294,82 @@ private struct SellosView: View {
                     }
                 }
             }
+        }
+    }
+}
+
+/// «Canjear en caja» (17/11/26): el código que la caja pide para USAR
+/// mancuernas o el premio. Cambia cada 30 s, así que una captura no sirve;
+/// el QR de la tarjeta (y Wallet) siguen sirviendo para ganar.
+private struct BotonCanje: View {
+    @State private var abierto = false
+    var body: some View {
+        VStack(spacing: 6) {
+            Button("Canjear en caja") { abierto = true }
+                .buttonStyle(BotonPrincipal())
+            Text("Para usar tus mancuernas o tu premio, muestra este código en caja.")
+                .font(Marca.cuerpo(12)).foregroundStyle(Marca.crema.opacity(0.55))
+                .multilineTextAlignment(.center)
+        }
+        .fullScreenCover(isPresented: $abierto) {
+            CodigoParaCanjear { abierto = false }
+        }
+    }
+}
+
+private struct CodigoCanje: Decodable {
+    var codigo: String
+    var qr: String
+    var segundos: Int?
+}
+
+private struct CodigoParaCanjear: View {
+    let cerrar: () -> Void
+    @State private var cod: CodigoCanje?
+    @State private var vence = Date.distantPast
+    @State private var error: String?
+    @State private var brilloAntes: CGFloat = UIScreen.main.brightness
+
+    var body: some View {
+        ZStack {
+            Color.white.ignoresSafeArea()
+            VStack(spacing: 20) {
+                Text("Código para canjear").font(Marca.display(26)).foregroundStyle(Marca.tinta)
+                if let cod {
+                    CodigoQR(texto: cod.qr).frame(maxWidth: 260, maxHeight: 260)
+                    Text("\(String(cod.codigo.prefix(3))) \(String(cod.codigo.suffix(3)))")
+                        .font(Marca.mono(36, .medium)).tracking(6).foregroundStyle(Marca.tinta)
+                    TimelineView(.periodic(from: .now, by: 1)) { ctx in
+                        let s = max(0, Int(vence.timeIntervalSince(ctx.date).rounded(.up)))
+                        Text(s > 0 ? "Cambia en \(s) s · una foto no sirve" : "Renovando…")
+                            .font(Marca.mono(13)).foregroundStyle(Marca.tinta.opacity(0.6))
+                            .task(id: s <= 0) { if s <= 0 { await pedir() } }
+                    }
+                } else if let error {
+                    Text(error).font(Marca.cuerpo(15, .medium)).foregroundStyle(Marca.fresa)
+                        .multilineTextAlignment(.center).padding(.horizontal, 30)
+                } else {
+                    ProgressView().tint(Marca.verde)
+                }
+                Button("Cerrar", action: cerrar)
+                    .buttonStyle(BotonPrincipal(fondo: Marca.tinta, texto: Marca.crema))
+                    .padding(.horizontal, 40)
+            }
+        }
+        .task { await pedir() }
+        .onAppear { brilloAntes = UIScreen.main.brightness; UIScreen.main.brightness = 1 }
+        .onDisappear { UIScreen.main.brightness = brilloAntes }
+    }
+
+    private func pedir() async {
+        do {
+            let c: CodigoCanje = try await supabase.rpc("fn_canje_codigo_emitir").execute().value
+            cod = c
+            error = nil
+            vence = Date().addingTimeInterval(TimeInterval(c.segundos ?? 30))
+        } catch {
+            self.error = "No se pudo generar el código. Revisa tu conexión."
+            vence = Date().addingTimeInterval(5)
         }
     }
 }

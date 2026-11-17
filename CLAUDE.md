@@ -991,6 +991,19 @@ previa. `aviso_desde = 0` apaga el guiño.
 `fn_mi_resumen_lealtad` ni manda el número (llave `sellos` solo con las
 prendidas). PWA y iOS pintan los círculos y el guiño adentro.
 
+**Para USAR se puede pedir un código que cambia cada 30 s** (17/11,
+`canje_con_codigo_de_la_app.sql`). El QR fijo `SHK-` se fotografía y el
+teléfono de otro se dicta: con **Admin → Rewards → «Pedir el código de la
+app para canjear»** (`rewards_ganancia.exigir_codigo_canje`, nace
+**apagado**), `fn_canjear_mancuernas` y `fn_canjear_sellos` piden un permiso
+de 20 min (`rewards_canje_permisos`) que deja `fn_canje_codigo_validar`
+cuando la caja escanea `SHKR-123456` o teclea los 6 dígitos (kiosko →
+PanelRewards). La app lo enseña en Tu tarjeta → «Canjear en caja»
+(`fn_canje_codigo_emitir`, vive 45 s). Ganar no cambia. Un código malo se
+contesta `{ok:false}` y cuenta para el freno (10 en 15 min). **No se prende
+hasta que la versión de iPhone con el botón esté en el App Store.** Los
+cupones (`fn_canjear_cupon`, POS) todavía no lo piden.
+
 Y en el mismo lugar está **"Cómo está armado"**: todos los parámetros del
 programa con la columna *dónde vive cada uno*, porque no se tocan igual —
 la tasa de canje es una función y los sellos son una tabla editable.

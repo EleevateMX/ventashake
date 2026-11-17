@@ -19,6 +19,8 @@ export interface ReglasMancuernas {
   tope_por_orden: number
   /** Ids de producto que no suman (por producto o por su categoría). */
   no_acumulan: string[]
+  /** Si para USAR mancuernas o el premio la caja pide el código de la app. */
+  exigir_codigo_canje?: boolean
 }
 
 export const REGLAS_DE_SIEMPRE: ReglasMancuernas = {

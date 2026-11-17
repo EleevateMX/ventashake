@@ -1,6 +1,6 @@
 import milo from '@shake/brand/milo.png'
 import { useEffect, useState } from 'react'
-import { canjearTarjeta, type ResumenLealtad } from '@shake/supabase'
+import { canjearTarjeta, emitirCodigoCanje, type CodigoCanje, type ResumenLealtad } from '@shake/supabase'
 import { mxn } from '@shake/utils'
 import { sb } from './lib/sb'
 import { amable } from './lib/rpc'
@@ -32,6 +32,7 @@ export function TarjetaTab() {
       </Titulo>
       <MisPedidos />
       <Pase cliente={c} alTocarQR={() => c.codigo && setQrGrande(c.codigo)} />
+      {resumen?.canje_con_codigo && <BotonCanje />}
       <Instalar />
       <Avisos />
       {resumen?.progreso && resumen.progreso.meta > 0 && <Progreso p={resumen.progreso} />}
@@ -377,5 +378,68 @@ function Sellos({ tarjetas, guinos }: {
         )
       })}
     </Hoja>
+  )
+}
+
+/**
+ * «Canjear en caja» (17/11/26): el código que la caja pide para USAR
+ * mancuernas o el premio. Cambia cada 30 s, así que una captura de pantalla
+ * no sirve; el QR fijo de arriba sigue sirviendo para ganar.
+ */
+function BotonCanje() {
+  const [abierto, setAbierto] = useState(false)
+  return (
+    <>
+      <Boton onClick={() => setAbierto(true)}>Canjear en caja</Boton>
+      <p className="text-xs text-sa-cream/55 text-center -mt-1 mb-3">Para usar tus mancuernas o tu premio, muestra este código en caja.</p>
+      {abierto && <PantallaCanje alCerrar={() => setAbierto(false)} />}
+    </>
+  )
+}
+
+function PantallaCanje({ alCerrar }: { alCerrar: () => void }) {
+  const [cod, setCod] = useState<CodigoCanje | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [restan, setRestan] = useState(30)
+
+  useEffect(() => {
+    let vivo = true
+    let vence = 0
+    async function pedir() {
+      try {
+        const c = await emitirCodigoCanje(sb)
+        if (!vivo) return
+        setCod(c); setError(null)
+        vence = Date.now() + (c.segundos ?? 30) * 1000
+      } catch (e) {
+        if (vivo) setError(amable(e))
+        vence = Date.now() + 5000
+      }
+    }
+    void pedir()
+    const t = setInterval(() => {
+      const s = Math.max(0, Math.ceil((vence - Date.now()) / 1000))
+      setRestan(s)
+      if (vence && s === 0) { vence = Date.now() + 60_000; void pedir() }
+    }, 250)
+    return () => { vivo = false; clearInterval(t) }
+  }, [])
+
+  return (
+    <PantallaBlanca alCerrar={alCerrar}>
+      <p className="font-display text-2xl">Código para canjear</p>
+      {cod ? (
+        <>
+          <QR value={cod.qr} size={Math.min(260, Math.round(window.innerWidth * 0.62))} />
+          <p className="font-mono text-4xl tracking-[0.25em]">{cod.codigo.slice(0, 3)} {cod.codigo.slice(3)}</p>
+          <div className="w-full max-w-[260px] h-1.5 rounded-full bg-sa-green-ink/10 overflow-hidden">
+            <div className="h-full bg-sa-green transition-[width] duration-300" style={{ width: `${(restan / 30) * 100}%` }} />
+          </div>
+          <p className="text-sm text-sa-green-ink/60 text-center">Cambia en {restan} s. Muéstralo en caja; una foto no sirve.</p>
+        </>
+      ) : (
+        <p className="text-sm text-sa-green-ink/60">{error ?? 'Generando…'}</p>
+      )}
+    </PantallaBlanca>
   )
 }

@@ -17,7 +17,7 @@
  * SHKP se revisa ANTES que SHK. Sin separador no hay ambigüedad: el código
  * de cliente es hexadecimal (0-9, A-F), así que nunca empieza con «P».
  */
-const PATRON = /^(SHKP|SHK)[^0-9A-Z]*([0-9A-Z]+)$/
+const PATRON = /^(SHKP|SHKR|SHK)[^0-9A-Z]*([0-9A-Z]+)$/
 
 export function normalizarCodigoEscaneado(texto: string): string {
   const limpio = texto.trim()
@@ -30,3 +30,19 @@ export const esCodigoCliente = (t: string) => /^SHK-[0-9A-Z]+$/.test(normalizarC
 
 /** ¿Es (ya normalizado) un código de personal de la app? */
 export const esCodigoPersonal = (t: string) => /^SHKP-[0-9A-Z]+$/.test(normalizarCodigoEscaneado(t))
+
+/**
+ * El código de CANJE que enseña la app (`SHKR-123456`, 17/11/26): cambia
+ * cada 30 s y es lo que la caja pide para usar mancuernas o el premio de
+ * sellos. El QR fijo (SHK-) sigue sirviendo para ganar. SHKR se revisa antes
+ * que SHK por la misma razón que SHKP: el código de cliente es hexadecimal
+ * y nunca empieza con «R».
+ */
+export const esCodigoCanje = (t: string) => /^SHKR-\d{6}$/.test(normalizarCodigoEscaneado(t))
+
+/** Los 6 dígitos de un código de canje, escaneado o tecleado. */
+export function digitosDeCanje(t: string): string | null {
+  const n = normalizarCodigoEscaneado(t)
+  const m = /^SHKR-(\d{6})$/.exec(n) ?? /^(\d{6})$/.exec(n.replace(/\D/g, ''))
+  return m ? m[1] : null
+}

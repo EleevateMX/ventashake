@@ -1208,6 +1208,7 @@ export function Pago() {
                   total={Math.max(0, total() - descuentoPromo - descuentoPersonal - descuentoCupon)}
                   decision={rewards}
                   onCambiar={setRewards}
+                  onCodigoEscrito={quitarCodigoDelNombre}
                 />
               )}
               {!corte && (
