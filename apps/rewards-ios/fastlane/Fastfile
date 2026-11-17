@@ -176,14 +176,31 @@ platform :ios do
   end
 
   def versiones_tienda(app)
-    app.get_app_store_versions(filter: { platform: "IOS" }, includes: "build")
+    con_reintentos("las versiones") { app.get_app_store_versions(filter: { platform: "IOS" }, includes: "build") }
+  end
+
+  # Apple contesta «Server error got 500» de vez en cuando en esta consulta
+  # (17/11/26: tumbó un `publicar` con el build ya listo). Se reintenta.
+  def con_reintentos(que, veces: 4)
+    intento = 0
+    begin
+      intento += 1
+      yield
+    rescue StandardError => e
+      raise if intento >= veces || !e.message.to_s.match?(/500|502|503|504|timed out|timeout/i)
+      UI.important("Apple falló al pedir #{que} (#{e.message.to_s.lines.first&.strip}); reintento #{intento}/#{veces - 1}")
+      sleep 15 * intento
+      retry
+    end
   end
 
   def envios_abiertos(app)
-    app.get_review_submissions(
-      filter: { platform: "IOS", state: "READY_FOR_REVIEW,WAITING_FOR_REVIEW,IN_REVIEW,UNRESOLVED_ISSUES,CANCELING" },
-      includes: "items"
-    )
+    con_reintentos("los envíos a revisión") do
+      app.get_review_submissions(
+        filter: { platform: "IOS", state: "READY_FOR_REVIEW,WAITING_FOR_REVIEW,IN_REVIEW,UNRESOLVED_ISSUES,CANCELING" },
+        includes: "items"
+      )
+    end
   end
 
   desc "Imprime cómo está la app en Apple: builds, versiones y envíos a revisión. No cambia nada."
