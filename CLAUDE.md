@@ -767,6 +767,20 @@ vínculos; para Perla es lo mismo, desaparece. Costeos no lo revive:
   para los de alimentos. Y `fn_extra_bebida_guardar` ya pide personal:
   estaba abierta a `anon` sin candado.
 
+### 2.4.9.5 La app personaliza por secciones, con las reglas del kiosko (17/11/26)
+
+La hoja «Lo quiero» de la app (PWA y iOS) mezclaba las ~75 opciones de El
+Clásico en una lista y preseleccionaba la primera proteína. Ahora va como
+el kiosko: **proteína** (marca → sabor, la de casa Optimum), **base** (la
+gratis viaja como nota del shake, la cobrada como renglón), **proteína
+adicional** (doble scoop de la marca elegida), los **grupos** de Admin sin
+preseleccionar lo que cobra, **galletas** solo con su `requiere_grupo`, y
+**extras**. La PWA usa `@shake/utils` (`marcaYSabor`, `marcasOrdenadas`,
+`proteinaDeCasa` se mudaron ahí desde el kiosko); iOS tiene su espejo en
+`Features/Menu/ReglasExtras.swift` — **al tocar una, revisa la otra**. Las
+hojas de la PWA se pintan en `document.body` (portal): una hoja dentro de
+otra con `transform` se acomodaba contra la de abajo.
+
 ### 2.4.10 Admin revisa el menú y nombra lo que está chueco
 
 **Admin → Revisión del menú** (`fn_revision_menu`) enumera lo que las
@@ -968,6 +982,14 @@ dice que pregunte en caja — sin decir qué es.
 
 Los textos y el umbral los escribe gerencia en Admin → Rewards, con vista
 previa. `aviso_desde = 0` apaga el guiño.
+
+**Y el avance se puede enseñar, por tarjeta** (17/11,
+`sellos_progreso_en_la_app.sql`). Gerencia pidió «Sellos y recompensas»
+(«Shakes 3 de 13») para generar emoción: Admin → Rewards → en cada tarjeta,
+**«Enseñar el avance en la app»** y el nombre con que sale.
+`config_sellos.mostrar_progreso` nace **apagado**; con él apagado
+`fn_mi_resumen_lealtad` ni manda el número (llave `sellos` solo con las
+prendidas). PWA y iOS pintan los círculos y el guiño adentro.
 
 Y en el mismo lugar está **"Cómo está armado"**: todos los parámetros del
 programa con la columna *dónde vive cada uno*, porque no se tocan igual —

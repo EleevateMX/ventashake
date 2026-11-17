@@ -269,6 +269,19 @@ export interface ResumenLealtad {
     estado: 'cerca' | 'lista'
     texto: string
   }[]
+  /**
+   * El avance de cada tarjeta de sellos («Bebidas 3 de 13»). Solo viajan las
+   * tarjetas que gerencia prendió en Admin → Rewards (`mostrar_progreso`);
+   * apagada, el número ni sale del servidor.
+   */
+  sellos?: {
+    tipo: string
+    nombre: string
+    tiene: number
+    requeridos: number
+    lista: boolean
+    texto: string | null
+  }[]
   /** Paquetes de recarga a la venta, con el bono que regalan. */
   paquetes?: {
     nombre: string
@@ -616,6 +629,8 @@ export interface RewardsParametros {
     aviso_texto: string | null
     aviso_listo_texto: string | null
     activo: boolean
+    /** Si la app enseña el avance («3 de 13»). Nace apagado. */
+    mostrar_progreso: boolean
     premios: number
     premio_mas_barato: number | null
     /**
@@ -700,6 +715,11 @@ export async function guardarConfigSellos(
     p_aviso_listo_texto: c.aviso_listo_texto,
     p_activo: c.activo,
   })
+}
+
+/** Prende o apaga el avance de UNA tarjeta en la app, y su nombre. Solo gerencia. */
+export async function guardarProgresoSellos(sb: ShakeClient, tipo: string, mostrar: boolean, nombre?: string): Promise<void> {
+  await rpc<unknown>(sb, 'fn_config_sellos_progreso', { p_tipo: tipo, p_mostrar: mostrar, p_nombre: nombre ?? null })
 }
 
 export interface TarjetaGenerada {

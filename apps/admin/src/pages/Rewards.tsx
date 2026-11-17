@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import {
-  rewardsAdmin, generarTarjetas, rewardsParametros, guardarConfigSellos,
+  rewardsAdmin, generarTarjetas, rewardsParametros, guardarConfigSellos, guardarProgresoSellos,
   type RewardsAdmin, type TarjetaGenerada, type RewardsParametros,
 } from '@shake/supabase'
 import { mensajeDeError, mxn } from '@shake/utils'
@@ -506,6 +506,8 @@ function FilaSellos({
         </p>
       </div>
 
+      <AvanceEnLaApp s={s} alGuardar={alGuardar} />
+
       <div className="grid gap-3 sm:grid-cols-3 mb-3">
         <div>
           <label className={cx.label}>Compras para el premio</label>
@@ -604,6 +606,66 @@ function FilaSellos({
         </button>
         {ok && <span className="font-mono text-xs text-sa-green">Guardado.</span>}
       </div>
+    </div>
+  )
+}
+
+/**
+ * El interruptor de «Sellos y recompensas» en la app (17/11/26): enseña al
+ * cliente su avance («3 de 13») en vez de solo el guiño. Por tarjeta, y
+ * apagado de nacimiento. Con él apagado el número ni sale del servidor.
+ */
+function AvanceEnLaApp({ s, alGuardar }: { s: RewardsParametros['sellos'][number]; alGuardar: () => void }) {
+  const [nombre, setNombre] = useState(s.nombre)
+  const [trabajando, setTrabajando] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+
+  async function poner(mostrar: boolean, nuevoNombre?: string) {
+    setTrabajando(true); setErr(null)
+    try {
+      await guardarProgresoSellos(sb, s.tipo, mostrar, nuevoNombre)
+      alGuardar()
+    } catch (e) {
+      setErr(mensajeDeError(e))
+    } finally {
+      setTrabajando(false)
+    }
+  }
+
+  const prendido = s.mostrar_progreso
+  return (
+    <div className={`rounded-sa px-4 py-3 mb-3 ${prendido ? 'bg-sa-mint/20' : 'bg-sa-cream-soft'}`}>
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div className="min-w-0">
+          <p className="font-semibold text-sa-green-ink">Enseñar el avance en la app</p>
+          <p className="text-xs text-sa-green-ink/60 leading-relaxed mt-0.5">
+            {prendido
+              ? <>El cliente ve «{s.nombre}: 3 de {s.requeridos}» con sus sellos en la tarjeta (iPhone y Android).</>
+              : <>Apagado: la app no dice cuántos lleva, solo el guiño cuando ya falta poco.</>}
+          </p>
+        </div>
+        <button
+          onClick={() => void poner(!prendido)}
+          disabled={trabajando}
+          className={`shrink-0 px-4 py-2 rounded-full text-sm font-semibold disabled:opacity-50 ${prendido ? 'bg-sa-green text-sa-cream' : 'bg-white border border-sa-green-ink/20 text-sa-green-ink'}`}
+        >
+          {trabajando ? '…' : prendido ? '✓ Prendido · apagar' : 'Prender'}
+        </button>
+      </div>
+      <div className="flex items-end gap-2 mt-3 max-w-md">
+        <div className="flex-1">
+          <label className={cx.label}>Cómo se llama en la app</label>
+          <input className={cx.input} value={nombre} maxLength={30} onChange={(e) => setNombre(e.target.value)} placeholder="Shakes, Alimentos…" />
+        </div>
+        <button
+          onClick={() => void poner(prendido, nombre)}
+          disabled={trabajando || !nombre.trim() || nombre.trim() === s.nombre}
+          className="px-4 py-2 rounded-full bg-sa-green text-sa-cream text-sm font-semibold disabled:opacity-40"
+        >
+          Guardar nombre
+        </button>
+      </div>
+      {err && <ErrorMsg>{err}</ErrorMsg>}
     </div>
   )
 }

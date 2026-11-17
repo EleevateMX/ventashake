@@ -17,7 +17,12 @@ struct TarjetaView: View {
                     Progreso(progreso: p)
                 }
 
-                ForEach(estado.resumen?.sorpresa ?? []) { s in
+                let sellos = estado.resumen?.sellos ?? []
+                if !sellos.isEmpty {
+                    SellosView(tarjetas: sellos, guinos: estado.resumen?.sorpresa ?? [])
+                }
+
+                ForEach((estado.resumen?.sorpresa ?? []).filter { s in !sellos.contains { $0.tipo == s.tipo } }) { s in
                     Hoja {
                         Etiqueta(texto: s.nombre, color: Marca.verde)
                         Text(s.texto).font(Marca.cuerpo(16, .medium))
@@ -234,6 +239,57 @@ private struct TarjetaDeRegalo: View {
                 .disabled(trabajando || codigo.count < 6)
                 if let mensaje {
                     Text(mensaje).font(Marca.cuerpo(14, .medium)).foregroundStyle(Marca.verde)
+                }
+            }
+        }
+    }
+}
+
+/// «Sellos y recompensas»: el avance de cada tarjeta 13+1. Solo llegan las
+/// que gerencia prendió en Admin → Rewards; el guiño va dentro de su tarjeta.
+private struct SellosView: View {
+    let tarjetas: [Resumen.Sello]
+    let guinos: [Resumen.Sorpresa]
+    private let columnas = Array(repeating: GridItem(.flexible(), spacing: 6), count: 7)
+
+    var body: some View {
+        Hoja(titulo: "Sellos y recompensas") {
+            ForEach(tarjetas) { t in
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(alignment: .firstTextBaseline) {
+                        Text(t.nombre).font(Marca.cuerpo(15, .semibold))
+                        Spacer()
+                        Text("\(t.tiene) de \(t.requeridos)").font(Marca.mono(14)).foregroundStyle(Marca.verde)
+                    }
+                    LazyVGrid(columns: columnas, spacing: 6) {
+                        ForEach(0..<t.requeridos, id: \.self) { i in
+                            let lleno = i < t.tiene
+                            ZStack {
+                                Circle().fill(lleno ? Marca.verde : Marca.cremaCalida)
+                                if lleno {
+                                    Image(systemName: "checkmark").font(.system(size: 12, weight: .bold)).foregroundStyle(Marca.platano)
+                                } else {
+                                    Circle().strokeBorder(Marca.tinta.opacity(0.2), style: StrokeStyle(lineWidth: 1, dash: [3]))
+                                    Text("\(i + 1)").font(Marca.cuerpo(12, .bold)).foregroundStyle(Marca.tinta.opacity(0.25))
+                                }
+                            }
+                            .aspectRatio(1, contentMode: .fit)
+                        }
+                        ZStack {
+                            Circle().fill(Marca.platano)
+                            Text("🎁").font(.system(size: 15))
+                        }
+                        .aspectRatio(1, contentMode: .fit)
+                    }
+                    if t.lista {
+                        Text(t.texto ?? "¡Tu recompensa está lista! Pregunta en caja.")
+                            .font(Marca.cuerpo(14, .semibold)).foregroundStyle(Marca.tinta)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 12).padding(.vertical, 8)
+                            .background(Marca.platano, in: RoundedRectangle(cornerRadius: 12))
+                    } else if let g = guinos.first(where: { $0.tipo == t.tipo }) {
+                        Text(g.texto).font(Marca.cuerpo(14)).foregroundStyle(Marca.tinta.opacity(0.75))
+                    }
                 }
             }
         }

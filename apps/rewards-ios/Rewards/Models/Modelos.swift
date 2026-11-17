@@ -12,6 +12,8 @@ struct Resumen: Decodable {
     var cliente: Cliente?
     var progreso: Progreso?
     var sorpresa: [Sorpresa]?
+    /// El avance de cada tarjeta de sellos; solo las que gerencia prendió.
+    var sellos: [Sello]?
     var paquetes: [Paquete]?
     var vida: Vida?
     var ganadas_total: Double?
@@ -49,6 +51,16 @@ struct Resumen: Decodable {
         var nombre: String
         var estado: String
         var texto: String
+        var id: String { tipo }
+    }
+
+    struct Sello: Decodable, Identifiable {
+        var tipo: String
+        var nombre: String
+        var tiene: Int
+        var requeridos: Int
+        var lista: Bool
+        var texto: String?
         var id: String { tipo }
     }
 

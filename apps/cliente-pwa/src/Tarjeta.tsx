@@ -35,7 +35,8 @@ export function TarjetaTab() {
       <Instalar />
       <Avisos />
       {resumen?.progreso && resumen.progreso.meta > 0 && <Progreso p={resumen.progreso} />}
-      {(resumen?.sorpresa ?? []).map((s) => (
+      {(resumen?.sellos ?? []).length > 0 && <Sellos tarjetas={resumen!.sellos!} guinos={resumen?.sorpresa ?? []} />}
+      {(resumen?.sorpresa ?? []).filter((s) => !(resumen?.sellos ?? []).some((t) => t.tipo === s.tipo)).map((s) => (
         <Hoja key={s.tipo}>
           <Etiqueta texto={s.nombre} className="!text-sa-green" />
           <p className="text-base font-medium">{s.texto}</p>
@@ -332,5 +333,49 @@ export function MiloVacio({ titulo, texto }: { titulo: string; texto: string }) 
       <p className="font-display text-xl text-sa-cream mt-3">{titulo}</p>
       <p className="text-sm text-sa-cream/60 mt-1 max-w-[260px] mx-auto">{texto}</p>
     </div>
+  )
+}
+
+/**
+ * «Sellos y recompensas»: el avance de cada tarjeta 13+1 (17/11/26). Solo
+ * llegan las tarjetas que gerencia prendió en Admin → Rewards; el guiño de
+ * «ya casi» se pinta adentro de su tarjeta en vez de suelto.
+ */
+function Sellos({ tarjetas, guinos }: {
+  tarjetas: NonNullable<ResumenLealtad['sellos']>
+  guinos: NonNullable<ResumenLealtad['sorpresa']>
+}) {
+  return (
+    <Hoja titulo="Sellos y recompensas">
+      {tarjetas.map((t) => {
+        const guino = guinos.find((g) => g.tipo === t.tipo)
+        return (
+          <div key={t.tipo} className="space-y-2">
+            <div className="flex items-baseline justify-between">
+              <span className="font-semibold text-[15px]">{t.nombre}</span>
+              <span className="font-mono text-sm text-sa-green">{t.tiene} de {t.requeridos}</span>
+            </div>
+            <div className="grid grid-cols-7 gap-1.5" aria-label={`${t.tiene} de ${t.requeridos} sellos`}>
+              {Array.from({ length: t.requeridos }, (_, i) => {
+                const lleno = i < t.tiene
+                return (
+                  <span key={i} className={`aspect-square rounded-full flex items-center justify-center text-[13px] font-bold ${lleno ? 'bg-sa-green text-sa-banana' : 'bg-sa-cream-warm text-sa-green-ink/25 border border-dashed border-sa-green-ink/20'}`}>
+                    {lleno ? '✓' : i + 1}
+                  </span>
+                )
+              })}
+              <span className="aspect-square rounded-full flex items-center justify-center text-base bg-sa-banana" title="Tu recompensa">🎁</span>
+            </div>
+            {t.lista ? (
+              <p className="rounded-[12px] bg-sa-banana px-3 py-2 text-sm font-semibold text-sa-green-ink whitespace-pre-line">
+                {t.texto || '¡Tu recompensa está lista! Pregunta en caja.'}
+              </p>
+            ) : guino ? (
+              <p className="text-sm text-sa-green-ink/75 whitespace-pre-line">{guino.texto}</p>
+            ) : null}
+          </div>
+        )
+      })}
+    </Hoja>
   )
 }

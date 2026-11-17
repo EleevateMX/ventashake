@@ -41,6 +41,11 @@ enum Vitrina {
             Resumen.Sorpresa(tipo: "bebidas", nombre: "Tarjeta de bebidas", estado: "cerca",
                              texto: "Con un par de visitas más, quizá te llegue una sorpresa."),
         ],
+        sellos: [
+            Resumen.Sello(tipo: "bebida", nombre: "Shakes", tiene: 11, requeridos: 13, lista: false, texto: nil),
+            Resumen.Sello(tipo: "alimento", nombre: "Alimentos", tiene: 13, requeridos: 13, lista: true,
+                          texto: "YOU DID IT! ⚡\nTu recompensa está lista. Pregunta en caja."),
+        ],
         paquetes: [
             Resumen.Paquete(nombre: "Recarga $200", precio: 200, mancuernas: 2200, vale: 220, bono_pct: 10),
             Resumen.Paquete(nombre: "Recarga $500", precio: 500, mancuernas: 5750, vale: 575, bono_pct: 15),
