@@ -294,7 +294,7 @@ platform :ios do
       publicadas = versiones_tienda(app).map(&:version_string)
       UI.user_error!("La versión #{numero_version} ya existe (#{publicadas.join(', ')}): sube el build con otro número de versión") if publicadas.include?(numero_version)
       UI.important("Creando la versión #{numero_version} en la tienda")
-      app.create_version!(app_version_string: numero_version, platform: "IOS")
+      con_reintentos("crear la versión") { app.ensure_version!(numero_version, platform: "IOS") }
       version = versiones_tienda(app).find { |v| v.version_string == numero_version && editables.include?(v.app_store_state) }
       UI.user_error!("No se pudo crear la versión #{numero_version}") unless version
     end
