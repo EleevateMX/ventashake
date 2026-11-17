@@ -49,6 +49,10 @@ env:
 
 jobs:
   compilar:
+    # Al subir no hace falta: la subida compila y firma por su cuenta, y dos
+    # trabajos de Mac seguidos esperaban turno dos veces (17/11/26 GitHub
+    # canceló dos subidas tras 15 min en fila).
+    if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.subir) }}
     runs-on: macos-15
     timeout-minutes: 40
     steps:
@@ -124,7 +128,6 @@ jobs:
           retention-days: 7
 
   testflight:
-    needs: compilar
     if: github.event_name == 'workflow_dispatch' && inputs.subir
     runs-on: macos-15
     timeout-minutes: 60
