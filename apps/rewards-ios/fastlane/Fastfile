@@ -298,37 +298,59 @@ platform :ios do
       version = versiones_tienda(app).find { |v| v.version_string == numero_version && editables.include?(v.app_store_state) }
       UI.user_error!("No se pudo crear la versión #{numero_version}") unless version
     end
-    version.select_build(build_id: build.id)
+    # 17/11/26: Apple contestó 500 en select_build, en las novedades y al
+    # mandar (deliver), a veces después de haberlo hecho. Cada paso se
+    # reintenta y se salta si ya quedó.
+    if version.build&.id == build.id
+      UI.message("La versión #{version.version_string} ya tenía el build #{build.version}")
+    else
+      con_reintentos("ligar el build") { version.select_build(build_id: build.id) }
+    end
     UI.success("Versión #{version.version_string} con el build #{build.version}")
 
     # Una actualización no se puede mandar sin «Novedades»: sale de
     # metadata/<idioma>/release_notes.txt.
-    version.get_app_store_version_localizations.each do |loc|
+    locs = con_reintentos("los idiomas de la versión") { version.get_app_store_version_localizations }
+    locs.each do |loc|
       archivo = File.join(__dir__, "metadata", loc.locale, "release_notes.txt")
       next unless File.exist?(archivo)
-      loc.update(attributes: { whats_new: File.read(archivo).strip })
+      texto = File.read(archivo).strip
+      if loc.whats_new.to_s.strip == texto
+        UI.message("Novedades (#{loc.locale}) ya estaban")
+        next
+      end
+      con_reintentos("poner las novedades") { loc.update(attributes: { whats_new: texto }) }
       UI.message("Novedades (#{loc.locale}) puestas")
     end
+    con_reintentos("la salida automática") { version.update(attributes: { releaseType: "AFTER_APPROVAL" }) }
 
-    # 4. A revisión. deliver arma el envío nuevo y contesta lo de IDFA y cifrado.
-    deliver(
-      api_key: llave,
-      app_identifier: BUNDLE,
-      app_version: version.version_string,
-      build_number: build.version,
-      skip_binary_upload: true,
-      skip_metadata: true,
-      skip_screenshots: true,
-      submit_for_review: true,
-      automatic_release: true,
-      force: true,
-      run_precheck_before_submit: false,
-      precheck_include_in_app_purchases: false,
-      submission_information: {
-        add_id_info_uses_idfa: false,
-        export_compliance_uses_encryption: false
-      }
-    )
+    # 4. A revisión, a mano y no con deliver: deliver no reintenta, y un 500
+    #    a medio envío lo dejaba sin saber si ya se había mandado. Es lo
+    #    mismo que hace deliver (submit_for_review.rb de fastlane 2.242).
+    envio = begin
+      con_reintentos("el envío en preparación", veces: 3) { app.get_ready_review_submission(platform: "IOS", includes: "items") }
+    rescue StandardError => e
+      UI.important("Apple no deja ver el envío en preparación (#{e.message.to_s.lines.first&.strip}); se crea uno")
+      nil
+    end
+    envio ||= con_reintentos("crear el envío") { app.create_review_submission(platform: "IOS") }
+    UI.message("Envío #{envio.id} (#{envio.state})")
+    ya_va = (envio.items || []).any? { |i| i.respond_to?(:app_store_version) && i.app_store_version&.id == version.id }
+    unless ya_va
+      begin
+        con_reintentos("agregar la versión al envío") { envio.add_app_store_version_to_review_items(app_store_version_id: version.id) }
+      rescue StandardError => e
+        raise unless e.message.to_s.match?(/already|ya existe|409|ENTITY_ERROR/i)
+        UI.important("La versión ya iba en el envío (#{e.message.to_s.lines.first&.strip})")
+      end
+    end
+    10.times do
+      v = con_reintentos("el estado de la versión") { Spaceship::ConnectAPI::AppStoreVersion.get(app_store_version_id: version.id) }
+      break if v.app_version_state == "READY_FOR_REVIEW"
+      UI.message("Esperando a que la versión quede lista para revisión (#{v.app_version_state})…")
+      sleep 15
+    end
+    con_reintentos("mandar a revisión") { envio.submit_for_review }
     UI.success("Mandada a revisión. Al aprobarse sale sola a la tienda.")
     estado
   end
