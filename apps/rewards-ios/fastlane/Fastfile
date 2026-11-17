@@ -194,8 +194,8 @@ platform :ios do
     end
   end
 
-  def envios_abiertos(app)
-    con_reintentos("los envíos a revisión") do
+  def envios_abiertos(app, veces: 8)
+    con_reintentos("los envíos a revisión", veces: veces) do
       app.get_review_submissions(
         filter: { platform: "IOS", state: "READY_FOR_REVIEW,WAITING_FOR_REVIEW,IN_REVIEW,UNRESOLVED_ISSUES,CANCELING" },
         includes: "items"
@@ -256,15 +256,27 @@ platform :ios do
 
     # 2. Si hay un envío esperando con OTRO build, se retira. Mientras está
     #    «Esperando revisión» la versión no deja cambiar el build.
-    envios_abiertos(app).each do |s|
+    #    17/11/26: Apple contestó 500 a ESTA consulta 8 veces seguidas (20
+    #    min) mientras todo lo demás respondía. Si no se puede ver, se sigue:
+    #    si de verdad hubiera un envío abierto, Apple lo dice al mandar.
+    abiertos = begin
+      envios_abiertos(app, veces: 2)
+    rescue StandardError => e
+      UI.important("Apple no deja ver los envíos abiertos (#{e.message.to_s.lines.first&.strip}); se sigue sin retirar nada")
+      []
+    end
+    retirados = 0
+    abiertos.each do |s|
       if s.state == "IN_REVIEW"
         UI.user_error!("Apple ya la está revisando (#{s.id}): no se retira a media revisión")
       end
       next if %w[CANCELING].include?(s.state)
       UI.important("Retirando el envío #{s.id} (#{s.state}) para cambiarle el build")
       s.cancel_submission
+      retirados += 1
     end
     40.times do
+      break if retirados.zero?
       abiertos = envios_abiertos(app).reject { |s| s.state == "READY_FOR_REVIEW" }
       break if abiertos.empty?
       UI.message("Esperando a que Apple retire el envío anterior (#{abiertos.map(&:state).join(', ')})…")
