@@ -121,6 +121,8 @@ interface PosStore {
   descuentoPromoMonto: () => number
   descuentoManualMonto: () => number
   descuentoTotal: () => number
+  /** Descuento que se MANDA a crearOrden: promo + manual, SIN el cupón. */
+  descuentoSinCupon: () => number
   neto: () => number
   totalItems: () => number
 }
@@ -390,6 +392,12 @@ export const usePosStore = create<PosStore>((set, get) => ({
   // Descuento combinado: cupón + promo + descuento manual de caja.
   descuentoTotal: () =>
     get().descuentoCupon() + get().descuentoPromoMonto() + get().descuentoManualMonto(),
+
+  // El cupón ya no viaja como `descuento` del cliente: lo aplica el servidor
+  // con fn_canjear_cupon_recompensa (deja el producto en $0 y baja el total),
+  // igual que el kiosko. Aquí solo van promo + manual.
+  descuentoSinCupon: () =>
+    get().descuentoPromoMonto() + get().descuentoManualMonto(),
 
   neto: () => Math.max(0, get().subtotal() - get().descuentoTotal()),
 

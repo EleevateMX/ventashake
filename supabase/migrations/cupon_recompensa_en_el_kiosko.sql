@@ -31,15 +31,14 @@ begin
   select * into v_orden from ordenes where id = p_orden_id;
   if not found then raise exception 'La orden no existe'; end if;
   if v_orden.pagado then raise exception 'Esa orden ya está pagada'; end if;
-  if v_orden.cliente_id is null then
-    raise exception 'Primero identifica al cliente (código o teléfono)';
-  end if;
 
-  -- El cupón tiene que ser de ESTE cliente, de premio, activo y vigente.
+  -- El cupón tiene que ser de premio, activo y vigente. La orden puede no
+  -- tener cliente (en el POS se puede escanear un cupón sin identificarlo);
+  -- pero si lo tiene, el cupón tiene que ser suyo — no el de otro cliente.
   select * into v_cupon from cupones
    where id = p_cupon_id for update;
   if not found then raise exception 'El cupón no existe.'; end if;
-  if v_cupon.cliente_id <> v_orden.cliente_id then
+  if v_orden.cliente_id is not null and v_cupon.cliente_id <> v_orden.cliente_id then
     raise exception 'Ese cupón es de otro cliente.';
   end if;
   if v_cupon.tipo not in ('mancuernas', 'cumpleanos') then

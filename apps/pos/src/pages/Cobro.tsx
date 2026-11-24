@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { usePosStore } from '@/store/posStore'
 import { sb } from '../lib/sb'
 import {
-  crearOrden, cobrarOrden, cobrarOrdenDividido, canjearCupon, registrarAplicacionPromo,
+  crearOrden, cobrarOrden, cobrarOrdenDividido, canjearCuponRecompensa, registrarAplicacionPromo,
 } from '@shake/supabase'
 import { imprimirTicket, type TicketData } from '@shake/ui'
 import { mxn, mensajeDeError, mancuernasPorCompra, montoQueNoSuma } from '@shake/utils'
@@ -28,7 +28,7 @@ export function Cobro() {
   const {
     empleado, almacen, corte,
     items, cliente, cupon, promo,
-    subtotal, descuentoTotal, neto, limpiarOrden,
+    subtotal, descuentoTotal, descuentoSinCupon, neto, limpiarOrden,
   } = usePosStore()
 
   const [metodo, setMetodo] = useState<MetodoPago>('efectivo')
@@ -82,7 +82,7 @@ export function Cobro() {
           corte_id: corte!.id,
           cliente_id: cliente?.id ?? null,
           empleado_id: empleado?.id ?? null,
-          descuento: descuentoTotal(),
+          descuento: descuentoSinCupon(),
         },
         // `linea`/`padre_linea` ligan cada extra a su producto. Sin eso la
         // comanda de barra los muestra sueltos y, con dos shakes, nadie
@@ -96,8 +96,14 @@ export function Cobro() {
           padre_linea: l.padreLinea ?? null,
         })),
       )
-      // Cupón: canjear (marca usado + liga a la orden) antes de cobrar.
-      if (cupon) await canjearCupon(sb, cupon.id, orden.id)
+      // Cupón de premio: el SERVIDOR deja gratis el producto más caro y baja
+      // `ordenes.total` (la misma función que el kiosko). Se cobra el total
+      // que devuelve, no el estimado del carrito.
+      let totalACobrar = totalNeto
+      if (cupon) {
+        const r = await canjearCuponRecompensa(sb, orden.id, cupon.id)
+        totalACobrar = r.total_a_pagar
+      }
       // Promo: registrar su aplicación (throttle + reporte).
       if (promo && cliente) await registrarAplicacionPromo(sb, promo.id, cliente.id, orden.id)
       // Cobro inmediato aprobado → el trigger descuenta inventario y manda a cocina.
@@ -105,13 +111,17 @@ export function Cobro() {
       // tap) la base devuelve el mismo pago en vez de crear uno duplicado.
       // El servidor valida que las partes sumen el total ANTES de insertar
       // ninguna: no existe la orden cobrada a medias.
-      if (dividido && partes) {
-        await cobrarOrdenDividido(sb, orden.id, partes, {
+      if (dividido) {
+        // El reparto se recalcula contra el total REAL (con el cupón ya
+        // aplicado por el servidor), no contra el estimado del carrito.
+        const { partes: partesReales } = partesDeDivision(division, totalACobrar)
+        if (!partesReales) throw new Error('El reparto no cuadra con el total.')
+        await cobrarOrdenDividido(sb, orden.id, partesReales, {
           autorizadoPor: empleado?.id,
           idempotencyKey: crypto.randomUUID(),
         })
       } else {
-        await cobrarOrden(sb, orden.id, metodo, totalNeto, {
+        await cobrarOrden(sb, orden.id, metodo, totalACobrar, {
           referencia: referencia.trim() || undefined,
           idempotencyKey: crypto.randomUUID(),
         })
