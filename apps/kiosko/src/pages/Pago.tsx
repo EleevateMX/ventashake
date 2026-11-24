@@ -14,9 +14,9 @@ import { ClavePersonal } from '@/components/ClavePersonal'
 import { Cortesia } from '@/components/Cortesia'
 import { Cupon, descuentoEnPantalla, type CuponEnPantalla } from '@/components/Cupon'
 import { sb } from '@/lib/sb'
-import { aplicarCupon, canjearMancuernas, canjearSellos, cotizarPersonal, crearCortesia } from '@shake/supabase'
+import { aplicarCupon, canjearCuponRecompensa, canjearMancuernas, canjearSellos, cotizarPersonal, crearCortesia } from '@shake/supabase'
 import type { IdentidadPersonal } from '@shake/supabase'
-import { PanelRewards, SIN_REWARDS, type DecisionRewards } from '@/components/PanelRewards'
+import { PanelRewards, SIN_REWARDS, valorCuponPremio, type DecisionRewards } from '@/components/PanelRewards'
 import { PreguntaRewards } from '@/components/PreguntaRewards'
 import type { ClienteConLealtad } from '@shake/supabase'
 import { CobroEfectivo } from '@/components/CobroEfectivo'
@@ -198,7 +198,11 @@ export function Pago() {
       ? items.find((i) => i.producto_id === rewards.sello!.productoId)?.precio ?? 0
       : 0
     const conSello = Math.max(0, bruto - gratis)
-    return Math.max(0, conSello - rewards.mancuernas / 10)
+    // Cupón de premio: deja gratis el producto más caro (quitando el que ya
+    // dejó gratis el sello). El servidor hace la misma cuenta.
+    const gratisCupon = rewards.cupon ? valorCuponPremio(items, rewards.sello?.productoId) : 0
+    const conCuponPremio = Math.max(0, conSello - gratisCupon)
+    return Math.max(0, conCuponPremio - rewards.mancuernas / 10)
   }, [items, total, rewards, descuentoPromo, descuentoPersonal, descuentoCupon])
   const [estado, setEstado] = useState<EstadoPago>('cargando')
   const [modo, setModo] = useState<ModoPagoKiosko | null>(null)
@@ -469,6 +473,12 @@ export function Pago() {
         const r = await canjearSellos(sb, orden.id, rewards.sello.tipo, rewards.sello.productoId)
         totalAPagar = r.total_a_pagar
       }
+      // El cupón de premio va DESPUÉS del sello: así el sello se lleva su
+      // producto y el cupón el más caro de lo que queda, sin pisarse.
+      if (rewards.cupon) {
+        const r = await canjearCuponRecompensa(sb, orden.id, rewards.cupon.id)
+        totalAPagar = r.total_a_pagar
+      }
       if (rewards.mancuernas > 0) {
         const r = await canjearMancuernas(sb, orden.id, rewards.mancuernas)
         totalAPagar = r.total_a_pagar
@@ -699,6 +709,13 @@ export function Pago() {
       let totalAPagar = conDescuento
       if (rewards.sello) {
         const r = await canjearSellos(sb, orden.id, rewards.sello.tipo, rewards.sello.productoId)
+        totalAPagar = r.total_a_pagar
+      }
+      // El cupón de premio va DESPUÉS del sello (ver confirmarMixto). Aplica
+      // en efectivo, mixto y terminal del banco; con la Clip integrada no,
+      // igual que el sello y las mancuernas (ese camino sale antes de aquí).
+      if (rewards.cupon) {
+        const r = await canjearCuponRecompensa(sb, orden.id, rewards.cupon.id)
         totalAPagar = r.total_a_pagar
       }
       if (rewards.mancuernas > 0) {

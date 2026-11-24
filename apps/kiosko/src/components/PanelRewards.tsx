@@ -6,6 +6,27 @@ import { useReglasMancuernas } from '@/lib/reglasMancuernas'
 import type { ItemCarrito } from '@/store/carritoStore'
 
 /**
+ * Lo que vale un cupón de premio con el carrito de ahora: el producto más
+ * caro de la cuenta (renglón base, no extra), quitando el que ya va gratis
+ * por la tarjeta de sellos para no contarlo dos veces. El servidor aplica el
+ * cupón DESPUÉS del sello (misma cuenta), así que esto lo refleja.
+ *
+ * Vive aquí y se importa en Pago para que la pantalla y el estimado del
+ * cambio usen la misma cuenta — la lección del doble scoop.
+ */
+export function valorCuponPremio(items: ItemCarrito[], selloProductoId?: string | null): number {
+  const base = items.filter((i) => !i.padreLinea && i.precio > 0)
+  let quitado = false
+  const precios = base
+    .filter((i) => {
+      if (!quitado && selloProductoId && i.producto_id === selloProductoId) { quitado = true; return false }
+      return true
+    })
+    .map((i) => i.precio)
+  return precios.length ? Math.max(...precios) : 0
+}
+
+/**
  * El canje, en la caja.
  *
  * Aparece solo si el cliente identificado trae algo que usar; si no, la
@@ -20,9 +41,11 @@ export interface DecisionRewards {
   mancuernas: number
   /** El producto del carrito que va gratis con la tarjeta de sellos. */
   sello: { tipo: 'bebida' | 'alimento'; productoId: string; nombre: string } | null
+  /** El cupón de premio elegido (deja gratis el producto más caro). */
+  cupon: { id: string; codigo: string } | null
 }
 
-export const SIN_REWARDS: DecisionRewards = { mancuernas: 0, sello: null }
+export const SIN_REWARDS: DecisionRewards = { mancuernas: 0, sello: null, cupon: null }
 
 /**
  * Clientes cuyo código de canje ya se validó en esta pantalla, con hasta
@@ -67,11 +90,13 @@ export function PanelRewards({
   const yaGratis = decision.sello
     ? items.find((i) => i.producto_id === decision.sello!.productoId)?.precio ?? 0
     : 0
-  const totalTrasSello = Math.max(0, total - yaGratis)
+  const yaGratisCupon = decision.cupon ? valorCuponPremio(items, decision.sello?.productoId) : 0
+  const totalTrasSello = Math.max(0, total - yaGratis - yaGratisCupon)
   const tope = Math.min(disponible, Math.floor(totalTrasSello * tasa))
 
   const tarjetaLista = (datos.sellos ?? []).filter((s) => s.listo)
-  const hayAlgo = tope > 0 || tarjetaLista.length > 0
+  const cuponesPremio = datos.cupones ?? []
+  const hayAlgo = tope > 0 || tarjetaLista.length > 0 || cuponesPremio.length > 0
   if (!hayAlgo) return null
 
   if (!autorizado) {
@@ -80,6 +105,7 @@ export function PanelRewards({
         nombre={datos.nombre?.split(' ')[0] ?? 'el cliente'}
         resumen={[
           tarjetaLista.length > 0 ? `tarjeta de ${tarjetaLista.map((t) => (t.tipo === 'bebida' ? 'bebidas' : 'comida')).join(' y ')} llena` : null,
+          cuponesPremio.length > 0 ? `${cuponesPremio.length} cupón${cuponesPremio.length === 1 ? '' : 'es'} de premio` : null,
           tope > 0 ? `${disponible.toLocaleString('es-MX')} mancuernas (${mxn(datos.vale_pesos ?? 0)})` : null,
         ].filter(Boolean).join(' · ')}
         clienteId={clienteId}
@@ -144,6 +170,39 @@ export function PanelRewards({
                   )
                 })}
               </div>
+            )}
+          </div>
+        )
+      })}
+
+      {/* ── Cupones de premio (recompensa por 100 mancuernas) ───────── */}
+      {cuponesPremio.map((c) => {
+        const puesto = decision.cupon?.id === c.id
+        // Lo que dejaría gratis: el más caro, quitando el del sello.
+        const valor = valorCuponPremio(items, decision.sello?.productoId)
+        return (
+          <div key={c.id} className="mb-3">
+            <p className="text-sm text-sa-green-ink/80 mb-1.5">
+              <b>Cupón de premio</b> — deja gratis el producto más caro de la cuenta.
+              <span className="font-mono text-[11px] text-sa-green-ink/45"> {c.codigo}</span>
+            </p>
+            {valor <= 0 ? (
+              <p className="text-[13px] text-sa-green-ink/55 leading-snug">
+                Agrega primero el producto que se lleva y aparece aquí.
+              </p>
+            ) : (
+              <button
+                onClick={() =>
+                  onCambiar({ ...decision, cupon: puesto ? null : { id: c.id, codigo: c.codigo } })
+                }
+                className={`rounded-sa px-3 py-2 text-sm border-2 transition-colors ${
+                  puesto
+                    ? 'bg-sa-green text-sa-cream border-sa-green'
+                    : 'bg-white text-sa-green-ink border-sa-green-ink/15'
+                }`}
+              >
+                {puesto ? '✓ Aplicado · ' : 'Usar · '}−{mxn(valor)}
+              </button>
             )}
           </div>
         )

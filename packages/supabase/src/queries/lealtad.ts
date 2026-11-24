@@ -491,6 +491,17 @@ export interface RewardsCaja {
     /** Ids de los productos que pueden ir gratis con esta tarjeta. */
     premios: string[]
   }[]
+  /**
+   * Cupones de premio vigentes (recompensa por 100 mancuernas, o
+   * cumpleaños). Cada uno deja gratis un producto de la cuenta — el más
+   * caro elegible. Se canjean con `canjearCuponRecompensa`.
+   */
+  cupones?: {
+    id: string
+    codigo: string
+    beneficio: string
+    tipo: string
+  }[]
 }
 
 /** Todo lo que la caja necesita de un cliente para cobrarle, en un viaje. */
@@ -549,6 +560,34 @@ export async function canjearSellos(
     p_orden_id: ordenId,
     p_tipo: tipo,
     p_producto_id: productoId,
+  })
+}
+
+export interface CanjeCuponRecompensa {
+  premio: string
+  valor: number
+  codigo: string
+  total_a_pagar: number
+}
+
+/**
+ * Canjea un cupón de premio (recompensa por 100 mancuernas) en una orden ya
+ * creada: el SERVIDOR deja gratis el producto más caro elegible, baja
+ * `ordenes.total` y marca el cupón usado. Hay que cobrar con el total que
+ * devuelve. Es la misma mecánica que la tarjeta de sellos, pero el premio
+ * es «el producto más caro de la cuenta» en vez de uno configurado.
+ *
+ * Hasta el 24/11/26 estos cupones solo se aplicaban en el POS; ahora el
+ * kiosko también, al escanear el QR del cliente.
+ */
+export async function canjearCuponRecompensa(
+  sb: ShakeClient,
+  ordenId: string,
+  cuponId: string,
+): Promise<CanjeCuponRecompensa> {
+  return rpc<CanjeCuponRecompensa>(sb, 'fn_canjear_cupon_recompensa', {
+    p_orden_id: ordenId,
+    p_cupon_id: cuponId,
   })
 }
 
